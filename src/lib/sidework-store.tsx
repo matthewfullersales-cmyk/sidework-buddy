@@ -166,6 +166,8 @@ interface Store {
   recordVideoProgress: (employeeId: string, videoId: string, patch: Partial<VideoProgress>) => void;
   recordQuizAttempt: (employeeId: string, videoId: string, score: number, passed: boolean) => void;
   postTrade: (shiftId: string, note?: string) => void;
+  upsertShift: (shift: Shift) => void;
+  deleteShift: (id: string) => void;
   claimTrade: (tradeId: string, employeeId: string) => void;
   resolveTrade: (tradeId: string, approved: boolean) => void;
   postJob: (data: Omit<JobPosting, "id" | "postedAt" | "open">) => void;
