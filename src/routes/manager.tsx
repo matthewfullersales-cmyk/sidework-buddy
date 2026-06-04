@@ -33,7 +33,7 @@ export const Route = createFileRoute("/manager")({
 function ManagerPage() {
   const [tab, setTab] = useState("dashboard");
   return (
-    <AppShell nav={nav.map(n => ({ ...n, to: "/manager" }))}>
+    <AppShell nav={[{ to: "/manager", label: "Dashboard", icon: <IconHome /> }]}>
       <PageHeader title="Manager Dashboard" subtitle="Onboarding, schedule, and trades at a glance." />
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="mb-6 grid w-full grid-cols-4">
