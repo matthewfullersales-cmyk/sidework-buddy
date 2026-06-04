@@ -478,29 +478,47 @@ function MenuTab() {
   const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
-    if (menu && !menu.generatedAt && !generating) {
-      setGenerating(true);
-      const t = setTimeout(() => { markMenuGenerated(); setGenerating(false); }, 2500);
-      return () => clearTimeout(t);
+    if (!menu || menu.generatedAt) {
+      setGenerating(false);
+      return;
     }
-  }, [menu, generating, markMenuGenerated]);
+
+    setGenerating(true);
+    const t = window.setTimeout(() => {
+      markMenuGenerated();
+      setGenerating(false);
+    }, 2500);
+    return () => window.clearTimeout(t);
+  }, [menu?.uploadedAt, menu?.generatedAt]);
 
   const handleFile = (file: File) => {
-    const okTypes = ["application/pdf", "image/png", "image/jpeg", "image/jpg", "image/webp"];
-    if (!okTypes.includes(file.type)) return toast.error("Upload a PDF or image (PNG/JPG).");
-    if (file.size > 10 * 1024 * 1024) return toast.error("File must be under 10MB.");
-    const reader = new FileReader();
-    reader.onload = () => {
+    const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+    const isPdf = file.type === "application/pdf" || ext === "pdf";
+    const isImage = file.type.startsWith("image/") || ["jpg", "jpeg", "png", "webp", "heic", "heif"].includes(ext);
+
+    if (!isPdf && !isImage) return toast.error("Upload a menu as a PDF or photo.");
+    if (file.size > 25 * 1024 * 1024) return toast.error("File must be under 25MB.");
+
+    const saveMenu = (preview?: string) => {
       setMenu({
         name: file.name,
-        type: file.type,
-        sizeKB: Math.round(file.size / 1024),
+        type: file.type || (isPdf ? "application/pdf" : "image/*"),
+        sizeKB: Math.max(1, Math.round(file.size / 1024)),
         uploadedAt: new Date().toISOString(),
-        preview: file.type.startsWith("image/") ? (reader.result as string) : undefined,
+        preview,
       });
-      toast.success("Menu uploaded");
+      toast.success("Menu uploaded — generating training program");
     };
-    reader.readAsDataURL(file);
+
+    if (isImage && file.size <= 750 * 1024 && !["heic", "heif"].includes(ext)) {
+      const reader = new FileReader();
+      reader.onload = () => saveMenu(reader.result as string);
+      reader.onerror = () => saveMenu();
+      reader.readAsDataURL(file);
+      return;
+    }
+
+    saveMenu();
   };
 
   return (
@@ -523,9 +541,9 @@ function MenuTab() {
               </div>
               <div>
                 <p className="font-semibold">Drop your menu here</p>
-                <p className="text-xs text-muted-foreground">PDF, PNG, or JPG · up to 10MB</p>
+                <p className="text-xs text-muted-foreground">PDF or menu photo · up to 25MB</p>
               </div>
-              <input ref={inputRef} type="file" accept="application/pdf,image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
+              <input ref={inputRef} type="file" accept="application/pdf,image/*,.heic,.heif" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.currentTarget.value = ""; }} />
               <Button onClick={() => inputRef.current?.click()}>Choose file</Button>
             </div>
           ) : (
@@ -546,7 +564,7 @@ function MenuTab() {
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={() => inputRef.current?.click()}>Replace</Button>
                 <Button variant="ghost" size="sm" onClick={() => { setMenu(null); toast.message("Menu removed"); }}>Remove</Button>
-                <input ref={inputRef} type="file" accept="application/pdf,image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
+                <input ref={inputRef} type="file" accept="application/pdf,image/*,.heic,.heif" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.currentTarget.value = ""; }} />
               </div>
             </div>
           )}
