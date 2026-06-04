@@ -78,17 +78,19 @@ export interface JobPosting {
 
 export type ApplicationStatus = "new" | "reviewing" | "interview" | "hired" | "rejected";
 
+export type AvailabilityHours = "Mornings" | "Afternoons" | "Evenings" | "Open availability";
+
 export interface JobApplication {
   id: string;
   jobId: string;
   name: string;
-  email: string;
   phone: string;
-  experience: string;
-  availability: string;
-  coverNote?: string;
+  availabilityDays: string[];
+  availabilityHours: AvailabilityHours;
+  note?: string;
   appliedAt: string;
   status: ApplicationStatus;
+  verified: boolean;
 }
 
 export type TimeOffStatus = "pending" | "approved" | "denied";
