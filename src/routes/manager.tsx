@@ -8,11 +8,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
-import { onboardingStatus, useStore, type Role } from "@/lib/sidework-store";
+import { onboardingStatus, useStore, type Role, type JobPosting, type ApplicationStatus } from "@/lib/sidework-store";
 import { toast } from "sonner";
 
 const ROLES: Role[] = ["Server", "Bartender", "Kitchen", "Host"];
@@ -36,37 +37,42 @@ function ManagerPage() {
     <AppShell nav={[{ to: "/manager", label: "Dashboard", icon: <IconHome /> }]}>
       <PageHeader title="Manager Dashboard" subtitle="Onboarding, schedule, and trades at a glance." />
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="mb-6 grid w-full grid-cols-4">
+        <TabsList className="mb-6 grid h-auto w-full grid-cols-3 md:grid-cols-6">
           <TabsTrigger value="dashboard">Overview</TabsTrigger>
           <TabsTrigger value="team">Team</TabsTrigger>
           <TabsTrigger value="schedule">Schedule</TabsTrigger>
           <TabsTrigger value="trades">Trades</TabsTrigger>
+          <TabsTrigger value="jobs">Jobs</TabsTrigger>
+          <TabsTrigger value="timeoff">Time Off</TabsTrigger>
         </TabsList>
         <TabsContent value="dashboard"><OverviewTab /></TabsContent>
         <TabsContent value="team"><TeamTab /></TabsContent>
         <TabsContent value="schedule"><ScheduleTab /></TabsContent>
         <TabsContent value="trades"><TradesTab /></TabsContent>
+        <TabsContent value="jobs"><JobsTab /></TabsContent>
+        <TabsContent value="timeoff"><TimeOffTab /></TabsContent>
       </Tabs>
     </AppShell>
   );
 }
 
 function OverviewTab() {
-  const { employees, videos, trades, shifts } = useStore();
+  const { employees, videos, trades, shifts, applications, timeOff } = useStore();
   const stats = useMemo(() => {
     const onboarded = employees.filter((e) => onboardingStatus(e, videos).fullyOnboarded).length;
     const pending = trades.filter((t) => t.status === "pending_approval").length;
-    const open = trades.filter((t) => t.status === "open").length;
-    return { onboarded, total: employees.length, pending, open, shifts: shifts.length };
-  }, [employees, videos, trades, shifts]);
+    const newApps = applications.filter((a) => a.status === "new").length;
+    const pendingTO = timeOff.filter((t) => t.status === "pending").length;
+    return { onboarded, total: employees.length, pending, newApps, pendingTO, shifts: shifts.length };
+  }, [employees, videos, trades, shifts, applications, timeOff]);
 
   return (
     <div className="grid gap-6">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Team" value={`${stats.onboarded}/${stats.total}`} hint="Fully onboarded" />
         <Stat label="Pending trades" value={stats.pending} hint="Need your approval" tone={stats.pending > 0 ? "warn" : undefined} />
-        <Stat label="Open trades" value={stats.open} hint="On the board" />
-        <Stat label="Shifts this week" value={stats.shifts} hint="Scheduled" />
+        <Stat label="New applications" value={stats.newApps} hint="Awaiting review" tone={stats.newApps > 0 ? "warn" : undefined} />
+        <Stat label="Time off pending" value={stats.pendingTO} hint="Need a decision" tone={stats.pendingTO > 0 ? "warn" : undefined} />
       </div>
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
@@ -286,6 +292,178 @@ function TradesTab() {
         <CardHeader><CardTitle className="text-base">History</CardTitle></CardHeader>
         <CardContent className="space-y-2">
           {history.length === 0 ? <p className="text-sm text-muted-foreground">No past trades yet.</p> : history.map(row)}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function JobsTab() {
+  const { jobs, applications, postJob, toggleJobOpen, removeJob, setApplicationStatus } = useStore();
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({ title: "", role: "Server" as Role, type: "Full-time" as "Full-time" | "Part-time", payRange: "", description: "" });
+
+  const submit = () => {
+    if (!form.title || !form.payRange || !form.description) return toast.error("Fill in title, pay range, and description.");
+    postJob(form);
+    toast.success("Job posted");
+    setOpen(false);
+    setForm({ title: "", role: "Server", type: "Full-time", payRange: "", description: "" });
+  };
+
+  return (
+    <div className="grid gap-6">
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-base">Job postings</CardTitle>
+            <p className="mt-1 text-xs text-muted-foreground">Share your public careers page: <code className="rounded bg-muted px-1.5 py-0.5">/careers</code></p>
+          </div>
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild><Button>+ Post a job</Button></DialogTrigger>
+            <DialogContent>
+              <DialogHeader><DialogTitle>Post a new job</DialogTitle></DialogHeader>
+              <div className="grid gap-4 py-2">
+                <div className="grid gap-2"><Label>Job title</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="e.g. Experienced Line Cook" /></div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="grid gap-2">
+                    <Label>Role</Label>
+                    <Select value={form.role} onValueChange={(v: Role) => setForm({ ...form, role: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>{ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Type</Label>
+                    <Select value={form.type} onValueChange={(v: "Full-time" | "Part-time") => setForm({ ...form, type: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent><SelectItem value="Full-time">Full-time</SelectItem><SelectItem value="Part-time">Part-time</SelectItem></SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid gap-2"><Label>Pay range</Label><Input value={form.payRange} onChange={(e) => setForm({ ...form, payRange: e.target.value })} placeholder="e.g. $20–$25/hr" /></div>
+                <div className="grid gap-2"><Label>Description</Label><Textarea rows={4} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
+              </div>
+              <DialogFooter><Button onClick={submit}>Post job</Button></DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {jobs.length === 0 && <p className="text-sm text-muted-foreground">No jobs posted yet.</p>}
+          {jobs.map((j) => {
+            const count = applications.filter((a) => a.jobId === j.id).length;
+            return (
+              <div key={j.id} className="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-border bg-background p-4">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-semibold">{j.title}</p>
+                    <Badge variant="secondary">{j.role}</Badge>
+                    <Badge variant="outline">{j.type}</Badge>
+                    {j.open
+                      ? <Badge className="bg-success text-success-foreground hover:bg-success">Open</Badge>
+                      : <Badge variant="secondary">Closed</Badge>}
+                  </div>
+                  <p className="mt-1 text-sm text-primary font-semibold">{j.payRange}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{count} application{count === 1 ? "" : "s"}</p>
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={() => toggleJobOpen(j.id)}>{j.open ? "Close" : "Reopen"}</Button>
+                  <Button size="sm" variant="ghost" onClick={() => { removeJob(j.id); toast.message("Job removed"); }}>Delete</Button>
+                </div>
+              </div>
+            );
+          })}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Applications ({applications.length})</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          {applications.length === 0 && <p className="text-sm text-muted-foreground">No applications yet.</p>}
+          {applications.map((a) => {
+            const job = jobs.find((j) => j.id === a.jobId);
+            return (
+              <div key={a.id} className="rounded-lg border border-border bg-background p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-semibold">{a.name}</p>
+                      <Badge variant="secondary">{job?.title ?? "—"}</Badge>
+                      <StatusBadge status={a.status} />
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">{a.email} · {a.phone} · applied {new Date(a.appliedAt).toLocaleDateString()}</p>
+                  </div>
+                  <Select value={a.status} onValueChange={(v: ApplicationStatus) => setApplicationStatus(a.id, v)}>
+                    <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {(["new", "reviewing", "interview", "hired", "rejected"] as ApplicationStatus[]).map((s) => (
+                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="mt-3 grid gap-2 text-sm">
+                  <p><span className="font-semibold">Experience: </span>{a.experience}</p>
+                  <p><span className="font-semibold">Availability: </span>{a.availability}</p>
+                  {a.coverNote && <p className="text-muted-foreground italic">"{a.coverNote}"</p>}
+                </div>
+              </div>
+            );
+          })}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function StatusBadge({ status }: { status: ApplicationStatus }) {
+  const map: Record<ApplicationStatus, string> = {
+    new: "bg-warning text-warning-foreground hover:bg-warning",
+    reviewing: "bg-secondary text-secondary-foreground hover:bg-secondary",
+    interview: "bg-primary text-primary-foreground hover:bg-primary",
+    hired: "bg-success text-success-foreground hover:bg-success",
+    rejected: "bg-destructive text-destructive-foreground hover:bg-destructive",
+  };
+  return <Badge className={map[status]}>{status}</Badge>;
+}
+
+function TimeOffTab() {
+  const { timeOff, employees, resolveTimeOff } = useStore();
+  const pending = timeOff.filter((t) => t.status === "pending");
+  const history = timeOff.filter((t) => t.status !== "pending");
+
+  const row = (t: typeof timeOff[number]) => {
+    const emp = employees.find((e) => e.id === t.employeeId);
+    return (
+      <div key={t.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-background p-3">
+        <div className="text-sm">
+          <p className="font-semibold">{emp?.name} <span className="text-muted-foreground">· {emp?.primaryRole}</span></p>
+          <p className="text-xs text-muted-foreground">{t.startDate} → {t.endDate} · {t.reason}</p>
+        </div>
+        {t.status === "pending" ? (
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => { resolveTimeOff(t.id, false); toast.message("Denied"); }}>Deny</Button>
+            <Button size="sm" onClick={() => { resolveTimeOff(t.id, true); toast.success("Approved"); }}>Approve</Button>
+          </div>
+        ) : (
+          <Badge className={t.status === "approved" ? "bg-success text-success-foreground hover:bg-success" : "bg-destructive text-destructive-foreground hover:bg-destructive"}>{t.status}</Badge>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="grid gap-6">
+      <Card>
+        <CardHeader><CardTitle className="text-base">Pending requests ({pending.length})</CardTitle></CardHeader>
+        <CardContent className="space-y-2">
+          {pending.length === 0 ? <p className="text-sm text-muted-foreground">No pending requests.</p> : pending.map(row)}
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader><CardTitle className="text-base">History</CardTitle></CardHeader>
+        <CardContent className="space-y-2">
+          {history.length === 0 ? <p className="text-sm text-muted-foreground">No history yet.</p> : history.map(row)}
         </CardContent>
       </Card>
     </div>

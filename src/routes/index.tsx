@@ -1,5 +1,4 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect } from "react";
 import { Logo } from "@/components/sidework/Logo";
 import { Button } from "@/components/ui/button";
 import { useStore } from "@/lib/sidework-store";
@@ -8,9 +7,9 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "Sidework — Restaurant Staff Management" },
-      { name: "description", content: "Onboard, train, and schedule restaurant staff. Trade shifts, run training, and stay compliant — built for restaurant owners." },
+      { name: "description", content: "Onboard, train, schedule and hire restaurant staff. Trade shifts, request time off, post jobs — built for restaurant owners." },
       { property: "og:title", content: "Sidework — Restaurant Staff Management" },
-      { property: "og:description", content: "Onboard, train, and schedule restaurant staff in one place." },
+      { property: "og:description", content: "Onboard, train, schedule and hire restaurant staff in one place." },
     ],
   }),
   component: Landing,
@@ -18,12 +17,7 @@ export const Route = createFileRoute("/")({
 
 function Landing() {
   const navigate = useNavigate();
-  const { currentUser, setCurrentUser } = useStore();
-
-  useEffect(() => {
-    // auto-route returning users
-    if (currentUser.type === "manager") return;
-  }, [currentUser]);
+  const { setCurrentUser } = useStore();
 
   const enterAs = (type: "manager" | "employee", id: string) => {
     if (type === "manager") {
@@ -39,39 +33,44 @@ function Landing() {
     <div className="min-h-screen bg-background">
       <header className="mx-auto flex max-w-6xl items-center justify-between px-4 py-5">
         <Logo />
-        <a href="#features" className="text-sm font-medium text-muted-foreground hover:text-foreground">Features</a>
+        <nav className="flex items-center gap-5 text-sm font-semibold">
+          <a href="#features" className="text-muted-foreground hover:text-foreground">Features</a>
+          <Link to="/careers" className="text-muted-foreground hover:text-foreground">Careers</Link>
+        </nav>
       </header>
 
-      <section className="mx-auto max-w-6xl px-4 pt-8 pb-20 md:pt-16 md:pb-28">
-        <div className="grid items-center gap-12 md:grid-cols-2">
+      {/* HERO */}
+      <section className="relative overflow-hidden bg-gradient-hero text-primary-foreground">
+        <div className="pointer-events-none absolute -top-32 -right-32 h-96 w-96 rounded-full bg-white/10 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-32 -left-32 h-96 w-96 rounded-full bg-white/5 blur-3xl" />
+        <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-4 pt-16 pb-24 md:grid-cols-2 md:pt-24 md:pb-32">
           <div>
-            <span className="inline-flex items-center gap-2 rounded-full bg-primary-soft px-3 py-1 text-xs font-medium text-primary">
-              <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-              Built for restaurants
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider backdrop-blur">
+              <span className="h-1.5 w-1.5 rounded-full bg-white" /> Built for restaurants
             </span>
-            <h1 className="mt-4 text-4xl font-semibold tracking-tight md:text-5xl">
-              Onboard, train, and schedule your staff — in one place.
+            <h1 className="mt-6 text-5xl font-bold leading-[1.02] tracking-tight md:text-7xl">
+              Run your <span className="italic text-white/90">whole team</span> in one place.
             </h1>
-            <p className="mt-4 max-w-lg text-base text-muted-foreground md:text-lg">
-              Sidework turns hiring, role-based training, and shift trades into a calm, simple workflow your whole team can actually use.
+            <p className="mt-6 max-w-xl text-lg text-white/80 md:text-xl">
+              Hire, onboard, train, schedule, swap shifts, and approve time off — without the chaos of group texts and paper binders.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Button size="lg" onClick={() => enterAs("manager", "owner")} className="shadow-elegant">
+              <Button size="lg" onClick={() => enterAs("manager", "owner")} className="bg-white text-primary shadow-bold hover:bg-white/90">
                 I'm a Manager / Owner
               </Button>
-              <Button size="lg" variant="outline" onClick={() => enterAs("employee", "e1")}>
+              <Button size="lg" variant="outline" onClick={() => enterAs("employee", "e1")} className="border-white/30 bg-transparent text-white hover:bg-white/10 hover:text-white">
                 I'm an Employee
               </Button>
             </div>
-            <p className="mt-3 text-xs text-muted-foreground">Demo mode — explore with sample data. Switch roles anytime in the header.</p>
+            <p className="mt-4 text-xs text-white/60">Demo mode — explore with sample data. Switch roles anytime in the header.</p>
           </div>
 
           <div className="relative">
-            <div className="rounded-2xl border border-border bg-card p-5 shadow-elegant">
+            <div className="rounded-2xl border border-white/15 bg-white p-5 text-foreground shadow-bold">
               <div className="flex items-center justify-between border-b border-border pb-3">
                 <div className="flex items-center gap-2">
                   <div className="h-2 w-2 rounded-full bg-success" />
-                  <span className="text-sm font-medium">Onboarding overview</span>
+                  <span className="text-sm font-semibold">Onboarding overview</span>
                 </div>
                 <span className="text-xs text-muted-foreground">This week</span>
               </div>
@@ -87,35 +86,60 @@ function Landing() {
                     </div>
                     <div className="flex-1">
                       <div className="flex items-baseline justify-between">
-                        <p className="text-sm font-medium">{e.name}</p>
+                        <p className="text-sm font-semibold">{e.name}</p>
                         <p className="text-xs text-muted-foreground">{e.role}</p>
                       </div>
                       <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted">
                         <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${e.pct}%` }} />
                       </div>
                     </div>
-                    <span className="w-10 text-right text-xs font-medium text-muted-foreground">{e.pct}%</span>
+                    <span className="w-10 text-right text-xs font-semibold text-muted-foreground">{e.pct}%</span>
                   </li>
                 ))}
               </ul>
             </div>
-            <div className="pointer-events-none absolute -bottom-8 -right-4 hidden h-32 w-32 rounded-full bg-primary/20 blur-3xl md:block" />
           </div>
         </div>
       </section>
 
-      <section id="features" className="border-t border-border bg-secondary/50">
-        <div className="mx-auto grid max-w-6xl gap-6 px-4 py-16 md:grid-cols-3">
-          {[
-            { t: "Role-based training", d: "Assign videos by role. Locked until watched in full — quizzes must pass before moving on." },
-            { t: "Shift trade board", d: "Only role-approved staff can pick up. Manager approval, or auto-approve trusted employees." },
-            { t: "One clear dashboard", d: "See onboarding status, the weekly schedule, and pending trades at a glance." },
-          ].map((f) => (
-            <div key={f.t} className="rounded-xl border border-border bg-card p-6">
-              <h3 className="font-semibold">{f.t}</h3>
-              <p className="mt-2 text-sm text-muted-foreground">{f.d}</p>
-            </div>
-          ))}
+      {/* FEATURES */}
+      <section id="features" className="border-y border-border bg-background">
+        <div className="mx-auto max-w-6xl px-4 py-20">
+          <div className="mb-12 max-w-2xl">
+            <p className="text-xs font-bold uppercase tracking-widest text-primary">Everything you need</p>
+            <h2 className="mt-3 text-4xl font-bold tracking-tight md:text-5xl">One app. Whole staff. Zero spreadsheets.</h2>
+          </div>
+          <div className="grid gap-5 md:grid-cols-3">
+            {[
+              { t: "Role-based training", d: "Assign videos by role. Locked until watched in full — quizzes must pass before moving on." },
+              { t: "Shift trade board", d: "Only role-approved staff can pick up. Manager approval, or auto-approve trusted employees." },
+              { t: "Time off requests", d: "Staff request days off in two taps. You approve, deny, or comment — full history kept." },
+              { t: "Job posting & hiring", d: "Post openings to a public careers page. Applications land in your dashboard, ready to review." },
+              { t: "Weekly schedule", d: "See every shift, every person, every day — without piecing together five tools." },
+              { t: "One clear dashboard", d: "Onboarding, pending trades, applications, and time off — all at a glance." },
+            ].map((f) => (
+              <div key={f.t} className="rounded-2xl border-2 border-border bg-card p-7 transition-shadow hover:shadow-elegant">
+                <div className="mb-4 grid h-10 w-10 place-items-center rounded-lg bg-primary text-primary-foreground">
+                  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                </div>
+                <h3 className="text-lg font-bold">{f.t}</h3>
+                <p className="mt-2 text-sm text-muted-foreground">{f.d}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CAREERS CTA */}
+      <section className="bg-gradient-primary text-primary-foreground">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-6 px-4 py-14">
+          <div>
+            <h3 className="text-2xl font-bold md:text-3xl">Hiring? Your careers page is ready.</h3>
+            <p className="mt-2 text-white/80">Share one link. Applications flow straight into your dashboard.</p>
+          </div>
+          <Link to="/careers">
+            <Button size="lg" className="bg-white text-primary shadow-bold hover:bg-white/90">View careers page →</Button>
+          </Link>
         </div>
       </section>
 

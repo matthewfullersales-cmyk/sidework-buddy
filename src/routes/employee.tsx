@@ -39,14 +39,16 @@ function EmployeePage() {
         subtitle={status.fullyOnboarded ? "You're fully onboarded. Nice work." : "Finish your training to get on the schedule."}
       />
       <Tabs defaultValue={!me.personalInfoComplete ? "onboarding" : "training"}>
-        <TabsList className="mb-6 grid w-full grid-cols-3">
+        <TabsList className="mb-6 grid h-auto w-full grid-cols-2 md:grid-cols-4">
           <TabsTrigger value="onboarding">Onboarding</TabsTrigger>
           <TabsTrigger value="training">Training</TabsTrigger>
-          <TabsTrigger value="trades">Shifts & Trades</TabsTrigger>
+          <TabsTrigger value="trades">Shifts</TabsTrigger>
+          <TabsTrigger value="timeoff">Time Off</TabsTrigger>
         </TabsList>
         <TabsContent value="onboarding"><OnboardingTab employeeId={me.id} /></TabsContent>
         <TabsContent value="training"><TrainingTab employeeId={me.id} /></TabsContent>
         <TabsContent value="trades"><TradesTab employeeId={me.id} /></TabsContent>
+        <TabsContent value="timeoff"><TimeOffTab employeeId={me.id} /></TabsContent>
       </Tabs>
     </AppShell>
   );
@@ -267,6 +269,56 @@ function ChecklistItem({ done, label }: { done: boolean; label: string }) {
         {done ? <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> : null}
       </div>
       <span className={`text-sm ${done ? "text-foreground" : "text-muted-foreground"}`}>{label}</span>
+    </div>
+  );
+}
+
+function TimeOffTab({ employeeId }: { employeeId: string }) {
+  const { timeOff, requestTimeOff } = useStore();
+  const mine = timeOff.filter((t) => t.employeeId === employeeId);
+  const [form, setForm] = useState({ startDate: "", endDate: "", reason: "" });
+
+  const submit = () => {
+    if (!form.startDate || !form.endDate || !form.reason) return toast.error("Please fill in all fields.");
+    if (form.endDate < form.startDate) return toast.error("End date must be on or after start date.");
+    requestTimeOff({ employeeId, ...form });
+    toast.success("Time off request submitted");
+    setForm({ startDate: "", endDate: "", reason: "" });
+  };
+
+  return (
+    <div className="grid gap-6">
+      <Card>
+        <CardHeader><CardTitle className="text-base">Request time off</CardTitle></CardHeader>
+        <CardContent className="grid gap-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-2"><Label>Start date</Label><Input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} /></div>
+            <div className="grid gap-2"><Label>End date</Label><Input type="date" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} /></div>
+          </div>
+          <div className="grid gap-2"><Label>Reason</Label><Textarea rows={3} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} placeholder="e.g. Family event, medical, vacation" /></div>
+          <div className="flex justify-end"><Button onClick={submit}>Submit request</Button></div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">My requests</CardTitle></CardHeader>
+        <CardContent className="space-y-2">
+          {mine.length === 0 && <p className="text-sm text-muted-foreground">No requests yet.</p>}
+          {mine.map((t) => (
+            <div key={t.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-background p-3">
+              <div className="text-sm">
+                <p className="font-semibold">{t.startDate} → {t.endDate}</p>
+                <p className="text-xs text-muted-foreground">{t.reason}</p>
+              </div>
+              <Badge className={
+                t.status === "approved" ? "bg-success text-success-foreground hover:bg-success" :
+                t.status === "denied" ? "bg-destructive text-destructive-foreground hover:bg-destructive" :
+                "bg-warning text-warning-foreground hover:bg-warning"
+              }>{t.status}</Badge>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
     </div>
   );
 }

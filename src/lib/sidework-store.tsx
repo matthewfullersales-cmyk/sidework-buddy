@@ -37,8 +37,8 @@ export interface Shift {
   id: string;
   employeeId: string;
   role: Role;
-  date: string; // YYYY-MM-DD
-  start: string; // HH:mm
+  date: string;
+  start: string;
   end: string;
 }
 
@@ -47,7 +47,7 @@ export type TradeStatus = "open" | "pending_approval" | "approved" | "denied" | 
 export interface Trade {
   id: string;
   shiftId: string;
-  postedBy: string; // employee id
+  postedBy: string;
   claimedBy?: string;
   status: TradeStatus;
   createdAt: string;
@@ -57,6 +57,46 @@ export interface Trade {
   note?: string;
 }
 
+export interface JobPosting {
+  id: string;
+  title: string;
+  role: Role;
+  type: "Full-time" | "Part-time";
+  payRange: string;
+  description: string;
+  postedAt: string;
+  open: boolean;
+}
+
+export type ApplicationStatus = "new" | "reviewing" | "interview" | "hired" | "rejected";
+
+export interface JobApplication {
+  id: string;
+  jobId: string;
+  name: string;
+  email: string;
+  phone: string;
+  experience: string;
+  availability: string;
+  coverNote?: string;
+  appliedAt: string;
+  status: ApplicationStatus;
+}
+
+export type TimeOffStatus = "pending" | "approved" | "denied";
+
+export interface TimeOffRequest {
+  id: string;
+  employeeId: string;
+  startDate: string;
+  endDate: string;
+  reason: string;
+  status: TimeOffStatus;
+  createdAt: string;
+  resolvedAt?: string;
+  decisionNote?: string;
+}
+
 interface Store {
   currentUser: { type: "manager"; id: "owner" } | { type: "employee"; id: string };
   setCurrentUser: (u: Store["currentUser"]) => void;
@@ -64,12 +104,22 @@ interface Store {
   videos: TrainingVideo[];
   shifts: Shift[];
   trades: Trade[];
+  jobs: JobPosting[];
+  applications: JobApplication[];
+  timeOff: TimeOffRequest[];
   inviteEmployee: (data: { name: string; email: string; role: Role }) => void;
   updateEmployee: (id: string, patch: Partial<Employee>) => void;
   recordVideoProgress: (employeeId: string, videoId: string, patch: Partial<VideoProgress>) => void;
   postTrade: (shiftId: string, note?: string) => void;
   claimTrade: (tradeId: string, employeeId: string) => void;
   resolveTrade: (tradeId: string, approved: boolean) => void;
+  postJob: (data: Omit<JobPosting, "id" | "postedAt" | "open">) => void;
+  toggleJobOpen: (id: string) => void;
+  removeJob: (id: string) => void;
+  submitApplication: (data: Omit<JobApplication, "id" | "appliedAt" | "status">) => void;
+  setApplicationStatus: (id: string, status: ApplicationStatus) => void;
+  requestTimeOff: (data: Omit<TimeOffRequest, "id" | "createdAt" | "status">) => void;
+  resolveTimeOff: (id: string, approved: boolean, note?: string) => void;
 }
 
 const Ctx = createContext<Store | null>(null);
@@ -206,7 +256,67 @@ function seedTrades(): Trade[] {
   ];
 }
 
-const STORAGE_KEY = "sidework-store-v1";
+function seedJobs(): JobPosting[] {
+  return [
+    {
+      id: "j1",
+      title: "Experienced Line Cook",
+      role: "Kitchen",
+      type: "Full-time",
+      payRange: "$22–$28/hr",
+      description: "We're hiring a line cook for our busy dinner service. Mediterranean menu, scratch kitchen, fast pace. Minimum 2 years of line experience required.",
+      postedAt: new Date().toISOString(),
+      open: true,
+    },
+    {
+      id: "j2",
+      title: "Weekend Server",
+      role: "Server",
+      type: "Part-time",
+      payRange: "$18/hr + tips",
+      description: "Friday and Saturday evenings. Wine knowledge a plus. Warm, professional service standards.",
+      postedAt: new Date().toISOString(),
+      open: true,
+    },
+  ];
+}
+
+function seedApplications(): JobApplication[] {
+  return [
+    {
+      id: "a1",
+      jobId: "j1",
+      name: "Jordan Rivera",
+      email: "jordan.r@email.com",
+      phone: "555-204-3311",
+      experience: "4 years at Casa Luna, 1 year at Bistro 9. Sauté and grill stations.",
+      availability: "Tue-Sat, any hours",
+      coverNote: "Loved your menu when I dined last month — would love to be part of the team.",
+      appliedAt: new Date().toISOString(),
+      status: "new",
+    },
+  ];
+}
+
+function seedTimeOff(): TimeOffRequest[] {
+  const d = (offset: number) => {
+    const x = new Date(); x.setDate(x.getDate() + offset);
+    return x.toISOString().slice(0, 10);
+  };
+  return [
+    {
+      id: "to1",
+      employeeId: "e2",
+      startDate: d(14),
+      endDate: d(18),
+      reason: "Family wedding out of state.",
+      status: "pending",
+      createdAt: new Date().toISOString(),
+    },
+  ];
+}
+
+const STORAGE_KEY = "sidework-store-v2";
 
 export function SideworkProvider({ children }: { children: ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
@@ -216,12 +326,18 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     videos: seedVideos(),
     shifts: seedShifts(),
     trades: seedTrades(),
+    jobs: seedJobs(),
+    applications: seedApplications(),
+    timeOff: seedTimeOff(),
   }));
 
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) setState(JSON.parse(raw));
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        setState((s) => ({ ...s, ...parsed }));
+      }
     } catch {}
     setHydrated(true);
   }, []);
@@ -229,6 +345,8 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (hydrated) localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [state, hydrated]);
+
+  const uid = (prefix: string) => `${prefix}${Date.now()}${Math.floor(Math.random() * 1000)}`;
 
   const store: Store = {
     ...state,
@@ -239,7 +357,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
         employees: [
           ...s.employees,
           {
-            id: `e${Date.now()}`, name, email, primaryRole: role,
+            id: uid("e"), name, email, primaryRole: role,
             approvedRoles: [role], autoApproveRoles: [], availability: "",
             invitedAt: new Date().toISOString().slice(0, 10),
             onboardingStarted: false, personalInfoComplete: false, progress: [],
@@ -268,7 +386,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           ...s,
           trades: [
             ...s.trades,
-            { id: `t${Date.now()}`, shiftId, postedBy: shift.employeeId, status: "open", createdAt: new Date().toISOString(), note },
+            { id: uid("t"), shiftId, postedBy: shift.employeeId, status: "open", createdAt: new Date().toISOString(), note },
           ],
         };
       }),
@@ -312,6 +430,42 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           shifts: approved ? s.shifts.map((x) => (x.id === trade.shiftId ? { ...x, employeeId: trade.claimedBy! } : x)) : s.shifts,
         };
       }),
+    postJob: (data) =>
+      setState((s) => ({
+        ...s,
+        jobs: [{ id: uid("j"), postedAt: new Date().toISOString(), open: true, ...data }, ...s.jobs],
+      })),
+    toggleJobOpen: (id) =>
+      setState((s) => ({ ...s, jobs: s.jobs.map((j) => (j.id === id ? { ...j, open: !j.open } : j)) })),
+    removeJob: (id) =>
+      setState((s) => ({ ...s, jobs: s.jobs.filter((j) => j.id !== id) })),
+    submitApplication: (data) =>
+      setState((s) => ({
+        ...s,
+        applications: [
+          { id: uid("a"), appliedAt: new Date().toISOString(), status: "new", ...data },
+          ...s.applications,
+        ],
+      })),
+    setApplicationStatus: (id, status) =>
+      setState((s) => ({ ...s, applications: s.applications.map((a) => (a.id === id ? { ...a, status } : a)) })),
+    requestTimeOff: (data) =>
+      setState((s) => ({
+        ...s,
+        timeOff: [
+          { id: uid("to"), createdAt: new Date().toISOString(), status: "pending", ...data },
+          ...s.timeOff,
+        ],
+      })),
+    resolveTimeOff: (id, approved, note) =>
+      setState((s) => ({
+        ...s,
+        timeOff: s.timeOff.map((t) =>
+          t.id === id
+            ? { ...t, status: approved ? "approved" : "denied", resolvedAt: new Date().toISOString(), decisionNote: note }
+            : t,
+        ),
+      })),
   };
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>;
