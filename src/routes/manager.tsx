@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
-import { onboardingStatus, useStore, type Role } from "@/lib/sidework-store";
+import { onboardingStatus, useStore, type Role, type JobPosting, type ApplicationStatus } from "@/lib/sidework-store";
 import { toast } from "sonner";
 
 const ROLES: Role[] = ["Server", "Bartender", "Kitchen", "Host"];
@@ -36,37 +36,42 @@ function ManagerPage() {
     <AppShell nav={[{ to: "/manager", label: "Dashboard", icon: <IconHome /> }]}>
       <PageHeader title="Manager Dashboard" subtitle="Onboarding, schedule, and trades at a glance." />
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="mb-6 grid w-full grid-cols-4">
+        <TabsList className="mb-6 grid h-auto w-full grid-cols-3 md:grid-cols-6">
           <TabsTrigger value="dashboard">Overview</TabsTrigger>
           <TabsTrigger value="team">Team</TabsTrigger>
           <TabsTrigger value="schedule">Schedule</TabsTrigger>
           <TabsTrigger value="trades">Trades</TabsTrigger>
+          <TabsTrigger value="jobs">Jobs</TabsTrigger>
+          <TabsTrigger value="timeoff">Time Off</TabsTrigger>
         </TabsList>
         <TabsContent value="dashboard"><OverviewTab /></TabsContent>
         <TabsContent value="team"><TeamTab /></TabsContent>
         <TabsContent value="schedule"><ScheduleTab /></TabsContent>
         <TabsContent value="trades"><TradesTab /></TabsContent>
+        <TabsContent value="jobs"><JobsTab /></TabsContent>
+        <TabsContent value="timeoff"><TimeOffTab /></TabsContent>
       </Tabs>
     </AppShell>
   );
 }
 
 function OverviewTab() {
-  const { employees, videos, trades, shifts } = useStore();
+  const { employees, videos, trades, shifts, applications, timeOff } = useStore();
   const stats = useMemo(() => {
     const onboarded = employees.filter((e) => onboardingStatus(e, videos).fullyOnboarded).length;
     const pending = trades.filter((t) => t.status === "pending_approval").length;
-    const open = trades.filter((t) => t.status === "open").length;
-    return { onboarded, total: employees.length, pending, open, shifts: shifts.length };
-  }, [employees, videos, trades, shifts]);
+    const newApps = applications.filter((a) => a.status === "new").length;
+    const pendingTO = timeOff.filter((t) => t.status === "pending").length;
+    return { onboarded, total: employees.length, pending, newApps, pendingTO, shifts: shifts.length };
+  }, [employees, videos, trades, shifts, applications, timeOff]);
 
   return (
     <div className="grid gap-6">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Team" value={`${stats.onboarded}/${stats.total}`} hint="Fully onboarded" />
         <Stat label="Pending trades" value={stats.pending} hint="Need your approval" tone={stats.pending > 0 ? "warn" : undefined} />
-        <Stat label="Open trades" value={stats.open} hint="On the board" />
-        <Stat label="Shifts this week" value={stats.shifts} hint="Scheduled" />
+        <Stat label="New applications" value={stats.newApps} hint="Awaiting review" tone={stats.newApps > 0 ? "warn" : undefined} />
+        <Stat label="Time off pending" value={stats.pendingTO} hint="Need a decision" tone={stats.pendingTO > 0 ? "warn" : undefined} />
       </div>
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
