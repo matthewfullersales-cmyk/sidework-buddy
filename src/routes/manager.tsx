@@ -35,8 +35,18 @@ export const Route = createFileRoute("/manager")({
 function ManagerPage() {
   const { setupCompleted, restaurantProfile, resetSetup } = useStore();
   const [tab, setTab] = useState("dashboard");
+  const [showSetupWizard, setShowSetupWizard] = useState(false);
 
-  if (!setupCompleted) return <SetupWizard onComplete={() => setTab("training")} />;
+  if (showSetupWizard) {
+    return (
+      <SetupWizard
+        onComplete={() => {
+          setShowSetupWizard(false);
+          setTab("training");
+        }}
+      />
+    );
+  }
 
   return (
     <AppShell nav={[{ to: "/manager", label: "Dashboard", icon: <IconHome /> }]}>
@@ -48,15 +58,33 @@ function ManagerPage() {
             variant="ghost"
             size="sm"
             onClick={() => {
-              if (window.confirm("Redo restaurant setup?")) resetSetup();
+              if (setupCompleted) {
+                if (window.confirm("Redo restaurant setup? This will reset your profile.")) {
+                  resetSetup();
+                  setShowSetupWizard(true);
+                }
+              } else {
+                setShowSetupWizard(true);
+              }
             }}
           >
-            Setup
+            {setupCompleted ? "Restaurant Setup" : "Complete your setup"}
           </Button>
         }
       />
+      {!setupCompleted && (
+        <Card className="mb-6 border-primary/30 bg-primary/5">
+          <CardContent className="flex flex-wrap items-center justify-between gap-4 p-5">
+            <div>
+              <p className="font-semibold text-primary">Your restaurant setup is incomplete</p>
+              <p className="text-sm text-muted-foreground">Finish a few questions so Sidework can build your custom training program.</p>
+            </div>
+            <Button size="sm" onClick={() => setShowSetupWizard(true)}>Complete your setup</Button>
+          </CardContent>
+        </Card>
+      )}
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="mb-6 grid h-auto w-full grid-cols-3 md:grid-cols-7">
+        <TabsList className="mb-6 grid h-auto w-full grid-cols-3 md:grid-cols-8">
           <TabsTrigger value="dashboard">Overview</TabsTrigger>
           <TabsTrigger value="training">Training</TabsTrigger>
           <TabsTrigger value="team">Team</TabsTrigger>
@@ -64,6 +92,7 @@ function ManagerPage() {
           <TabsTrigger value="trades">Trades</TabsTrigger>
           <TabsTrigger value="jobs">Jobs</TabsTrigger>
           <TabsTrigger value="timeoff">Time Off</TabsTrigger>
+          <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
         <TabsContent value="dashboard"><OverviewTab /></TabsContent>
         <TabsContent value="training"><TrainingProgramTab /></TabsContent>
@@ -72,6 +101,7 @@ function ManagerPage() {
         <TabsContent value="trades"><TradesTab /></TabsContent>
         <TabsContent value="jobs"><JobsTab /></TabsContent>
         <TabsContent value="timeoff"><TimeOffTab /></TabsContent>
+        <TabsContent value="settings"><SettingsTab onOpenSetup={() => setShowSetupWizard(true)} /></TabsContent>
       </Tabs>
     </AppShell>
   );
