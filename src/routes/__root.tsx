@@ -113,13 +113,17 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+import { SideworkProvider } from "@/lib/sidework-store";
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
+      <SideworkProvider>
+        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+        <Outlet />
+      </SideworkProvider>
     </QueryClientProvider>
   );
 }
