@@ -25,6 +25,7 @@ const nav = [
 ];
 
 export const Route = createFileRoute("/manager")({
+  ssr: false,
   head: () => ({ meta: [{ title: "Manager Dashboard — Sidework" }] }),
   component: ManagerPage,
 });

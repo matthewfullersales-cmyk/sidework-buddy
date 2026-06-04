@@ -20,6 +20,7 @@ const nav = [
 ];
 
 export const Route = createFileRoute("/employee")({
+  ssr: false,
   head: () => ({ meta: [{ title: "My Sidework" }] }),
   component: EmployeePage,
 });
