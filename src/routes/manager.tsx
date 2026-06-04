@@ -37,8 +37,9 @@ function ManagerPage() {
     <AppShell nav={[{ to: "/manager", label: "Dashboard", icon: <IconHome /> }]}>
       <PageHeader title="Manager Dashboard" subtitle="Onboarding, schedule, and trades at a glance." />
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="mb-6 grid h-auto w-full grid-cols-3 md:grid-cols-6">
+        <TabsList className="mb-6 grid h-auto w-full grid-cols-3 md:grid-cols-7">
           <TabsTrigger value="dashboard">Overview</TabsTrigger>
+          <TabsTrigger value="menu">Menu</TabsTrigger>
           <TabsTrigger value="team">Team</TabsTrigger>
           <TabsTrigger value="schedule">Schedule</TabsTrigger>
           <TabsTrigger value="trades">Trades</TabsTrigger>
@@ -46,6 +47,7 @@ function ManagerPage() {
           <TabsTrigger value="timeoff">Time Off</TabsTrigger>
         </TabsList>
         <TabsContent value="dashboard"><OverviewTab /></TabsContent>
+        <TabsContent value="menu"><MenuTab /></TabsContent>
         <TabsContent value="team"><TeamTab /></TabsContent>
         <TabsContent value="schedule"><ScheduleTab /></TabsContent>
         <TabsContent value="trades"><TradesTab /></TabsContent>
