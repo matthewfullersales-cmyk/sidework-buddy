@@ -44,7 +44,13 @@ function ManagerPage() {
         title={restaurantProfile?.name ? `${restaurantProfile.name} — Dashboard` : "Manager Dashboard"}
         subtitle="Onboarding, schedule, and trades at a glance."
         action={
-          <Button variant="ghost" size="sm" onClick={() => { if (confirm("Redo restaurant setup?")) resetSetup(); }}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              if (window.confirm("Redo restaurant setup?")) resetSetup();
+            }}
+          >
             Setup
           </Button>
         }
