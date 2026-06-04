@@ -295,7 +295,30 @@ function TeamTab() {
 }
 
 function ScheduleTab() {
-  const { shifts, employees } = useStore();
+  const { shifts, employees, upsertShift, deleteShift } = useStore();
+  const [view, setView] = useState<"list" | "grid">("grid");
+  const [editing, setEditing] = useState<{ employeeId: string; date: string; existing?: typeof shifts[number] } | null>(null);
+
+  // Week starting Monday of current week
+  const weekDays = useMemo(() => {
+    const now = new Date();
+    const day = now.getDay(); // 0 Sun..6 Sat
+    const diffToMon = (day + 6) % 7;
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - diffToMon);
+    monday.setHours(0, 0, 0, 0);
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      return d;
+    });
+  }, []);
+  const dayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const isoDate = (d: Date) => d.toISOString().slice(0, 10);
+
+  const shiftFor = (empId: string, date: string) =>
+    shifts.find((s) => s.employeeId === empId && s.date === date);
+
   const byDate = useMemo(() => {
     const map = new Map<string, typeof shifts>();
     [...shifts].sort((a, b) => a.date.localeCompare(b.date)).forEach((s) => {
@@ -303,33 +326,211 @@ function ScheduleTab() {
     });
     return Array.from(map.entries());
   }, [shifts]);
+
   return (
-    <div className="grid gap-4">
-      {byDate.map(([date, list]) => (
-        <Card key={date}>
-          <CardHeader><CardTitle className="text-base">{new Date(date).toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}</CardTitle></CardHeader>
-          <CardContent className="space-y-2">
-            {list.map((s) => {
-              const emp = employees.find((e) => e.id === s.employeeId);
-              return (
-                <div key={s.id} className="flex items-center justify-between rounded-lg border border-border bg-background p-3">
-                  <div className="flex items-center gap-3">
-                    <Avatar name={emp?.name ?? "?"} />
-                    <div>
-                      <p className="text-sm font-medium">{emp?.name}</p>
-                      <p className="text-xs text-muted-foreground">{s.role}</p>
-                    </div>
-                  </div>
-                  <p className="text-sm font-medium">{s.start} – {s.end}</p>
-                </div>
-              );
-            })}
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-lg font-semibold">Schedule</h2>
+        <div className="inline-flex rounded-lg border border-border bg-background p-1">
+          <button
+            onClick={() => setView("list")}
+            className={`px-3 py-1.5 text-xs font-medium rounded-md transition ${view === "list" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+          >
+            List
+          </button>
+          <button
+            onClick={() => setView("grid")}
+            className={`px-3 py-1.5 text-xs font-medium rounded-md transition ${view === "grid" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+          >
+            Weekly grid
+          </button>
+        </div>
+      </div>
+
+      {view === "grid" ? (
+        <Card>
+          <CardContent className="p-0 overflow-x-auto">
+            <table className="w-full min-w-[720px] border-collapse text-sm">
+              <thead>
+                <tr className="bg-muted/40">
+                  <th className="sticky left-0 z-10 bg-muted/40 border-b border-r border-border p-2 text-left text-xs font-semibold w-44">
+                    Employee
+                  </th>
+                  {weekDays.map((d, i) => (
+                    <th key={i} className="border-b border-border p-2 text-center text-xs font-semibold">
+                      <div>{dayLabels[i]}</div>
+                      <div className="text-[10px] font-normal text-muted-foreground">
+                        {d.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                      </div>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {employees.map((emp) => (
+                  <tr key={emp.id}>
+                    <td className="sticky left-0 z-10 bg-card border-b border-r border-border p-2 w-44">
+                      <div className="flex items-center gap-2">
+                        <Avatar name={emp.name} />
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium truncate">{emp.name}</p>
+                          <p className="text-[10px] text-muted-foreground truncate">{emp.primaryRole}</p>
+                        </div>
+                      </div>
+                    </td>
+                    {weekDays.map((d) => {
+                      const date = isoDate(d);
+                      const s = shiftFor(emp.id, date);
+                      return (
+                        <td key={date} className="border-b border-border p-1 align-middle">
+                          <button
+                            onClick={() => setEditing({ employeeId: emp.id, date, existing: s })}
+                            className={`w-full min-h-[52px] rounded-md text-xs px-2 py-1 transition ${
+                              s
+                                ? "bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20"
+                                : "bg-background border border-dashed border-border text-muted-foreground hover:border-primary/40 hover:text-primary"
+                            }`}
+                          >
+                            {s ? (
+                              <span className="font-medium">{s.start}–{s.end}</span>
+                            ) : (
+                              <span>+</span>
+                            )}
+                          </button>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </CardContent>
         </Card>
-      ))}
+      ) : (
+        <div className="grid gap-4">
+          {byDate.map(([date, list]) => (
+            <Card key={date}>
+              <CardHeader><CardTitle className="text-base">{new Date(date).toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}</CardTitle></CardHeader>
+              <CardContent className="space-y-2">
+                {list.map((s) => {
+                  const emp = employees.find((e) => e.id === s.employeeId);
+                  return (
+                    <button
+                      key={s.id}
+                      onClick={() => setEditing({ employeeId: s.employeeId, date: s.date, existing: s })}
+                      className="w-full flex items-center justify-between rounded-lg border border-border bg-background p-3 text-left hover:border-primary/40 transition"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Avatar name={emp?.name ?? "?"} />
+                        <div>
+                          <p className="text-sm font-medium">{emp?.name}</p>
+                          <p className="text-xs text-muted-foreground">{s.role}</p>
+                        </div>
+                      </div>
+                      <p className="text-sm font-medium">{s.start} – {s.end}</p>
+                    </button>
+                  );
+                })}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {editing && (
+        <ShiftEditorDialog
+          key={`${editing.employeeId}-${editing.date}`}
+          employeeId={editing.employeeId}
+          date={editing.date}
+          existing={editing.existing}
+          onClose={() => setEditing(null)}
+          onSave={(shift) => {
+            upsertShift(shift);
+            setEditing(null);
+            toast.success(editing.existing ? "Shift updated" : "Shift added");
+          }}
+          onDelete={(id) => {
+            deleteShift(id);
+            setEditing(null);
+            toast.success("Shift removed");
+          }}
+        />
+      )}
     </div>
   );
 }
+
+function ShiftEditorDialog({
+  employeeId,
+  date,
+  existing,
+  onClose,
+  onSave,
+  onDelete,
+}: {
+  employeeId: string;
+  date: string;
+  existing?: { id: string; employeeId: string; role: Role; date: string; start: string; end: string };
+  onClose: () => void;
+  onSave: (shift: { id: string; employeeId: string; role: Role; date: string; start: string; end: string }) => void;
+  onDelete: (id: string) => void;
+}) {
+  const { employees } = useStore();
+  const emp = employees.find((e) => e.id === employeeId);
+  const [start, setStart] = useState(existing?.start ?? "17:00");
+  const [end, setEnd] = useState(existing?.end ?? "23:00");
+
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{existing ? "Edit shift" : "Add shift"}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="text-sm">
+            <p className="font-medium">{emp?.name}</p>
+            <p className="text-xs text-muted-foreground">
+              {emp?.primaryRole} · {new Date(date).toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Start</Label>
+              <Input type="time" value={start} onChange={(e) => setStart(e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-xs">End</Label>
+              <Input type="time" value={end} onChange={(e) => setEnd(e.target.value)} />
+            </div>
+          </div>
+        </div>
+        <DialogFooter className="flex-row justify-between sm:justify-between gap-2">
+          {existing ? (
+            <Button variant="outline" onClick={() => onDelete(existing.id)}>Remove</Button>
+          ) : <span />}
+          <div className="flex gap-2">
+            <Button variant="ghost" onClick={onClose}>Cancel</Button>
+            <Button
+              onClick={() =>
+                onSave({
+                  id: existing?.id ?? `s_${Date.now()}`,
+                  employeeId,
+                  role: (emp?.primaryRole ?? "Server") as Role,
+                  date,
+                  start,
+                  end,
+                })
+              }
+            >
+              Save
+            </Button>
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 
 function TradesTab() {
   const { trades, shifts, employees, resolveTrade } = useStore();

@@ -166,6 +166,8 @@ interface Store {
   recordVideoProgress: (employeeId: string, videoId: string, patch: Partial<VideoProgress>) => void;
   recordQuizAttempt: (employeeId: string, videoId: string, score: number, passed: boolean) => void;
   postTrade: (shiftId: string, note?: string) => void;
+  upsertShift: (shift: Shift) => void;
+  deleteShift: (id: string) => void;
   claimTrade: (tradeId: string, employeeId: string) => void;
   resolveTrade: (tradeId: string, approved: boolean) => void;
   postJob: (data: Omit<JobPosting, "id" | "postedAt" | "open">) => void;
@@ -520,6 +522,16 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           notifications: [newNotif, ...s.notifications],
         };
       }),
+    upsertShift: (shift) =>
+      setState((s) => {
+        const exists = s.shifts.some((x) => x.id === shift.id);
+        return {
+          ...s,
+          shifts: exists ? s.shifts.map((x) => (x.id === shift.id ? shift : x)) : [...s.shifts, shift],
+        };
+      }),
+    deleteShift: (id) =>
+      setState((s) => ({ ...s, shifts: s.shifts.filter((x) => x.id !== id) })),
     postTrade: (shiftId, note) =>
       setState((s) => {
         const shift = s.shifts.find((x) => x.id === shiftId);
