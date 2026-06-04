@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AppShell, PageHeader } from "@/components/sidework/AppShell";
+import { SetupWizard } from "@/components/sidework/SetupWizard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
-import { onboardingStatus, useStore, type Role, type JobPosting, type ApplicationStatus } from "@/lib/sidework-store";
+import { onboardingStatus, useStore, type Role, type ApplicationStatus } from "@/lib/sidework-store";
 import { toast } from "sonner";
 
 const ROLES: Role[] = ["Server", "Bartender", "Kitchen", "Host"];
@@ -32,14 +33,26 @@ export const Route = createFileRoute("/manager")({
 });
 
 function ManagerPage() {
+  const { setupCompleted, restaurantProfile, resetSetup } = useStore();
   const [tab, setTab] = useState("dashboard");
+
+  if (!setupCompleted) return <SetupWizard onComplete={() => setTab("training")} />;
+
   return (
     <AppShell nav={[{ to: "/manager", label: "Dashboard", icon: <IconHome /> }]}>
-      <PageHeader title="Manager Dashboard" subtitle="Onboarding, schedule, and trades at a glance." />
+      <PageHeader
+        title={restaurantProfile?.name ? `${restaurantProfile.name} — Dashboard` : "Manager Dashboard"}
+        subtitle="Onboarding, schedule, and trades at a glance."
+        action={
+          <Button variant="ghost" size="sm" onClick={() => { if (confirm("Redo restaurant setup?")) resetSetup(); }}>
+            Setup
+          </Button>
+        }
+      />
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="mb-6 grid h-auto w-full grid-cols-3 md:grid-cols-7">
           <TabsTrigger value="dashboard">Overview</TabsTrigger>
-          <TabsTrigger value="menu">Menu</TabsTrigger>
+          <TabsTrigger value="training">Training</TabsTrigger>
           <TabsTrigger value="team">Team</TabsTrigger>
           <TabsTrigger value="schedule">Schedule</TabsTrigger>
           <TabsTrigger value="trades">Trades</TabsTrigger>
@@ -47,7 +60,7 @@ function ManagerPage() {
           <TabsTrigger value="timeoff">Time Off</TabsTrigger>
         </TabsList>
         <TabsContent value="dashboard"><OverviewTab /></TabsContent>
-        <TabsContent value="menu"><MenuTab /></TabsContent>
+        <TabsContent value="training"><TrainingProgramTab /></TabsContent>
         <TabsContent value="team"><TeamTab /></TabsContent>
         <TabsContent value="schedule"><ScheduleTab /></TabsContent>
         <TabsContent value="trades"><TradesTab /></TabsContent>
@@ -76,6 +89,7 @@ function OverviewTab() {
         <Stat label="New applications" value={stats.newApps} hint="Awaiting review" tone={stats.newApps > 0 ? "warn" : undefined} />
         <Stat label="Time off pending" value={stats.pendingTO} hint="Need a decision" tone={stats.pendingTO > 0 ? "warn" : undefined} />
       </div>
+      <NotificationsCard />
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-base">Onboarding progress</CardTitle>
@@ -101,6 +115,43 @@ function OverviewTab() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function NotificationsCard() {
+  const { notifications, markNotificationsRead } = useStore();
+  const recent = notifications.slice(0, 6);
+  const unread = notifications.filter((n) => !n.read).length;
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div className="flex items-center gap-2">
+          <CardTitle className="text-base">Training notifications</CardTitle>
+          {unread > 0 && <Badge className="bg-primary text-primary-foreground hover:bg-primary">{unread} new</Badge>}
+        </div>
+        {unread > 0 && (
+          <Button variant="ghost" size="sm" onClick={markNotificationsRead}>Mark all read</Button>
+        )}
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {recent.length === 0 && <p className="text-sm text-muted-foreground">No notifications yet. You'll be alerted when staff pass or fail training.</p>}
+        {recent.map((n) => {
+          const tone = n.type === "training_passed" ? "border-success/30 bg-success/10"
+            : n.type === "training_locked" ? "border-destructive/30 bg-destructive/10"
+            : "border-warning/30 bg-warning/10";
+          const icon = n.type === "training_passed" ? "✓" : n.type === "training_locked" ? "🔒" : "!";
+          return (
+            <div key={n.id} className={`flex items-start gap-3 rounded-lg border p-3 ${tone} ${!n.read ? "ring-1 ring-primary/20" : ""}`}>
+              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-card text-sm font-bold">{icon}</span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium">{n.message}</p>
+                <p className="text-xs text-muted-foreground">{new Date(n.createdAt).toLocaleString()}</p>
+              </div>
+            </div>
+          );
+        })}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -468,6 +519,55 @@ function TimeOffTab() {
           {history.length === 0 ? <p className="text-sm text-muted-foreground">No history yet.</p> : history.map(row)}
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function TrainingProgramTab() {
+  const { menu, drinkMenu, restaurantProfile } = useStore();
+  return (
+    <div className="grid gap-6">
+      {restaurantProfile && (
+        <Card className="overflow-hidden border-primary/20">
+          <div className="bg-gradient-to-br from-primary to-[oklch(0.22_0.05_155)] p-5 text-primary-foreground sm:p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.15em] opacity-80">Your vision</p>
+            <h2 className="mt-1 text-xl font-semibold sm:text-2xl">{restaurantProfile.name}</h2>
+            <p className="mt-1 text-sm opacity-90">{restaurantProfile.concept}</p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Badge className="bg-white/15 text-white hover:bg-white/15">{restaurantProfile.serviceStyle}</Badge>
+              <Badge className="bg-white/15 text-white hover:bg-white/15">{restaurantProfile.priority}</Badge>
+            </div>
+          </div>
+          <CardContent className="grid gap-3 p-5 sm:grid-cols-2">
+            <MenuMini label="Food menu" menu={menu} />
+            <MenuMini label="Drink menu" menu={drinkMenu} />
+          </CardContent>
+        </Card>
+      )}
+      <TrainingProgram menuName={menu?.name ?? "your menus"} />
+    </div>
+  );
+}
+
+function MenuMini({ label, menu }: { label: string; menu: { name: string; sizeKB: number; preview?: string } | null }) {
+  if (!menu) return (
+    <div className="rounded-lg border border-dashed border-border bg-muted/30 p-3 text-sm text-muted-foreground">
+      {label}: not uploaded
+    </div>
+  );
+  return (
+    <div className="flex items-center gap-3 rounded-lg border border-border bg-background p-3">
+      {menu.preview ? (
+        <img src={menu.preview} alt="" className="h-10 w-10 rounded border border-border object-cover" />
+      ) : (
+        <div className="grid h-10 w-10 place-items-center rounded bg-primary-soft text-primary">
+          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
+        </div>
+      )}
+      <div className="min-w-0">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+        <p className="truncate text-sm font-medium">{menu.name}</p>
+      </div>
     </div>
   );
 }

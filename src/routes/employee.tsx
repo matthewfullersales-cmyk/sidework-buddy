@@ -10,8 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { VideoPlayer } from "@/components/sidework/VideoPlayer";
-import { Quiz } from "@/components/sidework/Quiz";
+import { TrainingModule } from "@/components/sidework/TrainingModule";
 import { onboardingStatus, useStore, videosForRole } from "@/lib/sidework-store";
 import { toast } from "sonner";
 
@@ -95,11 +94,11 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
 }
 
 function TrainingTab({ employeeId }: { employeeId: string }) {
-  const { employees, videos, recordVideoProgress } = useStore();
+  const { employees, videos, recordVideoProgress, recordQuizAttempt } = useStore();
   const me = employees.find((e) => e.id === employeeId)!;
   const assigned = videosForRole(videos, me.primaryRole);
 
-  // sequential: previous must be passed
+  // sequential: previous module must be passed
   const firstUnlockedIndex = useMemo(() => {
     for (let i = 0; i < assigned.length; i++) {
       const p = me.progress.find((x) => x.videoId === assigned[i].id);
@@ -117,41 +116,34 @@ function TrainingTab({ employeeId }: { employeeId: string }) {
       {assigned.map((video, i) => {
         const prog = me.progress.find((p) => p.videoId === video.id);
         const locked = i > firstUnlockedIndex;
-        const passed = !!prog?.passed;
-        const watched = prog?.watchedSec ?? 0;
-        return (
-          <Card key={video.id} className={locked ? "opacity-60" : ""}>
-            <CardContent className="p-5">
-              <div className="mb-4 flex items-center justify-between">
+        if (locked) {
+          return (
+            <Card key={video.id} className="opacity-60">
+              <CardContent className="flex items-center gap-3 p-5">
+                <div className="grid h-9 w-9 place-items-center rounded-full bg-muted text-muted-foreground">
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                </div>
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Lesson {i + 1} · {me.primaryRole}</p>
-                  <h3 className="mt-0.5 font-semibold">{video.title}</h3>
+                  <p className="font-semibold">{video.title}</p>
+                  <p className="text-xs text-muted-foreground">Finish the previous module to unlock.</p>
                 </div>
-                {passed ? <Badge className="bg-success text-success-foreground hover:bg-success">Passed · {prog?.quizScore}%</Badge>
-                  : locked ? <Badge variant="secondary">Locked</Badge>
-                  : <Badge variant="secondary">In progress</Badge>}
-              </div>
-              {!locked && (
-                <div className="grid gap-4 md:grid-cols-2">
-                  <VideoPlayer
-                    title={video.title}
-                    durationSec={video.durationSec}
-                    initialWatched={watched}
-                    onComplete={() => recordVideoProgress(me.id, video.id, { watchedSec: video.durationSec })}
-                  />
-                  <Quiz
-                    video={video}
-                    locked={(prog?.watchedSec ?? 0) < video.durationSec}
-                    onResult={(score, passedNow) => {
-                      recordVideoProgress(me.id, video.id, { quizScore: score, passed: passedNow, completedAt: new Date().toISOString() });
-                      if (passedNow) toast.success(`Passed with ${score}%`); else toast.error(`${score}% — try again`);
-                    }}
-                  />
-                </div>
-              )}
-              {locked && <p className="text-sm text-muted-foreground">Finish the previous lesson to unlock.</p>}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          );
+        }
+        return (
+          <TrainingModule
+            key={video.id}
+            video={video}
+            progress={prog}
+            onVideoComplete={() => recordVideoProgress(me.id, video.id, { watchedSec: video.durationSec })}
+            onQuizSubmit={(score, passed) => {
+              recordQuizAttempt(me.id, video.id, score, passed);
+              if (passed) toast.success(`Passed with ${score}% — module complete!`);
+              else toast.error(`Scored ${score}%. Try again.`);
+            }}
+          />
         );
       })}
     </div>
