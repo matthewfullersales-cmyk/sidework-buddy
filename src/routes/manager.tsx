@@ -118,6 +118,43 @@ function OverviewTab() {
   );
 }
 
+function NotificationsCard() {
+  const { notifications, markNotificationsRead } = useStore();
+  const recent = notifications.slice(0, 6);
+  const unread = notifications.filter((n) => !n.read).length;
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div className="flex items-center gap-2">
+          <CardTitle className="text-base">Training notifications</CardTitle>
+          {unread > 0 && <Badge className="bg-primary text-primary-foreground hover:bg-primary">{unread} new</Badge>}
+        </div>
+        {unread > 0 && (
+          <Button variant="ghost" size="sm" onClick={markNotificationsRead}>Mark all read</Button>
+        )}
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {recent.length === 0 && <p className="text-sm text-muted-foreground">No notifications yet. You'll be alerted when staff pass or fail training.</p>}
+        {recent.map((n) => {
+          const tone = n.type === "training_passed" ? "border-success/30 bg-success/10"
+            : n.type === "training_locked" ? "border-destructive/30 bg-destructive/10"
+            : "border-warning/30 bg-warning/10";
+          const icon = n.type === "training_passed" ? "✓" : n.type === "training_locked" ? "🔒" : "!";
+          return (
+            <div key={n.id} className={`flex items-start gap-3 rounded-lg border p-3 ${tone} ${!n.read ? "ring-1 ring-primary/20" : ""}`}>
+              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-card text-sm font-bold">{icon}</span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium">{n.message}</p>
+                <p className="text-xs text-muted-foreground">{new Date(n.createdAt).toLocaleString()}</p>
+              </div>
+            </div>
+          );
+        })}
+      </CardContent>
+    </Card>
+  );
+}
+
 function TeamTab() {
   const { employees, videos, inviteEmployee, updateEmployee } = useStore();
   const [open, setOpen] = useState(false);
