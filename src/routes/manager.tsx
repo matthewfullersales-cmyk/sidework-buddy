@@ -470,6 +470,7 @@ function TimeOffTab() {
   );
 }
 
+function Stat({ label, value, hint, tone }: { label: string; value: number | string; hint?: string; tone?: "warn" }) {
   return (
     <Card>
       <CardContent className="p-5">
