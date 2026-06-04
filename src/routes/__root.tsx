@@ -114,6 +114,7 @@ function RootShell({ children }: { children: ReactNode }) {
 }
 
 import { SideworkProvider } from "@/lib/sidework-store";
+import { Toaster } from "@/components/ui/sonner";
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
@@ -123,6 +124,7 @@ function RootComponent() {
       <SideworkProvider>
         {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
         <Outlet />
+        <Toaster richColors position="top-center" />
       </SideworkProvider>
     </QueryClientProvider>
   );
