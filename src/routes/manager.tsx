@@ -472,6 +472,170 @@ function TimeOffTab() {
   );
 }
 
+function MenuTab() {
+  const { menu, setMenu, markMenuGenerated } = useStore();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [generating, setGenerating] = useState(false);
+
+  useEffect(() => {
+    if (menu && !menu.generatedAt && !generating) {
+      setGenerating(true);
+      const t = setTimeout(() => { markMenuGenerated(); setGenerating(false); }, 2500);
+      return () => clearTimeout(t);
+    }
+  }, [menu, generating, markMenuGenerated]);
+
+  const handleFile = (file: File) => {
+    const okTypes = ["application/pdf", "image/png", "image/jpeg", "image/jpg", "image/webp"];
+    if (!okTypes.includes(file.type)) return toast.error("Upload a PDF or image (PNG/JPG).");
+    if (file.size > 10 * 1024 * 1024) return toast.error("File must be under 10MB.");
+    const reader = new FileReader();
+    reader.onload = () => {
+      setMenu({
+        name: file.name,
+        type: file.type,
+        sizeKB: Math.round(file.size / 1024),
+        uploadedAt: new Date().toISOString(),
+        preview: file.type.startsWith("image/") ? (reader.result as string) : undefined,
+      });
+      toast.success("Menu uploaded");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  return (
+    <div className="grid gap-6">
+      <Card className="overflow-hidden">
+        <div className="bg-gradient-to-br from-primary to-[oklch(0.22_0.05_155)] p-6 text-primary-foreground">
+          <p className="text-xs font-semibold uppercase tracking-[0.15em] opacity-80">Menu intelligence</p>
+          <h2 className="mt-1 text-2xl font-semibold">Upload your food & drink menu</h2>
+          <p className="mt-1 text-sm opacity-90">We'll generate role-specific training modules tailored to your menu.</p>
+        </div>
+        <CardContent className="p-5">
+          {!menu ? (
+            <div
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files?.[0]; if (f) handleFile(f); }}
+              className="grid place-items-center gap-3 rounded-xl border-2 border-dashed border-border bg-muted/30 p-10 text-center"
+            >
+              <div className="grid h-12 w-12 place-items-center rounded-full bg-primary-soft text-primary">
+                <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              </div>
+              <div>
+                <p className="font-semibold">Drop your menu here</p>
+                <p className="text-xs text-muted-foreground">PDF, PNG, or JPG · up to 10MB</p>
+              </div>
+              <input ref={inputRef} type="file" accept="application/pdf,image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
+              <Button onClick={() => inputRef.current?.click()}>Choose file</Button>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                {menu.preview ? (
+                  <img src={menu.preview} alt="Menu preview" className="h-16 w-16 rounded-lg border border-border object-cover" />
+                ) : (
+                  <div className="grid h-16 w-16 place-items-center rounded-lg bg-primary-soft text-primary">
+                    <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                  </div>
+                )}
+                <div>
+                  <p className="font-semibold">{menu.name}</p>
+                  <p className="text-xs text-muted-foreground">{menu.sizeKB} KB · uploaded {new Date(menu.uploadedAt).toLocaleDateString()}</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => inputRef.current?.click()}>Replace</Button>
+                <Button variant="ghost" size="sm" onClick={() => { setMenu(null); toast.message("Menu removed"); }}>Remove</Button>
+                <input ref={inputRef} type="file" accept="application/pdf,image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {menu && (generating || !menu.generatedAt) && (
+        <Card className="border-primary/30 bg-primary-soft">
+          <CardContent className="flex items-center gap-4 p-5">
+            <div className="grid h-10 w-10 place-items-center rounded-full bg-primary text-primary-foreground">
+              <svg viewBox="0 0 24 24" className="h-5 w-5 animate-spin" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+            </div>
+            <div>
+              <p className="font-semibold text-primary">Your custom training program is being generated based on your menu.</p>
+              <p className="text-sm text-primary/80">This usually takes less than a minute.</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {menu && menu.generatedAt && <TrainingProgram menuName={menu.name} />}
+    </div>
+  );
+}
+
+const TRAINING_MODULES: Record<"Server" | "Bartender" | "Kitchen", { title: string; videos: string[] }[]> = {
+  Server: [
+    { title: "Menu Knowledge & Storytelling", videos: ["Starters & shareables walkthrough", "Entrée specs and allergens", "Dessert pairings & upsell cues"] },
+    { title: "Wine & Beverage Pairing", videos: ["House pours & by-the-glass list", "Pairing guide for tonight's menu"] },
+    { title: "Service Standards", videos: ["Greeting & table touch sequence", "Handling allergies and substitutions"] },
+  ],
+  Bartender: [
+    { title: "Signature Cocktails", videos: ["House cocktail builds & specs", "Garnish and glassware standards", "Batching for peak hours"] },
+    { title: "Wine & Beer Program", videos: ["Wine list overview", "Draft program & rotation"] },
+    { title: "Responsible Service", videos: ["ID verification & refusal of service"] },
+  ],
+  Kitchen: [
+    { title: "Line Setup & Menu Items", videos: ["Mise en place by station", "Cook times & plating standards", "Specials & 86 procedures"] },
+    { title: "Allergens & Cross-Contamination", videos: ["Top 9 allergen handling", "Color-coded board protocol"] },
+    { title: "Food Safety", videos: ["Cooking & holding temperatures", "Closing checklist"] },
+  ],
+};
+
+function TrainingProgram({ menuName }: { menuName: string }) {
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <CardTitle className="text-base">Custom training program</CardTitle>
+            <p className="mt-1 text-xs text-muted-foreground">Generated from <span className="font-medium text-foreground">{menuName}</span></p>
+          </div>
+          <Badge className="bg-success text-success-foreground hover:bg-success">Ready</Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="grid gap-5 md:grid-cols-3">
+        {(Object.keys(TRAINING_MODULES) as Array<keyof typeof TRAINING_MODULES>).map((role) => (
+          <div key={role} className="rounded-xl border border-border bg-background p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <p className="font-semibold">{role}</p>
+              <Badge variant="secondary">{TRAINING_MODULES[role].reduce((n, m) => n + m.videos.length, 0)} videos</Badge>
+            </div>
+            <div className="space-y-3">
+              {TRAINING_MODULES[role].map((mod, i) => (
+                <div key={i} className="rounded-lg border border-border p-3">
+                  <p className="text-sm font-semibold">{mod.title}</p>
+                  <ul className="mt-2 space-y-1.5">
+                    {mod.videos.map((v, j) => (
+                      <li key={j} className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <span className="grid h-5 w-5 place-items-center rounded-full bg-primary-soft text-[10px] font-semibold text-primary">{j + 1}</span>
+                        <span className="flex-1">{v}</span>
+                        <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                      </li>
+                    ))}
+                    <li className="mt-2 flex items-center gap-2 rounded-md border border-dashed border-border bg-muted/40 px-2 py-1.5 text-xs text-muted-foreground">
+                      <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                      Quiz · unlocks after all videos
+                    </li>
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
 function Stat({ label, value, hint, tone }: { label: string; value: number | string; hint?: string; tone?: "warn" }) {
   return (
     <Card>
