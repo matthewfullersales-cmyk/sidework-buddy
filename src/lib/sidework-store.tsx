@@ -397,12 +397,12 @@ function seedJobs(): JobPosting[] {
 function seedApplications(): JobApplication[] {
   return [
     {
-      id: "a1", jobId: "j1", name: "Jordan Rivera", email: "jordan.r@email.com",
+      id: "a1", jobId: "j1", name: "Jordan Rivera",
       phone: "555-204-3311",
-      experience: "4 years at Casa Luna, 1 year at Bistro 9.",
-      availability: "Tue-Sat, any hours",
-      coverNote: "Loved your menu when I dined last month.",
-      appliedAt: new Date().toISOString(), status: "new",
+      availabilityDays: ["Tue", "Wed", "Thu", "Fri", "Sat"],
+      availabilityHours: "Open availability",
+      note: "Loved your menu when I dined last month.",
+      appliedAt: new Date().toISOString(), status: "new", verified: true,
     },
   ];
 }
