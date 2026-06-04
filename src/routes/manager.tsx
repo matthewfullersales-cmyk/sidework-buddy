@@ -478,12 +478,18 @@ function MenuTab() {
   const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
-    if (menu && !menu.generatedAt && !generating) {
-      setGenerating(true);
-      const t = setTimeout(() => { markMenuGenerated(); setGenerating(false); }, 2500);
-      return () => clearTimeout(t);
+    if (!menu || menu.generatedAt) {
+      setGenerating(false);
+      return;
     }
-  }, [menu, generating, markMenuGenerated]);
+
+    setGenerating(true);
+    const t = window.setTimeout(() => {
+      markMenuGenerated();
+      setGenerating(false);
+    }, 2500);
+    return () => window.clearTimeout(t);
+  }, [menu?.uploadedAt, menu?.generatedAt]);
 
   const handleFile = (file: File) => {
     const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
