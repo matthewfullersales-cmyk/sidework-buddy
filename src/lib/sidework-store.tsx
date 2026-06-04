@@ -97,6 +97,15 @@ export interface TimeOffRequest {
   decisionNote?: string;
 }
 
+export interface MenuUpload {
+  name: string;
+  type: string;
+  sizeKB: number;
+  uploadedAt: string;
+  generatedAt?: string;
+  preview?: string;
+}
+
 interface Store {
   currentUser: { type: "manager"; id: "owner" } | { type: "employee"; id: string };
   setCurrentUser: (u: Store["currentUser"]) => void;
@@ -107,6 +116,9 @@ interface Store {
   jobs: JobPosting[];
   applications: JobApplication[];
   timeOff: TimeOffRequest[];
+  menu: MenuUpload | null;
+  setMenu: (m: MenuUpload | null) => void;
+  markMenuGenerated: () => void;
   inviteEmployee: (data: { name: string; email: string; role: Role }) => void;
   updateEmployee: (id: string, patch: Partial<Employee>) => void;
   recordVideoProgress: (employeeId: string, videoId: string, patch: Partial<VideoProgress>) => void;
@@ -329,6 +341,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     jobs: seedJobs(),
     applications: seedApplications(),
     timeOff: seedTimeOff(),
+    menu: null as MenuUpload | null,
   }));
 
   useEffect(() => {
@@ -466,6 +479,9 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
             : t,
         ),
       })),
+    setMenu: (m) => setState((s) => ({ ...s, menu: m })),
+    markMenuGenerated: () =>
+      setState((s) => ({ ...s, menu: s.menu ? { ...s.menu, generatedAt: new Date().toISOString() } : s.menu })),
   };
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>;
