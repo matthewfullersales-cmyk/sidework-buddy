@@ -485,6 +485,55 @@ function TimeOffTab() {
   );
 }
 
+function TrainingProgramTab() {
+  const { menu, drinkMenu, restaurantProfile } = useStore();
+  return (
+    <div className="grid gap-6">
+      {restaurantProfile && (
+        <Card className="overflow-hidden border-primary/20">
+          <div className="bg-gradient-to-br from-primary to-[oklch(0.22_0.05_155)] p-5 text-primary-foreground sm:p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.15em] opacity-80">Your vision</p>
+            <h2 className="mt-1 text-xl font-semibold sm:text-2xl">{restaurantProfile.name}</h2>
+            <p className="mt-1 text-sm opacity-90">{restaurantProfile.concept}</p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Badge className="bg-white/15 text-white hover:bg-white/15">{restaurantProfile.serviceStyle}</Badge>
+              <Badge className="bg-white/15 text-white hover:bg-white/15">{restaurantProfile.priority}</Badge>
+            </div>
+          </div>
+          <CardContent className="grid gap-3 p-5 sm:grid-cols-2">
+            <MenuMini label="Food menu" menu={menu} />
+            <MenuMini label="Drink menu" menu={drinkMenu} />
+          </CardContent>
+        </Card>
+      )}
+      <TrainingProgram menuName={menu?.name ?? "your menus"} />
+    </div>
+  );
+}
+
+function MenuMini({ label, menu }: { label: string; menu: { name: string; sizeKB: number; preview?: string } | null }) {
+  if (!menu) return (
+    <div className="rounded-lg border border-dashed border-border bg-muted/30 p-3 text-sm text-muted-foreground">
+      {label}: not uploaded
+    </div>
+  );
+  return (
+    <div className="flex items-center gap-3 rounded-lg border border-border bg-background p-3">
+      {menu.preview ? (
+        <img src={menu.preview} alt="" className="h-10 w-10 rounded border border-border object-cover" />
+      ) : (
+        <div className="grid h-10 w-10 place-items-center rounded bg-primary-soft text-primary">
+          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
+        </div>
+      )}
+      <div className="min-w-0">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+        <p className="truncate text-sm font-medium">{menu.name}</p>
+      </div>
+    </div>
+  );
+}
+
 function MenuTab() {
   const { menu, setMenu, markMenuGenerated } = useStore();
   const inputRef = useRef<HTMLInputElement>(null);
