@@ -374,7 +374,7 @@ function ScheduleTab() {
                         <Avatar name={emp.name} />
                         <div className="min-w-0">
                           <p className="text-xs font-medium truncate">{emp.name}</p>
-                          <p className="text-[10px] text-muted-foreground truncate">{emp.role}</p>
+                          <p className="text-[10px] text-muted-foreground truncate">{emp.primaryRole}</p>
                         </div>
                       </div>
                     </td>
@@ -490,7 +490,7 @@ function ShiftEditorDialog({
           <div className="text-sm">
             <p className="font-medium">{emp?.name}</p>
             <p className="text-xs text-muted-foreground">
-              {emp?.role} · {new Date(date).toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}
+              {emp?.primaryRole} · {new Date(date).toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}
             </p>
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -515,7 +515,7 @@ function ShiftEditorDialog({
                 onSave({
                   id: existing?.id ?? `s_${Date.now()}`,
                   employeeId,
-                  role: (emp?.role ?? "Server") as Role,
+                  role: (emp?.primaryRole ?? "Server") as Role,
                   date,
                   start,
                   end,
