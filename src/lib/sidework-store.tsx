@@ -522,6 +522,16 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           notifications: [newNotif, ...s.notifications],
         };
       }),
+    upsertShift: (shift) =>
+      setState((s) => {
+        const exists = s.shifts.some((x) => x.id === shift.id);
+        return {
+          ...s,
+          shifts: exists ? s.shifts.map((x) => (x.id === shift.id ? shift : x)) : [...s.shifts, shift],
+        };
+      }),
+    deleteShift: (id) =>
+      setState((s) => ({ ...s, shifts: s.shifts.filter((x) => x.id !== id) })),
     postTrade: (shiftId, note) =>
       setState((s) => {
         const shift = s.shifts.find((x) => x.id === shiftId);
