@@ -479,6 +479,9 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
             : t,
         ),
       })),
+    setMenu: (m) => setState((s) => ({ ...s, menu: m })),
+    markMenuGenerated: () =>
+      setState((s) => ({ ...s, menu: s.menu ? { ...s.menu, generatedAt: new Date().toISOString() } : s.menu })),
   };
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>;
