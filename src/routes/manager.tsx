@@ -807,6 +807,30 @@ function TrainingProgram({ menuName }: { menuName: string }) {
   );
 }
 
+function SettingsTab({ onOpenSetup }: { onOpenSetup: () => void }) {
+  const { setupCompleted, restaurantProfile, resetSetup } = useStore();
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader><CardTitle className="text-base">Restaurant Setup</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          {setupCompleted ? (
+            <>
+              <p className="text-sm text-muted-foreground">Setup completed for <span className="font-medium text-foreground">{restaurantProfile?.name ?? "your restaurant"}</span>.</p>
+              <Button variant="outline" onClick={() => { if (window.confirm("Redo setup? This will reset your profile.")) { resetSetup(); onOpenSetup(); } }}>Redo restaurant setup</Button>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-muted-foreground">Your restaurant profile is incomplete. Finish setup to unlock your custom training program.</p>
+              <Button onClick={onOpenSetup}>Complete your setup</Button>
+            </>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 function Stat({ label, value, hint, tone }: { label: string; value: number | string; hint?: string; tone?: "warn" }) {
   return (
     <Card>
