@@ -444,27 +444,44 @@ function JobsTab() {
             return (
               <div key={a.id} className="rounded-lg border border-border bg-background p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
+                  <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="font-semibold">{a.name}</p>
+                      {a.verified && (
+                        <Badge className="bg-success text-success-foreground hover:bg-success gap-1">
+                          <span aria-hidden>✓</span> Verified
+                        </Badge>
+                      )}
                       <Badge variant="secondary">{job?.title ?? "—"}</Badge>
                       <StatusBadge status={a.status} />
                     </div>
-                    <p className="mt-1 text-xs text-muted-foreground">{a.email} · {a.phone} · applied {new Date(a.appliedAt).toLocaleDateString()}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      <a href={`tel:${a.phone}`} className="underline">{a.phone}</a> · applied {new Date(a.appliedAt).toLocaleDateString()}
+                    </p>
                   </div>
-                  <Select value={a.status} onValueChange={(v: ApplicationStatus) => setApplicationStatus(a.id, v)}>
-                    <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {(["new", "reviewing", "interview", "hired", "rejected"] as ApplicationStatus[]).map((s) => (
-                        <SelectItem key={s} value={s}>{s}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                 </div>
                 <div className="mt-3 grid gap-2 text-sm">
-                  <p><span className="font-semibold">Experience: </span>{a.experience}</p>
-                  <p><span className="font-semibold">Availability: </span>{a.availability}</p>
-                  {a.coverNote && <p className="text-muted-foreground italic">"{a.coverNote}"</p>}
+                  <p>
+                    <span className="font-semibold">Availability: </span>
+                    {a.availabilityDays.join(", ")} — {a.availabilityHours}
+                  </p>
+                  {a.note && <p className="text-muted-foreground italic">"{a.note}"</p>}
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    onClick={() => { setApplicationStatus(a.id, "interview"); toast.success(`${a.name} marked for interview`); }}
+                    disabled={a.status === "interview"}
+                  >
+                    Mark for interview
+                  </Button>
+                  <Button
+                    size="sm" variant="outline"
+                    onClick={() => { setApplicationStatus(a.id, "rejected"); toast.message(`${a.name} declined`); }}
+                    disabled={a.status === "rejected"}
+                  >
+                    Decline
+                  </Button>
                 </div>
               </div>
             );
