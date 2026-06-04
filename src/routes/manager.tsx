@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AppShell, PageHeader } from "@/components/sidework/AppShell";
+import { SetupWizard } from "@/components/sidework/SetupWizard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
-import { onboardingStatus, useStore, type Role, type JobPosting, type ApplicationStatus } from "@/lib/sidework-store";
+import { onboardingStatus, useStore, type Role, type ApplicationStatus } from "@/lib/sidework-store";
 import { toast } from "sonner";
 
 const ROLES: Role[] = ["Server", "Bartender", "Kitchen", "Host"];
@@ -32,14 +33,26 @@ export const Route = createFileRoute("/manager")({
 });
 
 function ManagerPage() {
+  const { setupCompleted, restaurantProfile, resetSetup } = useStore();
   const [tab, setTab] = useState("dashboard");
+
+  if (!setupCompleted) return <SetupWizard onComplete={() => setTab("training")} />;
+
   return (
     <AppShell nav={[{ to: "/manager", label: "Dashboard", icon: <IconHome /> }]}>
-      <PageHeader title="Manager Dashboard" subtitle="Onboarding, schedule, and trades at a glance." />
+      <PageHeader
+        title={restaurantProfile?.name ? `${restaurantProfile.name} — Dashboard` : "Manager Dashboard"}
+        subtitle="Onboarding, schedule, and trades at a glance."
+        actions={
+          <Button variant="ghost" size="sm" onClick={() => { if (confirm("Redo restaurant setup?")) resetSetup(); }}>
+            Setup
+          </Button>
+        }
+      />
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="mb-6 grid h-auto w-full grid-cols-3 md:grid-cols-7">
           <TabsTrigger value="dashboard">Overview</TabsTrigger>
-          <TabsTrigger value="menu">Menu</TabsTrigger>
+          <TabsTrigger value="training">Training</TabsTrigger>
           <TabsTrigger value="team">Team</TabsTrigger>
           <TabsTrigger value="schedule">Schedule</TabsTrigger>
           <TabsTrigger value="trades">Trades</TabsTrigger>
@@ -47,7 +60,7 @@ function ManagerPage() {
           <TabsTrigger value="timeoff">Time Off</TabsTrigger>
         </TabsList>
         <TabsContent value="dashboard"><OverviewTab /></TabsContent>
-        <TabsContent value="menu"><MenuTab /></TabsContent>
+        <TabsContent value="training"><TrainingProgramTab /></TabsContent>
         <TabsContent value="team"><TeamTab /></TabsContent>
         <TabsContent value="schedule"><ScheduleTab /></TabsContent>
         <TabsContent value="trades"><TradesTab /></TabsContent>
