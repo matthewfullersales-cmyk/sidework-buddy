@@ -25,11 +25,11 @@ export const Route = createFileRoute("/employee")({
 });
 
 function EmployeePage() {
-  const { currentUser, employees } = useStore();
+  const { currentUser, employees, videos } = useStore();
   if (currentUser.type === "manager") return <Navigate to="/manager" />;
   const me = employees.find((e) => e.id === currentUser.id);
   if (!me) return <Navigate to="/" />;
-  const status = onboardingStatus(me, useStore().videos);
+  const status = onboardingStatus(me, videos);
 
   return (
     <AppShell nav={nav}>
