@@ -341,6 +341,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     jobs: seedJobs(),
     applications: seedApplications(),
     timeOff: seedTimeOff(),
+    menu: null as MenuUpload | null,
   }));
 
   useEffect(() => {
