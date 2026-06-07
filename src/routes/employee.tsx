@@ -116,6 +116,18 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
             <div className="grid gap-2"><Label>Phone number</Label><Input type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(555) 555-1234" /></div>
           </div>
           <div className="grid gap-2"><Label>Role</Label><Input disabled value={me.primaryRole} /></div>
+          <div className="grid gap-2">
+            <Label>Profile photo (optional)</Label>
+            <div className="flex items-center gap-3">
+              {photoUrl ? (
+                <img src={photoUrl} alt="Profile" className="h-14 w-14 rounded-full object-cover border border-border" />
+              ) : (
+                <div className="h-14 w-14 rounded-full bg-muted text-muted-foreground grid place-items-center text-xs">No photo</div>
+              )}
+              <Input type="file" accept="image/*" onChange={(e) => onPhotoFile(e.target.files?.[0] ?? null)} />
+              {photoUrl && <Button variant="ghost" size="sm" onClick={() => setPhotoUrl("")}>Remove</Button>}
+            </div>
+          </div>
         </CardContent>
       </Card>
 
