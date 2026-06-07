@@ -711,6 +711,35 @@ function JobsTab() {
         )}
       />
 
+      {confirmHireFor && (
+        <Dialog open onOpenChange={(o) => { if (!o) setConfirmHireFor(null); }}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Confirm hire</DialogTitle>
+            </DialogHeader>
+            {(() => {
+              const app = applications.find((a) => a.id === confirmHireFor);
+              if (!app) return null;
+              const name = app.firstName && app.lastName ? `${app.firstName} ${app.lastName}` : app.name;
+              return (
+                <div className="py-2">
+                  <p className="text-sm text-muted-foreground">
+                    Hire <span className="font-semibold text-foreground">{name}</span> as <span className="font-semibold text-foreground">{app.role ?? "Server"}</span>? This will create their employee profile and send them a welcome message.
+                  </p>
+                </div>
+              );
+            })()}
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setConfirmHireFor(null)}>Cancel</Button>
+              <Button onClick={() => {
+                setHireFor(confirmHireFor);
+                setConfirmHireFor(null);
+              }}>Confirm Hire</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
       {hireApp && (
         <HireReviewDialog
           application={hireApp}
