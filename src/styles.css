@@ -108,15 +108,30 @@
 
 @layer base {
   * { border-color: var(--color-border); }
+  html { -webkit-text-size-adjust: 100%; }
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-feature-settings: "cv02", "cv03", "cv04", "cv11", "ss01";
+    overflow-x: hidden;
   }
-  h1, h2, h3, h4 { letter-spacing: -0.028em; font-weight: 700; }
+  h1, h2, h3, h4 { letter-spacing: -0.028em; font-weight: 700; overflow-wrap: anywhere; }
   h1 { letter-spacing: -0.04em; }
+  img, video { max-width: 100%; height: auto; }
+}
+
+/* iOS momentum scrolling for horizontally-scrolling containers (schedule grid, etc.) */
+@utility scroll-touch {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+
+/* Respect bottom safe area on iPhone (notch / home indicator) */
+@utility pb-safe {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
 }
 
 @utility bg-gradient-hero { background-image: var(--gradient-hero); }
 @utility bg-gradient-primary { background-image: var(--gradient-primary); }
 @utility shadow-bold { box-shadow: var(--shadow-bold); }
+
