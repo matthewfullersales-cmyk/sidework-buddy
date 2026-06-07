@@ -158,6 +158,8 @@ export type HiringStage =
 
 export type AvailabilityHours = "Mornings" | "Afternoons" | "Evenings" | "Open availability";
 
+export type InterviewType = "video" | "in_person" | "phone";
+
 export interface ShadowShiftDetails {
   date: string;
   time: string;
