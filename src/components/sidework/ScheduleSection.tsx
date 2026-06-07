@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { useStore, type Role, type Shift, type Position, type Section, DAY_KEYS, isAvailableFor } from "@/lib/sidework-store";
 import { toast } from "sonner";
 
-import { ROLES_ORDERED as ROLES, FOH_ROLES_ORDERED as FOH_ROLES, BOH_ROLES_ORDERED as BOH_ROLES, roleStyle, STATUS_COLORS, contrastText } from "@/lib/role-colors";
+import { ROLES_ORDERED as ROLES, roleStyle, STATUS_COLORS, contrastText } from "@/lib/role-colors";
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
