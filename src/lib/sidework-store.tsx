@@ -404,9 +404,7 @@ function seedShifts(): Shift[] {
 }
 
 function seedTrades(): Trade[] {
-  return [
-    { id: "t1", shiftId: "s2", postedBy: "e1", status: "open", createdAt: new Date().toISOString() },
-  ];
+  return [];
 }
 
 function seedJobs(): JobPosting[] {
