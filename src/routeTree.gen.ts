@@ -13,6 +13,7 @@ import { Route as ManagerRouteImport } from './routes/manager'
 import { Route as EmployeeRouteImport } from './routes/employee'
 import { Route as CareersRouteImport } from './routes/careers'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as JoinSlugRouteImport } from './routes/join.$slug'
 import { Route as InterviewIdRouteImport } from './routes/interview.$id'
 
 const ManagerRoute = ManagerRouteImport.update({
@@ -35,6 +36,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const JoinSlugRoute = JoinSlugRouteImport.update({
+  id: '/join/$slug',
+  path: '/join/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const InterviewIdRoute = InterviewIdRouteImport.update({
   id: '/interview/$id',
   path: '/interview/$id',
@@ -47,6 +53,7 @@ export interface FileRoutesByFullPath {
   '/employee': typeof EmployeeRoute
   '/manager': typeof ManagerRoute
   '/interview/$id': typeof InterviewIdRoute
+  '/join/$slug': typeof JoinSlugRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -54,6 +61,7 @@ export interface FileRoutesByTo {
   '/employee': typeof EmployeeRoute
   '/manager': typeof ManagerRoute
   '/interview/$id': typeof InterviewIdRoute
+  '/join/$slug': typeof JoinSlugRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -62,12 +70,25 @@ export interface FileRoutesById {
   '/employee': typeof EmployeeRoute
   '/manager': typeof ManagerRoute
   '/interview/$id': typeof InterviewIdRoute
+  '/join/$slug': typeof JoinSlugRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/careers' | '/employee' | '/manager' | '/interview/$id'
+  fullPaths:
+    | '/'
+    | '/careers'
+    | '/employee'
+    | '/manager'
+    | '/interview/$id'
+    | '/join/$slug'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/careers' | '/employee' | '/manager' | '/interview/$id'
+  to:
+    | '/'
+    | '/careers'
+    | '/employee'
+    | '/manager'
+    | '/interview/$id'
+    | '/join/$slug'
   id:
     | '__root__'
     | '/'
@@ -75,6 +96,7 @@ export interface FileRouteTypes {
     | '/employee'
     | '/manager'
     | '/interview/$id'
+    | '/join/$slug'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -83,6 +105,7 @@ export interface RootRouteChildren {
   EmployeeRoute: typeof EmployeeRoute
   ManagerRoute: typeof ManagerRoute
   InterviewIdRoute: typeof InterviewIdRoute
+  JoinSlugRoute: typeof JoinSlugRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -115,6 +138,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/join/$slug': {
+      id: '/join/$slug'
+      path: '/join/$slug'
+      fullPath: '/join/$slug'
+      preLoaderRoute: typeof JoinSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/interview/$id': {
       id: '/interview/$id'
       path: '/interview/$id'
@@ -131,7 +161,18 @@ const rootRouteChildren: RootRouteChildren = {
   EmployeeRoute: EmployeeRoute,
   ManagerRoute: ManagerRoute,
   InterviewIdRoute: InterviewIdRoute,
+  JoinSlugRoute: JoinSlugRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
