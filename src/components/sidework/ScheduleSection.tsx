@@ -286,7 +286,10 @@ export function ScheduleSection() {
                         return (
                           <td key={date} className="border-b border-border p-1 align-middle">
                             {toStatus === "approved" ? (
-                              <div className="w-full min-h-[52px] rounded-md bg-muted text-[11px] grid place-items-center text-muted-foreground border border-border">
+                              <div
+                                className="w-full min-h-[52px] rounded-md text-[11px] grid place-items-center border"
+                                style={{ backgroundColor: STATUS_COLORS.timeOff, color: contrastText(STATUS_COLORS.timeOff), borderColor: STATUS_COLORS.timeOff }}
+                              >
                                 Time off
                               </div>
                             ) : (
@@ -294,20 +297,26 @@ export function ScheduleSection() {
                                 onClick={() => setEditing({ employeeId: emp.id, date, existing: s })}
                                 className={`w-full min-h-[52px] rounded-md text-[11px] px-2 py-1 transition border ${
                                   s
-                                    ? roleColor(s.role) + " hover:opacity-80"
+                                    ? "hover:opacity-80"
                                     : "bg-background border-dashed border-border text-muted-foreground hover:border-primary/40 hover:text-primary"
                                 }`}
+                                style={s ? roleStyle(s.role) : undefined}
                               >
                                 {s ? (
                                   <div className="flex flex-col">
                                     <span className="font-semibold">{s.start}–{s.end}</span>
                                     {toStatus === "pending" && (
-                                      <span className="mt-0.5 text-[9px] uppercase tracking-wide text-amber-600">PTO pending</span>
+                                      <span className="mt-0.5 text-[9px] uppercase tracking-wide" style={{ color: "#8a4b00" }}>PTO pending</span>
                                     )}
                                     {s.notes && <span className="mt-0.5 text-[9px] truncate">📝 {s.notes}</span>}
                                   </div>
                                 ) : toStatus === "pending" ? (
-                                  <span className="text-amber-600">PTO pending</span>
+                                  <span
+                                    className="inline-block w-full rounded px-1 py-0.5"
+                                    style={{ backgroundColor: STATUS_COLORS.ptoPending, color: contrastText(STATUS_COLORS.ptoPending) }}
+                                  >
+                                    PTO pending
+                                  </span>
                                 ) : (
                                   <span>+</span>
                                 )}
