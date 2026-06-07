@@ -88,27 +88,70 @@ function ManagerPage() {
           </CardContent>
         </Card>
       )}
-      <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="mb-6 grid h-auto w-full grid-cols-2 gap-1 sm:grid-cols-4 md:grid-cols-8">
-          <TabsTrigger value="dashboard">Overview</TabsTrigger>
-          <TabsTrigger value="training">Training</TabsTrigger>
-          <TabsTrigger value="team">Team</TabsTrigger>
-          <TabsTrigger value="schedule">Schedule</TabsTrigger>
-          <TabsTrigger value="trades">Trades</TabsTrigger>
-          <TabsTrigger value="jobs">Jobs</TabsTrigger>
-          <TabsTrigger value="timeoff">Time Off</TabsTrigger>
-          <TabsTrigger value="settings">Settings</TabsTrigger>
-        </TabsList>
+      <ManagerTabs tab={tab} setTab={setTab} />
+    </AppShell>
+  );
+}
 
-        <TabsContent value="dashboard"><OverviewTab /></TabsContent>
-        <TabsContent value="training"><TrainingProgramTab /></TabsContent>
-        <TabsContent value="team"><TeamTab /></TabsContent>
-        <TabsContent value="schedule"><ScheduleTab /></TabsContent>
-        <TabsContent value="trades"><TradesTab /></TabsContent>
-        <TabsContent value="jobs"><JobsTab /></TabsContent>
-        <TabsContent value="timeoff"><TimeOffTab /></TabsContent>
-        <TabsContent value="settings"><SettingsTab onOpenSetup={() => setShowSetupWizard(true)} /></TabsContent>
-      </Tabs>
+function ManagerTabs({ tab, setTab }: { tab: string; setTab: (v: string) => void }) {
+  const { applications } = useStore();
+  const newAppsCount = applications.filter((a) => !a.archived && a.status === "new").length;
+  return (
+    <Tabs value={tab} onValueChange={setTab}>
+      <TabsList className="mb-6 grid h-auto w-full grid-cols-2 gap-1 sm:grid-cols-4 md:grid-cols-8">
+        <TabsTrigger value="dashboard">Overview</TabsTrigger>
+        <TabsTrigger value="training">Training</TabsTrigger>
+        <TabsTrigger value="team">Team</TabsTrigger>
+        <TabsTrigger value="schedule">Schedule</TabsTrigger>
+        <TabsTrigger value="trades">Trades</TabsTrigger>
+        <TabsTrigger value="jobs" className="relative">
+          Jobs
+          {newAppsCount > 0 && (
+            <span className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-warning px-1.5 text-[10px] font-bold text-warning-foreground">
+              {newAppsCount}
+            </span>
+          )}
+        </TabsTrigger>
+        <TabsTrigger value="timeoff">Time Off</TabsTrigger>
+        <TabsTrigger value="settings">Settings</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="dashboard"><OverviewTab /></TabsContent>
+      <TabsContent value="training"><TrainingProgramTab /></TabsContent>
+      <TabsContent value="team"><TeamTab /></TabsContent>
+      <TabsContent value="schedule"><ScheduleTab /></TabsContent>
+      <TabsContent value="trades"><TradesTab /></TabsContent>
+      <TabsContent value="jobs"><JobsTab /></TabsContent>
+      <TabsContent value="timeoff"><TimeOffTab /></TabsContent>
+      <TabsContent value="settings"><SettingsTab onOpenSetup={() => { void 0; }} /></TabsContent>
+    </Tabs>
+  );
+}
+
+function _UnusedTabRender() {
+  return (
+    <Tabs value="x">
+      <TabsList>
+        <TabsTrigger value="dashboard">Overview</TabsTrigger>
+        <TabsTrigger value="training">Training</TabsTrigger>
+        <TabsTrigger value="team">Team</TabsTrigger>
+        <TabsTrigger value="schedule">Schedule</TabsTrigger>
+        <TabsTrigger value="trades">Trades</TabsTrigger>
+        <TabsTrigger value="jobs">Jobs</TabsTrigger>
+        <TabsTrigger value="timeoff">Time Off</TabsTrigger>
+        <TabsTrigger value="settings">Settings</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="dashboard"><OverviewTab /></TabsContent>
+      <TabsContent value="training"><TrainingProgramTab /></TabsContent>
+      <TabsContent value="team"><TeamTab /></TabsContent>
+      <TabsContent value="schedule"><ScheduleTab /></TabsContent>
+      <TabsContent value="trades"><TradesTab /></TabsContent>
+      <TabsContent value="jobs"><JobsTab /></TabsContent>
+      <TabsContent value="timeoff"><TimeOffTab /></TabsContent>
+      <TabsContent value="settings"><SettingsTab onOpenSetup={() => { void 0; }} /></TabsContent>
+    </Tabs>
+  );
     </AppShell>
   );
 }
