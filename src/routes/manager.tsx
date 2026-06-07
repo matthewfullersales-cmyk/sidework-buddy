@@ -123,7 +123,7 @@ function ManagerTabs({ tab, setTab, onOpenSetup }: { tab: string; setTab: (v: st
       <TabsContent value="trades"><TradesTab /></TabsContent>
       <TabsContent value="jobs"><JobsTab /></TabsContent>
       <TabsContent value="timeoff"><TimeOffTab /></TabsContent>
-      <TabsContent value="settings"><SettingsTab onOpenSetup={() => { void 0; }} /></TabsContent>
+      <TabsContent value="settings"><SettingsTab onOpenSetup={onOpenSetup} /></TabsContent>
     </Tabs>
   );
 }
