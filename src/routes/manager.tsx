@@ -217,7 +217,17 @@ function TeamTab() {
                 <Label>Primary role</Label>
                 <Select value={form.role} onValueChange={(v: Role) => setForm({ ...form, role: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectLabel>Front of House</SelectLabel>
+                      {FOH_ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                    </SelectGroup>
+                    <SelectSeparator />
+                    <SelectGroup>
+                      <SelectLabel>Back of House</SelectLabel>
+                      {BOH_ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                    </SelectGroup>
+                  </SelectContent>
                 </Select>
               </div>
             </div>
