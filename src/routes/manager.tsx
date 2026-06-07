@@ -1584,6 +1584,30 @@ function HireReviewDialog({
           <p className="text-sm text-muted-foreground">All info from the application is pre-filled. Review and edit anything if needed, then confirm.</p>
         </DialogHeader>
         <div className="grid gap-4 py-2 max-h-[60vh] overflow-y-auto pr-1">
+          <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-xs">
+            <p className="font-semibold text-primary">From application</p>
+            <p className="mt-1 text-muted-foreground">
+              Applied {new Date(application.appliedAt).toLocaleDateString()}
+              {application.source ? ` · via ${application.source}` : ""}
+              {application.availabilityHours ? ` · ${application.availabilityHours}` : ""}
+            </p>
+            {(application.pitch || application.note) && (
+              <p className="mt-2 italic text-foreground/90">"{application.pitch ?? application.note}"</p>
+            )}
+            <div className="mt-2 grid grid-cols-7 gap-1 text-center">
+              {DAY_KEYS.map((d) => {
+                const on = application.weeklyAvailability
+                  ? application.weeklyAvailability[d]?.kind !== "none"
+                  : application.availabilityDays.includes(d);
+                return (
+                  <div key={d} className={`rounded border px-1 py-0.5 text-[10px] ${on ? "border-primary/30 bg-primary/15 text-primary" : "border-border bg-muted text-muted-foreground"}`}>
+                    <div className="font-semibold">{d}</div>
+                    <div>{on ? "✓" : "—"}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="grid gap-1.5"><Label>First name</Label><Input value={firstName} onChange={(e) => setFirstName(e.target.value)} /></div>
             <div className="grid gap-1.5"><Label>Last name</Label><Input value={lastName} onChange={(e) => setLastName(e.target.value)} /></div>
@@ -1608,7 +1632,7 @@ function HireReviewDialog({
             </Select>
           </div>
           <div className="rounded-lg border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
-            Availability from application will be applied automatically. Emergency contact will be filled in by the employee when they log in.
+            Availability from the application carries over automatically. Emergency contact and profile photo will be added by the employee from the welcome link. Training and menu quiz are assigned automatically based on the selected position.
           </div>
         </div>
         <DialogFooter>
