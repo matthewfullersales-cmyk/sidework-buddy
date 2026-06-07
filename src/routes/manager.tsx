@@ -368,18 +368,39 @@ function EmployeeProfileDialog({ employee, onClose }: { employee: Employee; onCl
 
           <div>
             <Label className="text-xs uppercase tracking-wide text-muted-foreground">Approved roles</Label>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {ROLES.map((r) => {
-                const checked = approvedRoles.includes(r);
-                return (
-                  <label key={r} className={`flex cursor-pointer items-center gap-2 rounded-md border px-2.5 py-1.5 text-sm min-h-11 ${checked ? "border-primary bg-primary-soft" : "border-border"}`}>
-                    <Checkbox checked={checked} onCheckedChange={(v) => {
-                      setApprovedRoles((prev) => v ? [...new Set([...prev, r])] : prev.filter((x) => x !== r));
-                    }} />
-                    {r}
-                  </label>
-                );
-              })}
+            <div className="mt-2 space-y-3">
+              <div>
+                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Front of House</p>
+                <div className="flex flex-wrap gap-2">
+                  {FOH_ROLES.map((r) => {
+                    const checked = approvedRoles.includes(r);
+                    return (
+                      <label key={r} className={`flex cursor-pointer items-center gap-2 rounded-md border px-2.5 py-1.5 text-sm min-h-11 ${checked ? "border-primary bg-primary-soft" : "border-border"}`}>
+                        <Checkbox checked={checked} onCheckedChange={(v) => {
+                          setApprovedRoles((prev) => v ? [...new Set([...prev, r])] : prev.filter((x) => x !== r));
+                        }} />
+                        {r}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+              <div>
+                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Back of House</p>
+                <div className="flex flex-wrap gap-2">
+                  {BOH_ROLES.map((r) => {
+                    const checked = approvedRoles.includes(r);
+                    return (
+                      <label key={r} className={`flex cursor-pointer items-center gap-2 rounded-md border px-2.5 py-1.5 text-sm min-h-11 ${checked ? "border-primary bg-primary-soft" : "border-border"}`}>
+                        <Checkbox checked={checked} onCheckedChange={(v) => {
+                          setApprovedRoles((prev) => v ? [...new Set([...prev, r])] : prev.filter((x) => x !== r));
+                        }} />
+                        {r}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           </div>
 
