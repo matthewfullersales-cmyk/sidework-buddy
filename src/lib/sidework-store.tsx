@@ -225,6 +225,7 @@ export interface TimeOffRequest {
   employeeId: string;
   startDate: string;
   endDate: string;
+  reasonType?: string;
   reason: string;
   status: TimeOffStatus;
   createdAt: string;
