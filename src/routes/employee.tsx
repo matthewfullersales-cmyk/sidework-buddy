@@ -33,6 +33,22 @@ function EmployeePage() {
   if (!me) return <Navigate to="/" />;
   const status = onboardingStatus(me, videos);
 
+  useEffect(() => {
+    if (!me) return;
+    const key = `sw-welcome-${me.id}`;
+    try {
+      if (!localStorage.getItem(key) && status.total > 0 && status.passed === 0) {
+        toast.success("Welcome! Your training program is ready.", {
+          description: "Complete all videos and quizzes before your first shift.",
+          duration: 6000,
+        });
+        localStorage.setItem(key, "1");
+      }
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [me?.id]);
+
+
   return (
     <AppShell nav={nav}>
       <PageHeader
