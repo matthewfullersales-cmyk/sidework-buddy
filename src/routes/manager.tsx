@@ -682,7 +682,7 @@ function JobsTab() {
         emptyText="No new applications."
         renderActions={(a) => (
           <>
-            <Button size="sm" onClick={() => setApproveFor(a.id)}>Approve Video Interview</Button>
+            <Button size="sm" onClick={() => setPickTypeFor(a.id)}>Approve for Interview</Button>
             <Button size="sm" variant="outline" onClick={() => setDeclineConfirmFor({ id: a.id })}>Decline</Button>
           </>
         )}
