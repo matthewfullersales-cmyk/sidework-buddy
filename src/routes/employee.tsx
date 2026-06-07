@@ -1,5 +1,5 @@
 import { createFileRoute, Navigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AppShell, PageHeader } from "@/components/sidework/AppShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { TrainingModule } from "@/components/sidework/TrainingModule";
 import { AvailabilityEditor } from "@/components/sidework/AvailabilityEditor";
-import { onboardingStatus, useStore, videosForRole, type Relationship, type WeeklyAvailability } from "@/lib/sidework-store";
+import { onboardingStatus, useStore, videosForEmployee, type Relationship, type WeeklyAvailability } from "@/lib/sidework-store";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 
@@ -32,6 +32,22 @@ function EmployeePage() {
   const me = employees.find((e) => e.id === currentUser.id);
   if (!me) return <Navigate to="/" />;
   const status = onboardingStatus(me, videos);
+
+  useEffect(() => {
+    if (!me) return;
+    const key = `sw-welcome-${me.id}`;
+    try {
+      if (!localStorage.getItem(key) && status.total > 0 && status.passed === 0) {
+        toast.success("Welcome! Your training program is ready.", {
+          description: "Complete all videos and quizzes before your first shift.",
+          duration: 6000,
+        });
+        localStorage.setItem(key, "1");
+      }
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [me?.id]);
+
 
   return (
     <AppShell nav={nav}>
@@ -186,7 +202,7 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
 function TrainingTab({ employeeId }: { employeeId: string }) {
   const { employees, videos, recordVideoProgress, recordQuizAttempt } = useStore();
   const me = employees.find((e) => e.id === employeeId)!;
-  const assigned = videosForRole(videos, me.primaryRole);
+  const assigned = videosForEmployee(videos, me);
 
   // sequential: previous module must be passed
   const firstUnlockedIndex = useMemo(() => {

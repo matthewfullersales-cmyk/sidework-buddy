@@ -330,160 +330,150 @@ interface Store {
 
 const Ctx = createContext<Store | null>(null);
 
-const ROLE_VIDEOS: Record<TrainingCategory, Omit<TrainingVideo, "id" | "role">[]> = {
+// Quiz question pools — drawn from existing role-specific content. Each module
+// pulls its questions from the pool that matches its training category.
+const QUIZ_POOLS: Record<TrainingCategory, QuizQuestion[]> = {
   Server: [
-    {
-      title: "Welcome to the Floor: Service Standards",
-      durationSec: 15,
-      passingScore: 80,
-      quiz: [
-        { question: "When should you greet a guest after they're seated?", options: ["Within 5 minutes", "Within 2 minutes & offer water", "When you have time", "Only if they wave"], answerIndex: 1 },
-        { question: "How should allergies be handled?", options: ["Ignore them", "Note & alert kitchen immediately", "Tell guest to be careful", "Guess what's safe"], answerIndex: 1 },
-        { question: "A guest is unhappy with their dish. What do you do first?", options: ["Argue politely", "Listen, apologize, then offer a fix", "Comp the meal silently", "Ignore it"], answerIndex: 1 },
-        { question: "How often should you check back after entrées drop?", options: ["Never", "Within 2 bites", "After 15 minutes", "Only when called"], answerIndex: 1 },
-        { question: "Best way to deliver a check?", options: ["Toss on table", "Wait until asked, then promptly", "Drop with appetizers", "Hand directly to host"], answerIndex: 1 },
-        { question: "When clearing plates, you should…", options: ["Stack loudly at table", "Clear quietly from the right when all are done", "Leave them all night", "Ask guests to help"], answerIndex: 1 },
-        { question: "If a guest looks lost in the menu:", options: ["Walk away", "Offer a recommendation or guidance", "Order for them", "Bring the manager"], answerIndex: 1 },
-      ],
-    },
-    {
-      title: "POS System & Order Entry",
-      durationSec: 15,
-      passingScore: 80,
-      quiz: [
-        { question: "Modifiers must be entered…", options: ["After food delivered", "Before sending the ticket", "Only if reminded", "Never"], answerIndex: 1 },
-        { question: "Why send appetizers and entrées on separate courses?", options: ["Faster bill", "Proper kitchen timing", "Tradition", "Saves paper"], answerIndex: 1 },
-        { question: "If POS is down, you should:", options: ["Stop taking orders", "Take handwritten orders & notify manager", "Tell guests to leave", "Guess prices"], answerIndex: 1 },
-        { question: "Splitting a check is best done…", options: ["At the end after arguing", "When asked at start of meal", "Never offered", "Only by manager"], answerIndex: 1 },
-        { question: "Voiding an item requires:", options: ["Nothing", "Manager approval", "A guest signature", "A receipt"], answerIndex: 1 },
-        { question: "Best practice for entering a complex order:", options: ["Memorize all", "Enter immediately at the terminal", "Wait until break", "Tell the kitchen verbally"], answerIndex: 1 },
-      ],
-    },
-    {
-      title: "Menu Knowledge & Upselling",
-      durationSec: 15,
-      passingScore: 80,
-      quiz: [
-        { question: "Best way to upsell wine?", options: ["Push the most expensive", "Pair to the dish they ordered", "Ignore wine list", "Suggest random"], answerIndex: 1 },
-        { question: "If you don't know an ingredient, you should:", options: ["Make it up", "Check with the kitchen", "Skip the question", "Say it's a secret"], answerIndex: 1 },
-        { question: "Which is a soft upsell?", options: ["Demanding dessert", "'Our pastry chef's tart is a guest favorite tonight'", "Charging extra silently", "Repeating the menu"], answerIndex: 1 },
-        { question: "When describing a dish, focus on:", options: ["Calories", "Ingredients, preparation, and flavor", "Pricing", "Allergens only"], answerIndex: 1 },
-        { question: "Suggesting add-ons works best:", options: ["At every step naturally", "Only at end", "Never", "When tipped"], answerIndex: 0 },
-        { question: "If a guest asks 'what's good?' say:", options: ["Everything", "A specific personal pick + why", "I don't eat here", "Check Yelp"], answerIndex: 1 },
-      ],
-    },
+    { question: "When should you greet a guest after they're seated?", options: ["Within 5 minutes", "Within 2 minutes & offer water", "When you have time", "Only if they wave"], answerIndex: 1 },
+    { question: "How should allergies be handled?", options: ["Ignore them", "Note & alert kitchen immediately", "Tell guest to be careful", "Guess what's safe"], answerIndex: 1 },
+    { question: "A guest is unhappy with their dish. What do you do first?", options: ["Argue politely", "Listen, apologize, then offer a fix", "Comp the meal silently", "Ignore it"], answerIndex: 1 },
+    { question: "How often should you check back after entrées drop?", options: ["Never", "Within 2 bites", "After 15 minutes", "Only when called"], answerIndex: 1 },
+    { question: "Best way to deliver a check?", options: ["Toss on table", "Wait until asked, then promptly", "Drop with appetizers", "Hand directly to host"], answerIndex: 1 },
+    { question: "When clearing plates, you should…", options: ["Stack loudly at table", "Clear quietly from the right when all are done", "Leave them all night", "Ask guests to help"], answerIndex: 1 },
+    { question: "Best way to upsell wine?", options: ["Push the most expensive", "Pair to the dish they ordered", "Ignore wine list", "Suggest random"], answerIndex: 1 },
+    { question: "If you don't know an ingredient, you should:", options: ["Make it up", "Check with the kitchen", "Skip the question", "Say it's a secret"], answerIndex: 1 },
+    { question: "When describing a dish, focus on:", options: ["Calories", "Ingredients, preparation, and flavor", "Pricing", "Allergens only"], answerIndex: 1 },
+    { question: "Modifiers must be entered…", options: ["After food delivered", "Before sending the ticket", "Only if reminded", "Never"], answerIndex: 1 },
   ],
   Bartender: [
-    {
-      title: "Responsible Alcohol Service",
-      durationSec: 15,
-      passingScore: 80,
-      quiz: [
-        { question: "When must you ID a guest?", options: ["Never", "After 10pm only", "Anyone appearing under 30", "Weekends only"], answerIndex: 2 },
-        { question: "Visibly intoxicated guest orders another drink. You:", options: ["Serve", "Politely refuse, offer water/food", "Charge double", "Ask coworker to serve"], answerIndex: 1 },
-        { question: "Acceptable forms of ID include:", options: ["Costco card", "Government-issued photo ID", "Library card", "School yearbook"], answerIndex: 1 },
-        { question: "Signs of intoxication include:", options: ["Quietness", "Slurred speech, unsteady balance", "Ordering food", "Asking for the check"], answerIndex: 1 },
-        { question: "If you refuse service, you should:", options: ["Yell at the guest", "Stay calm, notify a manager", "Pour anyway", "Walk off the floor"], answerIndex: 1 },
-        { question: "Pregnant guest orders alcohol. You:", options: ["Refuse and shame", "Serve as requested without comment", "Question them", "Call security"], answerIndex: 1 },
-      ],
-    },
-    {
-      title: "House Cocktail Specs",
-      durationSec: 15,
-      passingScore: 80,
-      quiz: [
-        { question: "Standard single pour is:", options: ["0.5 oz", "1.5 oz", "3 oz", "Whatever feels right"], answerIndex: 1 },
-        { question: "Why use a jigger?", options: ["Tradition", "Consistency and cost control", "Looks cool", "It's faster"], answerIndex: 1 },
-        { question: "Shaken vs stirred — which is shaken?", options: ["Manhattan", "Daiquiri", "Negroni", "Old Fashioned"], answerIndex: 1 },
-        { question: "Fresh citrus should be juiced:", options: ["Weekly", "Daily", "Monthly", "Pre-bottled is fine"], answerIndex: 1 },
-        { question: "Garnish on a Martini is traditionally:", options: ["Cherry", "Olive or twist", "Mint", "Pineapple"], answerIndex: 1 },
-        { question: "Batching cocktails is helpful for:", options: ["Slow nights", "High-volume service consistency", "Just one drink", "Coffee"], answerIndex: 1 },
-      ],
-    },
-    {
-      title: "Wine & Beer Program",
-      durationSec: 15,
-      passingScore: 80,
-      quiz: [
-        { question: "Red wine is typically served at:", options: ["32°F", "55–65°F", "85°F", "Boiling"], answerIndex: 1 },
-        { question: "First-in-first-out (FIFO) applies to:", options: ["Only food", "Beer kegs and wine inventory too", "Nothing", "Just wine"], answerIndex: 1 },
-        { question: "Wine list rotation should occur:", options: ["Never", "Regularly with the chef/sommelier", "Yearly only", "Daily"], answerIndex: 1 },
-        { question: "Best draft beer pour leaves:", options: ["No head", "About 1-inch head", "All foam", "Half foam"], answerIndex: 1 },
-        { question: "If a guest sends back wine because they don't like it (not corked):", options: ["Refuse", "Replace politely; charge if policy", "Drink it", "Argue"], answerIndex: 1 },
-      ],
-    },
-  ],
-  Kitchen: [
-    {
-      title: "Food Safety & Cross-Contamination",
-      durationSec: 15,
-      passingScore: 80,
-      quiz: [
-        { question: "Safe internal temp for chicken (°F):", options: ["120", "145", "165", "200"], answerIndex: 2 },
-        { question: "Cutting board color for raw poultry:", options: ["Green", "Red", "Yellow", "Blue"], answerIndex: 2 },
-        { question: "Hands must be washed:", options: ["Once a shift", "Between tasks and after contamination", "Only after bathroom", "When dirty visibly"], answerIndex: 1 },
-        { question: "Danger zone temperature range (°F):", options: ["0–32", "41–135", "150–200", "200+"], answerIndex: 1 },
-        { question: "Raw meat in the walk-in should be stored:", options: ["On top shelf", "Below ready-to-eat foods", "Anywhere", "Next to dairy"], answerIndex: 1 },
-        { question: "If you cut yourself on the line:", options: ["Keep working", "Stop, clean, bandage, glove, notify chef", "Hide it", "Use tape only"], answerIndex: 1 },
-      ],
-    },
-    {
-      title: "Line Setup & Mise en Place",
-      durationSec: 15,
-      passingScore: 80,
-      quiz: [
-        { question: "Mise en place means:", options: ["Cleaning at close", "Everything in its place before service", "A French sauce", "A knife type"], answerIndex: 1 },
-        { question: "Best time to prep mise:", options: ["During rush", "Before service starts", "After close", "Never"], answerIndex: 1 },
-        { question: "If you 86 an item, you should:", options: ["Keep selling it", "Notify FOH immediately", "Wait an hour", "Tell only one server"], answerIndex: 1 },
-        { question: "Ticket times should be tracked:", options: ["Never", "Every ticket for pacing", "Only on busy nights", "By servers only"], answerIndex: 1 },
-        { question: "Plate temperature matters because:", options: ["Looks pretty", "Maintains food temp & quality", "Saves dish soap", "Tradition"], answerIndex: 1 },
-        { question: "Communication during rush should be:", options: ["Silent", "Clear, loud call-backs", "Whispered", "Texted"], answerIndex: 1 },
-      ],
-    },
-    {
-      title: "Closing & Sanitation",
-      durationSec: 15,
-      passingScore: 80,
-      quiz: [
-        { question: "Walk-in temperature should be at or below:", options: ["50°F", "41°F", "60°F", "32°F"], answerIndex: 1 },
-        { question: "Sanitizer bucket should be changed:", options: ["Weekly", "Every 2–4 hours", "Once a month", "Never"], answerIndex: 1 },
-        { question: "Hot oil disposal:", options: ["Down drain", "Cool, then to designated grease bin", "Trash bag hot", "Leave in fryer indefinitely"], answerIndex: 1 },
-        { question: "Closing checklist exists to:", options: ["Slow you down", "Ensure consistency and safety", "Punish staff", "Track tips"], answerIndex: 1 },
-        { question: "Last person out should:", options: ["Leave doors open", "Verify locks, lights off, alarms set", "Skip the walk-through", "Take the cash"], answerIndex: 1 },
-      ],
-    },
+    { question: "When must you ID a guest?", options: ["Never", "After 10pm only", "Anyone appearing under 30", "Weekends only"], answerIndex: 2 },
+    { question: "Visibly intoxicated guest orders another drink. You:", options: ["Serve", "Politely refuse, offer water/food", "Charge double", "Ask coworker to serve"], answerIndex: 1 },
+    { question: "Signs of intoxication include:", options: ["Quietness", "Slurred speech, unsteady balance", "Ordering food", "Asking for the check"], answerIndex: 1 },
+    { question: "Standard single pour is:", options: ["0.5 oz", "1.5 oz", "3 oz", "Whatever feels right"], answerIndex: 1 },
+    { question: "Why use a jigger?", options: ["Tradition", "Consistency and cost control", "Looks cool", "It's faster"], answerIndex: 1 },
+    { question: "Fresh citrus should be juiced:", options: ["Weekly", "Daily", "Monthly", "Pre-bottled is fine"], answerIndex: 1 },
+    { question: "Red wine is typically served at:", options: ["32°F", "55–65°F", "85°F", "Boiling"], answerIndex: 1 },
+    { question: "Best draft beer pour leaves:", options: ["No head", "About 1-inch head", "All foam", "Half foam"], answerIndex: 1 },
+    { question: "FIFO inventory applies to:", options: ["Only food", "Beer kegs and wine inventory too", "Nothing", "Just wine"], answerIndex: 1 },
   ],
   Host: [
-    {
-      title: "Guest Greeting & Seating Flow",
-      durationSec: 15,
-      passingScore: 80,
-      quiz: [
-        { question: "Greet every guest within:", options: ["30 seconds", "2 minutes", "5 minutes", "When you have time"], answerIndex: 0 },
-        { question: "When the wait is 45+ minutes you should:", options: ["Hide the truth", "Quote accurately & offer alternatives", "Tell them to leave", "Quote 10 min"], answerIndex: 1 },
-        { question: "Rotating sections helps:", options: ["Confuse staff", "Balance server workload & tips", "Slow service", "Annoy guests"], answerIndex: 1 },
-        { question: "When seating a guest with accessibility needs:", options: ["Far booth", "Ask their preference, accommodate", "Closest table only", "Skip them"], answerIndex: 1 },
-        { question: "If you mis-seat into a closed section:", options: ["Leave them", "Apologize, move them, notify server", "Argue", "Ignore"], answerIndex: 1 },
-      ],
-    },
+    { question: "Greet every guest within:", options: ["30 seconds", "2 minutes", "5 minutes", "When you have time"], answerIndex: 0 },
+    { question: "When the wait is 45+ minutes you should:", options: ["Hide the truth", "Quote accurately & offer alternatives", "Tell them to leave", "Quote 10 min"], answerIndex: 1 },
+    { question: "Rotating sections helps:", options: ["Confuse staff", "Balance server workload & tips", "Slow service", "Annoy guests"], answerIndex: 1 },
+    { question: "When seating a guest with accessibility needs:", options: ["Far booth", "Ask their preference, accommodate", "Closest table only", "Skip them"], answerIndex: 1 },
+    { question: "If you mis-seat into a closed section:", options: ["Leave them", "Apologize, move them, notify server", "Argue", "Ignore"], answerIndex: 1 },
+    { question: "A reservation no-shows after 15 minutes — best move:", options: ["Hold forever", "Release the table & note the no-show", "Charge them", "Re-book immediately"], answerIndex: 1 },
+    { question: "Phone reservation best practice:", options: ["Rush the call", "Confirm name, party, time, contact, special needs", "Take only the name", "Refuse phone bookings"], answerIndex: 1 },
+  ],
+  Kitchen: [
+    { question: "Safe internal temp for chicken (°F):", options: ["120", "145", "165", "200"], answerIndex: 2 },
+    { question: "Cutting board color for raw poultry:", options: ["Green", "Red", "Yellow", "Blue"], answerIndex: 2 },
+    { question: "Hands must be washed:", options: ["Once a shift", "Between tasks and after contamination", "Only after bathroom", "When dirty visibly"], answerIndex: 1 },
+    { question: "Danger zone temperature range (°F):", options: ["0–32", "41–135", "150–200", "200+"], answerIndex: 1 },
+    { question: "Raw meat in the walk-in should be stored:", options: ["On top shelf", "Below ready-to-eat foods", "Anywhere", "Next to dairy"], answerIndex: 1 },
+    { question: "Mise en place means:", options: ["Cleaning at close", "Everything in its place before service", "A French sauce", "A knife type"], answerIndex: 1 },
+    { question: "If you 86 an item, you should:", options: ["Keep selling it", "Notify FOH immediately", "Wait an hour", "Tell only one server"], answerIndex: 1 },
+    { question: "Walk-in temperature should be at or below:", options: ["50°F", "41°F", "60°F", "32°F"], answerIndex: 1 },
+    { question: "Sanitizer bucket should be changed:", options: ["Weekly", "Every 2–4 hours", "Once a month", "Never"], answerIndex: 1 },
+    { question: "Hot oil disposal:", options: ["Down drain", "Cool, then to designated grease bin", "Trash bag hot", "Leave in fryer indefinitely"], answerIndex: 1 },
   ],
 };
+
+// Role-specific module assignments. Each module is auto-assigned to every role
+// listed in `roles`. Manager / Assistant Manager get every module plus their own.
+type ModuleDef = {
+  id: string;
+  title: string;
+  category: TrainingCategory;
+  roles: Role[];
+};
+
+const LINE_COOK_ROLES: Role[] = ["Line Cook", "Saute", "Grill", "Fry Cook"];
+const CHEF_ROLES: Role[] = ["Chef", "Sous Chef"];
+
+const MODULE_DEFS: ModuleDef[] = [
+  // Server
+  { id: "server-menu-knowledge", title: "Menu Knowledge & Storytelling", category: "Server", roles: ["Server"] },
+  { id: "server-wine-pairing", title: "Wine & Beverage Pairing", category: "Server", roles: ["Server"] },
+  { id: "server-service-standards", title: "Service Standards", category: "Server", roles: ["Server"] },
+  // Bartender
+  { id: "bar-signature-cocktails", title: "Signature Cocktails", category: "Bartender", roles: ["Bartender"] },
+  { id: "bar-wine-beer-program", title: "Wine & Beer Program", category: "Bartender", roles: ["Bartender"] },
+  { id: "bar-responsible-service", title: "Responsible Service", category: "Bartender", roles: ["Bartender"] },
+  // Host
+  { id: "host-guest-experience", title: "Guest Experience", category: "Host", roles: ["Host"] },
+  { id: "host-reservation-management", title: "Reservation Management", category: "Host", roles: ["Host"] },
+  { id: "host-first-impressions", title: "First Impressions", category: "Host", roles: ["Host"] },
+  // Busser / Server Assistant
+  { id: "support-table-setup", title: "Table Setup Standards", category: "Server", roles: ["Busser", "Server Assistant"] },
+  { id: "support-guest-interaction", title: "Guest Interaction Basics", category: "Server", roles: ["Busser", "Server Assistant"] },
+  { id: "support-service-flow", title: "Service Flow", category: "Server", roles: ["Busser", "Server Assistant"] },
+  // Bar Back
+  { id: "barback-setup-maintenance", title: "Bar Setup & Maintenance", category: "Bartender", roles: ["Bar Back"] },
+  { id: "barback-inventory", title: "Inventory Basics", category: "Bartender", roles: ["Bar Back"] },
+  { id: "barback-support-standards", title: "Bar Support Standards", category: "Bartender", roles: ["Bar Back"] },
+  // Chef / Sous Chef
+  { id: "chef-leadership", title: "Kitchen Leadership", category: "Kitchen", roles: CHEF_ROLES },
+  { id: "chef-food-safety-compliance", title: "Food Safety & Compliance", category: "Kitchen", roles: CHEF_ROLES },
+  { id: "chef-menu-development", title: "Menu Development", category: "Kitchen", roles: CHEF_ROLES },
+  // Line Cook / Saute / Grill / Fry
+  { id: "line-setup-menu", title: "Line Setup & Menu Items", category: "Kitchen", roles: LINE_COOK_ROLES },
+  { id: "line-allergens", title: "Allergens & Cross-Contamination", category: "Kitchen", roles: LINE_COOK_ROLES },
+  { id: "line-food-safety", title: "Food Safety", category: "Kitchen", roles: LINE_COOK_ROLES },
+  // Garde Manger
+  { id: "garde-cold-station", title: "Cold Station Setup", category: "Kitchen", roles: ["Garde Manger"] },
+  { id: "garde-plating", title: "Plating Standards", category: "Kitchen", roles: ["Garde Manger"] },
+  { id: "garde-food-safety", title: "Food Safety", category: "Kitchen", roles: ["Garde Manger"] },
+  // Pizza
+  { id: "pizza-production", title: "Pizza Production", category: "Kitchen", roles: ["Pizza"] },
+  { id: "pizza-dough-ingredients", title: "Dough & Ingredient Standards", category: "Kitchen", roles: ["Pizza"] },
+  { id: "pizza-food-safety", title: "Food Safety", category: "Kitchen", roles: ["Pizza"] },
+  // Dishwasher
+  { id: "dish-sanitation", title: "Sanitation Standards", category: "Kitchen", roles: ["Dishwasher"] },
+  { id: "dish-equipment-care", title: "Equipment Care", category: "Kitchen", roles: ["Dishwasher"] },
+  { id: "dish-kitchen-safety", title: "Kitchen Safety", category: "Kitchen", roles: ["Dishwasher"] },
+  // Prep
+  { id: "prep-standards", title: "Prep Standards", category: "Kitchen", roles: ["Prep"] },
+  { id: "prep-food-safety-basics", title: "Food Safety Basics", category: "Kitchen", roles: ["Prep"] },
+  { id: "prep-knife-skills", title: "Knife Skills", category: "Kitchen", roles: ["Prep"] },
+  // Manager / Assistant Manager (their own three; they also receive all others)
+  { id: "mgr-leadership", title: "Leadership & Team Management", category: "Server", roles: ["Manager", "Assistant Manager"] },
+  { id: "mgr-scheduling-ops", title: "Scheduling & Operations", category: "Server", roles: ["Manager", "Assistant Manager"] },
+  { id: "mgr-guest-recovery", title: "Guest Recovery", category: "Server", roles: ["Manager", "Assistant Manager"] },
+];
 
 export function trainingCategoryForRole(role: Role): TrainingCategory {
   if (role === "Host") return "Host";
   if (role === "Bartender" || role === "Bar Back") return "Bartender";
-  if (["Chef", "Sous Chef", "Line Cook", "Fry Cook", "Saute", "Grill", "Pizza", "Dishwasher", "Prep"].includes(role)) return "Kitchen";
+  if (["Chef", "Sous Chef", "Line Cook", "Fry Cook", "Saute", "Grill", "Pizza", "Garde Manger", "Dishwasher", "Prep"].includes(role)) return "Kitchen";
   return "Server";
 }
 
 function seedVideos(): TrainingVideo[] {
-  const out: TrainingVideo[] = [];
-  (Object.keys(ROLE_VIDEOS) as TrainingCategory[]).forEach((cat) => {
-    ROLE_VIDEOS[cat].forEach((v, i) => {
-      out.push({ ...v, id: `${cat}-${i}`, role: cat });
-    });
-  });
-  return out;
+  return MODULE_DEFS.map((m) => ({
+    id: m.id,
+    title: m.title,
+    durationSec: 15,
+    role: m.category,
+    passingScore: 80,
+    quiz: pickRandomQuestions(QUIZ_POOLS[m.category], Math.min(6, QUIZ_POOLS[m.category].length)),
+  }));
+}
+
+const MANAGER_ROLES: Role[] = ["Manager", "Assistant Manager"];
+
+/** All module ids assigned to a single role. Manager/Asst Manager receive every module. */
+export function moduleIdsForRole(role: Role): string[] {
+  if (MANAGER_ROLES.includes(role)) return MODULE_DEFS.map((m) => m.id);
+  return MODULE_DEFS.filter((m) => m.roles.includes(role)).map((m) => m.id);
+}
+
+/** Union of module ids across an employee's approved roles (or primary role as fallback). */
+export function moduleIdsForEmployee(emp: { primaryRole: Role; approvedRoles?: Role[] }): string[] {
+  const roles = emp.approvedRoles && emp.approvedRoles.length > 0 ? emp.approvedRoles : [emp.primaryRole];
+  const ids = new Set<string>();
+  roles.forEach((r) => moduleIdsForRole(r).forEach((id) => ids.add(id)));
+  return Array.from(ids);
 }
 
 function seedEmployees(): Employee[] {
@@ -692,18 +682,32 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
       setState((s) => ({ ...s, restaurantHours: { ...s.restaurantHours, [day]: { ...s.restaurantHours[day], ...patch } } })),
     setCurrentUser: (u) => setState((s) => ({ ...s, currentUser: u })),
     inviteEmployee: ({ name, email, role }) =>
-      setState((s) => ({
-        ...s,
-        employees: [
-          ...s.employees,
-          {
-            id: uid("e"), name, email, primaryRole: role,
-            approvedRoles: [role], autoApproveRoles: [], availability: "",
-            invitedAt: new Date().toISOString().slice(0, 10),
-            onboardingStarted: false, personalInfoComplete: false, progress: [],
-          },
-        ],
-      })),
+      setState((s) => {
+        const newId = uid("e");
+        return {
+          ...s,
+          employees: [
+            ...s.employees,
+            {
+              id: newId, name, email, primaryRole: role,
+              approvedRoles: [role], autoApproveRoles: [], availability: "",
+              invitedAt: new Date().toISOString().slice(0, 10),
+              onboardingStarted: false, personalInfoComplete: false, progress: [],
+            },
+          ],
+          notifications: [
+            {
+              id: uid("n"),
+              type: "training_passed",
+              message: `Training automatically assigned to ${name} based on their ${role} position.`,
+              employeeId: newId,
+              createdAt: new Date().toISOString(),
+              read: false,
+            },
+            ...s.notifications,
+          ],
+        };
+      }),
     joinStaff: (data) => {
       const empId = uid("e");
       const fullName = `${data.firstName} ${data.lastName}`.trim();
@@ -751,7 +755,31 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
         restaurantProfile: s.restaurantProfile ? { ...s.restaurantProfile, slug } : s.restaurantProfile,
       })),
     updateEmployee: (id, patch) =>
-      setState((s) => ({ ...s, employees: s.employees.map((e) => (e.id === id ? { ...e, ...patch } : e)) })),
+      setState((s) => {
+        const before = s.employees.find((e) => e.id === id);
+        const employees = s.employees.map((e) => (e.id === id ? { ...e, ...patch } : e));
+        const after = employees.find((e) => e.id === id);
+        let notifications = s.notifications;
+        if (before && after) {
+          const beforeIds = new Set(moduleIdsForEmployee(before));
+          const afterIds = moduleIdsForEmployee(after);
+          const added = afterIds.filter((mid) => !beforeIds.has(mid));
+          if (added.length > 0) {
+            notifications = [
+              {
+                id: uid("n"),
+                type: "training_passed",
+                message: `Training updated for ${after.name}: ${added.length} new module${added.length === 1 ? "" : "s"} assigned for ${after.primaryRole} role.`,
+                employeeId: after.id,
+                createdAt: new Date().toISOString(),
+                read: false,
+              },
+              ...notifications,
+            ];
+          }
+        }
+        return { ...s, employees, notifications };
+      }),
     recordVideoProgress: (employeeId, videoId, patch) =>
       setState((s) => ({
         ...s,
@@ -951,7 +979,15 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
             {
               id: uid("n"),
               type: "training_passed",
-              message: `Welcome to ${restaurantName}! ${employee.name} has been added to Sidework. Welcome link sent so they can complete their profile and start training. Training assigned for ${role}.`,
+              message: `Training automatically assigned to ${employee.name} based on their ${role} position.`,
+              employeeId: empId,
+              createdAt: new Date().toISOString(),
+              read: false,
+            },
+            {
+              id: uid("n"),
+              type: "training_passed",
+              message: `Welcome to ${restaurantName}! ${employee.name} has been added to Sidework. Welcome link sent so they can complete their profile and start training.`,
               employeeId: empId,
               createdAt: new Date().toISOString(),
               read: false,
@@ -1062,8 +1098,14 @@ export function useStore() {
 }
 
 export function videosForRole(videos: TrainingVideo[], role: Role) {
-  const cat = trainingCategoryForRole(role);
-  return videos.filter((v) => v.role === cat);
+  const ids = new Set(moduleIdsForRole(role));
+  return videos.filter((v) => ids.has(v.id));
+}
+
+/** Videos assigned across all of an employee's approved roles. */
+export function videosForEmployee(videos: TrainingVideo[], employee: { primaryRole: Role; approvedRoles?: Role[] }) {
+  const ids = new Set(moduleIdsForEmployee(employee));
+  return videos.filter((v) => ids.has(v.id));
 }
 
 export function aiScoreFor(a: Partial<JobApplication>): AiScore {
@@ -1088,7 +1130,7 @@ export function aiScoreFor(a: Partial<JobApplication>): AiScore {
 }
 
 export function onboardingStatus(employee: Employee, videos: TrainingVideo[]) {
-  const assigned = videosForRole(videos, employee.primaryRole);
+  const assigned = videosForEmployee(videos, employee);
   const passed = assigned.filter((v) => employee.progress.find((p) => p.videoId === v.id)?.passed).length;
   const total = assigned.length;
   const fullyOnboarded = employee.personalInfoComplete && total > 0 && passed === total;
