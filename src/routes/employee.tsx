@@ -358,14 +358,22 @@ function ChecklistItem({ done, label }: { done: boolean; label: string }) {
 function TimeOffTab({ employeeId }: { employeeId: string }) {
   const { timeOff, requestTimeOff } = useStore();
   const mine = timeOff.filter((t) => t.employeeId === employeeId);
-  const [form, setForm] = useState({ startDate: "", endDate: "", reason: "" });
+  const [form, setForm] = useState({ startDate: "", endDate: "", reasonType: "", reason: "" });
+
+  const daysRequested = useMemo(() => {
+    if (!form.startDate || !form.endDate) return 0;
+    const s = new Date(form.startDate + "T00:00:00");
+    const e = new Date(form.endDate + "T00:00:00");
+    const diff = Math.round((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24));
+    return Math.max(1, diff + 1);
+  }, [form.startDate, form.endDate]);
 
   const submit = () => {
-    if (!form.startDate || !form.endDate || !form.reason) return toast.error("Please fill in all fields.");
-    if (form.endDate < form.startDate) return toast.error("End date must be on or after start date.");
+    if (!form.startDate || !form.endDate || !form.reasonType) return toast.error("Please fill in all fields.");
+    if (form.endDate < form.startDate) return toast.error("Last day off must be on or after first day off.");
     requestTimeOff({ employeeId, ...form });
     toast.success("Time off request submitted");
-    setForm({ startDate: "", endDate: "", reason: "" });
+    setForm({ startDate: "", endDate: "", reasonType: "", reason: "" });
   };
 
   return (
@@ -374,10 +382,37 @@ function TimeOffTab({ employeeId }: { employeeId: string }) {
         <CardHeader><CardTitle className="text-base">Request time off</CardTitle></CardHeader>
         <CardContent className="grid gap-4">
           <div className="grid gap-3 sm:grid-cols-2">
-            <div className="grid gap-2"><Label>Start date</Label><Input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} /></div>
-            <div className="grid gap-2"><Label>End date</Label><Input type="date" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} /></div>
+            <div className="grid gap-2">
+              <Label>First day off</Label>
+              <Input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} />
+            </div>
+            <div className="grid gap-2">
+              <Label>Last day off</Label>
+              <Input type="date" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} />
+            </div>
           </div>
-          <div className="grid gap-2"><Label>Reason</Label><Textarea rows={3} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} placeholder="e.g. Family event, medical, vacation" /></div>
+          <p className="text-xs text-muted-foreground -mt-2">Both dates are inclusive — if you want one day off select the same date for both.</p>
+
+          {daysRequested > 0 && (
+            <p className="text-sm font-medium text-foreground">You are requesting {daysRequested} day{daysRequested === 1 ? "" : "s"} off</p>
+          )}
+
+          <div className="grid gap-2">
+            <Label>Reason type</Label>
+            <Select value={form.reasonType} onValueChange={(v) => setForm({ ...form, reasonType: v })}>
+              <SelectTrigger><SelectValue placeholder="Select a reason type" /></SelectTrigger>
+              <SelectContent>
+                {["Vacation", "Medical appointment", "Family emergency", "Personal", "Other"].map((r) => (
+                  <SelectItem key={r} value={r}>{r}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid gap-2">
+            <Label>Details</Label>
+            <Textarea rows={3} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} placeholder="Why do you need time off? (vacation, appointment, family, etc.)" />
+          </div>
           <div className="flex justify-end"><Button onClick={submit}>Submit request</Button></div>
         </CardContent>
       </Card>
@@ -390,7 +425,7 @@ function TimeOffTab({ employeeId }: { employeeId: string }) {
             <div key={t.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-background p-3">
               <div className="text-sm">
                 <p className="font-semibold">{t.startDate} → {t.endDate}</p>
-                <p className="text-xs text-muted-foreground">{t.reason}</p>
+                <p className="text-xs text-muted-foreground">{t.reasonType ? `${t.reasonType}: ` : ""}{t.reason}</p>
               </div>
               <Badge className={
                 t.status === "approved" ? "bg-success text-success-foreground hover:bg-success" :
