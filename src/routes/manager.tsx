@@ -61,6 +61,60 @@ export const Route = createFileRoute("/manager")({
   component: ManagerPage,
 });
 
+function ActionTooltip({ text, children }: { text: string; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleTouchStart = () => {
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    timerRef.current = setTimeout(() => setOpen(true), 500);
+  };
+
+  const handleTouchEnd = () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    hideTimerRef.current = setTimeout(() => setOpen(false), 1500);
+  };
+
+  const handleTouchMove = () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    setOpen(false);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    };
+  }, []);
+
+  return (
+    <div className="relative inline-block" onContextMenu={(e) => e.preventDefault()}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+            onTouchMove={handleTouchMove}
+            onContextMenu={(e) => e.preventDefault()}
+          >
+            {children}
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-[220px] bg-slate-900 text-white border-slate-800 text-xs text-center">
+          {text}
+        </TooltipContent>
+      </Tooltip>
+      {open && (
+        <div className="pointer-events-none absolute bottom-[calc(100%+8px)] left-1/2 z-50 -translate-x-1/2 rounded-md bg-slate-900 px-3 py-2 text-xs text-white shadow-lg animate-in fade-in-0 zoom-in-95 max-w-[220px] whitespace-normal text-center leading-relaxed">
+          {text}
+          <span className="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-slate-900" />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ManagerPage() {
   const { setupCompleted, restaurantProfile, resetSetup } = useStore();
   const [tab, setTab] = useState("dashboard");
@@ -758,6 +812,7 @@ function JobsTab() {
   const [callFor, setCallFor] = useState<string | null>(null);
   const [shadowFor, setShadowFor] = useState<string | null>(null);
   const [declineConfirmFor, setDeclineConfirmFor] = useState<{ id: string; postInterview?: boolean } | null>(null);
+  const [deleteJobId, setDeleteJobId] = useState<string | null>(null);
 
   const submit = () => {
     if (!form.title || !form.payRange || !form.description) return toast.error("Fill in title, pay range, and description.");
@@ -863,8 +918,12 @@ function JobsTab() {
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <Button size="sm" onClick={() => copyApplicationLink(j.id)}>Copy Application Link</Button>
-                    <Button size="sm" variant="outline" onClick={() => toggleJobOpen(j.id)}>{j.open ? "Close" : "Reopen"}</Button>
-                    <Button size="sm" variant="ghost" onClick={() => { removeJob(j.id); toast.message("Job removed"); }}>Delete</Button>
+                    <ActionTooltip text="Temporarily pauses this job posting. No new applications will be accepted. You can reopen this anytime.">
+                      <Button size="sm" variant="outline" onClick={() => toggleJobOpen(j.id)}>{j.open ? "Close" : "Reopen"}</Button>
+                    </ActionTooltip>
+                    <ActionTooltip text="Permanently removes this job posting and all associated applications. This cannot be undone.">
+                      <Button size="sm" variant="ghost" onClick={() => setDeleteJobId(j.id)}>Delete</Button>
+                    </ActionTooltip>
                   </div>
                 </div>
                 <p className="mt-3 text-xs text-muted-foreground">Share this link on Indeed, Instagram, or anywhere you recruit.</p>
@@ -1072,6 +1131,24 @@ function JobsTab() {
             setHireFor(null);
           }}
         />
+      )}
+      {deleteJobId && (
+        <Dialog open onOpenChange={(o) => { if (!o) setDeleteJobId(null); }}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader><DialogTitle>Delete job posting?</DialogTitle></DialogHeader>
+            <p className="py-2 text-sm text-muted-foreground">
+              Are you sure? This will permanently delete this job posting and all applications. This cannot be undone.
+            </p>
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setDeleteJobId(null)}>Cancel</Button>
+              <Button variant="destructive" onClick={() => {
+                removeJob(deleteJobId);
+                toast.message("Job removed");
+                setDeleteJobId(null);
+              }}>Delete</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );
