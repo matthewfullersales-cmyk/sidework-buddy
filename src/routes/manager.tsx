@@ -812,6 +812,7 @@ function JobsTab() {
   const [callFor, setCallFor] = useState<string | null>(null);
   const [shadowFor, setShadowFor] = useState<string | null>(null);
   const [declineConfirmFor, setDeclineConfirmFor] = useState<{ id: string; postInterview?: boolean } | null>(null);
+  const [deleteJobId, setDeleteJobId] = useState<string | null>(null);
 
   const submit = () => {
     if (!form.title || !form.payRange || !form.description) return toast.error("Fill in title, pay range, and description.");
