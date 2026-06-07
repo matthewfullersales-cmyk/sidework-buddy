@@ -1,6 +1,10 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
 
-export type Role = "Server" | "Bartender" | "Kitchen" | "Host";
+export type Role =
+  | "Host" | "Busser" | "Bar Back" | "Bartender" | "Server" | "Server Assistant" | "Manager" | "Assistant Manager" | "Porter"
+  | "Chef" | "Sous Chef" | "Line Cook" | "Fry Cook" | "Saute" | "Grill" | "Pizza" | "Dishwasher" | "Prep";
+
+export type TrainingCategory = "Server" | "Bartender" | "Host" | "Kitchen";
 
 export interface QuizQuestion {
   question: string;
