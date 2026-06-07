@@ -64,7 +64,15 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
   const [phone, setPhone] = useState(me.phone ?? "");
   const [weekly, setWeekly] = useState<WeeklyAvailability | undefined>(me.weeklyAvailability);
   const [ec, setEc] = useState(me.emergencyContact ?? { name: "", phone: "", relationship: "Other" as Relationship });
+  const [photoUrl, setPhotoUrl] = useState(me.photoUrl ?? "");
   const s = onboardingStatus(me, videos);
+
+  const onPhotoFile = (file: File | null) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setPhotoUrl(String(reader.result ?? ""));
+    reader.readAsDataURL(file);
+  };
 
   const save = () => {
     if (!firstName.trim() || !email.trim() || !phone.trim()) return toast.error("Please fill name, email, and phone.");
@@ -77,6 +85,7 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
       phone: phone.trim(),
       weeklyAvailability: weekly,
       emergencyContact: ec,
+      photoUrl: photoUrl || undefined,
       personalInfoComplete: true,
       onboardingStarted: true,
     });
