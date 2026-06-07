@@ -18,7 +18,7 @@ type RestaurantType =
   | "Other";
 
 const FOH_ROLES = [
-  "Host", "Busser", "Bar Back", "Bartender", "Server",
+  "Host", "Busser", "Server Assistant", "Bar Back", "Bartender", "Server",
   "Manager", "Assistant Manager",
 ] as const;
 
