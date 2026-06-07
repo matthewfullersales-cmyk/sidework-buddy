@@ -686,7 +686,7 @@ function JobsTab() {
         )}
         renderActions={(a) => (
           <>
-            <Button size="sm" onClick={() => setHireFor(a.id)}>Hire</Button>
+            <Button size="sm" onClick={() => setConfirmHireFor(a.id)}>Hire</Button>
             <Button size="sm" variant="outline" onClick={() => {
               declineApplication(a.id);
               toast.message(`Polite decline sent to ${a.firstName ?? a.name}`);
