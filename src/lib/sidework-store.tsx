@@ -16,7 +16,7 @@ export interface TrainingVideo {
   id: string;
   title: string;
   durationSec: number;
-  role: Role;
+  role: TrainingCategory;
   quiz: QuizQuestion[];
   passingScore: number;
 }
@@ -251,7 +251,7 @@ interface Store {
 
 const Ctx = createContext<Store | null>(null);
 
-const ROLE_VIDEOS: Record<Role, Omit<TrainingVideo, "id" | "role">[]> = {
+const ROLE_VIDEOS: Record<TrainingCategory, Omit<TrainingVideo, "id" | "role">[]> = {
   Server: [
     {
       title: "Welcome to the Floor: Service Standards",
@@ -390,11 +390,18 @@ const ROLE_VIDEOS: Record<Role, Omit<TrainingVideo, "id" | "role">[]> = {
   ],
 };
 
+export function trainingCategoryForRole(role: Role): TrainingCategory {
+  if (role === "Host") return "Host";
+  if (role === "Bartender" || role === "Bar Back") return "Bartender";
+  if (["Chef", "Sous Chef", "Line Cook", "Fry Cook", "Saute", "Grill", "Pizza", "Dishwasher", "Prep"].includes(role)) return "Kitchen";
+  return "Server";
+}
+
 function seedVideos(): TrainingVideo[] {
   const out: TrainingVideo[] = [];
-  (Object.keys(ROLE_VIDEOS) as Role[]).forEach((role) => {
-    ROLE_VIDEOS[role].forEach((v, i) => {
-      out.push({ ...v, id: `${role}-${i}`, role });
+  (Object.keys(ROLE_VIDEOS) as TrainingCategory[]).forEach((cat) => {
+    ROLE_VIDEOS[cat].forEach((v, i) => {
+      out.push({ ...v, id: `${cat}-${i}`, role: cat });
     });
   });
   return out;
@@ -761,7 +768,8 @@ export function useStore() {
 }
 
 export function videosForRole(videos: TrainingVideo[], role: Role) {
-  return videos.filter((v) => v.role === role);
+  const cat = trainingCategoryForRole(role);
+  return videos.filter((v) => v.role === cat);
 }
 
 export function onboardingStatus(employee: Employee, videos: TrainingVideo[]) {
