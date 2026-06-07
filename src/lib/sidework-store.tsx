@@ -189,6 +189,7 @@ export interface JobApplication {
   aiScore?: AiScore;
   interviewSentAt?: string;
   interviewNotes?: string;
+  interviewType?: InterviewType;
   offeredSlots?: string[];
   selectedSlot?: string;
   shadowShift?: ShadowShiftDetails;
