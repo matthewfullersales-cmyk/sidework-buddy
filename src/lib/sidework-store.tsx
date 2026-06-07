@@ -240,6 +240,7 @@ export interface RestaurantProfile {
   nonNegotiables: string;
   pastProblems: string;
   completedAt: string;
+  slug?: string;
 }
 
 export interface Notification {
