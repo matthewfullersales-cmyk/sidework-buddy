@@ -475,9 +475,9 @@ function TeamTab() {
                       <p className="text-sm text-muted-foreground break-all">{e.email}</p>
                       {e.phone && <p className="text-sm text-muted-foreground">{e.phone}</p>}
                       <div className="mt-2 flex flex-wrap gap-1.5">
-                        <Badge className="bg-primary text-primary-foreground hover:bg-primary">{e.primaryRole}</Badge>
+                        <Badge style={roleStyle(e.primaryRole)} className="border-transparent">{e.primaryRole}</Badge>
                         {e.approvedRoles.filter((r) => r !== e.primaryRole).map((r) => (
-                          <Badge key={r} variant="secondary">{r}</Badge>
+                          <Badge key={r} style={roleStyle(r)} className="border-transparent opacity-90">{r}</Badge>
                         ))}
                       </div>
                     </div>
