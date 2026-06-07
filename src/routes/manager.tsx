@@ -1791,6 +1791,7 @@ function SettingsTab({ onOpenSetup }: { onOpenSetup: () => void }) {
           <RestaurantHoursEditor value={restaurantHours} onChange={updateRestaurantDay} />
         </CardContent>
       </Card>
+      {setupCompleted && <StaffOnboardingCard />}
     </div>
   );
 }
