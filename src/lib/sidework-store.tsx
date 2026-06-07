@@ -144,20 +144,34 @@ export interface JobPosting {
 }
 
 export type ApplicationStatus = "new" | "reviewing" | "interview" | "hired" | "rejected";
+export type ApplicationSource = "Walk-in" | "Instagram" | "Indeed" | "Friend" | "Google" | "Other";
+export type AiScore = "Strong" | "Average" | "Weak";
 
 export type AvailabilityHours = "Mornings" | "Afternoons" | "Evenings" | "Open availability";
 
 export interface JobApplication {
   id: string;
-  jobId: string;
+  jobId?: string;
   name: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
   phone: string;
+  role?: Role;
+  pitch?: string;
+  source?: ApplicationSource;
+  weeklyAvailability?: WeeklyAvailability;
   availabilityDays: string[];
   availabilityHours: AvailabilityHours;
   note?: string;
   appliedAt: string;
   status: ApplicationStatus;
   verified: boolean;
+  aiScore?: AiScore;
+  interviewSentAt?: string;
+  interviewNotes?: string;
+  archived?: boolean;
+  hiredEmployeeId?: string;
 }
 
 export type TimeOffStatus = "pending" | "approved" | "denied";
