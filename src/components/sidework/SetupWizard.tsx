@@ -1,183 +1,619 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Logo } from "@/components/sidework/Logo";
-import { useStore, type MenuUpload, type Priority, type ServiceStyle } from "@/lib/sidework-store";
+import { useStore, type MenuUpload, type ServiceStyle } from "@/lib/sidework-store";
 import { toast } from "sonner";
 
-const SERVICE_STYLES: ServiceStyle[] = ["Casual Dining", "Upscale Casual", "Fine Dining", "Bar and Nightlife", "Fast Casual"];
-const PRIORITIES: Priority[] = ["Speed of service", "Warm hospitality", "Product knowledge", "Upselling", "All equally important"];
+/* ----------------------------- Types ----------------------------- */
 
-type Form = {
+type RestaurantType =
+  | "Fine Dining"
+  | "Casual Dining"
+  | "Fast Casual"
+  | "Bar/Nightlife"
+  | "Cafe"
+  | "Food Truck"
+  | "Other";
+
+const FOH_ROLES = [
+  "Host", "Busser", "Bar Back", "Bartender", "Server",
+  "Server Assistant", "Manager", "Assistant Manager", "Porter",
+] as const;
+
+const BOH_ROLES = [
+  "Chef", "Sous Chef", "Line Cook", "Fry Cook", "Saute",
+  "Grill", "Pizza", "Dishwasher", "Prep",
+] as const;
+
+const PAIN_POINTS = [
+  "Staff training", "Menu knowledge", "Scheduling", "Paperwork",
+  "Sidework", "Turnover", "Sick calls", "Shift trading",
+] as const;
+
+const RESTAURANT_TYPES: RestaurantType[] = [
+  "Fine Dining", "Casual Dining", "Fast Casual", "Bar/Nightlife", "Cafe", "Food Truck", "Other",
+];
+
+type Answers = {
+  // basics
   name: string;
-  concept: string;
-  serviceStyle: ServiceStyle | "";
-  priority: Priority | "";
-  guestExperience: string;
-  nonNegotiables: string;
-  pastProblems: string;
+  cityState: string;
+  type: RestaurantType | "";
+  // operations
+  seats: string;
+  daysOpen: string;
+  hours: string;
+  busiestNight: string;
+  avgCovers: string;
+  // team
+  fohRoles: string[];
+  bohRoles: string[];
+  minStaff: string;
+  scheduler: string;
+  // pain
+  painPoints: string[];
+  // training
+  currentTraining: string;
+  trainingHeadache: string;
+  menuChanges: string;
+  // scheduling
+  schedAdvance: string;
+  tradeRules: string;
+  sickProcess: string;
+  schedRules: string;
+  // hiring
+  hiring: string;
+  positions: string;
+  hiringProcess: string;
+  hiringMatters: string;
 };
+
+type ChatMsg =
+  | { from: "bot"; text: string }
+  | { from: "user"; text: string };
+
+const SERVICE_MAP: Record<RestaurantType, ServiceStyle> = {
+  "Fine Dining": "Fine Dining",
+  "Casual Dining": "Casual Dining",
+  "Fast Casual": "Fast Casual",
+  "Bar/Nightlife": "Bar and Nightlife",
+  Cafe: "Casual Dining",
+  "Food Truck": "Fast Casual",
+  Other: "Casual Dining",
+};
+
+const TOTAL_STEPS = 10;
+
+const EMPTY: Answers = {
+  name: "", cityState: "", type: "",
+  seats: "", daysOpen: "", hours: "", busiestNight: "", avgCovers: "",
+  fohRoles: [], bohRoles: [], minStaff: "", scheduler: "",
+  painPoints: [],
+  currentTraining: "", trainingHeadache: "", menuChanges: "",
+  schedAdvance: "", tradeRules: "", sickProcess: "", schedRules: "",
+  hiring: "", positions: "", hiringProcess: "", hiringMatters: "",
+};
+
+/* ---------------------------- Component --------------------------- */
 
 export function SetupWizard({ onComplete }: { onComplete: () => void }) {
   const { completeSetup } = useStore();
-  const [step, setStep] = useState(0);
-  const [form, setForm] = useState<Form>({
-    name: "", concept: "", serviceStyle: "", priority: "",
-    guestExperience: "", nonNegotiables: "", pastProblems: "",
-  });
+  const [step, setStep] = useState(1);
+  const [answers, setAnswers] = useState<Answers>(EMPTY);
   const [foodMenu, setFoodMenu] = useState<MenuUpload | null>(null);
   const [drinkMenu, setDrinkMenu] = useState<MenuUpload | null>(null);
-  const [generating, setGenerating] = useState(false);
+  const [messages, setMessages] = useState<ChatMsg[]>([
+    {
+      from: "bot",
+      text:
+        "Welcome to Sidework! I'm your restaurant intelligence assistant. I'm going to ask you a few questions so I can customize everything specifically for your restaurant. This takes about 5 minutes. Ready?",
+    },
+  ]);
+  const [finishing, setFinishing] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-  const TOTAL_STEPS = 7;
-  const progress = Math.round(((step + 1) / TOTAL_STEPS) * 100);
+  const progress = Math.round((step / TOTAL_STEPS) * 100);
 
-  const canNext = (): boolean => {
-    switch (step) {
-      case 0: return form.name.trim().length > 0 && form.concept.trim().length > 0;
-      case 1: return form.serviceStyle !== "";
-      case 2: return form.priority !== "";
-      case 3: return form.guestExperience.trim().length >= 10;
-      case 4: return form.nonNegotiables.trim().length >= 5;
-      case 5: return form.pastProblems.trim().length >= 5;
-      case 6: return !!foodMenu && !!drinkMenu;
-      default: return false;
-    }
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+  }, [messages, step]);
+
+  const pushUser = (text: string) => setMessages((m) => [...m, { from: "user", text }]);
+  const pushBot = (text: string) =>
+    setMessages((m) => [...m, { from: "bot", text }]);
+
+  const advance = (userSummary: string, nextBotPrompt: string) => {
+    pushUser(userSummary);
+    setTimeout(() => {
+      pushBot(nextBotPrompt);
+      setStep((s) => s + 1);
+    }, 250);
   };
 
-  const next = () => {
-    if (!canNext()) return toast.error("Please complete this step before continuing.");
-    if (step === TOTAL_STEPS - 1) {
-      setGenerating(true);
-      window.setTimeout(() => {
-        completeSetup({
-          name: form.name.trim(),
-          concept: form.concept.trim(),
-          serviceStyle: form.serviceStyle as ServiceStyle,
-          priority: form.priority as Priority,
-          guestExperience: form.guestExperience.trim(),
-          nonNegotiables: form.nonNegotiables.trim(),
-          pastProblems: form.pastProblems.trim(),
-        }, foodMenu, drinkMenu);
-        onComplete();
-      }, 3500);
-      return;
-    }
-    setStep((s) => s + 1);
-  };
-  const back = () => setStep((s) => Math.max(0, s - 1));
+  const finish = () => {
+    setFinishing(true);
+    const profileType = (answers.type || "Other") as RestaurantType;
+    const serviceStyle = SERVICE_MAP[profileType];
+    const concept = `${profileType} · ${answers.cityState || "Location TBD"}`;
+    const guestExperience = [
+      `${answers.seats || "?"} seats, open ${answers.daysOpen || "—"}, ${answers.hours || "—"}.`,
+      `Busiest night ${answers.busiestNight || "—"} (~${answers.avgCovers || "—"} covers).`,
+      `FOH: ${answers.fohRoles.join(", ") || "—"}.`,
+      `BOH: ${answers.bohRoles.join(", ") || "—"}.`,
+      `Min staff/shift: ${answers.minStaff || "—"}. Scheduler: ${answers.scheduler || "—"}.`,
+    ].join(" ");
+    const nonNegotiables = [
+      `Schedules posted ${answers.schedAdvance || "—"} in advance.`,
+      `Trade rules: ${answers.tradeRules || "—"}.`,
+      `Sick call: ${answers.sickProcess || "—"}.`,
+      answers.schedRules ? `Rules: ${answers.schedRules}.` : "",
+    ].filter(Boolean).join(" ");
+    const pastProblems = [
+      `Pain points: ${answers.painPoints.join(", ") || "—"}.`,
+      `Current training: ${answers.currentTraining || "—"}.`,
+      `Biggest training headache: ${answers.trainingHeadache || "—"}.`,
+      `Menu changes: ${answers.menuChanges || "—"}.`,
+      answers.hiring ? `Hiring: ${answers.hiring}. Positions: ${answers.positions || "—"}. Process: ${answers.hiringProcess || "—"}. Priorities: ${answers.hiringMatters || "—"}.` : "",
+    ].filter(Boolean).join(" ");
 
-  if (generating) return <GeneratingScreen restaurantName={form.name} />;
+    setTimeout(() => {
+      completeSetup(
+        {
+          name: answers.name.trim() || "Your Restaurant",
+          concept,
+          serviceStyle,
+          priority: "Warm hospitality",
+          guestExperience,
+          nonNegotiables,
+          pastProblems,
+        },
+        foodMenu,
+        drinkMenu,
+      );
+      onComplete();
+    }, 2500);
+  };
+
+  /* ------------------------- Step composers ------------------------ */
+
+  // Use an effect to inject the bot's next prompt when entering certain steps for the first time.
+  // We track which step prompts have been pushed so we don't duplicate.
+  const promptedRef = useRef<Set<number>>(new Set());
+  useEffect(() => {
+    if (promptedRef.current.has(step)) return;
+    const prompts: Record<number, string> = {
+      2: "Awesome — let's start with the basics. What's the name of your restaurant, what city/state are you in, and what type of restaurant is it?",
+      3: "Great. Now tell me about operations — how many seats do you have, which days are you open, your hours, your busiest night, and roughly how many covers you do on that busy night?",
+      4: "Let's talk team structure. Which front-of-house roles do you staff, which back-of-house roles, what's your minimum staff per shift, and who actually builds the schedule?",
+      5: "What are your biggest day-to-day pain points? Pick all that apply.",
+      6: "Now training — how do you train staff today, what's your biggest training headache, and how often does your menu change?",
+      7: "Time to make this real. Upload your food menu and your drink menu (PDF or photo) and I'll generate a custom staff knowledge quiz instantly.",
+      8: "Let's set scheduling preferences — how far in advance do you post schedules, what are your shift trade rules, how should staff call in sick, and any other scheduling rules?",
+      9: "Last topic — hiring. Are you currently hiring? Which positions, what's your process, and what matters most to you in a new hire?",
+      10: "All set. Here's everything I've configured for you.",
+    };
+    if (prompts[step]) {
+      const t = setTimeout(() => pushBot(prompts[step]), 200);
+      promptedRef.current.add(step);
+      return () => clearTimeout(t);
+    }
+    promptedRef.current.add(step);
+  }, [step]);
+
+  /* ---------------------------- Render ----------------------------- */
+
+  if (finishing) return <FinalizingScreen name={answers.name} />;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary-soft px-4 py-8 sm:py-12">
-      <div className="mx-auto max-w-2xl">
-        <div className="mb-6 flex items-center justify-between">
+    <div className="flex min-h-[100dvh] flex-col bg-gradient-to-br from-background via-background to-primary-soft">
+      {/* Header */}
+      <div className="border-b border-border bg-background/80 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="mx-auto flex max-w-2xl items-center justify-between gap-3">
           <Logo />
-          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Step {step + 1} / {TOTAL_STEPS}
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Step {step} of {TOTAL_STEPS}
           </span>
         </div>
-        <Progress value={progress} className="mb-8 h-1.5" />
+        <div className="mx-auto mt-2 max-w-2xl">
+          <Progress value={progress} className="h-1.5" />
+        </div>
+      </div>
 
-        <Card className="border-border shadow-elegant">
-          <CardContent className="p-5 sm:p-8">
-            {step === 0 && (
-              <StepShell title="Tell us about your restaurant" subtitle="Just the basics to get started.">
-                <div className="grid gap-2">
-                  <Label>Restaurant name</Label>
-                  <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Casa Luna" />
-                </div>
-                <div className="grid gap-2">
-                  <Label>What's your concept?</Label>
-                  <Textarea rows={3} value={form.concept} onChange={(e) => setForm({ ...form, concept: e.target.value })} placeholder="e.g. Modern Mediterranean small plates with a wood-fired focus" />
-                </div>
-              </StepShell>
-            )}
+      {/* Chat */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-5">
+        <div className="mx-auto flex max-w-2xl flex-col gap-3">
+          {messages.map((m, i) => (
+            <Bubble key={i} from={m.from}>{m.text}</Bubble>
+          ))}
+        </div>
+      </div>
 
-            {step === 1 && (
-              <StepShell title="What's your style of service?" subtitle="Pick the one that fits best.">
-                <OptionGrid options={SERVICE_STYLES} value={form.serviceStyle} onChange={(v) => setForm({ ...form, serviceStyle: v as ServiceStyle })} />
-              </StepShell>
-            )}
+      {/* Composer */}
+      <div className="sticky bottom-0 border-t border-border bg-background/95 px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur">
+        <div className="mx-auto max-w-2xl">
+          {step === 1 && (
+            <Button size="lg" className="w-full" onClick={() => advance("Ready!", "")}>
+              I'm ready — let's go →
+            </Button>
+          )}
 
-            {step === 2 && (
-              <StepShell title="What matters most to you?" subtitle="We'll weight training accordingly.">
-                <OptionGrid options={PRIORITIES} value={form.priority} onChange={(v) => setForm({ ...form, priority: v as Priority })} />
-              </StepShell>
-            )}
+          {step === 2 && (
+            <BasicsForm
+              value={answers}
+              onSubmit={(v) => {
+                setAnswers((a) => ({ ...a, ...v }));
+                advance(
+                  `${v.name} · ${v.cityState} · ${v.type}`,
+                  "",
+                );
+              }}
+            />
+          )}
 
-            {step === 3 && (
-              <StepShell title="Describe your perfect guest experience" subtitle="A few sentences — paint the picture.">
-                <Textarea rows={5} value={form.guestExperience} onChange={(e) => setForm({ ...form, guestExperience: e.target.value })} placeholder="e.g. From the moment they walk in, guests feel taken care of without feeling watched. Service is warm but precise. They leave wanting to come back." />
-              </StepShell>
-            )}
+          {step === 3 && (
+            <OperationsForm
+              value={answers}
+              onSubmit={(v) => {
+                setAnswers((a) => ({ ...a, ...v }));
+                advance(
+                  `${v.seats} seats · ${v.daysOpen} · ${v.hours} · busiest ${v.busiestNight} (~${v.avgCovers} covers)`,
+                  "",
+                );
+              }}
+            />
+          )}
 
-            {step === 4 && (
-              <StepShell title="Non-negotiables for staff behavior" subtitle="The lines that can never be crossed.">
-                <Textarea rows={5} value={form.nonNegotiables} onChange={(e) => setForm({ ...form, nonNegotiables: e.target.value })} placeholder="e.g. No phones on the floor. Greet every guest within 30 seconds. No arguing with guests in public." />
-              </StepShell>
-            )}
+          {step === 4 && (
+            <TeamForm
+              value={answers}
+              onSubmit={(v) => {
+                setAnswers((a) => ({ ...a, ...v }));
+                advance(
+                  `FOH: ${v.fohRoles.join(", ") || "—"} | BOH: ${v.bohRoles.join(", ") || "—"} | Min ${v.minStaff}/shift, scheduled by ${v.scheduler}`,
+                  "",
+                );
+              }}
+            />
+          )}
 
-            {step === 5 && (
-              <StepShell title="Past training problems" subtitle="What hasn't worked before? We'll fix it.">
-                <Textarea rows={5} value={form.pastProblems} onChange={(e) => setForm({ ...form, pastProblems: e.target.value })} placeholder="e.g. Servers can't describe the menu confidently. Bartenders make drinks inconsistently. Onboarding takes 3+ weeks." />
-              </StepShell>
-            )}
+          {step === 5 && (
+            <MultiSelectComposer
+              options={[...PAIN_POINTS]}
+              selected={answers.painPoints}
+              onSubmit={(sel) => {
+                setAnswers((a) => ({ ...a, painPoints: sel }));
+                advance(sel.length ? sel.join(", ") : "None right now", "");
+              }}
+            />
+          )}
 
-            {step === 6 && (
-              <StepShell title="Upload your menus" subtitle="PDF or photo — both required.">
-                <MenuField label="Food menu" value={foodMenu} onChange={setFoodMenu} />
-                <MenuField label="Drink menu" value={drinkMenu} onChange={setDrinkMenu} />
-              </StepShell>
-            )}
+          {step === 6 && (
+            <TrainingForm
+              value={answers}
+              onSubmit={(v) => {
+                setAnswers((a) => ({ ...a, ...v }));
+                advance(
+                  `Trains via "${v.currentTraining}", headache: "${v.trainingHeadache}", menu changes ${v.menuChanges}`,
+                  "",
+                );
+              }}
+            />
+          )}
 
-            <div className="mt-8 flex items-center justify-between gap-2">
-              <Button variant="ghost" onClick={back} disabled={step === 0}>← Back</Button>
-              <Button onClick={next} size="lg" className="min-w-[140px]">
-                {step === TOTAL_STEPS - 1 ? "Generate program" : "Continue →"}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+          {step === 7 && (
+            <MenuUploadComposer
+              food={foodMenu}
+              drink={drinkMenu}
+              onFood={setFoodMenu}
+              onDrink={setDrinkMenu}
+              onSubmit={() => {
+                if (!foodMenu || !drinkMenu) {
+                  toast.error("Upload both your food and drink menus to continue.");
+                  return;
+                }
+                advance(
+                  `Uploaded ${foodMenu.name} + ${drinkMenu.name} — generating quiz ✨`,
+                  "",
+                );
+              }}
+            />
+          )}
+
+          {step === 8 && (
+            <SchedulingForm
+              value={answers}
+              onSubmit={(v) => {
+                setAnswers((a) => ({ ...a, ...v }));
+                advance(
+                  `Posted ${v.schedAdvance} ahead · trades: ${v.tradeRules} · sick: ${v.sickProcess}`,
+                  "",
+                );
+              }}
+            />
+          )}
+
+          {step === 9 && (
+            <HiringForm
+              value={answers}
+              onSubmit={(v) => {
+                setAnswers((a) => ({ ...a, ...v }));
+                advance(
+                  v.hiring.toLowerCase().startsWith("y")
+                    ? `Hiring for ${v.positions || "open roles"}`
+                    : "Not actively hiring",
+                  "",
+                );
+              }}
+            />
+          )}
+
+          {step === 10 && (
+            <SummaryComposer
+              answers={answers}
+              foodMenu={foodMenu}
+              drinkMenu={drinkMenu}
+              onConfirm={finish}
+            />
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
-function StepShell({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
+/* ----------------------------- Bubbles ---------------------------- */
+
+function Bubble({ from, children }: { from: "bot" | "user"; children: React.ReactNode }) {
+  const isBot = from === "bot";
   return (
-    <div className="space-y-5">
+    <div className={`flex ${isBot ? "justify-start" : "justify-end"}`}>
+      <div
+        className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed shadow-sm sm:text-[15px] ${
+          isBot
+            ? "rounded-bl-md bg-card text-card-foreground border border-border"
+            : "rounded-br-md bg-primary text-primary-foreground"
+        }`}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------- Sub-composers -------------------------- */
+
+function BasicsForm({
+  value, onSubmit,
+}: { value: Answers; onSubmit: (v: Pick<Answers, "name" | "cityState" | "type">) => void }) {
+  const [name, setName] = useState(value.name);
+  const [cityState, setCityState] = useState(value.cityState);
+  const [type, setType] = useState<RestaurantType | "">(value.type);
+  return (
+    <div className="space-y-3">
+      <Input placeholder="Restaurant name" value={name} onChange={(e) => setName(e.target.value)} />
+      <Input placeholder="City, State" value={cityState} onChange={(e) => setCityState(e.target.value)} />
+      <ChipGrid options={RESTAURANT_TYPES} value={type} onChange={(v) => setType(v as RestaurantType)} />
+      <Button
+        size="lg" className="w-full"
+        disabled={!name.trim() || !cityState.trim() || !type}
+        onClick={() => onSubmit({ name: name.trim(), cityState: cityState.trim(), type: type as RestaurantType })}
+      >
+        Continue →
+      </Button>
+    </div>
+  );
+}
+
+function OperationsForm({
+  value, onSubmit,
+}: { value: Answers; onSubmit: (v: Pick<Answers, "seats" | "daysOpen" | "hours" | "busiestNight" | "avgCovers">) => void }) {
+  const [seats, setSeats] = useState(value.seats);
+  const [daysOpen, setDaysOpen] = useState(value.daysOpen);
+  const [hours, setHours] = useState(value.hours);
+  const [busiestNight, setBusiestNight] = useState(value.busiestNight);
+  const [avgCovers, setAvgCovers] = useState(value.avgCovers);
+  const ok = seats && daysOpen && hours && busiestNight && avgCovers;
+  return (
+    <div className="space-y-2.5">
+      <Input inputMode="numeric" placeholder="Number of seats (e.g. 80)" value={seats} onChange={(e) => setSeats(e.target.value)} />
+      <Input placeholder="Days open (e.g. Tue–Sun)" value={daysOpen} onChange={(e) => setDaysOpen(e.target.value)} />
+      <Input placeholder="Hours (e.g. 5pm–11pm)" value={hours} onChange={(e) => setHours(e.target.value)} />
+      <Input placeholder="Busiest night (e.g. Saturday)" value={busiestNight} onChange={(e) => setBusiestNight(e.target.value)} />
+      <Input inputMode="numeric" placeholder="Avg covers on busy night" value={avgCovers} onChange={(e) => setAvgCovers(e.target.value)} />
+      <Button size="lg" className="w-full" disabled={!ok} onClick={() => onSubmit({ seats, daysOpen, hours, busiestNight, avgCovers })}>
+        Continue →
+      </Button>
+    </div>
+  );
+}
+
+function TeamForm({
+  value, onSubmit,
+}: { value: Answers; onSubmit: (v: Pick<Answers, "fohRoles" | "bohRoles" | "minStaff" | "scheduler">) => void }) {
+  const [foh, setFoh] = useState<string[]>(value.fohRoles);
+  const [boh, setBoh] = useState<string[]>(value.bohRoles);
+  const [minStaff, setMinStaff] = useState(value.minStaff);
+  const [scheduler, setScheduler] = useState(value.scheduler);
+  const ok = (foh.length || boh.length) && minStaff && scheduler;
+  return (
+    <div className="space-y-3">
       <div>
-        <h1 className="text-xl font-bold tracking-tight sm:text-2xl">{title}</h1>
-        <p className="mt-1.5 text-sm text-muted-foreground">{subtitle}</p>
+        <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">FOH roles</p>
+        <ChipGrid options={[...FOH_ROLES]} value={foh} multi onChange={(v) => setFoh(v as string[])} />
       </div>
-      <div className="space-y-4">{children}</div>
+      <div>
+        <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">BOH roles</p>
+        <ChipGrid options={[...BOH_ROLES]} value={boh} multi onChange={(v) => setBoh(v as string[])} />
+      </div>
+      <Input inputMode="numeric" placeholder="Minimum staff per shift" value={minStaff} onChange={(e) => setMinStaff(e.target.value)} />
+      <Input placeholder="Who makes the schedule? (e.g. GM, Owner)" value={scheduler} onChange={(e) => setScheduler(e.target.value)} />
+      <Button size="lg" className="w-full" disabled={!ok} onClick={() => onSubmit({ fohRoles: foh, bohRoles: boh, minStaff, scheduler })}>
+        Continue →
+      </Button>
     </div>
   );
 }
 
-function OptionGrid({ options, value, onChange }: { options: readonly string[]; value: string; onChange: (v: string) => void }) {
+function MultiSelectComposer({
+  options, selected, onSubmit,
+}: { options: string[]; selected: string[]; onSubmit: (sel: string[]) => void }) {
+  const [sel, setSel] = useState<string[]>(selected);
   return (
-    <div className="grid gap-2.5">
+    <div className="space-y-3">
+      <ChipGrid options={options} value={sel} multi onChange={(v) => setSel(v as string[])} />
+      <Button size="lg" className="w-full" onClick={() => onSubmit(sel)}>Continue →</Button>
+    </div>
+  );
+}
+
+function TrainingForm({
+  value, onSubmit,
+}: { value: Answers; onSubmit: (v: Pick<Answers, "currentTraining" | "trainingHeadache" | "menuChanges">) => void }) {
+  const [a, setA] = useState(value.currentTraining);
+  const [b, setB] = useState(value.trainingHeadache);
+  const [c, setC] = useState(value.menuChanges);
+  const ok = a && b && c;
+  return (
+    <div className="space-y-2.5">
+      <Input placeholder="Current training method (e.g. shadowing)" value={a} onChange={(e) => setA(e.target.value)} />
+      <Input placeholder="Biggest training headache" value={b} onChange={(e) => setB(e.target.value)} />
+      <Input placeholder="How often menu changes (e.g. seasonal)" value={c} onChange={(e) => setC(e.target.value)} />
+      <Button size="lg" className="w-full" disabled={!ok} onClick={() => onSubmit({ currentTraining: a, trainingHeadache: b, menuChanges: c })}>
+        Continue →
+      </Button>
+    </div>
+  );
+}
+
+function SchedulingForm({
+  value, onSubmit,
+}: { value: Answers; onSubmit: (v: Pick<Answers, "schedAdvance" | "tradeRules" | "sickProcess" | "schedRules">) => void }) {
+  const [a, setA] = useState(value.schedAdvance);
+  const [b, setB] = useState(value.tradeRules);
+  const [c, setC] = useState(value.sickProcess);
+  const [d, setD] = useState(value.schedRules);
+  const ok = a && b && c;
+  return (
+    <div className="space-y-2.5">
+      <Input placeholder="How far in advance schedules are posted (e.g. 2 weeks)" value={a} onChange={(e) => setA(e.target.value)} />
+      <Input placeholder="Shift trade rules (e.g. manager approval)" value={b} onChange={(e) => setB(e.target.value)} />
+      <Input placeholder="Sick call process (e.g. text manager 4h ahead)" value={c} onChange={(e) => setC(e.target.value)} />
+      <Input placeholder="Other scheduling rules (optional)" value={d} onChange={(e) => setD(e.target.value)} />
+      <Button size="lg" className="w-full" disabled={!ok} onClick={() => onSubmit({ schedAdvance: a, tradeRules: b, sickProcess: c, schedRules: d })}>
+        Continue →
+      </Button>
+    </div>
+  );
+}
+
+function HiringForm({
+  value, onSubmit,
+}: { value: Answers; onSubmit: (v: Pick<Answers, "hiring" | "positions" | "hiringProcess" | "hiringMatters">) => void }) {
+  const [a, setA] = useState(value.hiring);
+  const [b, setB] = useState(value.positions);
+  const [c, setC] = useState(value.hiringProcess);
+  const [d, setD] = useState(value.hiringMatters);
+  return (
+    <div className="space-y-2.5">
+      <ChipGrid options={["Yes, actively", "Sometimes", "Not right now"]} value={a} onChange={(v) => setA(v as string)} />
+      <Input placeholder="Which positions? (optional)" value={b} onChange={(e) => setB(e.target.value)} />
+      <Input placeholder="Hiring process (e.g. apply → trail shift)" value={c} onChange={(e) => setC(e.target.value)} />
+      <Input placeholder="What matters most in a new hire?" value={d} onChange={(e) => setD(e.target.value)} />
+      <Button size="lg" className="w-full" disabled={!a} onClick={() => onSubmit({ hiring: a, positions: b, hiringProcess: c, hiringMatters: d })}>
+        Continue →
+      </Button>
+    </div>
+  );
+}
+
+function MenuUploadComposer({
+  food, drink, onFood, onDrink, onSubmit,
+}: {
+  food: MenuUpload | null; drink: MenuUpload | null;
+  onFood: (m: MenuUpload | null) => void;
+  onDrink: (m: MenuUpload | null) => void;
+  onSubmit: () => void;
+}) {
+  return (
+    <div className="space-y-3">
+      <UploadField label="Food menu" value={food} onChange={onFood} />
+      <UploadField label="Drink menu" value={drink} onChange={onDrink} />
+      <Button size="lg" className="w-full" disabled={!food || !drink} onClick={onSubmit}>
+        Generate quiz & continue →
+      </Button>
+    </div>
+  );
+}
+
+function SummaryComposer({
+  answers, foodMenu, drinkMenu, onConfirm,
+}: { answers: Answers; foodMenu: MenuUpload | null; drinkMenu: MenuUpload | null; onConfirm: () => void }) {
+  const items = [
+    `Scheduling grid set up with your roles (${[...answers.fohRoles, ...answers.bohRoles].length || 0} configured)`,
+    `Menu quiz generated from ${foodMenu?.name ?? "food menu"} & ${drinkMenu?.name ?? "drink menu"}`,
+    `Training videos assigned for ${answers.type || "your restaurant"}`,
+    `Hiring templates created${answers.positions ? ` for ${answers.positions}` : ""}`,
+    "First AI schedule ready",
+  ];
+  return (
+    <div className="space-y-3">
+      <div className="rounded-2xl border border-border bg-card p-4">
+        <p className="mb-2 text-sm font-semibold">Here's what I configured for {answers.name || "your restaurant"}:</p>
+        <ul className="space-y-1.5">
+          {items.map((t, i) => (
+            <li key={i} className="flex items-start gap-2 text-sm">
+              <CheckIcon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+              <span>{t}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <p className="px-1 text-sm text-muted-foreground">
+        Your restaurant intelligence platform is ready. Want to invite your first staff member now?
+      </p>
+      <Button size="lg" className="w-full" onClick={onConfirm}>
+        Yes — take me in →
+      </Button>
+    </div>
+  );
+}
+
+/* ------------------------ Reusable bits --------------------------- */
+
+function ChipGrid({
+  options, value, multi, onChange,
+}: {
+  options: string[];
+  value: string | string[];
+  multi?: boolean;
+  onChange: (v: string | string[]) => void;
+}) {
+  const isSelected = (opt: string) =>
+    multi ? (value as string[]).includes(opt) : value === opt;
+  const toggle = (opt: string) => {
+    if (multi) {
+      const arr = value as string[];
+      onChange(arr.includes(opt) ? arr.filter((x) => x !== opt) : [...arr, opt]);
+    } else onChange(opt);
+  };
+  return (
+    <div className="flex flex-wrap gap-2">
       {options.map((opt) => {
-        const selected = value === opt;
+        const sel = isSelected(opt);
         return (
           <button
             key={opt}
-            onClick={() => onChange(opt)}
-            className={`flex items-center justify-between rounded-xl border-2 px-4 py-3.5 text-left text-sm font-medium transition-all ${
-              selected
-                ? "border-primary bg-primary text-primary-foreground shadow-elegant"
+            type="button"
+            onClick={() => toggle(opt)}
+            className={`min-h-[44px] rounded-full border-2 px-3.5 py-2 text-sm font-medium transition-all ${
+              sel
+                ? "border-primary bg-primary text-primary-foreground shadow-sm"
                 : "border-border bg-card hover:border-primary/50 hover:bg-primary-soft"
             }`}
           >
-            <span>{opt}</span>
-            {selected && <CheckIcon className="h-4 w-4" />}
+            {opt}
           </button>
         );
       })}
@@ -185,7 +621,9 @@ function OptionGrid({ options, value, onChange }: { options: readonly string[]; 
   );
 }
 
-function MenuField({ label, value, onChange }: { label: string; value: MenuUpload | null; onChange: (m: MenuUpload | null) => void }) {
+function UploadField({
+  label, value, onChange,
+}: { label: string; value: MenuUpload | null; onChange: (m: MenuUpload | null) => void }) {
   const ref = useRef<HTMLInputElement>(null);
   const handleFile = (file: File) => {
     const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
@@ -207,15 +645,14 @@ function MenuField({ label, value, onChange }: { label: string; value: MenuUploa
       r.readAsDataURL(file);
     } else save();
   };
-
   return (
-    <div className="grid gap-2">
-      <Label>{label}</Label>
+    <div className="grid gap-1.5">
+      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</span>
       {!value ? (
         <button
           type="button"
           onClick={() => ref.current?.click()}
-          className="flex items-center gap-3 rounded-xl border-2 border-dashed border-border bg-muted/30 p-4 text-left transition-colors hover:border-primary hover:bg-primary-soft"
+          className="flex items-center gap-3 rounded-xl border-2 border-dashed border-border bg-muted/30 p-3.5 text-left transition-colors hover:border-primary hover:bg-primary-soft"
         >
           <div className="grid h-10 w-10 place-items-center rounded-full bg-primary-soft text-primary">
             <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -229,9 +666,9 @@ function MenuField({ label, value, onChange }: { label: string; value: MenuUploa
         <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-background p-3">
           <div className="flex min-w-0 items-center gap-3">
             {value.preview ? (
-              <img src={value.preview} alt="" className="h-12 w-12 rounded-md border border-border object-cover" />
+              <img src={value.preview} alt="" className="h-10 w-10 rounded-md border border-border object-cover" />
             ) : (
-              <div className="grid h-12 w-12 place-items-center rounded-md bg-primary-soft text-primary">
+              <div className="grid h-10 w-10 place-items-center rounded-md bg-primary-soft text-primary">
                 <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
               </div>
             )}
@@ -248,9 +685,9 @@ function MenuField({ label, value, onChange }: { label: string; value: MenuUploa
   );
 }
 
-function GeneratingScreen({ restaurantName }: { restaurantName: string }) {
+function FinalizingScreen({ name }: { name: string }) {
   return (
-    <div className="grid min-h-screen place-items-center bg-gradient-hero px-4 text-primary-foreground">
+    <div className="grid min-h-[100dvh] place-items-center bg-gradient-hero px-4 text-primary-foreground">
       <div className="max-w-md text-center">
         <div className="mx-auto mb-6 grid h-20 w-20 place-items-center rounded-full bg-white/10 backdrop-blur">
           <svg viewBox="0 0 24 24" className="h-10 w-10 animate-spin" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -258,24 +695,11 @@ function GeneratingScreen({ restaurantName }: { restaurantName: string }) {
           </svg>
         </div>
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-          Your custom training program is being created
+          Building your platform for {name || "your restaurant"}…
         </h1>
         <p className="mt-3 text-white/80">
-          We're tailoring role-specific modules for {restaurantName || "your restaurant"} based on your vision and menus.
+          Customizing schedules, training, and hiring templates from your answers.
         </p>
-        <div className="mt-8 grid gap-2 text-left text-sm text-white/70">
-          {[
-            "Analyzing service style and priorities",
-            "Parsing food menu items",
-            "Parsing drink menu items",
-            "Building Server, Bartender & Kitchen modules",
-          ].map((s, i) => (
-            <div key={i} className="flex items-center gap-2.5 rounded-lg bg-white/5 px-3 py-2">
-              <span className="grid h-5 w-5 place-items-center rounded-full bg-white/20 text-[10px] font-bold">{i + 1}</span>
-              <span>{s}</span>
-            </div>
-          ))}
-        </div>
       </div>
     </div>
   );
