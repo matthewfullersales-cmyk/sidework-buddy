@@ -158,6 +158,8 @@ export type HiringStage =
 
 export type AvailabilityHours = "Mornings" | "Afternoons" | "Evenings" | "Open availability";
 
+export type InterviewType = "video" | "in_person" | "phone";
+
 export interface ShadowShiftDetails {
   date: string;
   time: string;
@@ -187,6 +189,7 @@ export interface JobApplication {
   aiScore?: AiScore;
   interviewSentAt?: string;
   interviewNotes?: string;
+  interviewType?: InterviewType;
   offeredSlots?: string[];
   selectedSlot?: string;
   shadowShift?: ShadowShiftDetails;
@@ -292,7 +295,7 @@ interface Store {
   declineApplication: (id: string) => void;
   reconsiderApplication: (id: string) => void;
   hireApplication: (id: string, overrides?: Partial<Employee>) => string | null;
-  approveForVideo: (id: string, slots: string[]) => void;
+  approveForInterview: (id: string, type: InterviewType, slots: string[]) => void;
   applicantSelectSlot: (id: string, slot: string) => void;
   completeInterview: (id: string, notes?: string) => void;
   inviteShadowShift: (id: string, details: ShadowShiftDetails) => void;
@@ -856,25 +859,28 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
       });
       return createdId;
     },
-    approveForVideo: (id, slots) =>
-      setState((s) => ({
-        ...s,
-        applications: s.applications.map((a) =>
-          a.id === id
-            ? { ...a, status: "interview", stage: "video_offered", offeredSlots: slots, interviewSentAt: new Date().toISOString(), archived: false }
-            : a,
-        ),
-        notifications: [
-          {
-            id: uid("n"),
-            type: "training_passed",
-            message: `Video interview invite sent — ${slots.length} time slot${slots.length === 1 ? "" : "s"} offered.`,
-            createdAt: new Date().toISOString(),
-            read: false,
-          },
-          ...s.notifications,
-        ],
-      })),
+    approveForInterview: (id, type, slots) =>
+      setState((s) => {
+        const label = type === "video" ? "Video interview" : type === "in_person" ? "In-person interview" : "Phone interview";
+        return {
+          ...s,
+          applications: s.applications.map((a) =>
+            a.id === id
+              ? { ...a, status: "interview", stage: "video_offered", interviewType: type, offeredSlots: slots, interviewSentAt: new Date().toISOString(), archived: false }
+              : a,
+          ),
+          notifications: [
+            {
+              id: uid("n"),
+              type: "training_passed",
+              message: `${label} invite sent — ${slots.length} time slot${slots.length === 1 ? "" : "s"} offered.`,
+              createdAt: new Date().toISOString(),
+              read: false,
+            },
+            ...s.notifications,
+          ],
+        };
+      }),
     applicantSelectSlot: (id, slot) =>
       setState((s) => {
         const app = s.applications.find((a) => a.id === id);
@@ -887,7 +893,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
             {
               id: uid("n"),
               type: "training_passed",
-              message: `${app?.firstName ?? app?.name ?? "Applicant"} confirmed video interview for ${new Date(slot).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}.`,
+              message: `${app?.firstName ?? app?.name ?? "Applicant"} confirmed ${app?.interviewType === "in_person" ? "in-person" : app?.interviewType === "phone" ? "phone" : "video"} interview for ${new Date(slot).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}.`,
               createdAt: new Date().toISOString(),
               read: false,
             },

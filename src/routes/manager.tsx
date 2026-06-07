@@ -17,7 +17,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
-import { onboardingStatus, useStore, type Role, type ApplicationStatus, type Employee, type Relationship, DAY_KEYS, type JobApplication, type HiringStage, type ShadowShiftDetails, getHiringStage } from "@/lib/sidework-store";
+import { onboardingStatus, useStore, type Role, type ApplicationStatus, type Employee, type Relationship, DAY_KEYS, type JobApplication, type HiringStage, type ShadowShiftDetails, type InterviewType, getHiringStage } from "@/lib/sidework-store";
 import { AvailabilityEditor, RestaurantHoursEditor } from "@/components/sidework/AvailabilityEditor";
 import { toast } from "sonner";
 
@@ -544,7 +544,7 @@ function JobsTab() {
     declineApplication,
     reconsiderApplication,
     hireApplication,
-    approveForVideo,
+    approveForInterview,
     applicantSelectSlot,
     completeInterview,
     inviteShadowShift,
@@ -553,7 +553,8 @@ function JobsTab() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ title: "", role: "Server" as Role, type: "Full-time" as "Full-time" | "Part-time", payRange: "", description: "" });
   const [hireFor, setHireFor] = useState<string | null>(null);
-  const [approveFor, setApproveFor] = useState<string | null>(null);
+  const [pickTypeFor, setPickTypeFor] = useState<string | null>(null);
+  const [approveFor, setApproveFor] = useState<{ id: string; type: InterviewType } | null>(null);
   const [callFor, setCallFor] = useState<string | null>(null);
   const [shadowFor, setShadowFor] = useState<string | null>(null);
   const [declineConfirmFor, setDeclineConfirmFor] = useState<{ id: string; postInterview?: boolean } | null>(null);
@@ -578,7 +579,8 @@ function JobsTab() {
   const archived = applications.filter((a) => a.archived);
 
   const hireApp = applications.find((a) => a.id === hireFor) ?? null;
-  const approveApp = applications.find((a) => a.id === approveFor) ?? null;
+  const approveApp = approveFor ? applications.find((a) => a.id === approveFor.id) ?? null : null;
+  const pickTypeApp = pickTypeFor ? applications.find((a) => a.id === pickTypeFor) ?? null : null;
   const callApp = applications.find((a) => a.id === callFor) ?? null;
   const shadowApp = applications.find((a) => a.id === shadowFor) ?? null;
   const declineApp = declineConfirmFor ? applications.find((a) => a.id === declineConfirmFor.id) ?? null : null;
@@ -680,18 +682,18 @@ function JobsTab() {
         emptyText="No new applications."
         renderActions={(a) => (
           <>
-            <Button size="sm" onClick={() => setApproveFor(a.id)}>Approve Video Interview</Button>
+            <Button size="sm" onClick={() => setPickTypeFor(a.id)}>Approve for Interview</Button>
             <Button size="sm" variant="outline" onClick={() => setDeclineConfirmFor({ id: a.id })}>Decline</Button>
           </>
         )}
       />
 
       <ApplicationSection
-        title="Video Interview Scheduled"
+        title="Interview Scheduled"
         subtitle="Awaiting time confirmation or interview"
         items={videoApps}
-        emptyText="No video interviews in progress."
-        renderExtra={(a) => <VideoStageDetails app={a} />}
+        emptyText="No interviews in progress."
+        renderExtra={(a) => <InterviewStageDetails app={a} restaurantName={restaurantName} />}
         renderActions={(a) => {
           const stage = getHiringStage(a);
           if (stage === "video_offered") {
@@ -703,9 +705,17 @@ function JobsTab() {
             );
           }
           if (stage === "video_scheduled") {
+            const type = a.interviewType ?? "video";
             return (
               <>
-                <Button size="sm" onClick={() => setCallFor(a.id)}>Join Video Call</Button>
+                {type === "video" ? (
+                  <Button size="sm" onClick={() => setCallFor(a.id)}>Join Video Call</Button>
+                ) : (
+                  <Button size="sm" onClick={() => {
+                    completeInterview(a.id);
+                    toast.success("Interview marked complete", { description: "Add notes and decide next step." });
+                  }}>Mark Interview Complete</Button>
+                )}
                 <Button size="sm" variant="outline" onClick={() => setDeclineConfirmFor({ id: a.id })}>Decline</Button>
               </>
             );
@@ -757,14 +767,27 @@ function JobsTab() {
         )}
       />
 
-      {approveApp && (
-        <ApproveVideoDialog
+      {pickTypeApp && (
+        <InterviewTypeDialog
+          application={pickTypeApp}
+          onClose={() => setPickTypeFor(null)}
+          onPick={(type) => {
+            setPickTypeFor(null);
+            setApproveFor({ id: pickTypeApp.id, type });
+          }}
+        />
+      )}
+
+      {approveApp && approveFor && (
+        <ApproveInterviewDialog
           application={approveApp}
+          type={approveFor.type}
           onClose={() => setApproveFor(null)}
           onConfirm={(slots) => {
-            approveForVideo(approveApp.id, slots);
+            approveForInterview(approveApp.id, approveFor.type, slots);
             const name = approveApp.firstName ?? approveApp.name;
-            toast.success(`Video interview invite sent to ${name}`, {
+            const label = approveFor.type === "video" ? "Video interview" : approveFor.type === "in_person" ? "In-person interview" : "Phone interview";
+            toast.success(`${label} invite sent to ${name}`, {
               description: `Text & email with ${slots.length} time slot${slots.length === 1 ? "" : "s"}. Applicant link: /interview/${approveApp.id}`,
             });
             setApproveFor(null);
@@ -854,30 +877,73 @@ function JobsTab() {
   );
 }
 
-function VideoStageDetails({ app }: { app: JobApplication }) {
+const INTERVIEW_TYPE_META: Record<InterviewType, { emoji: string; label: string; tagline: string; bullets: string[] }> = {
+  video: {
+    emoji: "📹",
+    label: "Video Call",
+    tagline: "5 minute video call inside Sidework",
+    bullets: [
+      "You pick available time slots",
+      "Applicant picks a time that works",
+      "Video happens inside Sidework via Daily.co",
+      "5-minute timer visible during call",
+    ],
+  },
+  in_person: {
+    emoji: "🤝",
+    label: "In Person",
+    tagline: "Meet at your restaurant",
+    bullets: [
+      "You pick available dates and times",
+      "Applicant picks a time that works",
+      "Confirmation includes restaurant address",
+      "Reminders 24 hours and 1 hour before",
+    ],
+  },
+  phone: {
+    emoji: "📞",
+    label: "Phone Call",
+    tagline: "Quick phone screen",
+    bullets: [
+      "You pick available time slots",
+      "Applicant picks a time that works",
+      "Confirmation includes your phone number",
+      "Reminder 30 minutes before",
+    ],
+  },
+};
+
+
+function InterviewStageDetails({ app, restaurantName }: { app: JobApplication; restaurantName: string }) {
   const stage = getHiringStage(app);
+  const type = app.interviewType ?? "video";
+  const meta = INTERVIEW_TYPE_META[type];
   if (stage === "video_offered" && app.offeredSlots) {
     return (
       <div className="mt-3 rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm">
-        <p className="font-semibold">Awaiting applicant time selection</p>
-        <p className="mt-1 text-xs text-muted-foreground">Offered {app.offeredSlots.length} slot{app.offeredSlots.length === 1 ? "" : "s"}. They'll get a text + email reminder.</p>
+        <p className="font-semibold">{meta.emoji} {meta.label} — awaiting applicant time selection</p>
+        <p className="mt-1 text-xs text-muted-foreground">Offered {app.offeredSlots.length} slot{app.offeredSlots.length === 1 ? "" : "s"}. They'll get a text + email with the link.</p>
         <p className="mt-2 text-xs">Applicant link: <code className="rounded bg-background px-1.5 py-0.5">/interview/{app.id}</code></p>
       </div>
     );
   }
   if (stage === "video_scheduled" && app.selectedSlot) {
+    const reminderCopy =
+      type === "video" ? "Both parties get a reminder 30 minutes before with the join link."
+      : type === "in_person" ? `Both parties get reminders 24 hours and 1 hour before. They'll meet at ${restaurantName}.`
+      : "Both parties get a reminder 30 minutes before the call.";
     return (
       <div className="mt-3 rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm">
-        <p className="font-semibold text-primary">Video call confirmed</p>
+        <p className="font-semibold text-primary">{meta.emoji} {meta.label} confirmed</p>
         <p className="mt-1">{new Date(app.selectedSlot).toLocaleString([], { weekday: "long", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</p>
-        <p className="mt-1 text-xs text-muted-foreground">Both parties get a reminder 30 minutes before with the join link.</p>
+        <p className="mt-1 text-xs text-muted-foreground">{reminderCopy}</p>
       </div>
     );
   }
   if (stage === "interviewed") {
     return (
       <div className="mt-3 grid gap-2 rounded-lg border border-border bg-muted/30 p-3">
-        <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Interview notes</Label>
+        <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Interview notes ({meta.label.toLowerCase()})</Label>
         {app.interviewNotes
           ? <p className="text-sm italic text-foreground/90">"{app.interviewNotes}"</p>
           : <p className="text-xs text-muted-foreground">No notes recorded.</p>}
@@ -887,18 +953,66 @@ function VideoStageDetails({ app }: { app: JobApplication }) {
   return null;
 }
 
-function ApproveVideoDialog({
-  application, onClose, onConfirm,
+function InterviewTypeDialog({
+  application, onClose, onPick,
 }: {
   application: JobApplication;
   onClose: () => void;
+  onPick: (type: InterviewType) => void;
+}) {
+  const name = application.firstName ?? application.name;
+  const types: InterviewType[] = ["video", "in_person", "phone"];
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>How would you like to interview {name}?</DialogTitle>
+          <p className="text-sm text-muted-foreground">Choose a format. Next, you'll pick the times that work for you.</p>
+        </DialogHeader>
+        <div className="grid gap-3 py-2">
+          {types.map((t) => {
+            const meta = INTERVIEW_TYPE_META[t];
+            return (
+              <button
+                key={t}
+                type="button"
+                onClick={() => onPick(t)}
+                className="group flex w-full items-start gap-3 rounded-xl border-2 border-border bg-background p-4 text-left transition-colors hover:border-primary hover:bg-primary/5 focus-visible:border-primary focus-visible:outline-none"
+              >
+                <div className="text-3xl leading-none">{meta.emoji}</div>
+                <div className="flex-1">
+                  <div className="text-base font-semibold text-foreground">{meta.label}</div>
+                  <p className="mt-0.5 text-sm text-muted-foreground">{meta.tagline}</p>
+                  <ul className="mt-2 grid gap-0.5 text-xs text-muted-foreground">
+                    {meta.bullets.map((b) => <li key={b}>• {b}</li>)}
+                  </ul>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ApproveInterviewDialog({
+  application, type, onClose, onConfirm,
+}: {
+  application: JobApplication;
+  type: InterviewType;
+  onClose: () => void;
   onConfirm: (slots: string[]) => void;
 }) {
+  const meta = INTERVIEW_TYPE_META[type];
   const suggested = useMemo(() => {
     const out: string[] = [];
     const now = new Date();
-    const hours = [10, 14, 16];
-    for (let day = 1; day <= 5 && out.length < 6; day++) {
+    const hours = [10, 12, 14, 16, 18];
+    for (let day = 1; day <= 7 && out.length < 15; day++) {
       const d = new Date(now);
       d.setDate(d.getDate() + day);
       hours.forEach((h) => {
@@ -911,26 +1025,36 @@ function ApproveVideoDialog({
   }, [application.id]);
   const [selected, setSelected] = useState<string[]>([]);
 
-  const toggle = (s: string) =>
-    setSelected((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
+  const toggle = (s: string) => {
+    setSelected((prev) => {
+      if (prev.includes(s)) return prev.filter((x) => x !== s);
+      if (prev.length >= 5) {
+        toast.message("Max 5 slots", { description: "Deselect one to add another." });
+        return prev;
+      }
+      return [...prev, s];
+    });
+  };
 
   const submit = () => {
-    if (selected.length < 3 || selected.length > 5) {
-      return toast.error("Pick 3 to 5 time slots.");
-    }
+    if (selected.length < 1) return toast.error("Pick at least one time slot.");
+    if (selected.length > 5) return toast.error("Pick up to 5 time slots.");
     onConfirm(selected);
   };
+
+  const name = application.firstName ?? application.name;
 
   return (
     <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Offer video interview times</DialogTitle>
-          <p className="text-sm text-muted-foreground">Pick 3–5 slots that work for you. {application.firstName ?? application.name} will choose their preferred time.</p>
+          <DialogTitle>{meta.emoji} Pick your available times</DialogTitle>
+          <p className="text-sm text-muted-foreground">Tap any time slot to mark as available. Up to 5 slots. {name} will pick their preferred time.</p>
         </DialogHeader>
         <div className="grid max-h-[50vh] gap-2 overflow-y-auto py-2 sm:grid-cols-2">
           {suggested.map((s) => {
             const on = selected.includes(s);
+            const d = new Date(s);
             return (
               <button
                 key={s}
@@ -938,14 +1062,17 @@ function ApproveVideoDialog({
                 onClick={() => toggle(s)}
                 className={`min-h-12 rounded-lg border px-3 py-2 text-left text-sm font-medium transition-colors ${on ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background hover:bg-muted"}`}
               >
-                {new Date(s).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                {d.toLocaleString([], { weekday: "long", month: "short", day: "numeric" })}
+                <span className="block text-xs opacity-80">at {d.toLocaleString([], { hour: "numeric", minute: "2-digit" })}</span>
               </button>
             );
           })}
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button onClick={submit}>Send {selected.length || ""} time{selected.length === 1 ? "" : "s"}</Button>
+          <Button onClick={submit} disabled={selected.length === 0}>
+            Confirm {selected.length || ""} slot{selected.length === 1 ? "" : "s"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

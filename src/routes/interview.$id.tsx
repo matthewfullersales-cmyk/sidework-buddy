@@ -3,8 +3,8 @@ import { useMemo, useState } from "react";
 import { Logo } from "@/components/sidework/Logo";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useStore } from "@/lib/sidework-store";
-import { CheckCircle2, Video } from "lucide-react";
+import { useStore, type InterviewType } from "@/lib/sidework-store";
+import { CheckCircle2, Video, Phone, MapPin } from "lucide-react";
 
 export const Route = createFileRoute("/interview/$id")({
   ssr: false,
@@ -17,6 +17,32 @@ function formatSlot(iso: string) {
     weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
   });
 }
+
+const TYPE_COPY: Record<InterviewType, {
+  emoji: string;
+  Icon: typeof Video;
+  badge: string;
+  intro: (r: string) => string;
+}> = {
+  video: {
+    emoji: "📹",
+    Icon: Video,
+    badge: "5-minute video call",
+    intro: (r) => `Great news — ${r} would like to schedule a quick 5 minute video call with you. Please select a time that works for you.`,
+  },
+  in_person: {
+    emoji: "🤝",
+    Icon: MapPin,
+    badge: "In-person interview",
+    intro: (r) => `Great news — ${r} would like to meet you in person. Please select a time that works for your interview.`,
+  },
+  phone: {
+    emoji: "📞",
+    Icon: Phone,
+    badge: "Quick phone screen",
+    intro: (r) => `Great news — ${r} would like to schedule a quick phone call with you. Please select a time that works for you.`,
+  },
+};
 
 function InterviewConfirmPage() {
   const { id } = Route.useParams();
@@ -36,21 +62,37 @@ function InterviewConfirmPage() {
   }
 
   const firstName = app.firstName ?? app.name.split(" ")[0];
+  const type: InterviewType = app.interviewType ?? "video";
+  const copy = TYPE_COPY[type];
 
   if (app.stage === "video_scheduled" && app.selectedSlot) {
+    const confirmationLine =
+      type === "video"
+        ? <>Your video interview is confirmed for <span className="font-semibold text-foreground">{formatSlot(app.selectedSlot)}</span>. You'll receive a link to join 30 minutes before.</>
+        : type === "in_person"
+        ? <>Your interview is confirmed for <span className="font-semibold text-foreground">{formatSlot(app.selectedSlot)}</span>. Please come to {restaurantName}. Ask for the manager when you arrive.</>
+        : <>Your phone interview is confirmed for <span className="font-semibold text-foreground">{formatSlot(app.selectedSlot)}</span>. We'll call you at {app.phone}. Please make sure you're available.</>;
     return (
       <Centered>
         <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-success/15">
           <CheckCircle2 className="h-12 w-12 text-success" />
         </div>
         <h1 className="mt-6 text-3xl font-bold">You're confirmed!</h1>
-        <p className="mt-3 text-base text-muted-foreground">
-          Your video interview is confirmed for <span className="font-semibold text-foreground">{formatSlot(app.selectedSlot)}</span>.
-        </p>
-        <p className="mt-2 text-sm text-muted-foreground">
-          When it's time, tap below to join. You'll need camera and microphone access.
-        </p>
-        <JoinCallButton applicationId={app.id} userName={firstName} />
+        <p className="mt-3 text-base text-muted-foreground">{confirmationLine}</p>
+        {type === "video" && (
+          <>
+            <p className="mt-2 text-sm text-muted-foreground">
+              When it's time, tap below to join. You'll need camera and microphone access.
+            </p>
+            <JoinCallButton applicationId={app.id} userName={firstName} />
+          </>
+        )}
+        {type === "in_person" && (
+          <p className="mt-4 text-sm text-muted-foreground">We'll send a reminder 24 hours and 1 hour before.</p>
+        )}
+        {type === "phone" && (
+          <p className="mt-4 text-sm text-muted-foreground">We'll send a reminder 30 minutes before.</p>
+        )}
       </Centered>
     );
   }
@@ -75,12 +117,10 @@ function InterviewConfirmPage() {
       <section className="bg-gradient-hero text-primary-foreground">
         <div className="mx-auto max-w-2xl px-4 py-10">
           <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider">
-            <Video className="h-3 w-3" /> 5-minute video call
+            <copy.Icon className="h-3 w-3" /> {copy.badge}
           </div>
           <h1 className="mt-4 text-3xl font-bold">Hi {firstName}! 👋</h1>
-          <p className="mt-2 text-white/90">
-            Great news — {restaurantName} would like to schedule a quick 5 minute video call with you. Please select a time that works for you.
-          </p>
+          <p className="mt-2 text-white/90">{copy.intro(restaurantName)}</p>
         </div>
       </section>
       <section className="mx-auto max-w-2xl px-4 py-8">
@@ -97,13 +137,14 @@ function InterviewConfirmPage() {
                   await new Promise((r) => setTimeout(r, 600));
                   applicantSelectSlot(app.id, slot);
                 }}
-                className="h-auto justify-start py-4 text-base"
+                className="h-auto min-h-14 justify-start py-4 text-base"
               >
                 {picking === slot ? "Confirming…" : formatSlot(slot)}
               </Button>
             ))}
             <p className="mt-2 text-xs text-muted-foreground">
-              Both you and {restaurantName} will get a confirmation, plus a reminder 30 minutes before with the join link.
+              Both you and {restaurantName} will get a confirmation, plus a reminder{" "}
+              {type === "in_person" ? "24 hours and 1 hour" : type === "phone" ? "30 minutes" : "30 minutes"} before.
             </p>
           </CardContent>
         </Card>
@@ -168,4 +209,3 @@ function JoinCallButton({ applicationId, userName }: { applicationId: string; us
     </div>
   );
 }
-
