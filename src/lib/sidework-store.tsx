@@ -97,6 +97,7 @@ export interface Employee {
   availability: string;
   weeklyAvailability?: WeeklyAvailability;
   emergencyContact?: EmergencyContact;
+  photoUrl?: string;
   invitedAt: string;
   onboardingStarted: boolean;
   personalInfoComplete: boolean;
@@ -104,6 +105,10 @@ export interface Employee {
   position?: Position;
   section?: Section;
   seniority?: number; // 1-5, higher = more experienced
+  // Carry-forward context from the application that created this employee
+  hiredFromApplicationId?: string;
+  applicationPitch?: string;
+  appliedAt?: string;
 }
 
 export interface Shift {
