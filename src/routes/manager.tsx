@@ -960,42 +960,56 @@ function VideoCallDialog({
   onClose: () => void;
   onEnd: (notes: string) => void;
 }) {
-  const [remaining, setRemaining] = useState(5 * 60);
+  const [roomUrl, setRoomUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [ended, setEnded] = useState(false);
   const [notes, setNotes] = useState("");
 
   useEffect(() => {
-    if (ended) return;
-    const t = window.setInterval(() => {
-      setRemaining((r) => (r <= 1 ? 0 : r - 1));
-    }, 1000);
-    return () => window.clearInterval(t);
-  }, [ended]);
+    let cancelled = false;
+    (async () => {
+      try {
+        const { getOrCreateInterviewRoom } = await import("@/lib/daily.functions");
+        const res = await getOrCreateInterviewRoom({ data: { applicationId: application.id } });
+        if (!cancelled) setRoomUrl(res.url);
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : "Could not start video call");
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [application.id]);
 
-  useEffect(() => {
-    if (remaining === 0 && !ended) setEnded(true);
-  }, [remaining, ended]);
-
-  const mm = String(Math.floor(remaining / 60)).padStart(2, "0");
-  const ss = String(remaining % 60).padStart(2, "0");
   const name = application.firstName && application.lastName ? `${application.firstName} ${application.lastName}` : application.name;
-  const initials = name.split(" ").map((p) => p[0]).join("").slice(0, 2).toUpperCase();
 
   return (
-    <Dialog open onOpenChange={(o) => { if (!o && !ended) return; if (!o) onClose(); }}>
-      <DialogContent className="sm:max-w-2xl">
+    <Dialog open onOpenChange={(o) => { if (!o) { if (!ended) setEnded(true); else onClose(); } }}>
+      <DialogContent className="sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>{ended ? "Interview ended" : `Video interview with ${name}`}</DialogTitle>
         </DialogHeader>
         {!ended ? (
-          <div className="space-y-4">
-            <div className="relative grid h-72 place-items-center overflow-hidden rounded-xl bg-gradient-to-br from-[oklch(0.22_0.05_155)] to-[oklch(0.12_0.04_155)] text-primary-foreground">
-              <div className="grid h-24 w-24 place-items-center rounded-full bg-white/15 text-3xl font-bold">{initials}</div>
-              <p className="mt-3 text-sm opacity-90">{name}</p>
-              <div className="absolute right-3 top-3 grid h-20 w-28 place-items-center rounded-md bg-black/40 text-xs text-white/80">You ({restaurantName})</div>
-              <div className="absolute left-3 top-3 rounded-md bg-black/40 px-2 py-1 text-xs font-mono text-white">{mm}:{ss}</div>
+          <div className="space-y-3">
+            <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-black">
+              {error ? (
+                <div className="grid h-full place-items-center p-6 text-center text-sm text-destructive-foreground">
+                  {error}
+                </div>
+              ) : !roomUrl ? (
+                <div className="grid h-full place-items-center text-sm text-white/80">
+                  Connecting to video…
+                </div>
+              ) : (
+                <iframe
+                  title={`Daily video call with ${name}`}
+                  src={`${roomUrl}?userName=${encodeURIComponent(restaurantName)}`}
+                  allow="camera; microphone; fullscreen; speaker; display-capture; autoplay"
+                  className="h-full w-full border-0"
+                />
+              )}
             </div>
-            <p className="text-center text-xs text-muted-foreground">5-minute video call · happens inside Sidework</p>
+            <p className="text-center text-xs text-muted-foreground">
+              Powered by Daily.co · Applicant joins from their interview link
+            </p>
             <div className="flex justify-center">
               <Button variant="destructive" size="lg" onClick={() => setEnded(true)}>End call</Button>
             </div>
@@ -1014,6 +1028,7 @@ function VideoCallDialog({
     </Dialog>
   );
 }
+
 
 function ShadowShiftDialog({
   application, restaurantName, onClose, onConfirm,

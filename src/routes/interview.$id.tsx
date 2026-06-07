@@ -48,11 +48,13 @@ function InterviewConfirmPage() {
           Your video interview is confirmed for <span className="font-semibold text-foreground">{formatSlot(app.selectedSlot)}</span>.
         </p>
         <p className="mt-2 text-sm text-muted-foreground">
-          You'll receive a link to join 30 minutes before.
+          When it's time, tap below to join. You'll need camera and microphone access.
         </p>
+        <JoinCallButton applicationId={app.id} userName={firstName} />
       </Centered>
     );
   }
+
 
   if (!app.offeredSlots || app.offeredSlots.length === 0) {
     return (
@@ -120,3 +122,50 @@ function Centered({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
+
+function JoinCallButton({ applicationId, userName }: { applicationId: string; userName: string }) {
+  const [loading, setLoading] = useState(false);
+  const [roomUrl, setRoomUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const join = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const { getOrCreateInterviewRoom } = await import("@/lib/daily.functions");
+      const res = await getOrCreateInterviewRoom({ data: { applicationId } });
+      setRoomUrl(res.url);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not start video call");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (roomUrl) {
+    return (
+      <div className="mt-6">
+        <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-black">
+          <iframe
+            title="Video interview"
+            src={`${roomUrl}?userName=${encodeURIComponent(userName)}`}
+            allow="camera; microphone; fullscreen; speaker; display-capture; autoplay"
+            className="h-full w-full border-0"
+          />
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">Allow camera & microphone when prompted.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-8">
+      <Button size="lg" className="w-full shadow-elegant" onClick={join} disabled={loading}>
+        <Video className="mr-2 h-4 w-4" />
+        {loading ? "Starting video…" : "Join video call"}
+      </Button>
+      {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
+    </div>
+  );
+}
+
