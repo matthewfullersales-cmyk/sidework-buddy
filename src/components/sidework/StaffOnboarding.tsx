@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import QRCode from "qrcode";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,12 +20,15 @@ function useQrDataUrl(value: string, size = 512) {
   const [src, setSrc] = useState<string>("");
   useEffect(() => {
     let cancelled = false;
-    QRCode.toDataURL(value, {
-      width: size,
-      margin: 1,
-      color: { dark: "#14532d", light: "#ffffff" },
-      errorCorrectionLevel: "M",
-    })
+    import("qrcode")
+      .then(({ default: QRCode }) =>
+        QRCode.toDataURL(value, {
+          width: size,
+          margin: 1,
+          color: { dark: "#14532d", light: "#ffffff" },
+          errorCorrectionLevel: "M",
+        }),
+      )
       .then((d) => { if (!cancelled) setSrc(d); })
       .catch(() => { if (!cancelled) setSrc(""); });
     return () => { cancelled = true; };
