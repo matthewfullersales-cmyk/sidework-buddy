@@ -65,7 +65,7 @@ export function AvailabilityEditor({
             <div className="mt-2 grid grid-cols-3 gap-2">
               {(["full", "partial", "none"] as const).map((k) => {
                 const active = kind === k;
-                const label = k === "full" ? "Full Day" : k === "partial" ? "Partial" : "Not Avail";
+                const label = k === "full" ? "Full Day" : k === "partial" ? "Partial" : "Not Available";
                 return (
                   <button
                     key={k}
