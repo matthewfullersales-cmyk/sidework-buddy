@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AppShell, PageHeader } from "@/components/sidework/AppShell";
 import { SetupWizard } from "@/components/sidework/SetupWizard";
 import { MenuQuizGenerator } from "@/components/sidework/MenuQuizGenerator";
+import { ScheduleSection } from "@/components/sidework/ScheduleSection";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
