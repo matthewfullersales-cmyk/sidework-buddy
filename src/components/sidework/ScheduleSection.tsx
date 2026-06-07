@@ -69,7 +69,7 @@ function defaultShift(pos: Position | undefined, isWeekend: boolean): { start: s
 }
 
 // Required staffing per day
-function staffingFor(dayIdx: number) {
+function staffingFor(dayIdx: number): Partial<Record<Position, number>> {
   // dayIdx: 0=Mon..4=Fri, 5=Sat, 6=Sun
   const weekendNight = dayIdx === 4 || dayIdx === 5; // Fri/Sat
   return weekendNight
