@@ -18,6 +18,7 @@ import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { onboardingStatus, useStore, type Role, type ApplicationStatus, type Employee, type Relationship, DAY_KEYS, type JobApplication, type HiringStage, type ShadowShiftDetails, type InterviewType, getHiringStage } from "@/lib/sidework-store";
+import { roleStyle } from "@/lib/role-colors";
 import { AvailabilityEditor, RestaurantHoursEditor } from "@/components/sidework/AvailabilityEditor";
 import { StaffJoinBanner, FullscreenQrDialog, StaffOnboardingCard } from "@/components/sidework/StaffOnboarding";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -184,7 +185,7 @@ function OverviewTab() {
                   <div className="flex items-center gap-2">
                     <Avatar name={e.name} />
                     <span className="font-medium">{e.name}</span>
-                    <Badge variant="secondary">{e.primaryRole}</Badge>
+                    <Badge style={roleStyle(e.primaryRole)} className="border-transparent">{e.primaryRole}</Badge>
                     {s.fullyOnboarded && <Badge className="bg-success text-success-foreground hover:bg-success">Onboarded</Badge>}
                   </div>
                   <span className="text-muted-foreground">{s.passed}/{s.total} videos</span>
@@ -474,9 +475,9 @@ function TeamTab() {
                       <p className="text-sm text-muted-foreground break-all">{e.email}</p>
                       {e.phone && <p className="text-sm text-muted-foreground">{e.phone}</p>}
                       <div className="mt-2 flex flex-wrap gap-1.5">
-                        <Badge className="bg-primary text-primary-foreground hover:bg-primary">{e.primaryRole}</Badge>
+                        <Badge style={roleStyle(e.primaryRole)} className="border-transparent">{e.primaryRole}</Badge>
                         {e.approvedRoles.filter((r) => r !== e.primaryRole).map((r) => (
-                          <Badge key={r} variant="secondary">{r}</Badge>
+                          <Badge key={r} style={roleStyle(r)} className="border-transparent opacity-90">{r}</Badge>
                         ))}
                       </div>
                     </div>

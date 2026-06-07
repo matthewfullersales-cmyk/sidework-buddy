@@ -10,10 +10,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { useStore, type Role, type Shift, type Position, type Section, DAY_KEYS, isAvailableFor } from "@/lib/sidework-store";
 import { toast } from "sonner";
 
+import { ROLES_ORDERED as ROLES, roleStyle, STATUS_COLORS, contrastText } from "@/lib/role-colors";
+
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const FOH_ROLES: Role[] = ["Host", "Busser", "Server Assistant", "Bar Back", "Bartender", "Server", "Manager", "Assistant Manager"];
-const BOH_ROLES: Role[] = ["Chef", "Sous Chef", "Line Cook", "Fry Cook", "Saute", "Grill", "Pizza", "Garde Manger", "Dishwasher", "Prep"];
-const ROLES: Role[] = [...FOH_ROLES, ...BOH_ROLES];
 
 // Order positions roughly by hierarchy
 const POSITION_ORDER: Position[] = [
@@ -40,22 +39,6 @@ function fmtRange(start: Date) {
   return `${s} – ${e}`;
 }
 
-function roleColor(role: Role) {
-  switch (role) {
-    case "Host": return "bg-fuchsia-500/15 text-fuchsia-700 border-fuchsia-500/30 dark:text-fuchsia-300";
-    case "Bartender":
-    case "Bar Back":
-      return "bg-amber-500/15 text-amber-700 border-amber-500/30 dark:text-amber-300";
-    case "Server":
-    case "Server Assistant":
-    case "Manager":
-    case "Assistant Manager":
-    case "Busser":
-      return "bg-primary/15 text-primary border-primary/30";
-    default:
-      return "bg-blue-500/15 text-blue-700 border-blue-500/30 dark:text-blue-300";
-  }
-}
 
 // Default shift specs by position (24h)
 function defaultShift(pos: Position | undefined, isWeekend: boolean): { start: string; end: string } | null {
@@ -303,7 +286,10 @@ export function ScheduleSection() {
                         return (
                           <td key={date} className="border-b border-border p-1 align-middle">
                             {toStatus === "approved" ? (
-                              <div className="w-full min-h-[52px] rounded-md bg-muted text-[11px] grid place-items-center text-muted-foreground border border-border">
+                              <div
+                                className="w-full min-h-[52px] rounded-md text-[11px] grid place-items-center border"
+                                style={{ backgroundColor: STATUS_COLORS.timeOff, color: contrastText(STATUS_COLORS.timeOff), borderColor: STATUS_COLORS.timeOff }}
+                              >
                                 Time off
                               </div>
                             ) : (
@@ -311,20 +297,26 @@ export function ScheduleSection() {
                                 onClick={() => setEditing({ employeeId: emp.id, date, existing: s })}
                                 className={`w-full min-h-[52px] rounded-md text-[11px] px-2 py-1 transition border ${
                                   s
-                                    ? roleColor(s.role) + " hover:opacity-80"
+                                    ? "hover:opacity-80"
                                     : "bg-background border-dashed border-border text-muted-foreground hover:border-primary/40 hover:text-primary"
                                 }`}
+                                style={s ? roleStyle(s.role) : undefined}
                               >
                                 {s ? (
                                   <div className="flex flex-col">
                                     <span className="font-semibold">{s.start}–{s.end}</span>
                                     {toStatus === "pending" && (
-                                      <span className="mt-0.5 text-[9px] uppercase tracking-wide text-amber-600">PTO pending</span>
+                                      <span className="mt-0.5 text-[9px] uppercase tracking-wide" style={{ color: "#8a4b00" }}>PTO pending</span>
                                     )}
                                     {s.notes && <span className="mt-0.5 text-[9px] truncate">📝 {s.notes}</span>}
                                   </div>
                                 ) : toStatus === "pending" ? (
-                                  <span className="text-amber-600">PTO pending</span>
+                                  <span
+                                    className="inline-block w-full rounded px-1 py-0.5"
+                                    style={{ backgroundColor: STATUS_COLORS.ptoPending, color: contrastText(STATUS_COLORS.ptoPending) }}
+                                  >
+                                    PTO pending
+                                  </span>
                                 ) : (
                                   <span>+</span>
                                 )}
@@ -362,12 +354,22 @@ function Legend() {
     <div className="flex flex-wrap items-center gap-2 text-[11px]">
       <span className="text-muted-foreground">Legend:</span>
       {ROLES.map((r) => (
-        <span key={r} className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 ${roleColor(r)}`}>
-          <span className="h-1.5 w-1.5 rounded-full bg-current" />{r}
+        <span key={r} className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5" style={roleStyle(r)}>
+          <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: contrastText(roleStyle(r).backgroundColor as string) }} />{r}
         </span>
       ))}
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-2 py-0.5 text-muted-foreground">Time off</span>
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-amber-700 dark:text-amber-300">PTO pending</span>
+      <span
+        className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5"
+        style={{ backgroundColor: STATUS_COLORS.timeOff, color: contrastText(STATUS_COLORS.timeOff), borderColor: STATUS_COLORS.timeOff }}
+      >
+        Time off
+      </span>
+      <span
+        className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5"
+        style={{ backgroundColor: STATUS_COLORS.ptoPending, color: contrastText(STATUS_COLORS.ptoPending), borderColor: STATUS_COLORS.ptoPending }}
+      >
+        PTO pending
+      </span>
     </div>
   );
 }
