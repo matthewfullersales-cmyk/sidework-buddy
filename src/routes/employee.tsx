@@ -160,7 +160,7 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
       <Card>
         <CardHeader><CardTitle className="text-base">Emergency contact</CardTitle></CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2">
-          <div className="grid gap-2"><Label>Full name</Label><Input value={ec.name} onChange={(e) => setEc({ ...ec, name: e.target.value })} /></div>
+          <div className="grid gap-2"><Label>Full name</Label><Input placeholder="Emergency contact full name" value={ec.name} onChange={(e) => setEc({ ...ec, name: e.target.value })} /></div>
           <div className="grid gap-2"><Label>Phone</Label><Input type="tel" value={ec.phone} onChange={(e) => setEc({ ...ec, phone: e.target.value })} /></div>
           <div className="grid gap-2 sm:col-span-2">
             <Label>Relationship</Label>
