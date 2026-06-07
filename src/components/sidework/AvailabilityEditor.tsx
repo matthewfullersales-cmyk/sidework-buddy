@@ -17,10 +17,10 @@ const DAY_FULL: Record<DayKey, string> = {
 };
 
 const MEAL_PRESETS: { id: string; label: string; meals: Meal[] }[] = [
-  { id: "L", label: "Lunch", meals: ["Lunch"] },
-  { id: "D", label: "Dinner", meals: ["Dinner"] },
+  { id: "L", label: "Lunch Only", meals: ["Lunch"] },
+  { id: "D", label: "Dinner Only", meals: ["Dinner"] },
   { id: "LD", label: "Lunch & Dinner", meals: ["Lunch", "Dinner"] },
-  { id: "B", label: "Breakfast", meals: ["Breakfast"] },
+  { id: "B", label: "Breakfast Only", meals: ["Breakfast"] },
   { id: "BL", label: "Breakfast & Lunch", meals: ["Breakfast", "Lunch"] },
   { id: "BD", label: "Breakfast & Dinner", meals: ["Breakfast", "Dinner"] },
 ];
