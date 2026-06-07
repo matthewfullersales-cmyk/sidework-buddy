@@ -1,8 +1,8 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
 
 export type Role =
-  | "Host" | "Busser" | "Bar Back" | "Bartender" | "Server" | "Server Assistant" | "Manager" | "Assistant Manager" | "Porter"
-  | "Chef" | "Sous Chef" | "Line Cook" | "Fry Cook" | "Saute" | "Grill" | "Pizza" | "Dishwasher" | "Prep";
+  | "Host" | "Busser" | "Bar Back" | "Bartender" | "Server" | "Manager" | "Assistant Manager"
+  | "Chef" | "Sous Chef" | "Line Cook" | "Fry Cook" | "Saute" | "Grill" | "Pizza" | "Garde Manger" | "Dishwasher" | "Prep";
 
 export type TrainingCategory = "Server" | "Bartender" | "Host" | "Kitchen";
 
@@ -34,8 +34,8 @@ export interface VideoProgress {
 export type Section = "FOH" | "BOH";
 export type Position =
   | "Hostess" | "Bartender" | "Server" | "Busser" | "Bar Back"
-  | "Manager" | "Assistant Manager" | "Porter"
-  | "Chef" | "Sous Chef" | "Line Cook" | "Dishwasher" | "Prep Cook";
+  | "Manager" | "Assistant Manager"
+  | "Chef" | "Sous Chef" | "Line Cook" | "Garde Manger" | "Dishwasher" | "Prep Cook";
 
 export type DayKey = "Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat" | "Sun";
 export const DAY_KEYS: DayKey[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -504,8 +504,8 @@ function seedEmployees(): Employee[] {
     { first: "Rico", last: "Vasquez", position: "Bar Back", section: "FOH", role: "Bar Back", seniority: 2 },
     { first: "Sarah", last: "Klein", position: "Manager", section: "FOH", role: "Manager", seniority: 5 },
     { first: "Frank", last: "D'Amato", position: "Assistant Manager", section: "FOH", role: "Assistant Manager", seniority: 4 },
-    { first: "Luis", last: "Garcia", position: "Porter", section: "FOH", role: "Porter", seniority: 2 },
-    { first: "Mario", last: "Tessaro", position: "Porter", section: "FOH", role: "Porter", seniority: 2 },
+    { first: "Luis", last: "Garcia", position: "Busser", section: "FOH", role: "Busser", seniority: 2 },
+    { first: "Mario", last: "Tessaro", position: "Busser", section: "FOH", role: "Busser", seniority: 2 },
     // BOH
     { first: "Marco", last: "Bianchi", position: "Chef", section: "BOH", role: "Chef", seniority: 5 },
     { first: "Tony", last: "Romano", position: "Sous Chef", section: "BOH", role: "Sous Chef", seniority: 5 },

@@ -34,8 +34,8 @@ export const Route = createFileRoute("/careers")({
   component: CareersPage,
 });
 
-const FOH_ROLES: Role[] = ["Host", "Busser", "Bar Back", "Bartender", "Server", "Server Assistant", "Manager", "Assistant Manager", "Porter"];
-const BOH_ROLES: Role[] = ["Chef", "Sous Chef", "Line Cook", "Fry Cook", "Saute", "Grill", "Pizza", "Dishwasher", "Prep"];
+const FOH_ROLES: Role[] = ["Host", "Busser", "Bar Back", "Bartender", "Server", "Manager", "Assistant Manager"];
+const BOH_ROLES: Role[] = ["Chef", "Sous Chef", "Line Cook", "Fry Cook", "Saute", "Grill", "Pizza", "Garde Manger", "Dishwasher", "Prep"];
 
 function CareersPage() {
   const { jobs, submitApplication, restaurantProfile } = useStore();
