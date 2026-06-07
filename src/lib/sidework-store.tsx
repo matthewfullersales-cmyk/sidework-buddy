@@ -733,16 +733,97 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
       setState((s) => ({ ...s, jobs: s.jobs.map((j) => (j.id === id ? { ...j, open: !j.open } : j)) })),
     removeJob: (id) =>
       setState((s) => ({ ...s, jobs: s.jobs.filter((j) => j.id !== id) })),
-    submitApplication: (data) =>
+    submitApplication: (data) => {
+      const id = uid("a");
       setState((s) => ({
         ...s,
         applications: [
-          { id: uid("a"), appliedAt: new Date().toISOString(), status: "new", ...data },
+          { id, appliedAt: new Date().toISOString(), status: "new", aiScore: aiScoreFor(data as JobApplication), ...data },
           ...s.applications,
         ],
-      })),
+      }));
+      return id;
+    },
     setApplicationStatus: (id, status) =>
       setState((s) => ({ ...s, applications: s.applications.map((a) => (a.id === id ? { ...a, status } : a)) })),
+    scheduleInterview: (id) =>
+      setState((s) => ({
+        ...s,
+        applications: s.applications.map((a) =>
+          a.id === id ? { ...a, status: "interview", interviewSentAt: new Date().toISOString(), archived: false } : a,
+        ),
+      })),
+    setInterviewNotes: (id, notes) =>
+      setState((s) => ({
+        ...s,
+        applications: s.applications.map((a) => (a.id === id ? { ...a, interviewNotes: notes } : a)),
+      })),
+    declineApplication: (id) =>
+      setState((s) => ({
+        ...s,
+        applications: s.applications.map((a) =>
+          a.id === id ? { ...a, status: "rejected", archived: true } : a,
+        ),
+      })),
+    reconsiderApplication: (id) =>
+      setState((s) => ({
+        ...s,
+        applications: s.applications.map((a) =>
+          a.id === id ? { ...a, status: "new", archived: false, hiredEmployeeId: undefined } : a,
+        ),
+      })),
+    hireApplication: (id, overrides) => {
+      let createdId: string | null = null;
+      setState((s) => {
+        const a = s.applications.find((x) => x.id === id);
+        if (!a) return s;
+        const empId = uid("e");
+        createdId = empId;
+        const first = overrides?.firstName ?? a.firstName ?? a.name.split(" ")[0] ?? "";
+        const last = overrides?.lastName ?? a.lastName ?? a.name.split(" ").slice(1).join(" ") ?? "";
+        const role: Role = overrides?.primaryRole ?? a.role ?? "Server";
+        const employee: Employee = {
+          id: empId,
+          name: `${first} ${last}`.trim() || a.name,
+          firstName: first,
+          lastName: last,
+          email: overrides?.email ?? a.email ?? "",
+          phone: overrides?.phone ?? a.phone,
+          primaryRole: role,
+          approvedRoles: overrides?.approvedRoles ?? [role],
+          autoApproveRoles: overrides?.autoApproveRoles ?? [],
+          availability: overrides?.availability ?? a.availabilityHours ?? "",
+          weeklyAvailability: overrides?.weeklyAvailability ?? a.weeklyAvailability ?? defaultWeeklyAvailability(),
+          emergencyContact: overrides?.emergencyContact,
+          invitedAt: new Date().toISOString().slice(0, 10),
+          onboardingStarted: false,
+          personalInfoComplete: false,
+          progress: [],
+          section: overrides?.section,
+          position: overrides?.position,
+          seniority: overrides?.seniority ?? 1,
+        };
+        return {
+          ...s,
+          employees: [...s.employees, employee],
+          applications: s.applications.map((x) =>
+            x.id === id ? { ...x, status: "hired", archived: true, hiredEmployeeId: empId } : x,
+          ),
+          notifications: [
+            {
+              id: uid("n"),
+              type: "training_passed",
+              message: `Welcome message sent to ${employee.name}. Training assigned for ${role}.`,
+              employeeId: empId,
+              createdAt: new Date().toISOString(),
+              read: false,
+            },
+            ...s.notifications,
+          ],
+        };
+      });
+      return createdId;
+    },
     requestTimeOff: (data) =>
       setState((s) => ({
         ...s,
