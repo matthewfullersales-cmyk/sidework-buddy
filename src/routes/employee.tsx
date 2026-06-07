@@ -11,7 +11,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { TrainingModule } from "@/components/sidework/TrainingModule";
-import { onboardingStatus, useStore, videosForRole } from "@/lib/sidework-store";
+import { AvailabilityEditor } from "@/components/sidework/AvailabilityEditor";
+import { onboardingStatus, useStore, videosForRole, type Relationship, type WeeklyAvailability } from "@/lib/sidework-store";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 
 const nav = [
