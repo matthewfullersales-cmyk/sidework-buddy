@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { Brain, MonitorPlay, CalendarClock } from "lucide-react";
 import { Logo } from "@/components/sidework/Logo";
 import { Button } from "@/components/ui/button";
 import { useStore } from "@/lib/sidework-store";
@@ -98,6 +99,43 @@ function Landing() {
                 ))}
               </ul>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* KEY FEATURES */}
+      <section className="bg-background">
+        <div className="mx-auto max-w-6xl px-4 py-20">
+          <div className="mb-12 max-w-2xl">
+            <p className="text-xs font-bold uppercase tracking-widest text-primary">Why Sidework</p>
+            <h2 className="mt-3 text-4xl font-bold tracking-tight md:text-5xl">Built by a restaurant veteran, powered for your team.</h2>
+          </div>
+          <div className="grid gap-6 md:grid-cols-3">
+            {[
+              {
+                icon: <Brain className="h-6 w-6" />,
+                t: "AI Menu Quizzes",
+                d: "Upload your menu and AI instantly generates custom staff knowledge tests. Randomized, timed, and anti-cheat protected.",
+              },
+              {
+                icon: <MonitorPlay className="h-6 w-6" />,
+                t: "Expert Training Videos",
+                d: "Scenario-based training from a 20-year restaurant industry veteran. Fine dining, bar, fast casual and more.",
+              },
+              {
+                icon: <CalendarClock className="h-6 w-6" />,
+                t: "Smart Scheduling",
+                d: "Build and manage your whole team's schedule in one place. Handle trades, time off, and sick calls automatically.",
+              },
+            ].map((f) => (
+              <div key={f.t} className="rounded-2xl border-2 border-border bg-card p-7 transition-shadow hover:shadow-elegant">
+                <div className="mb-4 grid h-10 w-10 place-items-center rounded-lg bg-primary text-primary-foreground">
+                  {f.icon}
+                </div>
+                <h3 className="text-lg font-bold">{f.t}</h3>
+                <p className="mt-2 text-sm text-muted-foreground">{f.d}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
