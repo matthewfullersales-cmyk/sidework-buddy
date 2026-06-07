@@ -12,6 +12,7 @@ import {
   useStore,
   type Role,
   type WeeklyAvailability,
+  type WorkExperience,
   DAY_KEYS,
   defaultWeeklyAvailability,
 } from "@/lib/sidework-store";
