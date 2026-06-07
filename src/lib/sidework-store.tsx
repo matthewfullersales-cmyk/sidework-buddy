@@ -868,6 +868,29 @@ export function useStore() {
 }
 
 export function videosForRole(videos: TrainingVideo[], role: Role) {
+
+export function aiScoreFor(a: Partial<JobApplication>): AiScore {
+  let pts = 0;
+  if (a.firstName && a.lastName) pts += 1;
+  if (a.email) pts += 1;
+  if (a.phone) pts += 1;
+  if (a.role) pts += 1;
+  const pitchText = (a.pitch ?? a.note ?? "").trim();
+  const words = pitchText ? pitchText.split(/\s+/).length : 0;
+  if (words >= 100) pts += 3;
+  else if (words >= 40) pts += 2;
+  else if (words >= 15) pts += 1;
+  const days = a.weeklyAvailability
+    ? DAY_KEYS.filter((d) => a.weeklyAvailability![d]?.kind !== "none").length
+    : (a.availabilityDays?.length ?? 0);
+  if (days >= 5) pts += 2;
+  else if (days >= 3) pts += 1;
+  if (pts >= 8) return "Strong";
+  if (pts >= 5) return "Average";
+  return "Weak";
+}
+
+function _videosForRole(videos: TrainingVideo[], role: Role) {
   const cat = trainingCategoryForRole(role);
   return videos.filter((v) => v.role === cat);
 }
