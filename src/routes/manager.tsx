@@ -17,7 +17,7 @@ import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { onboardingStatus, useStore, type Role, type ApplicationStatus, type Employee, type Relationship, DAY_KEYS } from "@/lib/sidework-store";
-import { AvailabilityEditor, RestaurantHoursEditor, summarizeAvailability } from "@/components/sidework/AvailabilityEditor";
+import { AvailabilityEditor, RestaurantHoursEditor } from "@/components/sidework/AvailabilityEditor";
 import { toast } from "sonner";
 
 const ROLES: Role[] = ["Server", "Bartender", "Kitchen", "Host"];
