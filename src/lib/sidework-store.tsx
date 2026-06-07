@@ -147,7 +147,23 @@ export type ApplicationStatus = "new" | "reviewing" | "interview" | "hired" | "r
 export type ApplicationSource = "Walk-in" | "Instagram" | "Indeed" | "Friend" | "Google" | "Other";
 export type AiScore = "Strong" | "Average" | "Weak";
 
+export type HiringStage =
+  | "new"
+  | "video_offered"
+  | "video_scheduled"
+  | "interviewed"
+  | "shadow_scheduled"
+  | "hired"
+  | "rejected";
+
 export type AvailabilityHours = "Mornings" | "Afternoons" | "Evenings" | "Open availability";
+
+export interface ShadowShiftDetails {
+  date: string;
+  time: string;
+  instructions: string;
+  dressCode?: string;
+}
 
 export interface JobApplication {
   id: string;
@@ -166,12 +182,24 @@ export interface JobApplication {
   note?: string;
   appliedAt: string;
   status: ApplicationStatus;
+  stage?: HiringStage;
   verified: boolean;
   aiScore?: AiScore;
   interviewSentAt?: string;
   interviewNotes?: string;
+  offeredSlots?: string[];
+  selectedSlot?: string;
+  shadowShift?: ShadowShiftDetails;
   archived?: boolean;
   hiredEmployeeId?: string;
+}
+
+export function getHiringStage(a: Pick<JobApplication, "stage" | "status">): HiringStage {
+  if (a.stage) return a.stage;
+  if (a.status === "hired") return "hired";
+  if (a.status === "rejected") return "rejected";
+  if (a.status === "interview") return "video_offered";
+  return "new";
 }
 
 export type TimeOffStatus = "pending" | "approved" | "denied";
