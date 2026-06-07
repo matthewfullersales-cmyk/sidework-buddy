@@ -11,14 +11,14 @@ import { useStore, type Role, type Shift, type Position, type Section, DAY_KEYS,
 import { toast } from "sonner";
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const FOH_ROLES: Role[] = ["Host", "Busser", "Bar Back", "Bartender", "Server", "Manager", "Assistant Manager"];
+const FOH_ROLES: Role[] = ["Host", "Busser", "Server Assistant", "Bar Back", "Bartender", "Server", "Manager", "Assistant Manager"];
 const BOH_ROLES: Role[] = ["Chef", "Sous Chef", "Line Cook", "Fry Cook", "Saute", "Grill", "Pizza", "Garde Manger", "Dishwasher", "Prep"];
 const ROLES: Role[] = [...FOH_ROLES, ...BOH_ROLES];
 
 // Order positions roughly by hierarchy
 const POSITION_ORDER: Position[] = [
   "Manager", "Assistant Manager", "Hostess", "Bartender", "Bar Back",
-  "Server", "Busser",
+  "Server", "Server Assistant", "Busser",
   "Chef", "Sous Chef", "Line Cook", "Garde Manger", "Prep Cook", "Dishwasher",
 ];
 
