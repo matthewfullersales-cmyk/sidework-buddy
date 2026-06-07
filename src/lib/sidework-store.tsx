@@ -144,20 +144,34 @@ export interface JobPosting {
 }
 
 export type ApplicationStatus = "new" | "reviewing" | "interview" | "hired" | "rejected";
+export type ApplicationSource = "Walk-in" | "Instagram" | "Indeed" | "Friend" | "Google" | "Other";
+export type AiScore = "Strong" | "Average" | "Weak";
 
 export type AvailabilityHours = "Mornings" | "Afternoons" | "Evenings" | "Open availability";
 
 export interface JobApplication {
   id: string;
-  jobId: string;
+  jobId?: string;
   name: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
   phone: string;
+  role?: Role;
+  pitch?: string;
+  source?: ApplicationSource;
+  weeklyAvailability?: WeeklyAvailability;
   availabilityDays: string[];
   availabilityHours: AvailabilityHours;
   note?: string;
   appliedAt: string;
   status: ApplicationStatus;
   verified: boolean;
+  aiScore?: AiScore;
+  interviewSentAt?: string;
+  interviewNotes?: string;
+  archived?: boolean;
+  hiredEmployeeId?: string;
 }
 
 export type TimeOffStatus = "pending" | "approved" | "denied";
@@ -243,8 +257,13 @@ interface Store {
   postJob: (data: Omit<JobPosting, "id" | "postedAt" | "open">) => void;
   toggleJobOpen: (id: string) => void;
   removeJob: (id: string) => void;
-  submitApplication: (data: Omit<JobApplication, "id" | "appliedAt" | "status">) => void;
+  submitApplication: (data: Omit<JobApplication, "id" | "appliedAt" | "status" | "aiScore">) => string;
   setApplicationStatus: (id: string, status: ApplicationStatus) => void;
+  scheduleInterview: (id: string) => void;
+  setInterviewNotes: (id: string, notes: string) => void;
+  declineApplication: (id: string) => void;
+  reconsiderApplication: (id: string) => void;
+  hireApplication: (id: string, overrides?: Partial<Employee>) => string | null;
   requestTimeOff: (data: Omit<TimeOffRequest, "id" | "createdAt" | "status">) => void;
   resolveTimeOff: (id: string, approved: boolean, note?: string) => void;
 }
@@ -541,7 +560,7 @@ function seedTimeOff(): TimeOffRequest[] {
   ];
 }
 
-const STORAGE_KEY = "sidework-store-v6";
+const STORAGE_KEY = "sidework-store-v7";
 
 export function SideworkProvider({ children }: { children: ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
@@ -714,16 +733,97 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
       setState((s) => ({ ...s, jobs: s.jobs.map((j) => (j.id === id ? { ...j, open: !j.open } : j)) })),
     removeJob: (id) =>
       setState((s) => ({ ...s, jobs: s.jobs.filter((j) => j.id !== id) })),
-    submitApplication: (data) =>
+    submitApplication: (data) => {
+      const id = uid("a");
       setState((s) => ({
         ...s,
         applications: [
-          { id: uid("a"), appliedAt: new Date().toISOString(), status: "new", ...data },
+          { id, appliedAt: new Date().toISOString(), status: "new", aiScore: aiScoreFor(data as JobApplication), ...data },
           ...s.applications,
         ],
-      })),
+      }));
+      return id;
+    },
     setApplicationStatus: (id, status) =>
       setState((s) => ({ ...s, applications: s.applications.map((a) => (a.id === id ? { ...a, status } : a)) })),
+    scheduleInterview: (id) =>
+      setState((s) => ({
+        ...s,
+        applications: s.applications.map((a) =>
+          a.id === id ? { ...a, status: "interview", interviewSentAt: new Date().toISOString(), archived: false } : a,
+        ),
+      })),
+    setInterviewNotes: (id, notes) =>
+      setState((s) => ({
+        ...s,
+        applications: s.applications.map((a) => (a.id === id ? { ...a, interviewNotes: notes } : a)),
+      })),
+    declineApplication: (id) =>
+      setState((s) => ({
+        ...s,
+        applications: s.applications.map((a) =>
+          a.id === id ? { ...a, status: "rejected", archived: true } : a,
+        ),
+      })),
+    reconsiderApplication: (id) =>
+      setState((s) => ({
+        ...s,
+        applications: s.applications.map((a) =>
+          a.id === id ? { ...a, status: "new", archived: false, hiredEmployeeId: undefined } : a,
+        ),
+      })),
+    hireApplication: (id, overrides) => {
+      let createdId: string | null = null;
+      setState((s) => {
+        const a = s.applications.find((x) => x.id === id);
+        if (!a) return s;
+        const empId = uid("e");
+        createdId = empId;
+        const first = overrides?.firstName ?? a.firstName ?? a.name.split(" ")[0] ?? "";
+        const last = overrides?.lastName ?? a.lastName ?? a.name.split(" ").slice(1).join(" ") ?? "";
+        const role: Role = overrides?.primaryRole ?? a.role ?? "Server";
+        const employee: Employee = {
+          id: empId,
+          name: `${first} ${last}`.trim() || a.name,
+          firstName: first,
+          lastName: last,
+          email: overrides?.email ?? a.email ?? "",
+          phone: overrides?.phone ?? a.phone,
+          primaryRole: role,
+          approvedRoles: overrides?.approvedRoles ?? [role],
+          autoApproveRoles: overrides?.autoApproveRoles ?? [],
+          availability: overrides?.availability ?? a.availabilityHours ?? "",
+          weeklyAvailability: overrides?.weeklyAvailability ?? a.weeklyAvailability ?? defaultWeeklyAvailability(),
+          emergencyContact: overrides?.emergencyContact,
+          invitedAt: new Date().toISOString().slice(0, 10),
+          onboardingStarted: false,
+          personalInfoComplete: false,
+          progress: [],
+          section: overrides?.section,
+          position: overrides?.position,
+          seniority: overrides?.seniority ?? 1,
+        };
+        return {
+          ...s,
+          employees: [...s.employees, employee],
+          applications: s.applications.map((x) =>
+            x.id === id ? { ...x, status: "hired", archived: true, hiredEmployeeId: empId } : x,
+          ),
+          notifications: [
+            {
+              id: uid("n"),
+              type: "training_passed",
+              message: `Welcome message sent to ${employee.name}. Training assigned for ${role}.`,
+              employeeId: empId,
+              createdAt: new Date().toISOString(),
+              read: false,
+            },
+            ...s.notifications,
+          ],
+        };
+      });
+      return createdId;
+    },
     requestTimeOff: (data) =>
       setState((s) => ({
         ...s,
@@ -770,6 +870,27 @@ export function useStore() {
 export function videosForRole(videos: TrainingVideo[], role: Role) {
   const cat = trainingCategoryForRole(role);
   return videos.filter((v) => v.role === cat);
+}
+
+export function aiScoreFor(a: Partial<JobApplication>): AiScore {
+  let pts = 0;
+  if (a.firstName && a.lastName) pts += 1;
+  if (a.email) pts += 1;
+  if (a.phone) pts += 1;
+  if (a.role) pts += 1;
+  const pitchText = (a.pitch ?? a.note ?? "").trim();
+  const words = pitchText ? pitchText.split(/\s+/).length : 0;
+  if (words >= 100) pts += 3;
+  else if (words >= 40) pts += 2;
+  else if (words >= 15) pts += 1;
+  const days = a.weeklyAvailability
+    ? DAY_KEYS.filter((d) => a.weeklyAvailability![d]?.kind !== "none").length
+    : (a.availabilityDays?.length ?? 0);
+  if (days >= 5) pts += 2;
+  else if (days >= 3) pts += 1;
+  if (pts >= 8) return "Strong";
+  if (pts >= 5) return "Average";
+  return "Weak";
 }
 
 export function onboardingStatus(employee: Employee, videos: TrainingVideo[]) {
