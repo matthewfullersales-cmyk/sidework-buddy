@@ -27,6 +27,12 @@ export interface VideoProgress {
   lockedOut?: boolean;
 }
 
+export type Section = "FOH" | "BOH";
+export type Position =
+  | "Hostess" | "Bartender" | "Server" | "Busser" | "Bar Back"
+  | "Manager" | "Assistant Manager" | "Porter"
+  | "Chef" | "Sous Chef" | "Line Cook" | "Dishwasher" | "Prep Cook";
+
 export interface Employee {
   id: string;
   name: string;
@@ -39,6 +45,9 @@ export interface Employee {
   onboardingStarted: boolean;
   personalInfoComplete: boolean;
   progress: VideoProgress[];
+  position?: Position;
+  section?: Section;
+  seniority?: number; // 1-5, higher = more experienced
 }
 
 export interface Shift {
@@ -48,6 +57,8 @@ export interface Shift {
   date: string;
   start: string;
   end: string;
+  notes?: string;
+  position?: Position;
 }
 
 export type TradeStatus = "open" | "pending_approval" | "approved" | "denied" | "cancelled";
