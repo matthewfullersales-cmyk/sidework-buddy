@@ -682,18 +682,32 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
       setState((s) => ({ ...s, restaurantHours: { ...s.restaurantHours, [day]: { ...s.restaurantHours[day], ...patch } } })),
     setCurrentUser: (u) => setState((s) => ({ ...s, currentUser: u })),
     inviteEmployee: ({ name, email, role }) =>
-      setState((s) => ({
-        ...s,
-        employees: [
-          ...s.employees,
-          {
-            id: uid("e"), name, email, primaryRole: role,
-            approvedRoles: [role], autoApproveRoles: [], availability: "",
-            invitedAt: new Date().toISOString().slice(0, 10),
-            onboardingStarted: false, personalInfoComplete: false, progress: [],
-          },
-        ],
-      })),
+      setState((s) => {
+        const newId = uid("e");
+        return {
+          ...s,
+          employees: [
+            ...s.employees,
+            {
+              id: newId, name, email, primaryRole: role,
+              approvedRoles: [role], autoApproveRoles: [], availability: "",
+              invitedAt: new Date().toISOString().slice(0, 10),
+              onboardingStarted: false, personalInfoComplete: false, progress: [],
+            },
+          ],
+          notifications: [
+            {
+              id: uid("n"),
+              type: "training_passed",
+              message: `Training automatically assigned to ${name} based on their ${role} position.`,
+              employeeId: newId,
+              createdAt: new Date().toISOString(),
+              read: false,
+            },
+            ...s.notifications,
+          ],
+        };
+      }),
     joinStaff: (data) => {
       const empId = uid("e");
       const fullName = `${data.firstName} ${data.lastName}`.trim();
