@@ -215,20 +215,16 @@ function NotificationsCard() {
 }
 
 function TeamTab() {
-  const { employees, videos, inviteEmployee } = useStore();
+  const { employees, videos, inviteEmployee, restaurantProfile } = useStore();
   const [open, setOpen] = useState(false);
   const [addStaffOpen, setAddStaffOpen] = useState(false);
   const [showQr, setShowQr] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", role: "Server" as Role });
   const [editing, setEditing] = useState<Employee | null>(null);
 
+  const joinSlug = restaurantProfile?.slug ?? (restaurantProfile?.name ? slugify(restaurantProfile.name) : "team");
   const copyJoinLink = async () => {
-    const slug = (window as unknown as { __sw_slug?: string }).__sw_slug;
-    void slug;
-    // The banner copy is handled inside StaffJoinBanner; this fallback is for the dialog option.
-    const { restaurantProfile } = useStore.getState ? useStore.getState() : ({} as { restaurantProfile?: { slug?: string; name?: string } });
-    const s = restaurantProfile?.slug ?? (restaurantProfile?.name ? slugifyName(restaurantProfile.name) : "team");
-    const url = `${window.location.origin}/join/${s}`;
+    const url = `${window.location.origin}/join/${joinSlug}`;
     try {
       await navigator.clipboard.writeText(url);
       toast.success("Join link copied", { description: url });
@@ -236,6 +232,7 @@ function TeamTab() {
       toast.message("Copy this link", { description: url });
     }
   };
+
 
   return (
     <div className="space-y-4">
