@@ -33,14 +33,66 @@ export type Position =
   | "Manager" | "Assistant Manager" | "Porter"
   | "Chef" | "Sous Chef" | "Line Cook" | "Dishwasher" | "Prep Cook";
 
+export type DayKey = "Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat" | "Sun";
+export const DAY_KEYS: DayKey[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+export type Meal = "Breakfast" | "Lunch" | "Dinner";
+export type DayAvailability =
+  | { kind: "full" }
+  | { kind: "none" }
+  | { kind: "partial"; meals: Meal[] };
+export type WeeklyAvailability = Record<DayKey, DayAvailability>;
+
+export type Relationship = "Spouse" | "Parent" | "Sibling" | "Child" | "Friend" | "Other";
+export interface EmergencyContact {
+  name: string;
+  phone: string;
+  relationship: Relationship;
+}
+
+export type DayHours = { closed: boolean; open: string; close: string };
+export type RestaurantHours = Record<DayKey, DayHours>;
+
+export function defaultWeeklyAvailability(): WeeklyAvailability {
+  return DAY_KEYS.reduce((acc, d) => { acc[d] = { kind: "full" }; return acc; }, {} as WeeklyAvailability);
+}
+
+export function defaultRestaurantHours(): RestaurantHours {
+  return {
+    Mon: { closed: false, open: "16:00", close: "21:30" },
+    Tue: { closed: false, open: "16:00", close: "21:30" },
+    Wed: { closed: false, open: "16:00", close: "21:30" },
+    Thu: { closed: false, open: "16:00", close: "21:30" },
+    Fri: { closed: false, open: "16:00", close: "21:30" },
+    Sat: { closed: false, open: "16:00", close: "21:30" },
+    Sun: { closed: false, open: "15:00", close: "21:00" },
+  };
+}
+
+export function mealForShiftStart(start: string): Meal {
+  if (start < "11:00") return "Breakfast";
+  if (start < "16:00") return "Lunch";
+  return "Dinner";
+}
+
+export function isAvailableFor(av: DayAvailability | undefined, start: string): boolean {
+  if (!av || av.kind === "full") return true;
+  if (av.kind === "none") return false;
+  return av.meals.includes(mealForShiftStart(start));
+}
+
 export interface Employee {
   id: string;
   name: string;
+  firstName?: string;
+  lastName?: string;
   email: string;
+  phone?: string;
   primaryRole: Role;
   approvedRoles: Role[];
   autoApproveRoles: Role[];
   availability: string;
+  weeklyAvailability?: WeeklyAvailability;
+  emergencyContact?: EmergencyContact;
   invitedAt: string;
   onboardingStarted: boolean;
   personalInfoComplete: boolean;
