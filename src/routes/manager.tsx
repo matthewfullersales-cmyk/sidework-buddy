@@ -185,7 +185,7 @@ function OverviewTab() {
                   <div className="flex items-center gap-2">
                     <Avatar name={e.name} />
                     <span className="font-medium">{e.name}</span>
-                    <Badge variant="secondary">{e.primaryRole}</Badge>
+                    <Badge style={roleStyle(e.primaryRole)} className="border-transparent">{e.primaryRole}</Badge>
                     {s.fullyOnboarded && <Badge className="bg-success text-success-foreground hover:bg-success">Onboarded</Badge>}
                   </div>
                   <span className="text-muted-foreground">{s.passed}/{s.total} videos</span>
