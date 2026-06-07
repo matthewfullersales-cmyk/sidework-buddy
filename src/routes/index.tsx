@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Brain, MonitorPlay, CalendarClock } from "lucide-react";
+import { Brain, MonitorPlay, CalendarClock, Check } from "lucide-react";
 import { Logo } from "@/components/sidework/Logo";
 import { Button } from "@/components/ui/button";
 import { useStore } from "@/lib/sidework-store";
@@ -164,6 +164,93 @@ function Landing() {
                 <p className="mt-2 text-sm text-muted-foreground">{f.d}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* PRICING */}
+      <section className="border-y border-border bg-background">
+        <div className="mx-auto max-w-6xl px-4 py-20">
+          <div className="mb-12 max-w-2xl">
+            <p className="text-xs font-bold uppercase tracking-widest text-primary">Pricing</p>
+            <h2 className="mt-3 text-4xl font-bold tracking-tight md:text-5xl">Simple pricing, no hidden fees.</h2>
+          </div>
+          <div className="grid gap-6 md:grid-cols-3">
+            {/* Starter */}
+            <div className="rounded-2xl border-2 border-border bg-card p-7">
+              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Starter</p>
+              <div className="mt-2 flex items-baseline gap-1">
+                <span className="text-4xl font-bold">$49</span>
+                <span className="text-sm text-muted-foreground">/month</span>
+              </div>
+              <p className="mt-2 text-sm text-muted-foreground">Perfect for small restaurants</p>
+              <ul className="mt-6 space-y-3">
+                {[
+                  "Up to 15 staff members",
+                  "Scheduling & shift trades",
+                  "Time off management",
+                  "Job postings & applications",
+                  "Basic onboarding",
+                ].map((item) => (
+                  <li key={item} className="flex items-start gap-2.5 text-sm">
+                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+              <Button className="mt-8 w-full bg-primary text-primary-foreground hover:bg-primary/90">Start Free 30-Day Trial</Button>
+            </div>
+
+            {/* Professional */}
+            <div className="relative rounded-2xl border-2 border-primary bg-card p-7">
+              <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground">Most Popular</span>
+              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Professional</p>
+              <div className="mt-2 flex items-baseline gap-1">
+                <span className="text-4xl font-bold">$99</span>
+                <span className="text-sm text-muted-foreground">/month</span>
+              </div>
+              <p className="mt-2 text-sm text-muted-foreground">Everything you need to run your restaurant</p>
+              <ul className="mt-6 space-y-3">
+                {[
+                  "Unlimited staff",
+                  "Everything in Starter",
+                  "AI menu quiz generator",
+                  "Expert training video library",
+                  "Anti-cheat quiz system",
+                  "Real time staff performance data",
+                ].map((item) => (
+                  <li key={item} className="flex items-start gap-2.5 text-sm">
+                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+              <Button className="mt-8 w-full bg-primary text-primary-foreground hover:bg-primary/90">Start Free 30-Day Trial</Button>
+            </div>
+
+            {/* Multi-Location */}
+            <div className="rounded-2xl border-2 border-border bg-card p-7">
+              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Multi-Location</p>
+              <div className="mt-2 flex items-baseline gap-1">
+                <span className="text-4xl font-bold">$149</span>
+                <span className="text-sm text-muted-foreground">/month per location</span>
+              </div>
+              <p className="mt-2 text-sm text-muted-foreground">For growing restaurant groups</p>
+              <ul className="mt-6 space-y-3">
+                {[
+                  "Everything in Professional",
+                  "Multiple locations",
+                  "Priority support",
+                  "Location performance comparison",
+                ].map((item) => (
+                  <li key={item} className="flex items-start gap-2.5 text-sm">
+                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+              <Button className="mt-8 w-full bg-primary text-primary-foreground hover:bg-primary/90">Start Free 30-Day Trial</Button>
+            </div>
           </div>
         </div>
       </section>
