@@ -128,33 +128,6 @@ function ManagerTabs({ tab, setTab }: { tab: string; setTab: (v: string) => void
   );
 }
 
-function _UnusedTabRender() {
-  return (
-    <Tabs value="x">
-      <TabsList>
-        <TabsTrigger value="dashboard">Overview</TabsTrigger>
-        <TabsTrigger value="training">Training</TabsTrigger>
-        <TabsTrigger value="team">Team</TabsTrigger>
-        <TabsTrigger value="schedule">Schedule</TabsTrigger>
-        <TabsTrigger value="trades">Trades</TabsTrigger>
-        <TabsTrigger value="jobs">Jobs</TabsTrigger>
-        <TabsTrigger value="timeoff">Time Off</TabsTrigger>
-        <TabsTrigger value="settings">Settings</TabsTrigger>
-      </TabsList>
-
-      <TabsContent value="dashboard"><OverviewTab /></TabsContent>
-      <TabsContent value="training"><TrainingProgramTab /></TabsContent>
-      <TabsContent value="team"><TeamTab /></TabsContent>
-      <TabsContent value="schedule"><ScheduleTab /></TabsContent>
-      <TabsContent value="trades"><TradesTab /></TabsContent>
-      <TabsContent value="jobs"><JobsTab /></TabsContent>
-      <TabsContent value="timeoff"><TimeOffTab /></TabsContent>
-      <TabsContent value="settings"><SettingsTab onOpenSetup={() => { void 0; }} /></TabsContent>
-    </Tabs>
-  );
-    </AppShell>
-  );
-}
 
 function OverviewTab() {
   const { employees, videos, trades, shifts, applications, timeOff } = useStore();
