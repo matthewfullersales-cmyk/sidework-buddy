@@ -859,25 +859,28 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
       });
       return createdId;
     },
-    approveForVideo: (id, slots) =>
-      setState((s) => ({
-        ...s,
-        applications: s.applications.map((a) =>
-          a.id === id
-            ? { ...a, status: "interview", stage: "video_offered", offeredSlots: slots, interviewSentAt: new Date().toISOString(), archived: false }
-            : a,
-        ),
-        notifications: [
-          {
-            id: uid("n"),
-            type: "training_passed",
-            message: `Video interview invite sent — ${slots.length} time slot${slots.length === 1 ? "" : "s"} offered.`,
-            createdAt: new Date().toISOString(),
-            read: false,
-          },
-          ...s.notifications,
-        ],
-      })),
+    approveForInterview: (id, type, slots) =>
+      setState((s) => {
+        const label = type === "video" ? "Video interview" : type === "in_person" ? "In-person interview" : "Phone interview";
+        return {
+          ...s,
+          applications: s.applications.map((a) =>
+            a.id === id
+              ? { ...a, status: "interview", stage: "video_offered", interviewType: type, offeredSlots: slots, interviewSentAt: new Date().toISOString(), archived: false }
+              : a,
+          ),
+          notifications: [
+            {
+              id: uid("n"),
+              type: "training_passed",
+              message: `${label} invite sent — ${slots.length} time slot${slots.length === 1 ? "" : "s"} offered.`,
+              createdAt: new Date().toISOString(),
+              read: false,
+            },
+            ...s.notifications,
+          ],
+        };
+      }),
     applicantSelectSlot: (id, slot) =>
       setState((s) => {
         const app = s.applications.find((a) => a.id === id);
