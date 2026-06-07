@@ -215,6 +215,58 @@ function CareersPage() {
                 )}
               </Field>
 
+              <div className="grid gap-3">
+                <div>
+                  <Label className="text-sm font-semibold">Relevant work experience</Label>
+                  <p className="text-xs text-muted-foreground">List your most recent restaurant or hospitality experience</p>
+                </div>
+                {workExp.map((w, i) => (
+                  <div key={i} className="grid gap-2 rounded-lg border border-border bg-muted/20 p-3">
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <Input
+                        placeholder="Restaurant or employer name"
+                        value={w.employer}
+                        onChange={(e) =>
+                          setWorkExp((prev) =>
+                            prev.map((item, idx) => (idx === i ? { ...item, employer: e.target.value } : item)),
+                          )
+                        }
+                      />
+                      <Input
+                        placeholder="Position held"
+                        value={w.position}
+                        onChange={(e) =>
+                          setWorkExp((prev) =>
+                            prev.map((item, idx) => (idx === i ? { ...item, position: e.target.value } : item)),
+                          )
+                        }
+                      />
+                    </div>
+                    <Select
+                      value={w.duration}
+                      onValueChange={(v) =>
+                        setWorkExp((prev) =>
+                          prev.map((item, idx) =>
+                            idx === i ? { ...item, duration: v as WorkExperience["duration"] } : item,
+                          ),
+                        )
+                      }
+                    >
+                      <SelectTrigger className="text-sm">
+                        <SelectValue placeholder="How long did you work there?" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Less than 6 months">Less than 6 months</SelectItem>
+                        <SelectItem value="6 months - 1 year">6 months - 1 year</SelectItem>
+                        <SelectItem value="1 - 2 years">1 - 2 years</SelectItem>
+                        <SelectItem value="2 - 5 years">2 - 5 years</SelectItem>
+                        <SelectItem value="5+ years">5+ years</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ))}
+              </div>
+
               <Field label="Days you can work">
                 <div className="flex flex-wrap gap-2">
                   {DAY_KEYS.map((d) => {
