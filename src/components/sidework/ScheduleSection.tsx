@@ -11,14 +11,14 @@ import { useStore, type Role, type Shift, type Position, type Section, DAY_KEYS,
 import { toast } from "sonner";
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const FOH_ROLES: Role[] = ["Host", "Busser", "Bar Back", "Bartender", "Server", "Manager", "Assistant Manager"];
+const FOH_ROLES: Role[] = ["Host", "Busser", "Server Assistant", "Bar Back", "Bartender", "Server", "Manager", "Assistant Manager"];
 const BOH_ROLES: Role[] = ["Chef", "Sous Chef", "Line Cook", "Fry Cook", "Saute", "Grill", "Pizza", "Garde Manger", "Dishwasher", "Prep"];
 const ROLES: Role[] = [...FOH_ROLES, ...BOH_ROLES];
 
 // Order positions roughly by hierarchy
 const POSITION_ORDER: Position[] = [
   "Manager", "Assistant Manager", "Hostess", "Bartender", "Bar Back",
-  "Server", "Busser",
+  "Server", "Server Assistant", "Busser",
   "Chef", "Sous Chef", "Line Cook", "Garde Manger", "Prep Cook", "Dishwasher",
 ];
 
@@ -47,6 +47,7 @@ function roleColor(role: Role) {
     case "Bar Back":
       return "bg-amber-500/15 text-amber-700 border-amber-500/30 dark:text-amber-300";
     case "Server":
+    case "Server Assistant":
     case "Manager":
     case "Assistant Manager":
     case "Busser":
@@ -64,6 +65,7 @@ function defaultShift(pos: Position | undefined, isWeekend: boolean): { start: s
     case "Bar Back": return { start: "17:00", end: "23:30" };
     case "Server": return { start: "16:30", end: "23:00" };
     case "Busser": return { start: "17:00", end: "23:00" };
+    case "Server Assistant": return { start: "16:30", end: "23:00" };
     case "Garde Manger": return { start: "10:00", end: "18:00" };
     case "Manager": return { start: "15:00", end: "23:30" };
     case "Assistant Manager": return { start: "11:00", end: "19:00" };

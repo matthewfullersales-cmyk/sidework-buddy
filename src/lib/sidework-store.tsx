@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
 
 export type Role =
-  | "Host" | "Busser" | "Bar Back" | "Bartender" | "Server" | "Manager" | "Assistant Manager"
+  | "Host" | "Busser" | "Server Assistant" | "Bar Back" | "Bartender" | "Server" | "Manager" | "Assistant Manager"
   | "Chef" | "Sous Chef" | "Line Cook" | "Fry Cook" | "Saute" | "Grill" | "Pizza" | "Garde Manger" | "Dishwasher" | "Prep";
 
 export type TrainingCategory = "Server" | "Bartender" | "Host" | "Kitchen";
@@ -33,7 +33,7 @@ export interface VideoProgress {
 
 export type Section = "FOH" | "BOH";
 export type Position =
-  | "Hostess" | "Bartender" | "Server" | "Busser" | "Bar Back"
+  | "Hostess" | "Bartender" | "Server" | "Server Assistant" | "Busser" | "Bar Back"
   | "Manager" | "Assistant Manager"
   | "Chef" | "Sous Chef" | "Line Cook" | "Garde Manger" | "Dishwasher" | "Prep Cook";
 
