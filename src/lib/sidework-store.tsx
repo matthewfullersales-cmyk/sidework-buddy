@@ -257,8 +257,13 @@ interface Store {
   postJob: (data: Omit<JobPosting, "id" | "postedAt" | "open">) => void;
   toggleJobOpen: (id: string) => void;
   removeJob: (id: string) => void;
-  submitApplication: (data: Omit<JobApplication, "id" | "appliedAt" | "status">) => void;
+  submitApplication: (data: Omit<JobApplication, "id" | "appliedAt" | "status" | "aiScore">) => string;
   setApplicationStatus: (id: string, status: ApplicationStatus) => void;
+  scheduleInterview: (id: string) => void;
+  setInterviewNotes: (id: string, notes: string) => void;
+  declineApplication: (id: string) => void;
+  reconsiderApplication: (id: string) => void;
+  hireApplication: (id: string, overrides?: Partial<Employee>) => string | null;
   requestTimeOff: (data: Omit<TimeOffRequest, "id" | "createdAt" | "status">) => void;
   resolveTimeOff: (id: string, approved: boolean, note?: string) => void;
 }
