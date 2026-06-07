@@ -78,7 +78,7 @@ function staffingFor(dayIdx: number): Partial<Record<Position, number>> {
 }
 
 export function ScheduleSection() {
-  const { shifts, employees, timeOff, upsertShift, deleteShift } = useStore();
+  const { shifts, employees, timeOff, restaurantHours, upsertShift, deleteShift } = useStore();
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date()));
   const [editing, setEditing] = useState<{ employeeId: string; date: string; existing?: Shift } | null>(null);
   const [generating, setGenerating] = useState(false);
