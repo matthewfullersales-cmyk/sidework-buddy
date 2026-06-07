@@ -147,7 +147,23 @@ export type ApplicationStatus = "new" | "reviewing" | "interview" | "hired" | "r
 export type ApplicationSource = "Walk-in" | "Instagram" | "Indeed" | "Friend" | "Google" | "Other";
 export type AiScore = "Strong" | "Average" | "Weak";
 
+export type HiringStage =
+  | "new"
+  | "video_offered"
+  | "video_scheduled"
+  | "interviewed"
+  | "shadow_scheduled"
+  | "hired"
+  | "rejected";
+
 export type AvailabilityHours = "Mornings" | "Afternoons" | "Evenings" | "Open availability";
+
+export interface ShadowShiftDetails {
+  date: string;
+  time: string;
+  instructions: string;
+  dressCode?: string;
+}
 
 export interface JobApplication {
   id: string;
@@ -166,12 +182,24 @@ export interface JobApplication {
   note?: string;
   appliedAt: string;
   status: ApplicationStatus;
+  stage?: HiringStage;
   verified: boolean;
   aiScore?: AiScore;
   interviewSentAt?: string;
   interviewNotes?: string;
+  offeredSlots?: string[];
+  selectedSlot?: string;
+  shadowShift?: ShadowShiftDetails;
   archived?: boolean;
   hiredEmployeeId?: string;
+}
+
+export function getHiringStage(a: Pick<JobApplication, "stage" | "status">): HiringStage {
+  if (a.stage) return a.stage;
+  if (a.status === "hired") return "hired";
+  if (a.status === "rejected") return "rejected";
+  if (a.status === "interview") return "video_offered";
+  return "new";
 }
 
 export type TimeOffStatus = "pending" | "approved" | "denied";
@@ -264,6 +292,10 @@ interface Store {
   declineApplication: (id: string) => void;
   reconsiderApplication: (id: string) => void;
   hireApplication: (id: string, overrides?: Partial<Employee>) => string | null;
+  approveForVideo: (id: string, slots: string[]) => void;
+  applicantSelectSlot: (id: string, slot: string) => void;
+  completeInterview: (id: string, notes?: string) => void;
+  inviteShadowShift: (id: string, details: ShadowShiftDetails) => void;
   requestTimeOff: (data: Omit<TimeOffRequest, "id" | "createdAt" | "status">) => void;
   resolveTimeOff: (id: string, approved: boolean, note?: string) => void;
 }
@@ -560,7 +592,7 @@ function seedTimeOff(): TimeOffRequest[] {
   ];
 }
 
-const STORAGE_KEY = "sidework-store-v7";
+const STORAGE_KEY = "sidework-store-v8";
 
 export function SideworkProvider({ children }: { children: ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
@@ -762,14 +794,14 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
       setState((s) => ({
         ...s,
         applications: s.applications.map((a) =>
-          a.id === id ? { ...a, status: "rejected", archived: true } : a,
+          a.id === id ? { ...a, status: "rejected", stage: "rejected", archived: true } : a,
         ),
       })),
     reconsiderApplication: (id) =>
       setState((s) => ({
         ...s,
         applications: s.applications.map((a) =>
-          a.id === id ? { ...a, status: "new", archived: false, hiredEmployeeId: undefined } : a,
+          a.id === id ? { ...a, status: "new", stage: "new", archived: false, hiredEmployeeId: undefined } : a,
         ),
       })),
     hireApplication: (id, overrides) => {
@@ -807,7 +839,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           ...s,
           employees: [...s.employees, employee],
           applications: s.applications.map((x) =>
-            x.id === id ? { ...x, status: "hired", archived: true, hiredEmployeeId: empId } : x,
+            x.id === id ? { ...x, status: "hired", stage: "hired", archived: true, hiredEmployeeId: empId } : x,
           ),
           notifications: [
             {
@@ -824,6 +856,59 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
       });
       return createdId;
     },
+    approveForVideo: (id, slots) =>
+      setState((s) => ({
+        ...s,
+        applications: s.applications.map((a) =>
+          a.id === id
+            ? { ...a, status: "interview", stage: "video_offered", offeredSlots: slots, interviewSentAt: new Date().toISOString(), archived: false }
+            : a,
+        ),
+        notifications: [
+          {
+            id: uid("n"),
+            type: "training_passed",
+            message: `Video interview invite sent — ${slots.length} time slot${slots.length === 1 ? "" : "s"} offered.`,
+            createdAt: new Date().toISOString(),
+            read: false,
+          },
+          ...s.notifications,
+        ],
+      })),
+    applicantSelectSlot: (id, slot) =>
+      setState((s) => {
+        const app = s.applications.find((a) => a.id === id);
+        return {
+          ...s,
+          applications: s.applications.map((a) =>
+            a.id === id ? { ...a, stage: "video_scheduled", selectedSlot: slot } : a,
+          ),
+          notifications: [
+            {
+              id: uid("n"),
+              type: "training_passed",
+              message: `${app?.firstName ?? app?.name ?? "Applicant"} confirmed video interview for ${new Date(slot).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}.`,
+              createdAt: new Date().toISOString(),
+              read: false,
+            },
+            ...s.notifications,
+          ],
+        };
+      }),
+    completeInterview: (id, notes) =>
+      setState((s) => ({
+        ...s,
+        applications: s.applications.map((a) =>
+          a.id === id ? { ...a, stage: "interviewed", interviewNotes: notes ?? a.interviewNotes } : a,
+        ),
+      })),
+    inviteShadowShift: (id, details) =>
+      setState((s) => ({
+        ...s,
+        applications: s.applications.map((a) =>
+          a.id === id ? { ...a, stage: "shadow_scheduled", shadowShift: details } : a,
+        ),
+      })),
     requestTimeOff: (data) =>
       setState((s) => ({
         ...s,

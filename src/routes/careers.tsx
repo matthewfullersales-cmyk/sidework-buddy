@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Logo } from "@/components/sidework/Logo";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,6 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSepa
 import {
   useStore,
   type Role,
-  type ApplicationSource,
   type WeeklyAvailability,
   DAY_KEYS,
   defaultWeeklyAvailability,
@@ -19,8 +18,13 @@ import {
 import { toast } from "sonner";
 import { CheckCircle2, Loader2 } from "lucide-react";
 
+type CareersSearch = { job?: string };
+
 export const Route = createFileRoute("/careers")({
   ssr: false,
+  validateSearch: (search: Record<string, unknown>): CareersSearch => ({
+    job: typeof search.job === "string" ? search.job : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Careers — Sidework" },
@@ -32,10 +36,11 @@ export const Route = createFileRoute("/careers")({
 
 const FOH_ROLES: Role[] = ["Host", "Busser", "Bar Back", "Bartender", "Server", "Server Assistant", "Manager", "Assistant Manager", "Porter"];
 const BOH_ROLES: Role[] = ["Chef", "Sous Chef", "Line Cook", "Fry Cook", "Saute", "Grill", "Pizza", "Dishwasher", "Prep"];
-const SOURCES: ApplicationSource[] = ["Walk-in", "Instagram", "Indeed", "Friend", "Google", "Other"];
 
 function CareersPage() {
   const { jobs, submitApplication, restaurantProfile } = useStore();
+  const { job: jobIdParam } = Route.useSearch();
+  const targetJob = jobIdParam ? jobs.find((j) => j.id === jobIdParam) : null;
   const open = jobs.filter((j) => j.open);
   const restaurantName = restaurantProfile?.name ?? "Our restaurant";
 
@@ -43,16 +48,19 @@ function CareersPage() {
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [role, setRole] = useState<Role | "">("");
+  const [role, setRole] = useState<Role | "">(targetJob?.role ?? "");
   const [weekly, setWeekly] = useState<WeeklyAvailability>(() => {
     const empty = defaultWeeklyAvailability();
     DAY_KEYS.forEach((d) => (empty[d] = { kind: "none" }));
     return empty;
   });
   const [pitch, setPitch] = useState("");
-  const [source, setSource] = useState<ApplicationSource | "">("");
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    if (targetJob) setRole(targetJob.role);
+  }, [targetJob?.id]);
 
   const pitchWords = useMemo(
     () => (pitch.trim() ? pitch.trim().split(/\s+/).length : 0),
@@ -75,12 +83,12 @@ function CareersPage() {
     if (selectedDays.length === 0) return toast.error("Pick at least one day you can work.");
     if (pitchWords < 10) return toast.error("Tell us a bit about yourself (at least 10 words).");
     if (pitchWords > 200) return toast.error("Please keep your pitch under 200 words.");
-    if (!source) return toast.error("Let us know how you heard about us.");
 
     setSubmitting(true);
     await new Promise((r) => setTimeout(r, 700));
 
     submitApplication({
+      jobId: targetJob?.id,
       name: `${firstName.trim()} ${lastName.trim()}`,
       firstName: firstName.trim(),
       lastName: lastName.trim(),
@@ -88,7 +96,6 @@ function CareersPage() {
       phone: phone.trim(),
       role: role as Role,
       pitch: pitch.trim(),
-      source: source as ApplicationSource,
       weeklyAvailability: weekly,
       availabilityDays: selectedDays as string[],
       availabilityHours: "Open availability",
@@ -109,8 +116,10 @@ function CareersPage() {
           <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-success/15">
             <CheckCircle2 className="h-12 w-12 text-success" />
           </div>
-          <h1 className="mt-6 text-3xl font-bold">Thanks!</h1>
-          <p className="mt-3 text-base text-muted-foreground">We'll be in touch soon.</p>
+          <h1 className="mt-6 text-3xl font-bold">Thanks {firstName.trim() || "for applying"}!</h1>
+          <p className="mt-3 text-base text-muted-foreground">
+            We'll review your application and be in touch within 48 hours.
+          </p>
           <Button asChild size="lg" className="mt-8 w-full"><Link to="/">Back to home</Link></Button>
         </div>
       </div>
@@ -129,14 +138,18 @@ function CareersPage() {
           <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider">
             <span className="h-1.5 w-1.5 rounded-full bg-white" /> Now Hiring
           </span>
-          <h1 className="mt-4 text-3xl font-bold tracking-tight md:text-5xl">Join the team at {restaurantName}.</h1>
+          <h1 className="mt-4 text-3xl font-bold tracking-tight md:text-5xl">
+            {targetJob ? `Apply: ${targetJob.title}` : `Join the team at ${restaurantName}.`}
+          </h1>
           <p className="mt-3 max-w-xl text-base text-white/85">
-            Fill out the form below — takes about 2 minutes. We review every application.
+            {targetJob
+              ? `${targetJob.type} · ${targetJob.payRange}. Takes about 2 minutes.`
+              : "Fill out the form below — takes about 2 minutes. We review every application."}
           </p>
         </div>
       </section>
 
-      {open.length > 0 && (
+      {!targetJob && open.length > 0 && (
         <section className="mx-auto max-w-3xl px-4 pt-8">
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Open positions</p>
           <div className="flex flex-wrap gap-2">
@@ -174,7 +187,7 @@ function CareersPage() {
               </div>
 
               <Field label="Position applying for">
-                <Select value={role} onValueChange={(v) => setRole(v as Role)}>
+                <Select value={role} onValueChange={(v) => setRole(v as Role)} disabled={!!targetJob}>
                   <SelectTrigger><SelectValue placeholder="Select a position" /></SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
@@ -188,6 +201,9 @@ function CareersPage() {
                     </SelectGroup>
                   </SelectContent>
                 </Select>
+                {targetJob && (
+                  <p className="text-xs text-muted-foreground">Pre-filled from job posting.</p>
+                )}
               </Field>
 
               <Field label="Days you can work">
@@ -208,22 +224,13 @@ function CareersPage() {
                 </div>
               </Field>
 
-              <Field label={`Tell us about yourself (${pitchWords}/150 words)`}>
+              <Field label={`Tell us why you'd be great here (${pitchWords}/150 words)`}>
                 <Textarea
                   rows={5}
                   value={pitch}
                   onChange={(e) => setPitch(e.target.value)}
                   placeholder="Share your experience, why you want to work here, and what makes you a great fit."
                 />
-              </Field>
-
-              <Field label="How did you hear about us?">
-                <Select value={source} onValueChange={(v) => setSource(v as ApplicationSource)}>
-                  <SelectTrigger><SelectValue placeholder="Select an option" /></SelectTrigger>
-                  <SelectContent>
-                    {SOURCES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                  </SelectContent>
-                </Select>
               </Field>
 
               <Button size="lg" className="w-full shadow-elegant" onClick={submit} disabled={submitting}>
