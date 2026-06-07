@@ -397,61 +397,85 @@ function seedVideos(): TrainingVideo[] {
 }
 
 function seedEmployees(): Employee[] {
-  type Seed = { name: string; position: Position; section: Section; role: Role; seniority: number; availability?: string };
+  type Seed = {
+    first: string; last: string; position: Position; section: Section; role: Role;
+    seniority: number; availability?: string;
+    weekly?: Partial<WeeklyAvailability>;
+  };
+  const dinnerOnly: DayAvailability = { kind: "partial", meals: ["Dinner"] };
+  const lunchOnly: DayAvailability = { kind: "partial", meals: ["Lunch"] };
+  const notAvailable: DayAvailability = { kind: "none" };
+
   const seeds: Seed[] = [
     // FOH
-    { name: "Maria S", position: "Hostess", section: "FOH", role: "Host", seniority: 4 },
-    { name: "Jenny T", position: "Hostess", section: "FOH", role: "Host", seniority: 3 },
-    { name: "Cara M", position: "Hostess", section: "FOH", role: "Host", seniority: 2 },
-    { name: "Mike R", position: "Bartender", section: "FOH", role: "Bartender", seniority: 5, availability: "Full shifts" },
-    { name: "Danny K", position: "Bartender", section: "FOH", role: "Bartender", seniority: 3, availability: "Swing 4hr" },
-    { name: "Anthony B", position: "Server", section: "FOH", role: "Server", seniority: 5 },
-    { name: "Sofia L", position: "Server", section: "FOH", role: "Server", seniority: 5 },
-    { name: "James W", position: "Server", section: "FOH", role: "Server", seniority: 4 },
-    { name: "Nina P", position: "Server", section: "FOH", role: "Server", seniority: 4 },
-    { name: "Chris T", position: "Server", section: "FOH", role: "Server", seniority: 4 },
-    { name: "Amanda R", position: "Server", section: "FOH", role: "Server", seniority: 3 },
-    { name: "Joe D", position: "Server", section: "FOH", role: "Server", seniority: 3 },
-    { name: "Lisa M", position: "Server", section: "FOH", role: "Server", seniority: 2 },
-    { name: "Kevin S", position: "Server", section: "FOH", role: "Server", seniority: 2 },
-    { name: "Carlos M", position: "Busser", section: "FOH", role: "Server", seniority: 3 },
-    { name: "Pedro R", position: "Busser", section: "FOH", role: "Server", seniority: 2 },
-    { name: "Tommy H", position: "Bar Back", section: "FOH", role: "Bartender", seniority: 3 },
-    { name: "Rico V", position: "Bar Back", section: "FOH", role: "Bartender", seniority: 2 },
-    { name: "Sarah K", position: "Manager", section: "FOH", role: "Server", seniority: 5 },
-    { name: "Frank D", position: "Assistant Manager", section: "FOH", role: "Server", seniority: 4 },
-    { name: "Luis G", position: "Porter", section: "FOH", role: "Kitchen", seniority: 2 },
-    { name: "Mario T", position: "Porter", section: "FOH", role: "Kitchen", seniority: 2 },
+    { first: "Maria", last: "Santos", position: "Hostess", section: "FOH", role: "Host", seniority: 4 },
+    { first: "Jenny", last: "Torres", position: "Hostess", section: "FOH", role: "Host", seniority: 3 },
+    { first: "Cara", last: "Mitchell", position: "Hostess", section: "FOH", role: "Host", seniority: 2, weekly: { Mon: notAvailable } },
+    { first: "Mike", last: "Reynolds", position: "Bartender", section: "FOH", role: "Bartender", seniority: 5, availability: "Full shifts" },
+    { first: "Danny", last: "Kim", position: "Bartender", section: "FOH", role: "Bartender", seniority: 3, availability: "Swing 4hr", weekly: { Mon: notAvailable, Tue: notAvailable, Wed: dinnerOnly, Thu: dinnerOnly, Fri: dinnerOnly, Sat: dinnerOnly, Sun: dinnerOnly } },
+    { first: "Anthony", last: "Bianchi", position: "Server", section: "FOH", role: "Server", seniority: 5 },
+    { first: "Sofia", last: "Lopez", position: "Server", section: "FOH", role: "Server", seniority: 5 },
+    { first: "James", last: "Walker", position: "Server", section: "FOH", role: "Server", seniority: 4 },
+    { first: "Nina", last: "Patel", position: "Server", section: "FOH", role: "Server", seniority: 4, weekly: { Sun: notAvailable } },
+    { first: "Chris", last: "Thompson", position: "Server", section: "FOH", role: "Server", seniority: 4 },
+    { first: "Amanda", last: "Rivera", position: "Server", section: "FOH", role: "Server", seniority: 3 },
+    { first: "Joe", last: "DeLuca", position: "Server", section: "FOH", role: "Server", seniority: 3 },
+    { first: "Lisa", last: "Martinez", position: "Server", section: "FOH", role: "Server", seniority: 2, weekly: { Sun: notAvailable, Mon: notAvailable } },
+    { first: "Kevin", last: "Stone", position: "Server", section: "FOH", role: "Server", seniority: 2 },
+    { first: "Carlos", last: "Mendez", position: "Busser", section: "FOH", role: "Server", seniority: 3 },
+    { first: "Pedro", last: "Ruiz", position: "Busser", section: "FOH", role: "Server", seniority: 2 },
+    { first: "Tommy", last: "Hall", position: "Bar Back", section: "FOH", role: "Bartender", seniority: 3 },
+    { first: "Rico", last: "Vasquez", position: "Bar Back", section: "FOH", role: "Bartender", seniority: 2 },
+    { first: "Sarah", last: "Klein", position: "Manager", section: "FOH", role: "Server", seniority: 5 },
+    { first: "Frank", last: "D'Amato", position: "Assistant Manager", section: "FOH", role: "Server", seniority: 4 },
+    { first: "Luis", last: "Garcia", position: "Porter", section: "FOH", role: "Kitchen", seniority: 2 },
+    { first: "Mario", last: "Tessaro", position: "Porter", section: "FOH", role: "Kitchen", seniority: 2 },
     // BOH
-    { name: "Marco B", position: "Chef", section: "BOH", role: "Kitchen", seniority: 5 },
-    { name: "Tony R", position: "Sous Chef", section: "BOH", role: "Kitchen", seniority: 5 },
-    { name: "Alex P", position: "Line Cook", section: "BOH", role: "Kitchen", seniority: 4 },
-    { name: "Ramon S", position: "Line Cook", section: "BOH", role: "Kitchen", seniority: 4 },
-    { name: "Diego M", position: "Line Cook", section: "BOH", role: "Kitchen", seniority: 3 },
-    { name: "Chris L", position: "Line Cook", section: "BOH", role: "Kitchen", seniority: 3 },
-    { name: "Pat O", position: "Line Cook", section: "BOH", role: "Kitchen", seniority: 2 },
-    { name: "Juan C", position: "Dishwasher", section: "BOH", role: "Kitchen", seniority: 3 },
-    { name: "Mike T", position: "Dishwasher", section: "BOH", role: "Kitchen", seniority: 2 },
-    { name: "Sam R", position: "Dishwasher", section: "BOH", role: "Kitchen", seniority: 2 },
-    { name: "Ana G", position: "Prep Cook", section: "BOH", role: "Kitchen", seniority: 4 },
-    { name: "Luis M", position: "Prep Cook", section: "BOH", role: "Kitchen", seniority: 3 },
+    { first: "Marco", last: "Bianchi", position: "Chef", section: "BOH", role: "Kitchen", seniority: 5 },
+    { first: "Tony", last: "Romano", position: "Sous Chef", section: "BOH", role: "Kitchen", seniority: 5 },
+    { first: "Alex", last: "Park", position: "Line Cook", section: "BOH", role: "Kitchen", seniority: 4 },
+    { first: "Ramon", last: "Silva", position: "Line Cook", section: "BOH", role: "Kitchen", seniority: 4 },
+    { first: "Diego", last: "Morales", position: "Line Cook", section: "BOH", role: "Kitchen", seniority: 3 },
+    { first: "Chris", last: "Lin", position: "Line Cook", section: "BOH", role: "Kitchen", seniority: 3 },
+    { first: "Pat", last: "O'Brien", position: "Line Cook", section: "BOH", role: "Kitchen", seniority: 2, weekly: { Mon: lunchOnly, Tue: lunchOnly, Wed: lunchOnly, Thu: lunchOnly, Fri: lunchOnly, Sat: notAvailable, Sun: notAvailable } },
+    { first: "Juan", last: "Castro", position: "Dishwasher", section: "BOH", role: "Kitchen", seniority: 3 },
+    { first: "Mike", last: "Tran", position: "Dishwasher", section: "BOH", role: "Kitchen", seniority: 2 },
+    { first: "Sam", last: "Reyes", position: "Dishwasher", section: "BOH", role: "Kitchen", seniority: 2 },
+    { first: "Ana", last: "Gomez", position: "Prep Cook", section: "BOH", role: "Kitchen", seniority: 4 },
+    { first: "Luis", last: "Mejia", position: "Prep Cook", section: "BOH", role: "Kitchen", seniority: 3 },
   ];
-  return seeds.map((s, i) => ({
-    id: `e${i + 1}`,
-    name: s.name,
-    email: `${s.name.toLowerCase().replace(/[^a-z]/g, "")}@perlos.com`,
-    primaryRole: s.role,
-    approvedRoles: [s.role],
-    autoApproveRoles: s.seniority >= 4 ? [s.role] : [],
-    availability: s.availability ?? "Flexible",
-    invitedAt: "2026-05-01",
-    onboardingStarted: true,
-    personalInfoComplete: true,
-    progress: [],
-    position: s.position,
-    section: s.section,
-    seniority: s.seniority,
-  }));
+  const relPool: Relationship[] = ["Spouse", "Parent", "Sibling", "Friend", "Other"];
+  return seeds.map((s, i) => {
+    const name = `${s.first} ${s.last}`;
+    const handle = `${s.first}.${s.last}`.toLowerCase().replace(/[^a-z.]/g, "");
+    const phoneTail = String(2000 + i).padStart(4, "0");
+    const weekly = { ...defaultWeeklyAvailability(), ...(s.weekly ?? {}) };
+    return {
+      id: `e${i + 1}`,
+      name,
+      firstName: s.first,
+      lastName: s.last,
+      email: `${handle}@perlos.com`,
+      phone: `(555) 412-${phoneTail}`,
+      primaryRole: s.role,
+      approvedRoles: [s.role],
+      autoApproveRoles: s.seniority >= 4 ? [s.role] : [],
+      availability: s.availability ?? "Flexible",
+      weeklyAvailability: weekly,
+      emergencyContact: {
+        name: `${["Sam","Jordan","Alex","Taylor","Chris"][i % 5]} ${s.last}`,
+        phone: `(555) 887-${phoneTail}`,
+        relationship: relPool[i % relPool.length],
+      },
+      invitedAt: "2026-05-01",
+      onboardingStarted: true,
+      personalInfoComplete: true,
+      progress: [],
+      position: s.position,
+      section: s.section,
+      seniority: s.seniority,
+    };
+  });
 }
 
 function seedShifts(): Shift[] {
