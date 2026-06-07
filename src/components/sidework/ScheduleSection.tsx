@@ -10,10 +10,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { useStore, type Role, type Shift, type Position, type Section, DAY_KEYS, isAvailableFor } from "@/lib/sidework-store";
 import { toast } from "sonner";
 
+import { ROLES_ORDERED as ROLES, FOH_ROLES_ORDERED as FOH_ROLES, BOH_ROLES_ORDERED as BOH_ROLES, roleStyle, STATUS_COLORS, contrastText } from "@/lib/role-colors";
+
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const FOH_ROLES: Role[] = ["Host", "Busser", "Server Assistant", "Bar Back", "Bartender", "Server", "Manager", "Assistant Manager"];
-const BOH_ROLES: Role[] = ["Chef", "Sous Chef", "Line Cook", "Fry Cook", "Saute", "Grill", "Pizza", "Garde Manger", "Dishwasher", "Prep"];
-const ROLES: Role[] = [...FOH_ROLES, ...BOH_ROLES];
 
 // Order positions roughly by hierarchy
 const POSITION_ORDER: Position[] = [
