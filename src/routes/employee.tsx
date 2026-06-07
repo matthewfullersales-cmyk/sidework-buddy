@@ -58,8 +58,30 @@ function EmployeePage() {
 function OnboardingTab({ employeeId }: { employeeId: string }) {
   const { employees, updateEmployee, videos } = useStore();
   const me = employees.find((e) => e.id === employeeId)!;
-  const [form, setForm] = useState({ name: me.name, email: me.email, availability: me.availability });
+  const [firstName, setFirstName] = useState(me.firstName ?? me.name.split(" ")[0] ?? "");
+  const [lastName, setLastName] = useState(me.lastName ?? me.name.split(" ").slice(1).join(" ") ?? "");
+  const [email, setEmail] = useState(me.email);
+  const [phone, setPhone] = useState(me.phone ?? "");
+  const [weekly, setWeekly] = useState<WeeklyAvailability | undefined>(me.weeklyAvailability);
+  const [ec, setEc] = useState(me.emergencyContact ?? { name: "", phone: "", relationship: "Other" as Relationship });
   const s = onboardingStatus(me, videos);
+
+  const save = () => {
+    if (!firstName.trim() || !email.trim() || !phone.trim()) return toast.error("Please fill name, email, and phone.");
+    if (!ec.name.trim() || !ec.phone.trim()) return toast.error("Please add an emergency contact.");
+    updateEmployee(me.id, {
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      name: `${firstName.trim()} ${lastName.trim()}`.trim(),
+      email: email.trim(),
+      phone: phone.trim(),
+      weeklyAvailability: weekly,
+      emergencyContact: ec,
+      personalInfoComplete: true,
+      onboardingStarted: true,
+    });
+    toast.success("Saved");
+  };
 
   return (
     <div className="grid gap-6">
@@ -68,7 +90,7 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
           <CardTitle className="text-base">Onboarding checklist</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <ChecklistItem done={me.personalInfoComplete} label="Personal info & availability" />
+          <ChecklistItem done={me.personalInfoComplete} label="Personal info, availability & emergency contact" />
           <ChecklistItem done={s.total > 0 && s.passed === s.total} label={`Role training (${s.passed}/${s.total} videos)`} />
           <ChecklistItem done={s.fullyOnboarded} label="Marked fully onboarded" />
           <Progress value={Math.round(((me.personalInfoComplete ? 1 : 0) + (s.total ? s.passed / s.total : 0)) / 2 * 100)} className="h-2" />
@@ -78,19 +100,48 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
       <Card>
         <CardHeader><CardTitle className="text-base">Your details</CardTitle></CardHeader>
         <CardContent className="grid gap-4">
-          <div className="grid gap-2"><Label>Full name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
-          <div className="grid gap-2"><Label>Email</Label><Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-2"><Label>First name</Label><Input value={firstName} onChange={(e) => setFirstName(e.target.value)} /></div>
+            <div className="grid gap-2"><Label>Last name</Label><Input value={lastName} onChange={(e) => setLastName(e.target.value)} /></div>
+            <div className="grid gap-2"><Label>Email</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+            <div className="grid gap-2"><Label>Phone number</Label><Input type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(555) 555-1234" /></div>
+          </div>
           <div className="grid gap-2"><Label>Role</Label><Input disabled value={me.primaryRole} /></div>
-          <div className="grid gap-2"><Label>Availability</Label><Textarea rows={3} placeholder="e.g. Mon–Fri evenings, weekends" value={form.availability} onChange={(e) => setForm({ ...form, availability: e.target.value })} /></div>
-          <div className="flex justify-end">
-            <Button onClick={() => {
-              if (!form.name || !form.email || !form.availability) return toast.error("Please fill every field.");
-              updateEmployee(me.id, { ...form, personalInfoComplete: true, onboardingStarted: true });
-              toast.success("Saved");
-            }}>Save & continue</Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Weekly availability</CardTitle>
+          <p className="mt-1 text-xs text-muted-foreground">Set which days you can work. Your manager schedules around this.</p>
+        </CardHeader>
+        <CardContent>
+          <AvailabilityEditor value={weekly} onChange={setWeekly} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Emergency contact</CardTitle></CardHeader>
+        <CardContent className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-2"><Label>Full name</Label><Input value={ec.name} onChange={(e) => setEc({ ...ec, name: e.target.value })} /></div>
+          <div className="grid gap-2"><Label>Phone</Label><Input type="tel" value={ec.phone} onChange={(e) => setEc({ ...ec, phone: e.target.value })} /></div>
+          <div className="grid gap-2 sm:col-span-2">
+            <Label>Relationship</Label>
+            <Select value={ec.relationship} onValueChange={(v: Relationship) => setEc({ ...ec, relationship: v })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {(["Spouse","Parent","Sibling","Child","Friend","Other"] as Relationship[]).map((r) => (
+                  <SelectItem key={r} value={r}>{r}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
+
+      <div className="flex justify-end">
+        <Button onClick={save} size="lg">Save changes</Button>
+      </div>
     </div>
   );
 }
