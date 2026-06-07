@@ -893,7 +893,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
             {
               id: uid("n"),
               type: "training_passed",
-              message: `${app?.firstName ?? app?.name ?? "Applicant"} confirmed video interview for ${new Date(slot).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}.`,
+              message: `${app?.firstName ?? app?.name ?? "Applicant"} confirmed ${app?.interviewType === "in_person" ? "in-person" : app?.interviewType === "phone" ? "phone" : "video"} interview for ${new Date(slot).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}.`,
               createdAt: new Date().toISOString(),
               read: false,
             },
