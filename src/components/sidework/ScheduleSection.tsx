@@ -47,11 +47,9 @@ function roleColor(role: Role) {
     case "Bar Back":
       return "bg-amber-500/15 text-amber-700 border-amber-500/30 dark:text-amber-300";
     case "Server":
-    case "Server Assistant":
     case "Manager":
     case "Assistant Manager":
     case "Busser":
-    case "Porter":
       return "bg-primary/15 text-primary border-primary/30";
     default:
       return "bg-blue-500/15 text-blue-700 border-blue-500/30 dark:text-blue-300";
