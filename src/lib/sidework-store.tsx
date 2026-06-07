@@ -1,8 +1,8 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
 
 export type Role =
-  | "Host" | "Busser" | "Bar Back" | "Bartender" | "Server" | "Server Assistant" | "Manager" | "Assistant Manager" | "Porter"
-  | "Chef" | "Sous Chef" | "Line Cook" | "Fry Cook" | "Saute" | "Grill" | "Pizza" | "Dishwasher" | "Prep";
+  | "Host" | "Busser" | "Bar Back" | "Bartender" | "Server" | "Manager" | "Assistant Manager"
+  | "Chef" | "Sous Chef" | "Line Cook" | "Fry Cook" | "Saute" | "Grill" | "Pizza" | "Garde Manger" | "Dishwasher" | "Prep";
 
 export type TrainingCategory = "Server" | "Bartender" | "Host" | "Kitchen";
 
