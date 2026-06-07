@@ -918,8 +918,12 @@ function JobsTab() {
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <Button size="sm" onClick={() => copyApplicationLink(j.id)}>Copy Application Link</Button>
-                    <Button size="sm" variant="outline" onClick={() => toggleJobOpen(j.id)}>{j.open ? "Close" : "Reopen"}</Button>
-                    <Button size="sm" variant="ghost" onClick={() => { removeJob(j.id); toast.message("Job removed"); }}>Delete</Button>
+                    <ActionTooltip text="Temporarily pauses this job posting. No new applications will be accepted. You can reopen this anytime.">
+                      <Button size="sm" variant="outline" onClick={() => toggleJobOpen(j.id)}>{j.open ? "Close" : "Reopen"}</Button>
+                    </ActionTooltip>
+                    <ActionTooltip text="Permanently removes this job posting and all associated applications. This cannot be undone.">
+                      <Button size="sm" variant="ghost" onClick={() => setDeleteJobId(j.id)}>Delete</Button>
+                    </ActionTooltip>
                   </div>
                 </div>
                 <p className="mt-3 text-xs text-muted-foreground">Share this link on Indeed, Instagram, or anywhere you recruit.</p>
