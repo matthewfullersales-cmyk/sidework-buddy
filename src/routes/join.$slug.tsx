@@ -12,8 +12,8 @@ import { slugify } from "@/lib/slug";
 import { toast } from "sonner";
 import { CheckCircle2, Share, Plus } from "lucide-react";
 
-const FOH_ROLES: Role[] = ["Host", "Busser", "Bar Back", "Bartender", "Server", "Server Assistant", "Manager", "Assistant Manager", "Porter"];
-const BOH_ROLES: Role[] = ["Chef", "Sous Chef", "Line Cook", "Fry Cook", "Saute", "Grill", "Pizza", "Dishwasher", "Prep"];
+const FOH_ROLES: Role[] = ["Host", "Busser", "Bar Back", "Bartender", "Server", "Manager", "Assistant Manager"];
+const BOH_ROLES: Role[] = ["Chef", "Sous Chef", "Line Cook", "Fry Cook", "Saute", "Grill", "Pizza", "Garde Manger", "Dishwasher", "Prep"];
 const RELATIONSHIPS: Relationship[] = ["Spouse", "Parent", "Sibling", "Child", "Friend", "Other"];
 
 const joinSchema = z.object({
