@@ -19,6 +19,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { onboardingStatus, useStore, type Role, type ApplicationStatus, type Employee, type Relationship, DAY_KEYS, type JobApplication, type HiringStage, type ShadowShiftDetails, type InterviewType, getHiringStage } from "@/lib/sidework-store";
 import { AvailabilityEditor, RestaurantHoursEditor } from "@/components/sidework/AvailabilityEditor";
+import { StaffJoinBanner, FullscreenQrDialog, StaffOnboardingCard } from "@/components/sidework/StaffOnboarding";
+import { slugify } from "@/lib/slug";
 import { toast } from "sonner";
 
 const FOH_ROLES: Role[] = ["Host", "Busser", "Bar Back", "Bartender", "Server", "Server Assistant", "Manager", "Assistant Manager", "Porter"];
@@ -215,16 +217,64 @@ function NotificationsCard() {
 }
 
 function TeamTab() {
-  const { employees, videos, inviteEmployee } = useStore();
+  const { employees, videos, inviteEmployee, restaurantProfile } = useStore();
   const [open, setOpen] = useState(false);
+  const [addStaffOpen, setAddStaffOpen] = useState(false);
+  const [showQr, setShowQr] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", role: "Server" as Role });
   const [editing, setEditing] = useState<Employee | null>(null);
 
+  const joinSlug = restaurantProfile?.slug ?? (restaurantProfile?.name ? slugify(restaurantProfile.name) : "team");
+  const copyJoinLink = async () => {
+    const url = `${window.location.origin}/join/${joinSlug}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success("Join link copied", { description: url });
+    } catch {
+      toast.message("Copy this link", { description: url });
+    }
+  };
+
+
   return (
     <div className="space-y-4">
+      <StaffJoinBanner onShowQr={() => setShowQr(true)} />
+
       <div className="flex justify-end">
+        <Dialog open={addStaffOpen} onOpenChange={setAddStaffOpen}>
+          <DialogTrigger asChild><Button>+ Add Staff</Button></DialogTrigger>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader><DialogTitle>Add staff to your team</DialogTitle></DialogHeader>
+            <div className="grid gap-2 py-2">
+              <button
+                type="button"
+                onClick={() => { setAddStaffOpen(false); copyJoinLink(); }}
+                className="rounded-xl border-2 border-border p-4 text-left hover:border-primary hover:bg-primary/5"
+              >
+                <p className="font-semibold">📩 Send invite link</p>
+                <p className="text-sm text-muted-foreground">Copies your join link so you can text or email it.</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setAddStaffOpen(false); setShowQr(true); }}
+                className="rounded-xl border-2 border-border p-4 text-left hover:border-primary hover:bg-primary/5"
+              >
+                <p className="font-semibold">📱 Show QR code</p>
+                <p className="text-sm text-muted-foreground">Display fullscreen for staff to scan in person.</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setAddStaffOpen(false); setOpen(true); }}
+                className="rounded-xl border-2 border-border p-4 text-left hover:border-primary hover:bg-primary/5"
+              >
+                <p className="font-semibold">✍️ Add manually</p>
+                <p className="text-sm text-muted-foreground">Enter the employee's details yourself.</p>
+              </button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild><Button>+ Invite employee</Button></DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>Invite a new employee</DialogTitle></DialogHeader>
             <div className="grid gap-4 py-2">
@@ -260,6 +310,9 @@ function TeamTab() {
           </DialogContent>
         </Dialog>
       </div>
+
+      {showQr && <FullscreenQrDialog onClose={() => setShowQr(false)} />}
+
       <div className="grid gap-4">
         {employees.map((e) => {
           const s = onboardingStatus(e, videos);
@@ -1738,6 +1791,7 @@ function SettingsTab({ onOpenSetup }: { onOpenSetup: () => void }) {
           <RestaurantHoursEditor value={restaurantHours} onChange={updateRestaurantDay} />
         </CardContent>
       </Card>
+      {setupCompleted && <StaffOnboardingCard />}
     </div>
   );
 }

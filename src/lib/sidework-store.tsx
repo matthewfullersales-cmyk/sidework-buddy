@@ -240,6 +240,7 @@ export interface RestaurantProfile {
   nonNegotiables: string;
   pastProblems: string;
   completedAt: string;
+  slug?: string;
 }
 
 export interface Notification {
@@ -277,6 +278,16 @@ interface Store {
   resetSetup: () => void;
   markNotificationsRead: () => void;
   inviteEmployee: (data: { name: string; email: string; role: Role }) => void;
+  joinStaff: (data: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    role: Role;
+    weeklyAvailability: WeeklyAvailability;
+    emergencyContact: EmergencyContact;
+  }) => string;
+  updateRestaurantSlug: (slug: string) => void;
   updateEmployee: (id: string, patch: Partial<Employee>) => void;
   recordVideoProgress: (employeeId: string, videoId: string, patch: Partial<VideoProgress>) => void;
   recordQuizAttempt: (employeeId: string, videoId: string, score: number, passed: boolean) => void;
@@ -651,6 +662,52 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
             onboardingStarted: false, personalInfoComplete: false, progress: [],
           },
         ],
+      })),
+    joinStaff: (data) => {
+      const empId = uid("e");
+      const fullName = `${data.firstName} ${data.lastName}`.trim();
+      setState((s) => {
+        const employee: Employee = {
+          id: empId,
+          name: fullName,
+          firstName: data.firstName,
+          lastName: data.lastName,
+          email: data.email,
+          phone: data.phone,
+          primaryRole: data.role,
+          approvedRoles: [data.role],
+          autoApproveRoles: [],
+          availability: "",
+          weeklyAvailability: data.weeklyAvailability,
+          emergencyContact: data.emergencyContact,
+          invitedAt: new Date().toISOString().slice(0, 10),
+          onboardingStarted: true,
+          personalInfoComplete: true,
+          progress: [],
+          seniority: 1,
+        };
+        return {
+          ...s,
+          employees: [...s.employees, employee],
+          notifications: [
+            {
+              id: uid("n"),
+              type: "training_passed",
+              message: `${fullName} just joined Sidework!`,
+              employeeId: empId,
+              createdAt: new Date().toISOString(),
+              read: false,
+            },
+            ...s.notifications,
+          ],
+        };
+      });
+      return empId;
+    },
+    updateRestaurantSlug: (slug) =>
+      setState((s) => ({
+        ...s,
+        restaurantProfile: s.restaurantProfile ? { ...s.restaurantProfile, slug } : s.restaurantProfile,
       })),
     updateEmployee: (id, patch) =>
       setState((s) => ({ ...s, employees: s.employees.map((e) => (e.id === id ? { ...e, ...patch } : e)) })),
