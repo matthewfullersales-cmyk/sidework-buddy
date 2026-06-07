@@ -61,6 +61,60 @@ export const Route = createFileRoute("/manager")({
   component: ManagerPage,
 });
 
+function ActionTooltip({ text, children }: { text: string; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleTouchStart = () => {
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    timerRef.current = setTimeout(() => setOpen(true), 500);
+  };
+
+  const handleTouchEnd = () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    hideTimerRef.current = setTimeout(() => setOpen(false), 1500);
+  };
+
+  const handleTouchMove = () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    setOpen(false);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    };
+  }, []);
+
+  return (
+    <div className="relative inline-block" onContextMenu={(e) => e.preventDefault()}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+            onTouchMove={handleTouchMove}
+            onContextMenu={(e) => e.preventDefault()}
+          >
+            {children}
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-[220px] bg-slate-900 text-white border-slate-800 text-xs text-center">
+          {text}
+        </TooltipContent>
+      </Tooltip>
+      {open && (
+        <div className="pointer-events-none absolute bottom-[calc(100%+8px)] left-1/2 z-50 -translate-x-1/2 rounded-md bg-slate-900 px-3 py-2 text-xs text-white shadow-lg animate-in fade-in-0 zoom-in-95 max-w-[220px] whitespace-normal text-center leading-relaxed">
+          {text}
+          <span className="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-slate-900" />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ManagerPage() {
   const { setupCompleted, restaurantProfile, resetSetup } = useStore();
   const [tab, setTab] = useState("dashboard");
