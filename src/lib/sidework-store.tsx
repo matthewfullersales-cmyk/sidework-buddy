@@ -97,6 +97,7 @@ export interface Employee {
   availability: string;
   weeklyAvailability?: WeeklyAvailability;
   emergencyContact?: EmergencyContact;
+  photoUrl?: string;
   invitedAt: string;
   onboardingStarted: boolean;
   personalInfoComplete: boolean;
@@ -104,6 +105,10 @@ export interface Employee {
   position?: Position;
   section?: Section;
   seniority?: number; // 1-5, higher = more experienced
+  // Carry-forward context from the application that created this employee
+  hiredFromApplicationId?: string;
+  applicationPitch?: string;
+  appliedAt?: string;
 }
 
 export interface Shift {
@@ -894,7 +899,11 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           section: overrides?.section,
           position: overrides?.position,
           seniority: overrides?.seniority ?? 1,
+          hiredFromApplicationId: a.id,
+          applicationPitch: a.pitch ?? a.note,
+          appliedAt: a.appliedAt,
         };
+        const restaurantName = s.restaurantProfile?.name ?? "Sidework";
         return {
           ...s,
           employees: [...s.employees, employee],
@@ -905,7 +914,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
             {
               id: uid("n"),
               type: "training_passed",
-              message: `Welcome message sent to ${employee.name}. Training assigned for ${role}.`,
+              message: `Welcome to ${restaurantName}! ${employee.name} has been added to Sidework. Welcome link sent so they can complete their profile and start training. Training assigned for ${role}.`,
               employeeId: empId,
               createdAt: new Date().toISOString(),
               read: false,

@@ -64,7 +64,15 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
   const [phone, setPhone] = useState(me.phone ?? "");
   const [weekly, setWeekly] = useState<WeeklyAvailability | undefined>(me.weeklyAvailability);
   const [ec, setEc] = useState(me.emergencyContact ?? { name: "", phone: "", relationship: "Other" as Relationship });
+  const [photoUrl, setPhotoUrl] = useState(me.photoUrl ?? "");
   const s = onboardingStatus(me, videos);
+
+  const onPhotoFile = (file: File | null) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setPhotoUrl(String(reader.result ?? ""));
+    reader.readAsDataURL(file);
+  };
 
   const save = () => {
     if (!firstName.trim() || !email.trim() || !phone.trim()) return toast.error("Please fill name, email, and phone.");
@@ -77,6 +85,7 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
       phone: phone.trim(),
       weeklyAvailability: weekly,
       emergencyContact: ec,
+      photoUrl: photoUrl || undefined,
       personalInfoComplete: true,
       onboardingStarted: true,
     });
@@ -107,6 +116,18 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
             <div className="grid gap-2"><Label>Phone number</Label><Input type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(555) 555-1234" /></div>
           </div>
           <div className="grid gap-2"><Label>Role</Label><Input disabled value={me.primaryRole} /></div>
+          <div className="grid gap-2">
+            <Label>Profile photo (optional)</Label>
+            <div className="flex items-center gap-3">
+              {photoUrl ? (
+                <img src={photoUrl} alt="Profile" className="h-14 w-14 rounded-full object-cover border border-border" />
+              ) : (
+                <div className="h-14 w-14 rounded-full bg-muted text-muted-foreground grid place-items-center text-xs">No photo</div>
+              )}
+              <Input type="file" accept="image/*" onChange={(e) => onPhotoFile(e.target.files?.[0] ?? null)} />
+              {photoUrl && <Button variant="ghost" size="sm" onClick={() => setPhotoUrl("")}>Remove</Button>}
+            </div>
+          </div>
         </CardContent>
       </Card>
 
