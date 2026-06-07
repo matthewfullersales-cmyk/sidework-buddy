@@ -766,6 +766,23 @@ function ApplicationSection({
   );
 }
 
+function aiScoreReasons(a: JobApplication): string[] {
+  const reasons: string[] = [];
+  if (!a.firstName || !a.lastName) reasons.push("missing full name");
+  if (!a.email) reasons.push("missing email");
+  if (!a.phone) reasons.push("missing phone");
+  if (!a.role) reasons.push("missing position");
+  const pitchText = (a.pitch ?? a.note ?? "").trim();
+  const words = pitchText ? pitchText.split(/\s+/).length : 0;
+  if (words < 40) reasons.push("short pitch");
+  const days = a.weeklyAvailability
+    ? DAY_KEYS.filter((d) => a.weeklyAvailability![d]?.kind !== "none").length
+    : (a.availabilityDays?.length ?? 0);
+  if (days < 3) reasons.push("limited availability");
+  if (reasons.length === 0) return ["complete profile, strong pitch, good availability"];
+  return reasons;
+}
+
 function ApplicantCard({
   a, actions, extra, compact,
 }: {
@@ -780,6 +797,7 @@ function ApplicantCard({
     score === "Strong" ? "bg-success text-success-foreground hover:bg-success" :
     score === "Weak" ? "bg-destructive text-destructive-foreground hover:bg-destructive" :
     "bg-secondary text-secondary-foreground hover:bg-secondary";
+  const scoreReasons = aiScoreReasons(a);
 
   return (
     <div className="rounded-lg border border-border bg-background p-4">
@@ -787,10 +805,26 @@ function ApplicantCard({
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <p className="font-semibold">{fullName}</p>
-            {a.role && <Badge variant="secondary">{a.role}</Badge>}
-            <Badge className={scoreClass}>AI: {score}</Badge>
+            <TooltipProvider delayDuration={100}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge className={`cursor-help ${scoreClass}`}>AI: {score}</Badge>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-xs">
+                  <p className="font-semibold">AI score: {score}</p>
+                  <ul className="mt-1 list-disc pl-4">
+                    {scoreReasons.map((r, i) => (
+                      <li key={i}>{r}</li>
+                    ))}
+                  </ul>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
             <StatusBadge status={a.status} />
           </div>
+          {a.role && (
+            <p className="mt-0.5 text-sm text-muted-foreground">Applying for <span className="font-medium text-foreground">{a.role}</span></p>
+          )}
           <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
             {a.email && <a href={`mailto:${a.email}`} className="underline break-all">{a.email}</a>}
             <a href={`tel:${a.phone}`} className="underline">{a.phone}</a>
