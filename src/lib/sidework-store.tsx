@@ -530,7 +530,7 @@ function seedTimeOff(): TimeOffRequest[] {
   ];
 }
 
-const STORAGE_KEY = "sidework-store-v4";
+const STORAGE_KEY = "sidework-store-v5";
 
 export function SideworkProvider({ children }: { children: ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
@@ -546,6 +546,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     menu: null as MenuUpload | null,
     drinkMenu: null as MenuUpload | null,
     restaurantProfile: null as RestaurantProfile | null,
+    restaurantHours: defaultRestaurantHours(),
     setupCompleted: false,
     notifications: [] as Notification[],
   }));
@@ -569,6 +570,9 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
 
   const store: Store = {
     ...state,
+    setRestaurantHours: (h) => setState((s) => ({ ...s, restaurantHours: h })),
+    updateRestaurantDay: (day, patch) =>
+      setState((s) => ({ ...s, restaurantHours: { ...s.restaurantHours, [day]: { ...s.restaurantHours[day], ...patch } } })),
     setCurrentUser: (u) => setState((s) => ({ ...s, currentUser: u })),
     inviteEmployee: ({ name, email, role }) =>
       setState((s) => ({
