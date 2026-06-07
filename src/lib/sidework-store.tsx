@@ -292,6 +292,10 @@ interface Store {
   declineApplication: (id: string) => void;
   reconsiderApplication: (id: string) => void;
   hireApplication: (id: string, overrides?: Partial<Employee>) => string | null;
+  approveForVideo: (id: string, slots: string[]) => void;
+  applicantSelectSlot: (id: string, slot: string) => void;
+  completeInterview: (id: string, notes?: string) => void;
+  inviteShadowShift: (id: string, details: ShadowShiftDetails) => void;
   requestTimeOff: (data: Omit<TimeOffRequest, "id" | "createdAt" | "status">) => void;
   resolveTimeOff: (id: string, approved: boolean, note?: string) => void;
 }
