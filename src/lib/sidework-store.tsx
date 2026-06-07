@@ -941,7 +941,15 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
             {
               id: uid("n"),
               type: "training_passed",
-              message: `Welcome to ${restaurantName}! ${employee.name} has been added to Sidework. Welcome link sent so they can complete their profile and start training. Training assigned for ${role}.`,
+              message: `Training automatically assigned to ${employee.name} based on their ${role} position.`,
+              employeeId: empId,
+              createdAt: new Date().toISOString(),
+              read: false,
+            },
+            {
+              id: uid("n"),
+              type: "training_passed",
+              message: `Welcome to ${restaurantName}! ${employee.name} has been added to Sidework. Welcome link sent so they can complete their profile and start training.`,
               employeeId: empId,
               createdAt: new Date().toISOString(),
               read: false,
