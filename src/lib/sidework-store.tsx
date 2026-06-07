@@ -278,6 +278,16 @@ interface Store {
   resetSetup: () => void;
   markNotificationsRead: () => void;
   inviteEmployee: (data: { name: string; email: string; role: Role }) => void;
+  joinStaff: (data: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    role: Role;
+    weeklyAvailability: WeeklyAvailability;
+    emergencyContact: EmergencyContact;
+  }) => string;
+  updateRestaurantSlug: (slug: string) => void;
   updateEmployee: (id: string, patch: Partial<Employee>) => void;
   recordVideoProgress: (employeeId: string, videoId: string, patch: Partial<VideoProgress>) => void;
   recordQuizAttempt: (employeeId: string, videoId: string, score: number, passed: boolean) => void;
