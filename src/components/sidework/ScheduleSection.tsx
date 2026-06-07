@@ -354,12 +354,22 @@ function Legend() {
     <div className="flex flex-wrap items-center gap-2 text-[11px]">
       <span className="text-muted-foreground">Legend:</span>
       {ROLES.map((r) => (
-        <span key={r} className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 ${roleColor(r)}`}>
-          <span className="h-1.5 w-1.5 rounded-full bg-current" />{r}
+        <span key={r} className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5" style={roleStyle(r)}>
+          <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: contrastText(roleStyle(r).backgroundColor as string) }} />{r}
         </span>
       ))}
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-2 py-0.5 text-muted-foreground">Time off</span>
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-amber-700 dark:text-amber-300">PTO pending</span>
+      <span
+        className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5"
+        style={{ backgroundColor: STATUS_COLORS.timeOff, color: contrastText(STATUS_COLORS.timeOff), borderColor: STATUS_COLORS.timeOff }}
+      >
+        Time off
+      </span>
+      <span
+        className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5"
+        style={{ backgroundColor: STATUS_COLORS.ptoPending, color: contrastText(STATUS_COLORS.ptoPending), borderColor: STATUS_COLORS.ptoPending }}
+      >
+        PTO pending
+      </span>
     </div>
   );
 }
