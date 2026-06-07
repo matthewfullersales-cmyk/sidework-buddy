@@ -619,7 +619,30 @@ function seedTimeOff(): TimeOffRequest[] {
   ];
 }
 
-const STORAGE_KEY = "sidework-store-v8";
+const STORAGE_KEY = "sidework-store-v9";
+
+// Defensively strip any legacy "Porter" role from persisted data and remap to Busser.
+function sanitizePorter<T>(input: T): T {
+  if (input == null) return input;
+  if (Array.isArray(input)) {
+    const cleaned = input
+      .map((v) => sanitizePorter(v))
+      .filter((v) => v !== "Porter");
+    return cleaned as unknown as T;
+  }
+  if (typeof input === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(input as Record<string, unknown>)) {
+      if ((k === "primaryRole" || k === "role" || k === "position") && v === "Porter") {
+        out[k] = "Busser";
+      } else {
+        out[k] = sanitizePorter(v);
+      }
+    }
+    return out as T;
+  }
+  return input;
+}
 
 export function SideworkProvider({ children }: { children: ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
@@ -642,9 +665,13 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     try {
+      // Clear any prior versions that may contain "Porter" seed data.
+      for (let i = 1; i <= 8; i++) {
+        try { localStorage.removeItem(`sidework-store-v${i}`); } catch {}
+      }
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
-        const parsed = JSON.parse(raw);
+        const parsed = sanitizePorter(JSON.parse(raw));
         setState((s) => ({ ...s, ...parsed }));
       }
     } catch {}
