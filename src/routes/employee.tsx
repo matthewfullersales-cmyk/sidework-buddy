@@ -63,7 +63,7 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
   const [email, setEmail] = useState(me.email);
   const [phone, setPhone] = useState(me.phone ?? "");
   const [weekly, setWeekly] = useState<WeeklyAvailability | undefined>(me.weeklyAvailability);
-  const [ec, setEc] = useState(me.emergencyContact ?? { name: "", phone: "", relationship: "Other" as Relationship });
+  const [ec, setEc] = useState({ name: "", phone: me.emergencyContact?.phone ?? "", relationship: me.emergencyContact?.relationship ?? "Other" as Relationship });
   const [photoUrl, setPhotoUrl] = useState(me.photoUrl ?? "");
   const s = onboardingStatus(me, videos);
 
