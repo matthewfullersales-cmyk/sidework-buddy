@@ -19,12 +19,12 @@ type RestaurantType =
 
 const FOH_ROLES = [
   "Host", "Busser", "Bar Back", "Bartender", "Server",
-  "Server Assistant", "Manager", "Assistant Manager", "Porter",
+  "Manager", "Assistant Manager",
 ] as const;
 
 const BOH_ROLES = [
   "Chef", "Sous Chef", "Line Cook", "Fry Cook", "Saute",
-  "Grill", "Pizza", "Dishwasher", "Prep",
+  "Grill", "Pizza", "Garde Manger", "Dishwasher", "Prep",
 ] as const;
 
 const PAIN_POINTS = [
