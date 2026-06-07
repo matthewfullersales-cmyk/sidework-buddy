@@ -64,7 +64,7 @@ function defaultShift(pos: Position | undefined, isWeekend: boolean): { start: s
     case "Bar Back": return { start: "17:00", end: "23:30" };
     case "Server": return { start: "16:30", end: "23:00" };
     case "Busser": return { start: "17:00", end: "23:00" };
-    case "Porter": return { start: "10:00", end: "16:00" };
+    case "Garde Manger": return { start: "10:00", end: "18:00" };
     case "Manager": return { start: "15:00", end: "23:30" };
     case "Assistant Manager": return { start: "11:00", end: "19:00" };
     case "Chef": return { start: "11:00", end: "22:00" };
