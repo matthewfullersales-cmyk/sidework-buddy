@@ -517,9 +517,21 @@ function TradesTab() {
 }
 
 function JobsTab() {
-  const { jobs, applications, postJob, toggleJobOpen, removeJob, setApplicationStatus } = useStore();
+  const {
+    jobs,
+    applications,
+    postJob,
+    toggleJobOpen,
+    removeJob,
+    scheduleInterview,
+    setInterviewNotes,
+    declineApplication,
+    reconsiderApplication,
+    hireApplication,
+  } = useStore();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ title: "", role: "Server" as Role, type: "Full-time" as "Full-time" | "Part-time", payRange: "", description: "" });
+  const [hireFor, setHireFor] = useState<string | null>(null);
 
   const submit = () => {
     if (!form.title || !form.payRange || !form.description) return toast.error("Fill in title, pay range, and description.");
@@ -528,6 +540,11 @@ function JobsTab() {
     setOpen(false);
     setForm({ title: "", role: "Server", type: "Full-time", payRange: "", description: "" });
   };
+
+  const newApps = applications.filter((a) => !a.archived && a.status === "new");
+  const inProgress = applications.filter((a) => !a.archived && a.status === "interview");
+  const archived = applications.filter((a) => a.archived);
+  const hireApp = applications.find((a) => a.id === hireFor) ?? null;
 
   return (
     <div className="grid gap-6">
@@ -604,60 +621,279 @@ function JobsTab() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader><CardTitle className="text-base">Applications ({applications.length})</CardTitle></CardHeader>
-        <CardContent className="space-y-3">
-          {applications.length === 0 && <p className="text-sm text-muted-foreground">No applications yet.</p>}
-          {applications.map((a) => {
-            const job = jobs.find((j) => j.id === a.jobId);
-            return (
-              <div key={a.id} className="rounded-lg border border-border bg-background p-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-semibold">{a.name}</p>
-                      {a.verified && (
-                        <Badge className="bg-success text-success-foreground hover:bg-success gap-1">
-                          <span aria-hidden>✓</span> Verified
-                        </Badge>
-                      )}
-                      <Badge variant="secondary">{job?.title ?? "—"}</Badge>
-                      <StatusBadge status={a.status} />
-                    </div>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      <a href={`tel:${a.phone}`} className="underline">{a.phone}</a> · applied {new Date(a.appliedAt).toLocaleDateString()}
-                    </p>
-                  </div>
-                </div>
-                <div className="mt-3 grid gap-2 text-sm">
-                  <p>
-                    <span className="font-semibold">Availability: </span>
-                    {a.availabilityDays.join(", ")} — {a.availabilityHours}
-                  </p>
-                  {a.note && <p className="text-muted-foreground italic">"{a.note}"</p>}
-                </div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <Button
-                    size="sm"
-                    onClick={() => { setApplicationStatus(a.id, "interview"); toast.success(`${a.name} marked for interview`); }}
-                    disabled={a.status === "interview"}
-                  >
-                    Mark for interview
-                  </Button>
-                  <Button
-                    size="sm" variant="outline"
-                    onClick={() => { setApplicationStatus(a.id, "rejected"); toast.message(`${a.name} declined`); }}
-                    disabled={a.status === "rejected"}
-                  >
-                    Decline
-                  </Button>
-                </div>
-              </div>
-            );
-          })}
-        </CardContent>
-      </Card>
+      <ApplicationSection
+        title="New applications"
+        subtitle="Needs review"
+        items={newApps}
+        accent={newApps.length > 0 ? "warn" : undefined}
+        emptyText="No new applications."
+        renderActions={(a) => (
+          <>
+            <Button size="sm" onClick={() => {
+              scheduleInterview(a.id);
+              toast.success(`Interview request sent to ${a.firstName ?? a.name}`, {
+                description: `Text & email: "Hi ${a.firstName ?? a.name}! We'd love to meet you. We'll be in touch shortly to confirm your interview time."`,
+              });
+            }}>Schedule Interview</Button>
+            <Button size="sm" variant="outline" onClick={() => {
+              declineApplication(a.id);
+              toast.message(`Polite decline sent to ${a.firstName ?? a.name}`, {
+                description: "Application archived. Can be reconsidered anytime.",
+              });
+            }}>Decline</Button>
+          </>
+        )}
+      />
+
+      <ApplicationSection
+        title="In progress"
+        subtitle="Interview scheduled"
+        items={inProgress}
+        emptyText="No interviews scheduled."
+        renderExtra={(a) => (
+          <div className="mt-3 grid gap-2 rounded-lg border border-border bg-muted/30 p-3">
+            <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Interview notes</Label>
+            <Textarea
+              rows={2}
+              defaultValue={a.interviewNotes ?? ""}
+              placeholder="Notes from your meeting…"
+              onBlur={(e) => {
+                if ((e.target.value ?? "") !== (a.interviewNotes ?? "")) {
+                  setInterviewNotes(a.id, e.target.value);
+                  toast.success("Notes saved");
+                }
+              }}
+            />
+          </div>
+        )}
+        renderActions={(a) => (
+          <>
+            <Button size="sm" onClick={() => setHireFor(a.id)}>Hire</Button>
+            <Button size="sm" variant="outline" onClick={() => {
+              declineApplication(a.id);
+              toast.message(`Polite decline sent to ${a.firstName ?? a.name}`);
+            }}>Decline</Button>
+          </>
+        )}
+      />
+
+      <ApplicationSection
+        title="Archived"
+        subtitle="Hired or declined"
+        items={archived}
+        emptyText="No archived applications."
+        compact
+        renderActions={(a) => (
+          a.status !== "hired" ? (
+            <Button size="sm" variant="outline" onClick={() => {
+              reconsiderApplication(a.id);
+              toast.success(`${a.firstName ?? a.name} moved back to New`);
+            }}>Reconsider</Button>
+          ) : null
+        )}
+      />
+
+      {hireApp && (
+        <HireReviewDialog
+          application={hireApp}
+          onClose={() => setHireFor(null)}
+          onConfirm={(overrides) => {
+            const id = hireApplication(hireApp.id, overrides);
+            if (id) {
+              const name = (overrides.firstName ?? hireApp.firstName ?? hireApp.name);
+              toast.success(`${name} hired!`, {
+                description: `Welcome message sent. Training assigned for ${overrides.primaryRole}.`,
+              });
+            }
+            setHireFor(null);
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+function ApplicationSection({
+  title, subtitle, items, emptyText, renderActions, renderExtra, accent, compact,
+}: {
+  title: string;
+  subtitle?: string;
+  items: ReturnType<typeof useStore>["applications"];
+  emptyText: string;
+  renderActions: (a: ReturnType<typeof useStore>["applications"][number]) => React.ReactNode;
+  renderExtra?: (a: ReturnType<typeof useStore>["applications"][number]) => React.ReactNode;
+  accent?: "warn";
+  compact?: boolean;
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <CardTitle className="text-base">{title} ({items.length})</CardTitle>
+            {subtitle && <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>}
+          </div>
+          {accent === "warn" && items.length > 0 && (
+            <Badge className="bg-warning text-warning-foreground hover:bg-warning">{items.length} new</Badge>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {items.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{emptyText}</p>
+        ) : (
+          items.map((a) => <ApplicantCard key={a.id} a={a} actions={renderActions(a)} extra={renderExtra?.(a)} compact={compact} />)
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function ApplicantCard({
+  a, actions, extra, compact,
+}: {
+  a: ReturnType<typeof useStore>["applications"][number];
+  actions: React.ReactNode;
+  extra?: React.ReactNode;
+  compact?: boolean;
+}) {
+  const fullName = a.firstName && a.lastName ? `${a.firstName} ${a.lastName}` : a.name;
+  const score = a.aiScore ?? "Average";
+  const scoreClass =
+    score === "Strong" ? "bg-success text-success-foreground hover:bg-success" :
+    score === "Weak" ? "bg-destructive text-destructive-foreground hover:bg-destructive" :
+    "bg-secondary text-secondary-foreground hover:bg-secondary";
+
+  return (
+    <div className="rounded-lg border border-border bg-background p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-semibold">{fullName}</p>
+            {a.role && <Badge variant="secondary">{a.role}</Badge>}
+            <Badge className={scoreClass}>AI: {score}</Badge>
+            <StatusBadge status={a.status} />
+          </div>
+          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+            {a.email && <a href={`mailto:${a.email}`} className="underline break-all">{a.email}</a>}
+            <a href={`tel:${a.phone}`} className="underline">{a.phone}</a>
+            <span>Applied {new Date(a.appliedAt).toLocaleDateString()}</span>
+            {a.source && <span>· via {a.source}</span>}
+          </div>
+        </div>
+      </div>
+
+      {!compact && (
+        <div className="mt-3 grid gap-3">
+          <div className="rounded-lg border border-border bg-muted/30 p-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Availability</p>
+            <div className="mt-1.5 grid grid-cols-7 gap-1 text-center">
+              {DAY_KEYS.map((d) => {
+                const on = a.weeklyAvailability
+                  ? a.weeklyAvailability[d]?.kind !== "none"
+                  : a.availabilityDays.includes(d);
+                return (
+                  <div
+                    key={d}
+                    className={`rounded border px-1 py-1 text-[10px] ${on ? "border-primary/30 bg-primary/15 text-primary" : "border-border bg-muted text-muted-foreground"}`}
+                  >
+                    <div className="font-semibold">{d}</div>
+                    <div>{on ? "✓" : "—"}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          {(a.pitch || a.note) && (
+            <div className="rounded-lg border border-border bg-muted/30 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Pitch</p>
+              <p className="mt-1 text-sm italic text-foreground/90">"{a.pitch ?? a.note}"</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {extra}
+
+      {actions && (
+        <div className="mt-3 flex flex-wrap justify-end gap-2">{actions}</div>
+      )}
+    </div>
+  );
+}
+
+function HireReviewDialog({
+  application, onClose, onConfirm,
+}: {
+  application: ReturnType<typeof useStore>["applications"][number];
+  onClose: () => void;
+  onConfirm: (overrides: Partial<Employee>) => void;
+}) {
+  const [firstName, setFirstName] = useState(application.firstName ?? application.name.split(" ")[0] ?? "");
+  const [lastName, setLastName] = useState(application.lastName ?? application.name.split(" ").slice(1).join(" ") ?? "");
+  const [email, setEmail] = useState(application.email ?? "");
+  const [phone, setPhone] = useState(application.phone);
+  const [role, setRole] = useState<Role>(application.role ?? "Server");
+  const [submitting, setSubmitting] = useState(false);
+
+  const confirm = async () => {
+    if (!firstName.trim() || !lastName.trim()) return toast.error("Name required.");
+    setSubmitting(true);
+    await new Promise((r) => setTimeout(r, 500));
+    onConfirm({
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      email: email.trim(),
+      phone: phone.trim(),
+      primaryRole: role,
+      approvedRoles: [role],
+      weeklyAvailability: application.weeklyAvailability,
+    });
+  };
+
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Confirm hire</DialogTitle>
+          <p className="text-sm text-muted-foreground">All info from the application is pre-filled. Review and edit anything if needed, then confirm.</p>
+        </DialogHeader>
+        <div className="grid gap-4 py-2 max-h-[60vh] overflow-y-auto pr-1">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-1.5"><Label>First name</Label><Input value={firstName} onChange={(e) => setFirstName(e.target.value)} /></div>
+            <div className="grid gap-1.5"><Label>Last name</Label><Input value={lastName} onChange={(e) => setLastName(e.target.value)} /></div>
+            <div className="grid gap-1.5"><Label>Email</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+            <div className="grid gap-1.5"><Label>Phone</Label><Input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} /></div>
+          </div>
+          <div className="grid gap-1.5">
+            <Label>Position</Label>
+            <Select value={role} onValueChange={(v: Role) => setRole(v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectLabel>Front of House</SelectLabel>
+                  {FOH_ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                </SelectGroup>
+                <SelectSeparator />
+                <SelectGroup>
+                  <SelectLabel>Back of House</SelectLabel>
+                  {BOH_ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="rounded-lg border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
+            Availability from application will be applied automatically. Emergency contact will be filled in by the employee when they log in.
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose} disabled={submitting}>Cancel</Button>
+          <Button onClick={confirm} disabled={submitting}>
+            {submitting ? "Hiring…" : "Confirm hire"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
