@@ -172,6 +172,12 @@ export interface ShadowShiftDetails {
   dressCode?: string;
 }
 
+export interface WorkExperience {
+  employer: string;
+  position: string;
+  duration: "Less than 6 months" | "6 months - 1 year" | "1 - 2 years" | "2 - 5 years" | "5+ years" | "";
+}
+
 export interface JobApplication {
   id: string;
   jobId?: string;
