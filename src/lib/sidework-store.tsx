@@ -500,7 +500,7 @@ function seedTrades(): Trade[] {
 function seedJobs(): JobPosting[] {
   return [
     {
-      id: "j1", title: "Experienced Line Cook", role: "Kitchen", type: "Full-time",
+      id: "j1", title: "Experienced Line Cook", role: "Line Cook", type: "Full-time",
       payRange: "$22–$28/hr",
       description: "We're hiring a line cook for our busy dinner service. Mediterranean menu, scratch kitchen, fast pace.",
       postedAt: new Date().toISOString(), open: true,

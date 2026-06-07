@@ -20,7 +20,9 @@ import { onboardingStatus, useStore, type Role, type ApplicationStatus, type Emp
 import { AvailabilityEditor, RestaurantHoursEditor } from "@/components/sidework/AvailabilityEditor";
 import { toast } from "sonner";
 
-const ROLES: Role[] = ["Server", "Bartender", "Kitchen", "Host"];
+const FOH_ROLES: Role[] = ["Host", "Busser", "Bar Back", "Bartender", "Server", "Server Assistant", "Manager", "Assistant Manager", "Porter"];
+const BOH_ROLES: Role[] = ["Chef", "Sous Chef", "Line Cook", "Fry Cook", "Saute", "Grill", "Pizza", "Dishwasher", "Prep"];
+const ROLES: Role[] = [...FOH_ROLES, ...BOH_ROLES];
 
 const nav = [
   { to: "/manager", label: "Dashboard", icon: <IconHome /> },
