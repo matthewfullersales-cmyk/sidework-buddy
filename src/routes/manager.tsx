@@ -540,16 +540,23 @@ function JobsTab() {
     postJob,
     toggleJobOpen,
     removeJob,
-    scheduleInterview,
     setInterviewNotes,
     declineApplication,
     reconsiderApplication,
     hireApplication,
+    approveForVideo,
+    applicantSelectSlot,
+    completeInterview,
+    inviteShadowShift,
+    restaurantProfile,
   } = useStore();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ title: "", role: "Server" as Role, type: "Full-time" as "Full-time" | "Part-time", payRange: "", description: "" });
   const [hireFor, setHireFor] = useState<string | null>(null);
-  const [confirmHireFor, setConfirmHireFor] = useState<string | null>(null);
+  const [approveFor, setApproveFor] = useState<string | null>(null);
+  const [callFor, setCallFor] = useState<string | null>(null);
+  const [shadowFor, setShadowFor] = useState<string | null>(null);
+  const [declineConfirmFor, setDeclineConfirmFor] = useState<{ id: string; postInterview?: boolean } | null>(null);
 
   const submit = () => {
     if (!form.title || !form.payRange || !form.description) return toast.error("Fill in title, pay range, and description.");
@@ -559,18 +566,40 @@ function JobsTab() {
     setForm({ title: "", role: "Server", type: "Full-time", payRange: "", description: "" });
   };
 
-  const newApps = applications.filter((a) => !a.archived && a.status === "new");
-  const inProgress = applications.filter((a) => !a.archived && a.status === "interview");
+  const restaurantName = restaurantProfile?.name ?? "our restaurant";
+
+  const active = applications.filter((a) => !a.archived);
+  const newApps = active.filter((a) => getHiringStage(a) === "new");
+  const videoApps = active.filter((a) => {
+    const st = getHiringStage(a);
+    return st === "video_offered" || st === "video_scheduled" || st === "interviewed";
+  });
+  const shadowApps = active.filter((a) => getHiringStage(a) === "shadow_scheduled");
   const archived = applications.filter((a) => a.archived);
+
   const hireApp = applications.find((a) => a.id === hireFor) ?? null;
+  const approveApp = applications.find((a) => a.id === approveFor) ?? null;
+  const callApp = applications.find((a) => a.id === callFor) ?? null;
+  const shadowApp = applications.find((a) => a.id === shadowFor) ?? null;
+  const declineApp = declineConfirmFor ? applications.find((a) => a.id === declineConfirmFor.id) ?? null : null;
+
+  const copyApplicationLink = async (jobId: string) => {
+    const url = `${window.location.origin}/careers?job=${jobId}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success("Application link copied", { description: url });
+    } catch {
+      toast.message("Copy this link", { description: url });
+    }
+  };
 
   return (
     <div className="grid gap-6">
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-row items-center justify-between gap-3">
           <div>
             <CardTitle className="text-base">Job postings</CardTitle>
-            <p className="mt-1 text-xs text-muted-foreground">Share your public careers page: <code className="rounded bg-muted px-1.5 py-0.5">/careers</code></p>
+            <p className="mt-1 text-xs text-muted-foreground">Public careers page: <code className="rounded bg-muted px-1.5 py-0.5">/careers</code></p>
           </div>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild><Button>+ Post a job</Button></DialogTrigger>
@@ -616,23 +645,27 @@ function JobsTab() {
           {jobs.map((j) => {
             const count = applications.filter((a) => a.jobId === j.id).length;
             return (
-              <div key={j.id} className="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-border bg-background p-4">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-semibold">{j.title}</p>
-                    <Badge variant="secondary">{j.role}</Badge>
-                    <Badge variant="outline">{j.type}</Badge>
-                    {j.open
-                      ? <Badge className="bg-success text-success-foreground hover:bg-success">Open</Badge>
-                      : <Badge variant="secondary">Closed</Badge>}
+              <div key={j.id} className="rounded-lg border border-border bg-background p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-semibold">{j.title}</p>
+                      <Badge variant="secondary">{j.role}</Badge>
+                      <Badge variant="outline">{j.type}</Badge>
+                      {j.open
+                        ? <Badge className="bg-success text-success-foreground hover:bg-success">Open</Badge>
+                        : <Badge variant="secondary">Closed</Badge>}
+                    </div>
+                    <p className="mt-1 text-sm font-semibold text-primary">{j.payRange}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{count} application{count === 1 ? "" : "s"}</p>
                   </div>
-                  <p className="mt-1 text-sm text-primary font-semibold">{j.payRange}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">{count} application{count === 1 ? "" : "s"}</p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" onClick={() => copyApplicationLink(j.id)}>Copy Application Link</Button>
+                    <Button size="sm" variant="outline" onClick={() => toggleJobOpen(j.id)}>{j.open ? "Close" : "Reopen"}</Button>
+                    <Button size="sm" variant="ghost" onClick={() => { removeJob(j.id); toast.message("Job removed"); }}>Delete</Button>
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" onClick={() => toggleJobOpen(j.id)}>{j.open ? "Close" : "Reopen"}</Button>
-                  <Button size="sm" variant="ghost" onClick={() => { removeJob(j.id); toast.message("Job removed"); }}>Delete</Button>
-                </div>
+                <p className="mt-3 text-xs text-muted-foreground">Share this link on Indeed, Instagram, or anywhere you recruit.</p>
               </div>
             );
           })}
@@ -640,57 +673,70 @@ function JobsTab() {
       </Card>
 
       <ApplicationSection
-        title="New applications"
+        title="New Applications"
         subtitle="Needs review"
         items={newApps}
         accent={newApps.length > 0 ? "warn" : undefined}
         emptyText="No new applications."
         renderActions={(a) => (
           <>
-            <Button size="sm" onClick={() => {
-              scheduleInterview(a.id);
-              toast.success(`Interview request sent to ${a.firstName ?? a.name}`, {
-                description: `Text & email: "Hi ${a.firstName ?? a.name}! We'd love to meet you. We'll be in touch shortly to confirm your interview time."`,
-              });
-            }}>Schedule Interview</Button>
-            <Button size="sm" variant="outline" onClick={() => {
-              declineApplication(a.id);
-              toast.message(`Polite decline sent to ${a.firstName ?? a.name}`, {
-                description: "Application archived. Can be reconsidered anytime.",
-              });
-            }}>Decline</Button>
+            <Button size="sm" onClick={() => setApproveFor(a.id)}>Approve Video Interview</Button>
+            <Button size="sm" variant="outline" onClick={() => setDeclineConfirmFor({ id: a.id })}>Decline</Button>
           </>
         )}
       />
 
       <ApplicationSection
-        title="In progress"
-        subtitle="Interview scheduled"
-        items={inProgress}
-        emptyText="No interviews scheduled."
-        renderExtra={(a) => (
-          <div className="mt-3 grid gap-2 rounded-lg border border-border bg-muted/30 p-3">
-            <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Interview notes</Label>
-            <Textarea
-              rows={2}
-              defaultValue={a.interviewNotes ?? ""}
-              placeholder="Notes from your meeting…"
-              onBlur={(e) => {
-                if ((e.target.value ?? "") !== (a.interviewNotes ?? "")) {
-                  setInterviewNotes(a.id, e.target.value);
-                  toast.success("Notes saved");
-                }
-              }}
-            />
+        title="Video Interview Scheduled"
+        subtitle="Awaiting time confirmation or interview"
+        items={videoApps}
+        emptyText="No video interviews in progress."
+        renderExtra={(a) => <VideoStageDetails app={a} />}
+        renderActions={(a) => {
+          const stage = getHiringStage(a);
+          if (stage === "video_offered") {
+            return (
+              <>
+                <Button size="sm" variant="outline" disabled>Awaiting applicant</Button>
+                <Button size="sm" variant="outline" onClick={() => setDeclineConfirmFor({ id: a.id })}>Decline</Button>
+              </>
+            );
+          }
+          if (stage === "video_scheduled") {
+            return (
+              <>
+                <Button size="sm" onClick={() => setCallFor(a.id)}>Join Video Call</Button>
+                <Button size="sm" variant="outline" onClick={() => setDeclineConfirmFor({ id: a.id })}>Decline</Button>
+              </>
+            );
+          }
+          // interviewed
+          return (
+            <>
+              <Button size="sm" onClick={() => setShadowFor(a.id)}>Invite for Shadow Shift</Button>
+              <Button size="sm" variant="outline" onClick={() => setDeclineConfirmFor({ id: a.id, postInterview: true })}>Decline</Button>
+            </>
+          );
+        }}
+      />
+
+      <ApplicationSection
+        title="Shadow Shift Scheduled"
+        subtitle="Awaiting in-person shift"
+        items={shadowApps}
+        emptyText="No shadow shifts scheduled."
+        renderExtra={(a) => a.shadowShift && (
+          <div className="mt-3 rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm">
+            <p className="font-semibold text-primary">Shadow shift scheduled</p>
+            <p className="mt-1">{a.shadowShift.date} at {a.shadowShift.time}</p>
+            {a.shadowShift.dressCode && <p className="text-xs text-muted-foreground">Dress code: {a.shadowShift.dressCode}</p>}
+            {a.shadowShift.instructions && <p className="mt-1 text-xs text-muted-foreground">{a.shadowShift.instructions}</p>}
           </div>
         )}
         renderActions={(a) => (
           <>
-            <Button size="sm" onClick={() => setConfirmHireFor(a.id)}>Hire</Button>
-            <Button size="sm" variant="outline" onClick={() => {
-              declineApplication(a.id);
-              toast.message(`Polite decline sent to ${a.firstName ?? a.name}`);
-            }}>Decline</Button>
+            <Button size="sm" onClick={() => setHireFor(a.id)}>Hire</Button>
+            <Button size="sm" variant="outline" onClick={() => setDeclineConfirmFor({ id: a.id })}>Decline</Button>
           </>
         )}
       />
@@ -711,30 +757,78 @@ function JobsTab() {
         )}
       />
 
-      {confirmHireFor && (
-        <Dialog open onOpenChange={(o) => { if (!o) setConfirmHireFor(null); }}>
+      {approveApp && (
+        <ApproveVideoDialog
+          application={approveApp}
+          onClose={() => setApproveFor(null)}
+          onConfirm={(slots) => {
+            approveForVideo(approveApp.id, slots);
+            const name = approveApp.firstName ?? approveApp.name;
+            toast.success(`Video interview invite sent to ${name}`, {
+              description: `Text & email with ${slots.length} time slot${slots.length === 1 ? "" : "s"}. Applicant link: /interview/${approveApp.id}`,
+            });
+            setApproveFor(null);
+          }}
+        />
+      )}
+
+      {callApp && (
+        <VideoCallDialog
+          application={callApp}
+          restaurantName={restaurantName}
+          onClose={() => setCallFor(null)}
+          onEnd={(notes) => {
+            completeInterview(callApp.id, notes);
+            toast.success("Interview complete", { description: "Ready for your decision." });
+            setCallFor(null);
+          }}
+        />
+      )}
+
+      {shadowApp && (
+        <ShadowShiftDialog
+          application={shadowApp}
+          restaurantName={restaurantName}
+          onClose={() => setShadowFor(null)}
+          onConfirm={(details) => {
+            inviteShadowShift(shadowApp.id, details);
+            const name = shadowApp.firstName ?? shadowApp.name;
+            toast.success(`Shadow shift invite sent to ${name}`, {
+              description: `${details.date} at ${details.time}`,
+            });
+            setShadowFor(null);
+          }}
+        />
+      )}
+
+      {declineApp && declineConfirmFor && (
+        <Dialog open onOpenChange={(o) => { if (!o) setDeclineConfirmFor(null); }}>
           <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Confirm hire</DialogTitle>
-            </DialogHeader>
-            {(() => {
-              const app = applications.find((a) => a.id === confirmHireFor);
-              if (!app) return null;
-              const name = app.firstName && app.lastName ? `${app.firstName} ${app.lastName}` : app.name;
-              return (
-                <div className="py-2">
-                  <p className="text-sm text-muted-foreground">
-                    Hire <span className="font-semibold text-foreground">{name}</span> as <span className="font-semibold text-foreground">{app.role ?? "Server"}</span>? This will create their employee profile and send them a welcome message.
+            <DialogHeader><DialogTitle>Decline application?</DialogTitle></DialogHeader>
+            <div className="py-2 text-sm text-muted-foreground">
+              {declineConfirmFor.postInterview ? (
+                <>
+                  <p>Send the following message to <span className="font-semibold text-foreground">{declineApp.firstName ?? declineApp.name}</span>?</p>
+                  <p className="mt-2 rounded-md bg-muted p-3 italic">
+                    "Hi {declineApp.firstName ?? declineApp.name}, thank you for taking the time to speak with us. We've decided to move forward with other candidates at this time. We wish you the best!"
                   </p>
-                </div>
-              );
-            })()}
+                </>
+              ) : (
+                <>
+                  <p>Send the following message to <span className="font-semibold text-foreground">{declineApp.firstName ?? declineApp.name}</span>?</p>
+                  <p className="mt-2 rounded-md bg-muted p-3 italic">
+                    "Hi {declineApp.firstName ?? declineApp.name}, thank you for your interest in {restaurantName}. We appreciate your time and will keep your application on file for future opportunities. Best of luck!"
+                  </p>
+                </>
+              )}
+            </div>
             <DialogFooter>
-              <Button variant="ghost" onClick={() => setConfirmHireFor(null)}>Cancel</Button>
+              <Button variant="ghost" onClick={() => setDeclineConfirmFor(null)}>Cancel</Button>
               <Button onClick={() => {
-                setHireFor(confirmHireFor);
-                setConfirmHireFor(null);
-              }}>Confirm Hire</Button>
+                declineApplication(declineApp.id);
+                toast.message(`Decline message sent to ${declineApp.firstName ?? declineApp.name}`);
+                setDeclineConfirmFor(null);
+              }}>Send & Decline</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -759,6 +853,215 @@ function JobsTab() {
     </div>
   );
 }
+
+function VideoStageDetails({ app }: { app: JobApplication }) {
+  const stage = getHiringStage(app);
+  if (stage === "video_offered" && app.offeredSlots) {
+    return (
+      <div className="mt-3 rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm">
+        <p className="font-semibold">Awaiting applicant time selection</p>
+        <p className="mt-1 text-xs text-muted-foreground">Offered {app.offeredSlots.length} slot{app.offeredSlots.length === 1 ? "" : "s"}. They'll get a text + email reminder.</p>
+        <p className="mt-2 text-xs">Applicant link: <code className="rounded bg-background px-1.5 py-0.5">/interview/{app.id}</code></p>
+      </div>
+    );
+  }
+  if (stage === "video_scheduled" && app.selectedSlot) {
+    return (
+      <div className="mt-3 rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm">
+        <p className="font-semibold text-primary">Video call confirmed</p>
+        <p className="mt-1">{new Date(app.selectedSlot).toLocaleString([], { weekday: "long", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</p>
+        <p className="mt-1 text-xs text-muted-foreground">Both parties get a reminder 30 minutes before with the join link.</p>
+      </div>
+    );
+  }
+  if (stage === "interviewed") {
+    return (
+      <div className="mt-3 grid gap-2 rounded-lg border border-border bg-muted/30 p-3">
+        <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Interview notes</Label>
+        {app.interviewNotes
+          ? <p className="text-sm italic text-foreground/90">"{app.interviewNotes}"</p>
+          : <p className="text-xs text-muted-foreground">No notes recorded.</p>}
+      </div>
+    );
+  }
+  return null;
+}
+
+function ApproveVideoDialog({
+  application, onClose, onConfirm,
+}: {
+  application: JobApplication;
+  onClose: () => void;
+  onConfirm: (slots: string[]) => void;
+}) {
+  const suggested = useMemo(() => {
+    const out: string[] = [];
+    const now = new Date();
+    const hours = [10, 14, 16];
+    for (let day = 1; day <= 5 && out.length < 6; day++) {
+      const d = new Date(now);
+      d.setDate(d.getDate() + day);
+      hours.forEach((h) => {
+        const slot = new Date(d);
+        slot.setHours(h, 0, 0, 0);
+        out.push(slot.toISOString());
+      });
+    }
+    return out;
+  }, [application.id]);
+  const [selected, setSelected] = useState<string[]>([]);
+
+  const toggle = (s: string) =>
+    setSelected((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
+
+  const submit = () => {
+    if (selected.length < 3 || selected.length > 5) {
+      return toast.error("Pick 3 to 5 time slots.");
+    }
+    onConfirm(selected);
+  };
+
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Offer video interview times</DialogTitle>
+          <p className="text-sm text-muted-foreground">Pick 3–5 slots that work for you. {application.firstName ?? application.name} will choose their preferred time.</p>
+        </DialogHeader>
+        <div className="grid max-h-[50vh] gap-2 overflow-y-auto py-2 sm:grid-cols-2">
+          {suggested.map((s) => {
+            const on = selected.includes(s);
+            return (
+              <button
+                key={s}
+                type="button"
+                onClick={() => toggle(s)}
+                className={`min-h-12 rounded-lg border px-3 py-2 text-left text-sm font-medium transition-colors ${on ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background hover:bg-muted"}`}
+              >
+                {new Date(s).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+              </button>
+            );
+          })}
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button onClick={submit}>Send {selected.length || ""} time{selected.length === 1 ? "" : "s"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function VideoCallDialog({
+  application, restaurantName, onClose, onEnd,
+}: {
+  application: JobApplication;
+  restaurantName: string;
+  onClose: () => void;
+  onEnd: (notes: string) => void;
+}) {
+  const [remaining, setRemaining] = useState(5 * 60);
+  const [ended, setEnded] = useState(false);
+  const [notes, setNotes] = useState("");
+
+  useEffect(() => {
+    if (ended) return;
+    const t = window.setInterval(() => {
+      setRemaining((r) => (r <= 1 ? 0 : r - 1));
+    }, 1000);
+    return () => window.clearInterval(t);
+  }, [ended]);
+
+  useEffect(() => {
+    if (remaining === 0 && !ended) setEnded(true);
+  }, [remaining, ended]);
+
+  const mm = String(Math.floor(remaining / 60)).padStart(2, "0");
+  const ss = String(remaining % 60).padStart(2, "0");
+  const name = application.firstName && application.lastName ? `${application.firstName} ${application.lastName}` : application.name;
+  const initials = name.split(" ").map((p) => p[0]).join("").slice(0, 2).toUpperCase();
+
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o && !ended) return; if (!o) onClose(); }}>
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>{ended ? "Interview ended" : `Video interview with ${name}`}</DialogTitle>
+        </DialogHeader>
+        {!ended ? (
+          <div className="space-y-4">
+            <div className="relative grid h-72 place-items-center overflow-hidden rounded-xl bg-gradient-to-br from-[oklch(0.22_0.05_155)] to-[oklch(0.12_0.04_155)] text-primary-foreground">
+              <div className="grid h-24 w-24 place-items-center rounded-full bg-white/15 text-3xl font-bold">{initials}</div>
+              <p className="mt-3 text-sm opacity-90">{name}</p>
+              <div className="absolute right-3 top-3 grid h-20 w-28 place-items-center rounded-md bg-black/40 text-xs text-white/80">You ({restaurantName})</div>
+              <div className="absolute left-3 top-3 rounded-md bg-black/40 px-2 py-1 text-xs font-mono text-white">{mm}:{ss}</div>
+            </div>
+            <p className="text-center text-xs text-muted-foreground">5-minute video call · happens inside Sidework</p>
+            <div className="flex justify-center">
+              <Button variant="destructive" size="lg" onClick={() => setEnded(true)}>End call</Button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <Label className="text-sm font-semibold">Add your interview notes</Label>
+            <Textarea rows={5} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Add your interview notes here…" />
+            <DialogFooter className="gap-2">
+              <Button variant="ghost" onClick={onClose}>Save & close</Button>
+              <Button onClick={() => onEnd(notes)}>Save notes</Button>
+            </DialogFooter>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ShadowShiftDialog({
+  application, restaurantName, onClose, onConfirm,
+}: {
+  application: JobApplication;
+  restaurantName: string;
+  onClose: () => void;
+  onConfirm: (details: ShadowShiftDetails) => void;
+}) {
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("");
+  const [instructions, setInstructions] = useState("Ask for the manager on duty when you arrive.");
+  const [dressCode, setDressCode] = useState("Black non-slip shoes, black pants, white collared shirt.");
+
+  const submit = () => {
+    if (!date || !time) return toast.error("Pick a date and time.");
+    onConfirm({ date, time, instructions, dressCode });
+  };
+
+  const name = application.firstName ?? application.name;
+
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Invite {name} for a shadow shift</DialogTitle>
+          <p className="text-sm text-muted-foreground">They'll receive a text and email confirmation immediately.</p>
+        </DialogHeader>
+        <div className="grid gap-4 py-2">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-1.5"><Label>Date</Label><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
+            <div className="grid gap-1.5"><Label>Time</Label><Input type="time" value={time} onChange={(e) => setTime(e.target.value)} /></div>
+          </div>
+          <div className="grid gap-1.5"><Label>Dress code</Label><Input value={dressCode} onChange={(e) => setDressCode(e.target.value)} /></div>
+          <div className="grid gap-1.5"><Label>Instructions</Label><Textarea rows={3} value={instructions} onChange={(e) => setInstructions(e.target.value)} /></div>
+          <div className="rounded-lg border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
+            Preview: "Congratulations {name}! We'd like to invite you for a shadow shift at {restaurantName}. {date && time ? `Please arrive on ${date} at ${time}. ` : ""}Dress code: {dressCode} {instructions} We look forward to meeting you!"
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button onClick={submit}>Send invite</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 
 function ApplicationSection({
   title, subtitle, items, emptyText, renderActions, renderExtra, accent, compact,
