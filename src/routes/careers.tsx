@@ -90,6 +90,8 @@ function CareersPage() {
     if (pitchWords < 10) return toast.error("Tell us a bit about yourself (at least 10 words).");
     if (pitchWords > 200) return toast.error("Please keep your pitch under 200 words.");
 
+    const filledWorkExp = workExp.filter((w) => w.employer.trim() || w.position.trim());
+
     setSubmitting(true);
     await new Promise((r) => setTimeout(r, 700));
 
@@ -106,6 +108,7 @@ function CareersPage() {
       availabilityDays: selectedDays as string[],
       availabilityHours: "Open availability",
       verified: false,
+      workExperience: filledWorkExp.length > 0 ? filledWorkExp : undefined,
     });
 
     setSubmitting(false);
