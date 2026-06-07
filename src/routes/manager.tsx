@@ -20,8 +20,28 @@ import { Progress } from "@/components/ui/progress";
 import { onboardingStatus, useStore, type Role, type ApplicationStatus, type Employee, type Relationship, DAY_KEYS, type JobApplication, type HiringStage, type ShadowShiftDetails, type InterviewType, getHiringStage } from "@/lib/sidework-store";
 import { AvailabilityEditor, RestaurantHoursEditor } from "@/components/sidework/AvailabilityEditor";
 import { StaffJoinBanner, FullscreenQrDialog, StaffOnboardingCard } from "@/components/sidework/StaffOnboarding";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { slugify } from "@/lib/slug";
 import { toast } from "sonner";
+import { ChevronDown, Check } from "lucide-react";
+
+type TeamSortKey =
+  | "firstNameAsc" | "firstNameDesc"
+  | "lastNameAsc" | "lastNameDesc"
+  | "positionAsc"
+  | "onboardingDesc" | "onboardingAsc";
+
+const SORT_OPTIONS: { key: TeamSortKey; label: string }[] = [
+  { key: "firstNameAsc", label: "First Name (A-Z)" },
+  { key: "firstNameDesc", label: "First Name (Z-A)" },
+  { key: "lastNameAsc", label: "Last Name (A-Z)" },
+  { key: "lastNameDesc", label: "Last Name (Z-A)" },
+  { key: "positionAsc", label: "Position (A-Z)" },
+  { key: "onboardingDesc", label: "Onboarding Progress (High to Low)" },
+  { key: "onboardingAsc", label: "Onboarding Progress (Low to High)" },
+];
+
+const TEAM_SORT_STORAGE_KEY = "sidework.team.sort";
 
 const FOH_ROLES: Role[] = ["Host", "Busser", "Server Assistant", "Bar Back", "Bartender", "Server", "Manager", "Assistant Manager"];
 const BOH_ROLES: Role[] = ["Chef", "Sous Chef", "Line Cook", "Fry Cook", "Saute", "Grill", "Pizza", "Garde Manger", "Dishwasher", "Prep"];
