@@ -27,6 +27,12 @@ export interface VideoProgress {
   lockedOut?: boolean;
 }
 
+export type Section = "FOH" | "BOH";
+export type Position =
+  | "Hostess" | "Bartender" | "Server" | "Busser" | "Bar Back"
+  | "Manager" | "Assistant Manager" | "Porter"
+  | "Chef" | "Sous Chef" | "Line Cook" | "Dishwasher" | "Prep Cook";
+
 export interface Employee {
   id: string;
   name: string;
@@ -39,6 +45,9 @@ export interface Employee {
   onboardingStarted: boolean;
   personalInfoComplete: boolean;
   progress: VideoProgress[];
+  position?: Position;
+  section?: Section;
+  seniority?: number; // 1-5, higher = more experienced
 }
 
 export interface Shift {
@@ -48,6 +57,8 @@ export interface Shift {
   date: string;
   start: string;
   end: string;
+  notes?: string;
+  position?: Position;
 }
 
 export type TradeStatus = "open" | "pending_approval" | "approved" | "denied" | "cancelled";
@@ -331,52 +342,69 @@ function seedVideos(): TrainingVideo[] {
 }
 
 function seedEmployees(): Employee[] {
-  return [
-    {
-      id: "e1", name: "Maya Chen", email: "maya@bistro.com", primaryRole: "Server",
-      approvedRoles: ["Server", "Host"], autoApproveRoles: ["Host"],
-      availability: "Mon-Fri evenings", invitedAt: "2026-05-20",
-      onboardingStarted: true, personalInfoComplete: true,
-      progress: [
-        { videoId: "Server-0", watchedSec: 15, completedAt: "2026-05-21", quizScore: 100, passed: true, attempts: 1 },
-      ],
-    },
-    {
-      id: "e2", name: "Diego Alvarez", email: "diego@bistro.com", primaryRole: "Bartender",
-      approvedRoles: ["Bartender"], autoApproveRoles: [],
-      availability: "Wed-Sun nights", invitedAt: "2026-05-28",
-      onboardingStarted: true, personalInfoComplete: true,
-      progress: [],
-    },
-    {
-      id: "e3", name: "Priya Patel", email: "priya@bistro.com", primaryRole: "Kitchen",
-      approvedRoles: ["Kitchen"], autoApproveRoles: [],
-      availability: "Weekends", invitedAt: "2026-06-02",
-      onboardingStarted: false, personalInfoComplete: false,
-      progress: [],
-    },
+  type Seed = { name: string; position: Position; section: Section; role: Role; seniority: number; availability?: string };
+  const seeds: Seed[] = [
+    // FOH
+    { name: "Maria S", position: "Hostess", section: "FOH", role: "Host", seniority: 4 },
+    { name: "Jenny T", position: "Hostess", section: "FOH", role: "Host", seniority: 3 },
+    { name: "Cara M", position: "Hostess", section: "FOH", role: "Host", seniority: 2 },
+    { name: "Mike R", position: "Bartender", section: "FOH", role: "Bartender", seniority: 5, availability: "Full shifts" },
+    { name: "Danny K", position: "Bartender", section: "FOH", role: "Bartender", seniority: 3, availability: "Swing 4hr" },
+    { name: "Anthony B", position: "Server", section: "FOH", role: "Server", seniority: 5 },
+    { name: "Sofia L", position: "Server", section: "FOH", role: "Server", seniority: 5 },
+    { name: "James W", position: "Server", section: "FOH", role: "Server", seniority: 4 },
+    { name: "Nina P", position: "Server", section: "FOH", role: "Server", seniority: 4 },
+    { name: "Chris T", position: "Server", section: "FOH", role: "Server", seniority: 4 },
+    { name: "Amanda R", position: "Server", section: "FOH", role: "Server", seniority: 3 },
+    { name: "Joe D", position: "Server", section: "FOH", role: "Server", seniority: 3 },
+    { name: "Lisa M", position: "Server", section: "FOH", role: "Server", seniority: 2 },
+    { name: "Kevin S", position: "Server", section: "FOH", role: "Server", seniority: 2 },
+    { name: "Carlos M", position: "Busser", section: "FOH", role: "Server", seniority: 3 },
+    { name: "Pedro R", position: "Busser", section: "FOH", role: "Server", seniority: 2 },
+    { name: "Tommy H", position: "Bar Back", section: "FOH", role: "Bartender", seniority: 3 },
+    { name: "Rico V", position: "Bar Back", section: "FOH", role: "Bartender", seniority: 2 },
+    { name: "Sarah K", position: "Manager", section: "FOH", role: "Server", seniority: 5 },
+    { name: "Frank D", position: "Assistant Manager", section: "FOH", role: "Server", seniority: 4 },
+    { name: "Luis G", position: "Porter", section: "FOH", role: "Kitchen", seniority: 2 },
+    { name: "Mario T", position: "Porter", section: "FOH", role: "Kitchen", seniority: 2 },
+    // BOH
+    { name: "Marco B", position: "Chef", section: "BOH", role: "Kitchen", seniority: 5 },
+    { name: "Tony R", position: "Sous Chef", section: "BOH", role: "Kitchen", seniority: 5 },
+    { name: "Alex P", position: "Line Cook", section: "BOH", role: "Kitchen", seniority: 4 },
+    { name: "Ramon S", position: "Line Cook", section: "BOH", role: "Kitchen", seniority: 4 },
+    { name: "Diego M", position: "Line Cook", section: "BOH", role: "Kitchen", seniority: 3 },
+    { name: "Chris L", position: "Line Cook", section: "BOH", role: "Kitchen", seniority: 3 },
+    { name: "Pat O", position: "Line Cook", section: "BOH", role: "Kitchen", seniority: 2 },
+    { name: "Juan C", position: "Dishwasher", section: "BOH", role: "Kitchen", seniority: 3 },
+    { name: "Mike T", position: "Dishwasher", section: "BOH", role: "Kitchen", seniority: 2 },
+    { name: "Sam R", position: "Dishwasher", section: "BOH", role: "Kitchen", seniority: 2 },
+    { name: "Ana G", position: "Prep Cook", section: "BOH", role: "Kitchen", seniority: 4 },
+    { name: "Luis M", position: "Prep Cook", section: "BOH", role: "Kitchen", seniority: 3 },
   ];
+  return seeds.map((s, i) => ({
+    id: `e${i + 1}`,
+    name: s.name,
+    email: `${s.name.toLowerCase().replace(/[^a-z]/g, "")}@perlos.com`,
+    primaryRole: s.role,
+    approvedRoles: [s.role],
+    autoApproveRoles: s.seniority >= 4 ? [s.role] : [],
+    availability: s.availability ?? "Flexible",
+    invitedAt: "2026-05-01",
+    onboardingStarted: true,
+    personalInfoComplete: true,
+    progress: [],
+    position: s.position,
+    section: s.section,
+    seniority: s.seniority,
+  }));
 }
 
 function seedShifts(): Shift[] {
-  const today = new Date();
-  const d = (offset: number) => {
-    const x = new Date(today); x.setDate(today.getDate() + offset);
-    return x.toISOString().slice(0, 10);
-  };
-  return [
-    { id: "s1", employeeId: "e1", role: "Server", date: d(1), start: "17:00", end: "23:00" },
-    { id: "s2", employeeId: "e1", role: "Server", date: d(2), start: "17:00", end: "23:00" },
-    { id: "s3", employeeId: "e2", role: "Bartender", date: d(1), start: "18:00", end: "00:00" },
-    { id: "s4", employeeId: "e2", role: "Bartender", date: d(3), start: "18:00", end: "00:00" },
-    { id: "s5", employeeId: "e3", role: "Kitchen", date: d(2), start: "15:00", end: "22:00" },
-  ];
+  return [];
 }
 
 function seedTrades(): Trade[] {
-  return [
-    { id: "t1", shiftId: "s2", postedBy: "e1", status: "open", createdAt: new Date().toISOString() },
-  ];
+  return [];
 }
 
 function seedJobs(): JobPosting[] {
@@ -423,7 +451,7 @@ function seedTimeOff(): TimeOffRequest[] {
   ];
 }
 
-const STORAGE_KEY = "sidework-store-v3";
+const STORAGE_KEY = "sidework-store-v4";
 
 export function SideworkProvider({ children }: { children: ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
