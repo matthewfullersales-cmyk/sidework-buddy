@@ -118,14 +118,30 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
           <div className="grid gap-2"><Label>Role</Label><Input disabled value={me.primaryRole} /></div>
           <div className="grid gap-2">
             <Label>Profile photo (optional)</Label>
-            <div className="flex items-center gap-3">
-              {photoUrl ? (
-                <img src={photoUrl} alt="Profile" className="h-14 w-14 rounded-full object-cover border border-border" />
+            <div className="flex flex-col items-center gap-2">
+              <button
+                type="button"
+                onClick={() => document.getElementById("profile-photo-input")?.click()}
+                className="relative grid h-24 w-24 place-items-center rounded-full border-2 border-dashed border-border bg-muted transition hover:border-primary/50 hover:bg-muted/80"
+              >
+                {photoUrl ? (
+                  <img src={photoUrl} alt="Profile" className="h-24 w-24 rounded-full object-cover" />
+                ) : (
+                  <svg viewBox="0 0 24 24" className="h-8 w-8 text-muted-foreground" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                )}
+              </button>
+              {!photoUrl ? (
+                <div className="text-center">
+                  <p className="text-sm font-medium text-foreground">Add profile photo</p>
+                  <p className="text-xs text-muted-foreground">Optional - tap to upload</p>
+                </div>
               ) : (
-                <div className="h-14 w-14 rounded-full bg-muted text-muted-foreground grid place-items-center text-xs">No photo</div>
+                <button type="button" onClick={() => document.getElementById("profile-photo-input")?.click()} className="text-sm text-primary hover:underline">Change photo</button>
               )}
-              <Input type="file" accept="image/*" onChange={(e) => onPhotoFile(e.target.files?.[0] ?? null)} />
-              {photoUrl && <Button variant="ghost" size="sm" onClick={() => setPhotoUrl("")}>Remove</Button>}
+              <input id="profile-photo-input" type="file" accept="image/*" className="hidden" onChange={(e) => onPhotoFile(e.target.files?.[0] ?? null)} />
+              {photoUrl && (
+                <button type="button" onClick={() => setPhotoUrl("")} className="text-xs text-muted-foreground hover:text-destructive">Remove</button>
+              )}
             </div>
           </div>
         </CardContent>
