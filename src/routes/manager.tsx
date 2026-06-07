@@ -544,7 +544,7 @@ function JobsTab() {
     declineApplication,
     reconsiderApplication,
     hireApplication,
-    approveForVideo,
+    approveForInterview,
     applicantSelectSlot,
     completeInterview,
     inviteShadowShift,
