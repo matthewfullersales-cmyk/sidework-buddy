@@ -553,7 +553,8 @@ function JobsTab() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ title: "", role: "Server" as Role, type: "Full-time" as "Full-time" | "Part-time", payRange: "", description: "" });
   const [hireFor, setHireFor] = useState<string | null>(null);
-  const [approveFor, setApproveFor] = useState<string | null>(null);
+  const [pickTypeFor, setPickTypeFor] = useState<string | null>(null);
+  const [approveFor, setApproveFor] = useState<{ id: string; type: InterviewType } | null>(null);
   const [callFor, setCallFor] = useState<string | null>(null);
   const [shadowFor, setShadowFor] = useState<string | null>(null);
   const [declineConfirmFor, setDeclineConfirmFor] = useState<{ id: string; postInterview?: boolean } | null>(null);
