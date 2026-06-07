@@ -868,6 +868,9 @@ export function useStore() {
 }
 
 export function videosForRole(videos: TrainingVideo[], role: Role) {
+  const cat = trainingCategoryForRole(role);
+  return videos.filter((v) => v.role === cat);
+}
 
 export function aiScoreFor(a: Partial<JobApplication>): AiScore {
   let pts = 0;
@@ -888,11 +891,6 @@ export function aiScoreFor(a: Partial<JobApplication>): AiScore {
   if (pts >= 8) return "Strong";
   if (pts >= 5) return "Average";
   return "Weak";
-}
-
-function _videosForRole(videos: TrainingVideo[], role: Role) {
-  const cat = trainingCategoryForRole(role);
-  return videos.filter((v) => v.role === cat);
 }
 
 export function onboardingStatus(employee: Employee, videos: TrainingVideo[]) {
