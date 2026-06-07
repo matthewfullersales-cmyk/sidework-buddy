@@ -96,7 +96,7 @@ function ManagerPage() {
 
 function ManagerTabs({ tab, setTab, onOpenSetup }: { tab: string; setTab: (v: string) => void; onOpenSetup: () => void }) {
   const { applications } = useStore();
-  const newAppsCount = applications.filter((a) => !a.archived && a.status === "new").length;
+  const newAppsCount = applications.filter((a) => !a.archived && getHiringStage(a) === "new").length;
   return (
     <Tabs value={tab} onValueChange={setTab}>
       <TabsList className="mb-6 grid h-auto w-full grid-cols-2 gap-1 sm:grid-cols-4 md:grid-cols-8">
