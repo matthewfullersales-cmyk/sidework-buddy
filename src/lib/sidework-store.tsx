@@ -216,6 +216,9 @@ interface Store {
   menu: MenuUpload | null;
   drinkMenu: MenuUpload | null;
   restaurantProfile: RestaurantProfile | null;
+  restaurantHours: RestaurantHours;
+  setRestaurantHours: (h: RestaurantHours) => void;
+  updateRestaurantDay: (day: DayKey, patch: Partial<DayHours>) => void;
   setupCompleted: boolean;
   notifications: Notification[];
   setMenu: (m: MenuUpload | null) => void;
