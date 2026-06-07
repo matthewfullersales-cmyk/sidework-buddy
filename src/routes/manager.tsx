@@ -85,7 +85,7 @@ function ManagerPage() {
         </Card>
       )}
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="mb-6 grid h-auto w-full grid-cols-3 md:grid-cols-8">
+        <TabsList className="mb-6 grid h-auto w-full grid-cols-2 gap-1 sm:grid-cols-4 md:grid-cols-8">
           <TabsTrigger value="dashboard">Overview</TabsTrigger>
           <TabsTrigger value="training">Training</TabsTrigger>
           <TabsTrigger value="team">Team</TabsTrigger>
@@ -95,6 +95,7 @@ function ManagerPage() {
           <TabsTrigger value="timeoff">Time Off</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
+
         <TabsContent value="dashboard"><OverviewTab /></TabsContent>
         <TabsContent value="training"><TrainingProgramTab /></TabsContent>
         <TabsContent value="team"><TeamTab /></TabsContent>
@@ -350,7 +351,8 @@ function ScheduleTab() {
 
       {view === "grid" ? (
         <Card>
-          <CardContent className="p-0 overflow-x-auto">
+          <CardContent className="p-0 overflow-x-auto scroll-touch">
+
             <table className="w-full min-w-[720px] border-collapse text-sm">
               <thead>
                 <tr className="bg-muted/40">
