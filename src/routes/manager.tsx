@@ -20,8 +20,28 @@ import { Progress } from "@/components/ui/progress";
 import { onboardingStatus, useStore, type Role, type ApplicationStatus, type Employee, type Relationship, DAY_KEYS, type JobApplication, type HiringStage, type ShadowShiftDetails, type InterviewType, getHiringStage } from "@/lib/sidework-store";
 import { AvailabilityEditor, RestaurantHoursEditor } from "@/components/sidework/AvailabilityEditor";
 import { StaffJoinBanner, FullscreenQrDialog, StaffOnboardingCard } from "@/components/sidework/StaffOnboarding";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { slugify } from "@/lib/slug";
 import { toast } from "sonner";
+import { ChevronDown, Check } from "lucide-react";
+
+type TeamSortKey =
+  | "firstNameAsc" | "firstNameDesc"
+  | "lastNameAsc" | "lastNameDesc"
+  | "positionAsc"
+  | "onboardingDesc" | "onboardingAsc";
+
+const SORT_OPTIONS: { key: TeamSortKey; label: string }[] = [
+  { key: "firstNameAsc", label: "First Name (A-Z)" },
+  { key: "firstNameDesc", label: "First Name (Z-A)" },
+  { key: "lastNameAsc", label: "Last Name (A-Z)" },
+  { key: "lastNameDesc", label: "Last Name (Z-A)" },
+  { key: "positionAsc", label: "Position (A-Z)" },
+  { key: "onboardingDesc", label: "Onboarding Progress (High to Low)" },
+  { key: "onboardingAsc", label: "Onboarding Progress (Low to High)" },
+];
+
+const TEAM_SORT_STORAGE_KEY = "sidework.team.sort";
 
 const FOH_ROLES: Role[] = ["Host", "Busser", "Server Assistant", "Bar Back", "Bartender", "Server", "Manager", "Assistant Manager"];
 const BOH_ROLES: Role[] = ["Chef", "Sous Chef", "Line Cook", "Fry Cook", "Saute", "Grill", "Pizza", "Garde Manger", "Dishwasher", "Prep"];
@@ -224,6 +244,67 @@ function TeamTab() {
   const [form, setForm] = useState({ name: "", email: "", role: "Server" as Role });
   const [editing, setEditing] = useState<Employee | null>(null);
 
+  const [sortKey, setSortKey] = useState<TeamSortKey>("firstNameAsc");
+  const [filters, setFilters] = useState<Set<string>>(new Set(["all"]));
+  const [sfOpen, setSfOpen] = useState(false);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(TEAM_SORT_STORAGE_KEY);
+      if (saved && SORT_OPTIONS.some((o) => o.key === saved)) setSortKey(saved as TeamSortKey);
+    } catch {}
+  }, []);
+  useEffect(() => {
+    try { localStorage.setItem(TEAM_SORT_STORAGE_KEY, sortKey); } catch {}
+  }, [sortKey]);
+
+  const toggleFilter = (key: string) => {
+    setFilters((prev) => {
+      const next = new Set(prev);
+      if (key === "all") return new Set(["all"]);
+      next.delete("all");
+      if (next.has(key)) next.delete(key); else next.add(key);
+      if (next.size === 0) next.add("all");
+      return next;
+    });
+  };
+  const clearFilters = () => setFilters(new Set(["all"]));
+  const activeFilterCount = filters.has("all") ? 0 : filters.size;
+
+  const visibleEmployees = useMemo(() => {
+    const list = employees.filter((e) => {
+      if (filters.has("all")) return true;
+      const role = e.primaryRole;
+      const isFoh = (FOH_ROLES as string[]).includes(role);
+      const status = onboardingStatus(e, videos);
+      for (const f of filters) {
+        if (f === "foh" && isFoh) return true;
+        if (f === "boh" && !isFoh) return true;
+        if (f === "onboarded" && status.fullyOnboarded) return true;
+        if (f === "inprogress" && !status.fullyOnboarded) return true;
+        if (f === role) return true;
+      }
+      return false;
+    });
+    const firstOf = (e: Employee) => (e.firstName ?? e.name.split(" ")[0] ?? "").toLowerCase();
+    const lastOf = (e: Employee) => (e.lastName ?? e.name.split(" ").slice(1).join(" ") ?? "").toLowerCase();
+    const pctOf = (e: Employee) => onboardingStatus(e, videos).pct;
+    const sorted = [...list];
+    sorted.sort((a, b) => {
+      switch (sortKey) {
+        case "firstNameAsc": return firstOf(a).localeCompare(firstOf(b));
+        case "firstNameDesc": return firstOf(b).localeCompare(firstOf(a));
+        case "lastNameAsc": return lastOf(a).localeCompare(lastOf(b));
+        case "lastNameDesc": return lastOf(b).localeCompare(lastOf(a));
+        case "positionAsc": return a.primaryRole.localeCompare(b.primaryRole);
+        case "onboardingDesc": return pctOf(b) - pctOf(a);
+        case "onboardingAsc": return pctOf(a) - pctOf(b);
+        default: return 0;
+      }
+    });
+    return sorted;
+  }, [employees, videos, filters, sortKey]);
+
   const joinSlug = restaurantProfile?.slug ?? (restaurantProfile?.name ? slugify(restaurantProfile.name) : "team");
   const copyJoinLink = async () => {
     const url = `${window.location.origin}/join/${joinSlug}`;
@@ -240,7 +321,69 @@ function TeamTab() {
     <div className="space-y-4">
       <StaffJoinBanner onShowQr={() => setShowQr(true)} />
 
-      <div className="flex justify-end">
+      <div className="flex flex-wrap justify-end gap-2">
+        <Popover open={sfOpen} onOpenChange={setSfOpen}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" className="min-h-11 gap-1.5">
+              Sort & Filter{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
+              <ChevronDown className={`h-4 w-4 transition-transform ${sfOpen ? "rotate-180" : ""}`} />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="end" sideOffset={6} className="w-[min(92vw,22rem)] max-h-[70vh] overflow-y-auto p-0">
+            <div className="p-3">
+              <p className="px-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-primary">Sort</p>
+              <div className="space-y-0.5">
+                {SORT_OPTIONS.map((o) => {
+                  const active = sortKey === o.key;
+                  return (
+                    <button
+                      key={o.key}
+                      type="button"
+                      onClick={() => setSortKey(o.key)}
+                      className={`flex w-full items-center justify-between gap-2 rounded-md px-2 py-2.5 text-left text-sm min-h-11 ${active ? "bg-primary/10 text-primary font-medium" : "hover:bg-muted"}`}
+                    >
+                      <span>{o.label}</span>
+                      {active && <Check className="h-4 w-4 shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="border-t border-border p-3">
+              <p className="px-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-primary">Filter</p>
+              <div className="space-y-0.5">
+                {[
+                  { key: "all", label: "All Staff" },
+                  { key: "foh", label: "Front of House only" },
+                  { key: "boh", label: "Back of House only" },
+                  ...FOH_ROLES.map((r) => ({ key: r, label: r })),
+                  ...BOH_ROLES.map((r) => ({ key: r, label: r })),
+                  { key: "onboarded", label: "Fully onboarded only" },
+                  { key: "inprogress", label: "In progress only" },
+                ].map((o) => {
+                  const active = filters.has(o.key);
+                  return (
+                    <button
+                      key={o.key}
+                      type="button"
+                      onClick={() => toggleFilter(o.key)}
+                      className={`flex w-full items-center justify-between gap-2 rounded-md px-2 py-2.5 text-left text-sm min-h-11 ${active ? "bg-primary/10 text-primary font-medium" : "hover:bg-muted"}`}
+                    >
+                      <span>{o.label}</span>
+                      {active && <Check className="h-4 w-4 shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="sticky bottom-0 border-t border-border bg-card p-2">
+              <Button variant="ghost" size="sm" className="w-full min-h-11" onClick={clearFilters} disabled={activeFilterCount === 0}>
+                Clear all filters
+              </Button>
+            </div>
+          </PopoverContent>
+        </Popover>
+
         <Dialog open={addStaffOpen} onOpenChange={setAddStaffOpen}>
           <DialogTrigger asChild><Button>+ Add Staff</Button></DialogTrigger>
           <DialogContent className="sm:max-w-md">
@@ -314,7 +457,10 @@ function TeamTab() {
       {showQr && <FullscreenQrDialog onClose={() => setShowQr(false)} />}
 
       <div className="grid gap-4">
-        {employees.map((e) => {
+        {visibleEmployees.length === 0 && (
+          <Card><CardContent className="p-8 text-center text-sm text-muted-foreground">No staff match the current filters.</CardContent></Card>
+        )}
+        {visibleEmployees.map((e) => {
           const s = onboardingStatus(e, videos);
           const fullName = e.firstName && e.lastName ? `${e.firstName} ${e.lastName}` : e.name;
           return (
