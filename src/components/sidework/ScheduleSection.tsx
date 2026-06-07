@@ -39,22 +39,6 @@ function fmtRange(start: Date) {
   return `${s} – ${e}`;
 }
 
-function roleColor(role: Role) {
-  switch (role) {
-    case "Host": return "bg-fuchsia-500/15 text-fuchsia-700 border-fuchsia-500/30 dark:text-fuchsia-300";
-    case "Bartender":
-    case "Bar Back":
-      return "bg-amber-500/15 text-amber-700 border-amber-500/30 dark:text-amber-300";
-    case "Server":
-    case "Server Assistant":
-    case "Manager":
-    case "Assistant Manager":
-    case "Busser":
-      return "bg-primary/15 text-primary border-primary/30";
-    default:
-      return "bg-blue-500/15 text-blue-700 border-blue-500/30 dark:text-blue-300";
-  }
-}
 
 // Default shift specs by position (24h)
 function defaultShift(pos: Position | undefined, isWeekend: boolean): { start: string; end: string } | null {
