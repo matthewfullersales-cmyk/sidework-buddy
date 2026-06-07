@@ -11,7 +11,9 @@ import { useStore, type Role, type Shift, type Position, type Section, DAY_KEYS,
 import { toast } from "sonner";
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const ROLES: Role[] = ["Server", "Bartender", "Kitchen", "Host"];
+const FOH_ROLES: Role[] = ["Host", "Busser", "Bar Back", "Bartender", "Server", "Server Assistant", "Manager", "Assistant Manager", "Porter"];
+const BOH_ROLES: Role[] = ["Chef", "Sous Chef", "Line Cook", "Fry Cook", "Saute", "Grill", "Pizza", "Dishwasher", "Prep"];
+const ROLES: Role[] = [...FOH_ROLES, ...BOH_ROLES];
 
 // Order positions roughly by hierarchy
 const POSITION_ORDER: Position[] = [
@@ -39,12 +41,20 @@ function fmtRange(start: Date) {
 }
 
 function roleColor(role: Role) {
-  // Use semantic-ish dark green family with role-distinguishing accents
   switch (role) {
-    case "Server": return "bg-primary/15 text-primary border-primary/30";
-    case "Bartender": return "bg-amber-500/15 text-amber-700 border-amber-500/30 dark:text-amber-300";
-    case "Kitchen": return "bg-blue-500/15 text-blue-700 border-blue-500/30 dark:text-blue-300";
     case "Host": return "bg-fuchsia-500/15 text-fuchsia-700 border-fuchsia-500/30 dark:text-fuchsia-300";
+    case "Bartender":
+    case "Bar Back":
+      return "bg-amber-500/15 text-amber-700 border-amber-500/30 dark:text-amber-300";
+    case "Server":
+    case "Server Assistant":
+    case "Manager":
+    case "Assistant Manager":
+    case "Busser":
+    case "Porter":
+      return "bg-primary/15 text-primary border-primary/30";
+    default:
+      return "bg-blue-500/15 text-blue-700 border-blue-500/30 dark:text-blue-300";
   }
 }
 

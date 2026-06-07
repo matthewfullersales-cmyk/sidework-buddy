@@ -1,6 +1,10 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
 
-export type Role = "Server" | "Bartender" | "Kitchen" | "Host";
+export type Role =
+  | "Host" | "Busser" | "Bar Back" | "Bartender" | "Server" | "Server Assistant" | "Manager" | "Assistant Manager" | "Porter"
+  | "Chef" | "Sous Chef" | "Line Cook" | "Fry Cook" | "Saute" | "Grill" | "Pizza" | "Dishwasher" | "Prep";
+
+export type TrainingCategory = "Server" | "Bartender" | "Host" | "Kitchen";
 
 export interface QuizQuestion {
   question: string;
@@ -12,7 +16,7 @@ export interface TrainingVideo {
   id: string;
   title: string;
   durationSec: number;
-  role: Role;
+  role: TrainingCategory;
   quiz: QuizQuestion[];
   passingScore: number;
 }
@@ -247,7 +251,7 @@ interface Store {
 
 const Ctx = createContext<Store | null>(null);
 
-const ROLE_VIDEOS: Record<Role, Omit<TrainingVideo, "id" | "role">[]> = {
+const ROLE_VIDEOS: Record<TrainingCategory, Omit<TrainingVideo, "id" | "role">[]> = {
   Server: [
     {
       title: "Welcome to the Floor: Service Standards",
@@ -386,11 +390,18 @@ const ROLE_VIDEOS: Record<Role, Omit<TrainingVideo, "id" | "role">[]> = {
   ],
 };
 
+export function trainingCategoryForRole(role: Role): TrainingCategory {
+  if (role === "Host") return "Host";
+  if (role === "Bartender" || role === "Bar Back") return "Bartender";
+  if (["Chef", "Sous Chef", "Line Cook", "Fry Cook", "Saute", "Grill", "Pizza", "Dishwasher", "Prep"].includes(role)) return "Kitchen";
+  return "Server";
+}
+
 function seedVideos(): TrainingVideo[] {
   const out: TrainingVideo[] = [];
-  (Object.keys(ROLE_VIDEOS) as Role[]).forEach((role) => {
-    ROLE_VIDEOS[role].forEach((v, i) => {
-      out.push({ ...v, id: `${role}-${i}`, role });
+  (Object.keys(ROLE_VIDEOS) as TrainingCategory[]).forEach((cat) => {
+    ROLE_VIDEOS[cat].forEach((v, i) => {
+      out.push({ ...v, id: `${cat}-${i}`, role: cat });
     });
   });
   return out;
@@ -422,27 +433,27 @@ function seedEmployees(): Employee[] {
     { first: "Joe", last: "DeLuca", position: "Server", section: "FOH", role: "Server", seniority: 3 },
     { first: "Lisa", last: "Martinez", position: "Server", section: "FOH", role: "Server", seniority: 2, weekly: { Sun: notAvailable, Mon: notAvailable } },
     { first: "Kevin", last: "Stone", position: "Server", section: "FOH", role: "Server", seniority: 2 },
-    { first: "Carlos", last: "Mendez", position: "Busser", section: "FOH", role: "Server", seniority: 3 },
-    { first: "Pedro", last: "Ruiz", position: "Busser", section: "FOH", role: "Server", seniority: 2 },
-    { first: "Tommy", last: "Hall", position: "Bar Back", section: "FOH", role: "Bartender", seniority: 3 },
-    { first: "Rico", last: "Vasquez", position: "Bar Back", section: "FOH", role: "Bartender", seniority: 2 },
-    { first: "Sarah", last: "Klein", position: "Manager", section: "FOH", role: "Server", seniority: 5 },
-    { first: "Frank", last: "D'Amato", position: "Assistant Manager", section: "FOH", role: "Server", seniority: 4 },
-    { first: "Luis", last: "Garcia", position: "Porter", section: "FOH", role: "Kitchen", seniority: 2 },
-    { first: "Mario", last: "Tessaro", position: "Porter", section: "FOH", role: "Kitchen", seniority: 2 },
+    { first: "Carlos", last: "Mendez", position: "Busser", section: "FOH", role: "Busser", seniority: 3 },
+    { first: "Pedro", last: "Ruiz", position: "Busser", section: "FOH", role: "Busser", seniority: 2 },
+    { first: "Tommy", last: "Hall", position: "Bar Back", section: "FOH", role: "Bar Back", seniority: 3 },
+    { first: "Rico", last: "Vasquez", position: "Bar Back", section: "FOH", role: "Bar Back", seniority: 2 },
+    { first: "Sarah", last: "Klein", position: "Manager", section: "FOH", role: "Manager", seniority: 5 },
+    { first: "Frank", last: "D'Amato", position: "Assistant Manager", section: "FOH", role: "Assistant Manager", seniority: 4 },
+    { first: "Luis", last: "Garcia", position: "Porter", section: "FOH", role: "Porter", seniority: 2 },
+    { first: "Mario", last: "Tessaro", position: "Porter", section: "FOH", role: "Porter", seniority: 2 },
     // BOH
-    { first: "Marco", last: "Bianchi", position: "Chef", section: "BOH", role: "Kitchen", seniority: 5 },
-    { first: "Tony", last: "Romano", position: "Sous Chef", section: "BOH", role: "Kitchen", seniority: 5 },
-    { first: "Alex", last: "Park", position: "Line Cook", section: "BOH", role: "Kitchen", seniority: 4 },
-    { first: "Ramon", last: "Silva", position: "Line Cook", section: "BOH", role: "Kitchen", seniority: 4 },
-    { first: "Diego", last: "Morales", position: "Line Cook", section: "BOH", role: "Kitchen", seniority: 3 },
-    { first: "Chris", last: "Lin", position: "Line Cook", section: "BOH", role: "Kitchen", seniority: 3 },
-    { first: "Pat", last: "O'Brien", position: "Line Cook", section: "BOH", role: "Kitchen", seniority: 2, weekly: { Mon: lunchOnly, Tue: lunchOnly, Wed: lunchOnly, Thu: lunchOnly, Fri: lunchOnly, Sat: notAvailable, Sun: notAvailable } },
-    { first: "Juan", last: "Castro", position: "Dishwasher", section: "BOH", role: "Kitchen", seniority: 3 },
-    { first: "Mike", last: "Tran", position: "Dishwasher", section: "BOH", role: "Kitchen", seniority: 2 },
-    { first: "Sam", last: "Reyes", position: "Dishwasher", section: "BOH", role: "Kitchen", seniority: 2 },
-    { first: "Ana", last: "Gomez", position: "Prep Cook", section: "BOH", role: "Kitchen", seniority: 4 },
-    { first: "Luis", last: "Mejia", position: "Prep Cook", section: "BOH", role: "Kitchen", seniority: 3 },
+    { first: "Marco", last: "Bianchi", position: "Chef", section: "BOH", role: "Chef", seniority: 5 },
+    { first: "Tony", last: "Romano", position: "Sous Chef", section: "BOH", role: "Sous Chef", seniority: 5 },
+    { first: "Alex", last: "Park", position: "Line Cook", section: "BOH", role: "Line Cook", seniority: 4 },
+    { first: "Ramon", last: "Silva", position: "Line Cook", section: "BOH", role: "Line Cook", seniority: 4 },
+    { first: "Diego", last: "Morales", position: "Line Cook", section: "BOH", role: "Line Cook", seniority: 3 },
+    { first: "Chris", last: "Lin", position: "Line Cook", section: "BOH", role: "Line Cook", seniority: 3 },
+    { first: "Pat", last: "O'Brien", position: "Line Cook", section: "BOH", role: "Line Cook", seniority: 2, weekly: { Mon: lunchOnly, Tue: lunchOnly, Wed: lunchOnly, Thu: lunchOnly, Fri: lunchOnly, Sat: notAvailable, Sun: notAvailable } },
+    { first: "Juan", last: "Castro", position: "Dishwasher", section: "BOH", role: "Dishwasher", seniority: 3 },
+    { first: "Mike", last: "Tran", position: "Dishwasher", section: "BOH", role: "Dishwasher", seniority: 2 },
+    { first: "Sam", last: "Reyes", position: "Dishwasher", section: "BOH", role: "Dishwasher", seniority: 2 },
+    { first: "Ana", last: "Gomez", position: "Prep Cook", section: "BOH", role: "Prep", seniority: 4 },
+    { first: "Luis", last: "Mejia", position: "Prep Cook", section: "BOH", role: "Prep", seniority: 3 },
   ];
   const relPool: Relationship[] = ["Spouse", "Parent", "Sibling", "Friend", "Other"];
   return seeds.map((s, i) => {
@@ -489,7 +500,7 @@ function seedTrades(): Trade[] {
 function seedJobs(): JobPosting[] {
   return [
     {
-      id: "j1", title: "Experienced Line Cook", role: "Kitchen", type: "Full-time",
+      id: "j1", title: "Experienced Line Cook", role: "Line Cook", type: "Full-time",
       payRange: "$22–$28/hr",
       description: "We're hiring a line cook for our busy dinner service. Mediterranean menu, scratch kitchen, fast pace.",
       postedAt: new Date().toISOString(), open: true,
@@ -530,7 +541,7 @@ function seedTimeOff(): TimeOffRequest[] {
   ];
 }
 
-const STORAGE_KEY = "sidework-store-v5";
+const STORAGE_KEY = "sidework-store-v6";
 
 export function SideworkProvider({ children }: { children: ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
@@ -757,7 +768,8 @@ export function useStore() {
 }
 
 export function videosForRole(videos: TrainingVideo[], role: Role) {
-  return videos.filter((v) => v.role === role);
+  const cat = trainingCategoryForRole(role);
+  return videos.filter((v) => v.role === cat);
 }
 
 export function onboardingStatus(employee: Employee, videos: TrainingVideo[]) {

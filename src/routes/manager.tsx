@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
@@ -20,7 +20,9 @@ import { onboardingStatus, useStore, type Role, type ApplicationStatus, type Emp
 import { AvailabilityEditor, RestaurantHoursEditor } from "@/components/sidework/AvailabilityEditor";
 import { toast } from "sonner";
 
-const ROLES: Role[] = ["Server", "Bartender", "Kitchen", "Host"];
+const FOH_ROLES: Role[] = ["Host", "Busser", "Bar Back", "Bartender", "Server", "Server Assistant", "Manager", "Assistant Manager", "Porter"];
+const BOH_ROLES: Role[] = ["Chef", "Sous Chef", "Line Cook", "Fry Cook", "Saute", "Grill", "Pizza", "Dishwasher", "Prep"];
+const ROLES: Role[] = [...FOH_ROLES, ...BOH_ROLES];
 
 const nav = [
   { to: "/manager", label: "Dashboard", icon: <IconHome /> },
@@ -215,7 +217,17 @@ function TeamTab() {
                 <Label>Primary role</Label>
                 <Select value={form.role} onValueChange={(v: Role) => setForm({ ...form, role: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectLabel>Front of House</SelectLabel>
+                      {FOH_ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                    </SelectGroup>
+                    <SelectSeparator />
+                    <SelectGroup>
+                      <SelectLabel>Back of House</SelectLabel>
+                      {BOH_ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                    </SelectGroup>
+                  </SelectContent>
                 </Select>
               </div>
             </div>
@@ -356,18 +368,39 @@ function EmployeeProfileDialog({ employee, onClose }: { employee: Employee; onCl
 
           <div>
             <Label className="text-xs uppercase tracking-wide text-muted-foreground">Approved roles</Label>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {ROLES.map((r) => {
-                const checked = approvedRoles.includes(r);
-                return (
-                  <label key={r} className={`flex cursor-pointer items-center gap-2 rounded-md border px-2.5 py-1.5 text-sm min-h-11 ${checked ? "border-primary bg-primary-soft" : "border-border"}`}>
-                    <Checkbox checked={checked} onCheckedChange={(v) => {
-                      setApprovedRoles((prev) => v ? [...new Set([...prev, r])] : prev.filter((x) => x !== r));
-                    }} />
-                    {r}
-                  </label>
-                );
-              })}
+            <div className="mt-2 space-y-3">
+              <div>
+                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Front of House</p>
+                <div className="flex flex-wrap gap-2">
+                  {FOH_ROLES.map((r) => {
+                    const checked = approvedRoles.includes(r);
+                    return (
+                      <label key={r} className={`flex cursor-pointer items-center gap-2 rounded-md border px-2.5 py-1.5 text-sm min-h-11 ${checked ? "border-primary bg-primary-soft" : "border-border"}`}>
+                        <Checkbox checked={checked} onCheckedChange={(v) => {
+                          setApprovedRoles((prev) => v ? [...new Set([...prev, r])] : prev.filter((x) => x !== r));
+                        }} />
+                        {r}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+              <div>
+                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Back of House</p>
+                <div className="flex flex-wrap gap-2">
+                  {BOH_ROLES.map((r) => {
+                    const checked = approvedRoles.includes(r);
+                    return (
+                      <label key={r} className={`flex cursor-pointer items-center gap-2 rounded-md border px-2.5 py-1.5 text-sm min-h-11 ${checked ? "border-primary bg-primary-soft" : "border-border"}`}>
+                        <Checkbox checked={checked} onCheckedChange={(v) => {
+                          setApprovedRoles((prev) => v ? [...new Set([...prev, r])] : prev.filter((x) => x !== r));
+                        }} />
+                        {r}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -515,7 +548,17 @@ function JobsTab() {
                     <Label>Role</Label>
                     <Select value={form.role} onValueChange={(v: Role) => setForm({ ...form, role: v })}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>{ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
+                      <SelectContent>
+                        <SelectGroup>
+                          <SelectLabel>Front of House</SelectLabel>
+                          {FOH_ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                        </SelectGroup>
+                        <SelectSeparator />
+                        <SelectGroup>
+                          <SelectLabel>Back of House</SelectLabel>
+                          {BOH_ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                        </SelectGroup>
+                      </SelectContent>
                     </Select>
                   </div>
                   <div className="grid gap-2">
