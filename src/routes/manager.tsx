@@ -13,10 +13,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
-import { onboardingStatus, useStore, type Role, type ApplicationStatus, type Employee, type Relationship, DAY_KEYS } from "@/lib/sidework-store";
+import { onboardingStatus, useStore, type Role, type ApplicationStatus, type Employee, type Relationship, DAY_KEYS, type JobApplication } from "@/lib/sidework-store";
 import { AvailabilityEditor, RestaurantHoursEditor } from "@/components/sidework/AvailabilityEditor";
 import { toast } from "sonner";
 
@@ -548,6 +549,7 @@ function JobsTab() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ title: "", role: "Server" as Role, type: "Full-time" as "Full-time" | "Part-time", payRange: "", description: "" });
   const [hireFor, setHireFor] = useState<string | null>(null);
+  const [confirmHireFor, setConfirmHireFor] = useState<string | null>(null);
 
   const submit = () => {
     if (!form.title || !form.payRange || !form.description) return toast.error("Fill in title, pay range, and description.");
@@ -684,7 +686,7 @@ function JobsTab() {
         )}
         renderActions={(a) => (
           <>
-            <Button size="sm" onClick={() => setHireFor(a.id)}>Hire</Button>
+            <Button size="sm" onClick={() => setConfirmHireFor(a.id)}>Hire</Button>
             <Button size="sm" variant="outline" onClick={() => {
               declineApplication(a.id);
               toast.message(`Polite decline sent to ${a.firstName ?? a.name}`);
@@ -708,6 +710,35 @@ function JobsTab() {
           ) : null
         )}
       />
+
+      {confirmHireFor && (
+        <Dialog open onOpenChange={(o) => { if (!o) setConfirmHireFor(null); }}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Confirm hire</DialogTitle>
+            </DialogHeader>
+            {(() => {
+              const app = applications.find((a) => a.id === confirmHireFor);
+              if (!app) return null;
+              const name = app.firstName && app.lastName ? `${app.firstName} ${app.lastName}` : app.name;
+              return (
+                <div className="py-2">
+                  <p className="text-sm text-muted-foreground">
+                    Hire <span className="font-semibold text-foreground">{name}</span> as <span className="font-semibold text-foreground">{app.role ?? "Server"}</span>? This will create their employee profile and send them a welcome message.
+                  </p>
+                </div>
+              );
+            })()}
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setConfirmHireFor(null)}>Cancel</Button>
+              <Button onClick={() => {
+                setHireFor(confirmHireFor);
+                setConfirmHireFor(null);
+              }}>Confirm Hire</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {hireApp && (
         <HireReviewDialog
@@ -765,6 +796,23 @@ function ApplicationSection({
   );
 }
 
+function aiScoreReasons(a: JobApplication): string[] {
+  const reasons: string[] = [];
+  if (!a.firstName || !a.lastName) reasons.push("missing full name");
+  if (!a.email) reasons.push("missing email");
+  if (!a.phone) reasons.push("missing phone");
+  if (!a.role) reasons.push("missing position");
+  const pitchText = (a.pitch ?? a.note ?? "").trim();
+  const words = pitchText ? pitchText.split(/\s+/).length : 0;
+  if (words < 40) reasons.push("short pitch");
+  const days = a.weeklyAvailability
+    ? DAY_KEYS.filter((d) => a.weeklyAvailability![d]?.kind !== "none").length
+    : (a.availabilityDays?.length ?? 0);
+  if (days < 3) reasons.push("limited availability");
+  if (reasons.length === 0) return ["complete profile, strong pitch, good availability"];
+  return reasons;
+}
+
 function ApplicantCard({
   a, actions, extra, compact,
 }: {
@@ -779,6 +827,7 @@ function ApplicantCard({
     score === "Strong" ? "bg-success text-success-foreground hover:bg-success" :
     score === "Weak" ? "bg-destructive text-destructive-foreground hover:bg-destructive" :
     "bg-secondary text-secondary-foreground hover:bg-secondary";
+  const scoreReasons = aiScoreReasons(a);
 
   return (
     <div className="rounded-lg border border-border bg-background p-4">
@@ -786,10 +835,26 @@ function ApplicantCard({
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <p className="font-semibold">{fullName}</p>
-            {a.role && <Badge variant="secondary">{a.role}</Badge>}
-            <Badge className={scoreClass}>AI: {score}</Badge>
+            <TooltipProvider delayDuration={100}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge className={`cursor-help ${scoreClass}`}>AI: {score}</Badge>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-xs">
+                  <p className="font-semibold">AI score: {score}</p>
+                  <ul className="mt-1 list-disc pl-4">
+                    {scoreReasons.map((r, i) => (
+                      <li key={i}>{r}</li>
+                    ))}
+                  </ul>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
             <StatusBadge status={a.status} />
           </div>
+          {a.role && (
+            <p className="mt-0.5 text-sm text-muted-foreground">Applying for <span className="font-medium text-foreground">{a.role}</span></p>
+          )}
           <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
             {a.email && <a href={`mailto:${a.email}`} className="underline break-all">{a.email}</a>}
             <a href={`tel:${a.phone}`} className="underline">{a.phone}</a>
