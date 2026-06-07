@@ -437,10 +437,19 @@ function TeamForm({
   const [minStaff, setMinStaff] = useState(value.minStaff);
   const [scheduler, setScheduler] = useState(value.scheduler);
   const ok = (foh.length || boh.length) && minStaff && scheduler;
+  const recommended =
+    value.type === "Fine Dining" ? "Server Assistant" :
+    value.type === "Casual Dining" || value.type === "Fast Casual" ? "Busser" :
+    null;
   return (
     <div className="space-y-3">
       <div>
         <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">FOH roles</p>
+        {recommended && (
+          <p className="mb-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-primary">
+            For {value.type}, we recommend <strong>{recommended}</strong> on your FOH team. Both Busser and Server Assistant are always available.
+          </p>
+        )}
         <ChipGrid options={[...FOH_ROLES]} value={foh} multi onChange={(v) => setFoh(v as string[])} />
       </div>
       <div>
