@@ -88,12 +88,12 @@ function ManagerPage() {
           </CardContent>
         </Card>
       )}
-      <ManagerTabs tab={tab} setTab={setTab} />
+      <ManagerTabs tab={tab} setTab={setTab} onOpenSetup={() => setShowSetupWizard(true)} />
     </AppShell>
   );
 }
 
-function ManagerTabs({ tab, setTab }: { tab: string; setTab: (v: string) => void }) {
+function ManagerTabs({ tab, setTab, onOpenSetup }: { tab: string; setTab: (v: string) => void; onOpenSetup: () => void }) {
   const { applications } = useStore();
   const newAppsCount = applications.filter((a) => !a.archived && a.status === "new").length;
   return (
