@@ -1594,6 +1594,22 @@ function HireReviewDialog({
             {(application.pitch || application.note) && (
               <p className="mt-2 italic text-foreground/90">"{application.pitch ?? application.note}"</p>
             )}
+            {application.workExperience && application.workExperience.length > 0 && (
+              <div className="mt-2 space-y-1">
+                <p className="font-semibold text-primary">Work experience</p>
+                {application.workExperience.map((w, i) => (
+                  <div key={i} className="text-muted-foreground">
+                    {w.employer && w.position ? (
+                      <span>{w.employer} — {w.position}{w.duration ? ` · ${w.duration}` : ""}</span>
+                    ) : w.employer ? (
+                      <span>{w.employer}{w.duration ? ` · ${w.duration}` : ""}</span>
+                    ) : w.position ? (
+                      <span>{w.position}{w.duration ? ` · ${w.duration}` : ""}</span>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="mt-2 grid grid-cols-7 gap-1 text-center">
               {DAY_KEYS.map((d) => {
                 const on = application.weeklyAvailability
