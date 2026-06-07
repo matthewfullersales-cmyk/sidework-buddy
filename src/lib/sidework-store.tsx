@@ -34,8 +34,8 @@ export interface VideoProgress {
 export type Section = "FOH" | "BOH";
 export type Position =
   | "Hostess" | "Bartender" | "Server" | "Busser" | "Bar Back"
-  | "Manager" | "Assistant Manager" | "Porter"
-  | "Chef" | "Sous Chef" | "Line Cook" | "Dishwasher" | "Prep Cook";
+  | "Manager" | "Assistant Manager"
+  | "Chef" | "Sous Chef" | "Line Cook" | "Garde Manger" | "Dishwasher" | "Prep Cook";
 
 export type DayKey = "Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat" | "Sun";
 export const DAY_KEYS: DayKey[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
