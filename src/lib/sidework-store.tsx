@@ -903,7 +903,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           applicationPitch: a.pitch ?? a.note,
           appliedAt: a.appliedAt,
         };
-        const restaurantName = s.profile?.restaurantName ?? "Sidework";
+        const restaurantName = s.restaurantProfile?.restaurantName ?? "Sidework";
         return {
           ...s,
           employees: [...s.employees, employee],
