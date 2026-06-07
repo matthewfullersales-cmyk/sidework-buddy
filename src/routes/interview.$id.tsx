@@ -48,11 +48,13 @@ function InterviewConfirmPage() {
           Your video interview is confirmed for <span className="font-semibold text-foreground">{formatSlot(app.selectedSlot)}</span>.
         </p>
         <p className="mt-2 text-sm text-muted-foreground">
-          You'll receive a link to join 30 minutes before.
+          When it's time, tap below to join. You'll need camera and microphone access.
         </p>
+        <JoinCallButton applicationId={app.id} userName={firstName} />
       </Centered>
     );
   }
+
 
   if (!app.offeredSlots || app.offeredSlots.length === 0) {
     return (
