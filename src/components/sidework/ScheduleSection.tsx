@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { useStore, type Role, type Shift, type Position, type Section } from "@/lib/sidework-store";
+import { useStore, type Role, type Shift, type Position, type Section, DAY_KEYS, isAvailableFor } from "@/lib/sidework-store";
 import { toast } from "sonner";
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -78,7 +78,7 @@ function staffingFor(dayIdx: number): Partial<Record<Position, number>> {
 }
 
 export function ScheduleSection() {
-  const { shifts, employees, timeOff, upsertShift, deleteShift } = useStore();
+  const { shifts, employees, timeOff, restaurantHours, upsertShift, deleteShift } = useStore();
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date()));
   const [editing, setEditing] = useState<{ employeeId: string; date: string; existing?: Shift } | null>(null);
   const [generating, setGenerating] = useState(false);
@@ -122,78 +122,99 @@ export function ScheduleSection() {
       const existingForWeek = shifts.filter((s) => dayISOs.includes(s.date));
       existingForWeek.forEach((s) => deleteShift(s.id));
 
+      const conflicts: string[] = [];
+
       const isOff = (empId: string, date: string) => {
         const status = timeOffStatusFor(empId, date);
         return status === "approved";
       };
 
+      // Clamp a shift to restaurant hours; returns null if restaurant is closed or no overlap.
+      const clampToHours = (dayIdx: number, start: string, end: string): { start: string; end: string } | null => {
+        const dayKey = DAY_KEYS[dayIdx];
+        const h = restaurantHours[dayKey];
+        if (!h || h.closed) return null;
+        const s = start < h.open ? h.open : start;
+        const e = end > h.close ? h.close : end;
+        if (s >= e) return null;
+        return { start: s, end: e };
+      };
+
       // For each day, fill positions by seniority
       days.forEach((day, dayIdx) => {
         const date = fmtISO(day);
+        const dayKey = DAY_KEYS[dayIdx];
+        const hours = restaurantHours[dayKey];
+        if (!hours || hours.closed) return; // restaurant closed — no schedule
         const isWeekend = dayIdx === 4 || dayIdx === 5;
         const needs = staffingFor(dayIdx);
 
         // Track who is already booked that day
         const booked = new Set<string>();
 
+        const trySchedule = (emp: typeof employees[number], desiredStart: string, desiredEnd: string) => {
+          if (booked.has(emp.id)) return false;
+          if (isOff(emp.id, date)) return false;
+          const av = emp.weeklyAvailability?.[dayKey];
+          if (!isAvailableFor(av, desiredStart)) {
+            return false;
+          }
+          const clamped = clampToHours(dayIdx, desiredStart, desiredEnd);
+          if (!clamped) return false;
+          booked.add(emp.id);
+          upsertShift({
+            id: `s_${emp.id}_${date}`,
+            employeeId: emp.id,
+            role: emp.primaryRole,
+            date,
+            start: clamped.start,
+            end: clamped.end,
+            position: emp.position,
+          });
+          return true;
+        };
+
         (Object.keys(needs) as Position[]).forEach((pos) => {
           const target = needs[pos] ?? 0;
           // Candidates with this position
           const candidates = employees
             .filter((e) => e.position === pos)
-            .filter((e) => !isOff(e.id, date))
-            .filter((e) => !booked.has(e.id))
-            .sort((a, b) => {
-              // On weekends, prioritize seniority strongest
-              if (isWeekend) return (b.seniority ?? 0) - (a.seniority ?? 0);
-              // Weekdays: rotate by spreading – sort by current week shifts asc, then seniority desc
-              return (b.seniority ?? 0) - (a.seniority ?? 0);
-            })
-            .slice(0, target);
+            .sort((a, b) => (b.seniority ?? 0) - (a.seniority ?? 0));
 
-          candidates.forEach((emp) => {
+          let filled = 0;
+          for (const emp of candidates) {
+            if (filled >= target) break;
             const def = defaultShift(emp.position, isWeekend);
-            if (!def) return;
-            booked.add(emp.id);
+            if (!def) continue;
             const ds = emp.position === "Bartender" && emp.availability === "Swing 4hr"
               ? { start: "19:00", end: "23:00" } : def;
-            upsertShift({
-              id: `s_${emp.id}_${date}`,
-              employeeId: emp.id,
-              role: emp.primaryRole,
-              date,
-              start: ds.start,
-              end: ds.end,
-              position: emp.position,
-            });
-          });
+            if (trySchedule(emp, ds.start, ds.end)) filled += 1;
+          }
+          if (filled < target) {
+            conflicts.push(`${dayKey}: needed ${target} ${pos}${target === 1 ? "" : "s"}, filled ${filled}`);
+          }
         });
 
-        // Always schedule managers and chefs every day
-        ["Manager", "Assistant Manager", "Chef", "Sous Chef"].forEach((p) => {
-          const pos = p as Position;
+        // Always schedule managers and chefs every day if available
+        (["Manager", "Assistant Manager", "Chef", "Sous Chef"] as Position[]).forEach((pos) => {
           employees
-            .filter((e) => e.position === pos && !isOff(e.id, date))
+            .filter((e) => e.position === pos)
             .forEach((emp) => {
-              if (booked.has(emp.id)) return;
               const def = defaultShift(emp.position, isWeekend);
               if (!def) return;
-              booked.add(emp.id);
-              upsertShift({
-                id: `s_${emp.id}_${date}`,
-                employeeId: emp.id,
-                role: emp.primaryRole,
-                date,
-                start: def.start,
-                end: def.end,
-                position: emp.position,
-              });
+              trySchedule(emp, def.start, def.end);
             });
         });
       });
 
       setGenerating(false);
-      toast.success("AI schedule generated — review below");
+      if (conflicts.length > 0) {
+        toast.warning(`AI schedule built with ${conflicts.length} staffing gap${conflicts.length === 1 ? "" : "s"}`, {
+          description: conflicts.slice(0, 4).join(" · ") + (conflicts.length > 4 ? "…" : ""),
+        });
+      } else {
+        toast.success("AI schedule generated — no conflicts");
+      }
     }, 1400);
   }
 

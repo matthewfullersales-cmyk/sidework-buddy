@@ -16,7 +16,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
-import { onboardingStatus, useStore, type Role, type ApplicationStatus } from "@/lib/sidework-store";
+import { onboardingStatus, useStore, type Role, type ApplicationStatus, type Employee, type Relationship, DAY_KEYS } from "@/lib/sidework-store";
+import { AvailabilityEditor, RestaurantHoursEditor } from "@/components/sidework/AvailabilityEditor";
 import { toast } from "sonner";
 
 const ROLES: Role[] = ["Server", "Bartender", "Kitchen", "Host"];
@@ -195,9 +196,10 @@ function NotificationsCard() {
 }
 
 function TeamTab() {
-  const { employees, videos, inviteEmployee, updateEmployee } = useStore();
+  const { employees, videos, inviteEmployee } = useStore();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", role: "Server" as Role });
+  const [editing, setEditing] = useState<Employee | null>(null);
 
   return (
     <div className="space-y-4">
@@ -232,68 +234,191 @@ function TeamTab() {
       <div className="grid gap-4">
         {employees.map((e) => {
           const s = onboardingStatus(e, videos);
+          const fullName = e.firstName && e.lastName ? `${e.firstName} ${e.lastName}` : e.name;
           return (
             <Card key={e.id}>
               <CardContent className="p-5">
                 <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <Avatar name={e.name} large />
-                    <div>
-                      <p className="font-semibold">{e.name}</p>
-                      <p className="text-sm text-muted-foreground">{e.email}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">Primary: {e.primaryRole} · Availability: {e.availability || "—"}</p>
+                  <div className="flex items-start gap-3 min-w-0">
+                    <Avatar name={fullName} large />
+                    <div className="min-w-0">
+                      <p className="font-semibold">{fullName}</p>
+                      <p className="text-sm text-muted-foreground break-all">{e.email}</p>
+                      {e.phone && <p className="text-sm text-muted-foreground">{e.phone}</p>}
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        <Badge className="bg-primary text-primary-foreground hover:bg-primary">{e.primaryRole}</Badge>
+                        {e.approvedRoles.filter((r) => r !== e.primaryRole).map((r) => (
+                          <Badge key={r} variant="secondary">{r}</Badge>
+                        ))}
+                      </div>
                     </div>
                   </div>
                   <div className="text-right">
                     {s.fullyOnboarded
                       ? <Badge className="bg-success text-success-foreground hover:bg-success">Fully onboarded</Badge>
-                      : <Badge variant="secondary">In progress · {s.pct}%</Badge>}
+                      : <Badge variant="secondary">Onboarding · {s.pct}%</Badge>}
                     <p className="mt-1 text-xs text-muted-foreground">{s.passed}/{s.total} videos passed</p>
+                    <Progress value={s.pct} className="mt-2 h-1.5 w-32" />
                   </div>
                 </div>
-                <div className="mt-4 grid gap-3 border-t border-border pt-4 md:grid-cols-2">
-                  <div>
-                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Approved for roles</p>
-                    <div className="flex flex-wrap gap-2">
-                      {ROLES.map((r) => {
-                        const checked = e.approvedRoles.includes(r);
+
+                <div className="mt-4 grid gap-3 border-t border-border pt-4 sm:grid-cols-2">
+                  <div className="rounded-lg border border-border bg-muted/30 p-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Weekly availability</p>
+                    <div className="mt-2 grid grid-cols-7 gap-1 text-center">
+                      {DAY_KEYS.map((d) => {
+                        const av = e.weeklyAvailability?.[d] ?? { kind: "full" as const };
+                        const tone = av.kind === "full"
+                          ? "bg-primary/15 text-primary border-primary/30"
+                          : av.kind === "none"
+                            ? "bg-muted text-muted-foreground border-border"
+                            : "bg-amber-500/15 text-amber-700 border-amber-500/30 dark:text-amber-300";
+                        const sym = av.kind === "full" ? "✓" : av.kind === "none" ? "—" : "◐";
                         return (
-                          <label key={r} className={`flex cursor-pointer items-center gap-2 rounded-md border px-2.5 py-1 text-sm ${checked ? "border-primary bg-primary-soft" : "border-border"}`}>
-                            <Checkbox checked={checked} onCheckedChange={(v) => {
-                              const next = v ? [...new Set([...e.approvedRoles, r])] : e.approvedRoles.filter((x) => x !== r);
-                              updateEmployee(e.id, { approvedRoles: next, autoApproveRoles: e.autoApproveRoles.filter((x) => next.includes(x)) });
-                            }} />
-                            {r}
-                          </label>
-                        );
-                      })}
-                    </div>
-                  </div>
-                  <div>
-                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Auto-approve trades for</p>
-                    <div className="flex flex-wrap gap-2">
-                      {e.approvedRoles.length === 0 && <p className="text-sm text-muted-foreground">Approve a role first.</p>}
-                      {e.approvedRoles.map((r) => {
-                        const on = e.autoApproveRoles.includes(r);
-                        return (
-                          <div key={r} className="flex items-center gap-2 rounded-md border border-border px-2.5 py-1 text-sm">
-                            <span>{r}</span>
-                            <Switch checked={on} onCheckedChange={(v) => {
-                              const next = v ? [...new Set([...e.autoApproveRoles, r])] : e.autoApproveRoles.filter((x) => x !== r);
-                              updateEmployee(e.id, { autoApproveRoles: next });
-                            }} />
+                          <div key={d} className={`rounded border px-1 py-1 text-[10px] ${tone}`}>
+                            <div className="font-semibold">{d}</div>
+                            <div>{sym}</div>
                           </div>
                         );
                       })}
                     </div>
                   </div>
+                  <div className="rounded-lg border border-border bg-muted/30 p-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Emergency contact</p>
+                    {e.emergencyContact ? (
+                      <div className="mt-1 text-sm">
+                        <p className="font-medium">{e.emergencyContact.name} <span className="text-xs text-muted-foreground">· {e.emergencyContact.relationship}</span></p>
+                        <a href={`tel:${e.emergencyContact.phone}`} className="text-xs text-primary underline">{e.emergencyContact.phone}</a>
+                      </div>
+                    ) : (
+                      <p className="mt-1 text-xs text-muted-foreground">Not on file</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-3 flex flex-wrap justify-end gap-2">
+                  <Button size="sm" variant="outline" onClick={() => setEditing(e)}>Edit profile</Button>
                 </div>
               </CardContent>
             </Card>
           );
         })}
       </div>
+      {editing && (
+        <EmployeeProfileDialog
+          employee={editing}
+          onClose={() => setEditing(null)}
+        />
+      )}
     </div>
+  );
+}
+
+function EmployeeProfileDialog({ employee, onClose }: { employee: Employee; onClose: () => void }) {
+  const { updateEmployee } = useStore();
+  const [firstName, setFirstName] = useState(employee.firstName ?? employee.name.split(" ")[0] ?? "");
+  const [lastName, setLastName] = useState(employee.lastName ?? employee.name.split(" ").slice(1).join(" ") ?? "");
+  const [email, setEmail] = useState(employee.email);
+  const [phone, setPhone] = useState(employee.phone ?? "");
+  const [approvedRoles, setApprovedRoles] = useState<Role[]>(employee.approvedRoles);
+  const [autoApprove, setAutoApprove] = useState<Role[]>(employee.autoApproveRoles);
+  const [weekly, setWeekly] = useState(employee.weeklyAvailability);
+  const [ec, setEc] = useState(employee.emergencyContact ?? { name: "", phone: "", relationship: "Other" as Relationship });
+
+  const save = () => {
+    if (!firstName.trim()) return toast.error("First name is required");
+    updateEmployee(employee.id, {
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      name: `${firstName.trim()} ${lastName.trim()}`.trim(),
+      email: email.trim(),
+      phone: phone.trim() || undefined,
+      approvedRoles,
+      autoApproveRoles: autoApprove.filter((r) => approvedRoles.includes(r)),
+      weeklyAvailability: weekly,
+      emergencyContact: ec.name || ec.phone ? ec : undefined,
+    });
+    toast.success("Profile saved");
+    onClose();
+  };
+
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader><DialogTitle>Edit employee profile</DialogTitle></DialogHeader>
+        <div className="max-h-[70vh] overflow-y-auto pr-1 space-y-5">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-1.5"><Label>First name</Label><Input value={firstName} onChange={(e) => setFirstName(e.target.value)} /></div>
+            <div className="grid gap-1.5"><Label>Last name</Label><Input value={lastName} onChange={(e) => setLastName(e.target.value)} /></div>
+            <div className="grid gap-1.5"><Label>Email</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+            <div className="grid gap-1.5"><Label>Phone</Label><Input type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} /></div>
+          </div>
+
+          <div>
+            <Label className="text-xs uppercase tracking-wide text-muted-foreground">Approved roles</Label>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {ROLES.map((r) => {
+                const checked = approvedRoles.includes(r);
+                return (
+                  <label key={r} className={`flex cursor-pointer items-center gap-2 rounded-md border px-2.5 py-1.5 text-sm min-h-11 ${checked ? "border-primary bg-primary-soft" : "border-border"}`}>
+                    <Checkbox checked={checked} onCheckedChange={(v) => {
+                      setApprovedRoles((prev) => v ? [...new Set([...prev, r])] : prev.filter((x) => x !== r));
+                    }} />
+                    {r}
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <Label className="text-xs uppercase tracking-wide text-muted-foreground">Auto-approve trades for</Label>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {approvedRoles.length === 0 && <p className="text-sm text-muted-foreground">Approve a role first.</p>}
+              {approvedRoles.map((r) => {
+                const on = autoApprove.includes(r);
+                return (
+                  <div key={r} className="flex items-center gap-2 rounded-md border border-border px-2.5 py-1.5 text-sm">
+                    <span>{r}</span>
+                    <Switch checked={on} onCheckedChange={(v) => {
+                      setAutoApprove((prev) => v ? [...new Set([...prev, r])] : prev.filter((x) => x !== r));
+                    }} />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Weekly availability</p>
+            <AvailabilityEditor value={weekly} onChange={setWeekly} />
+          </div>
+
+          <div className="rounded-lg border border-border p-3">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Emergency contact (manager-only)</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-1.5"><Label>Full name</Label><Input value={ec.name} onChange={(e) => setEc({ ...ec, name: e.target.value })} /></div>
+              <div className="grid gap-1.5"><Label>Phone</Label><Input type="tel" value={ec.phone} onChange={(e) => setEc({ ...ec, phone: e.target.value })} /></div>
+              <div className="grid gap-1.5 sm:col-span-2">
+                <Label>Relationship</Label>
+                <Select value={ec.relationship} onValueChange={(v: Relationship) => setEc({ ...ec, relationship: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {(["Spouse","Parent","Sibling","Child","Friend","Other"] as Relationship[]).map((r) => (
+                      <SelectItem key={r} value={r}>{r}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button onClick={save}>Save changes</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -780,7 +905,7 @@ function TrainingProgram({ menuName }: { menuName: string }) {
 }
 
 function SettingsTab({ onOpenSetup }: { onOpenSetup: () => void }) {
-  const { setupCompleted, restaurantProfile, resetSetup } = useStore();
+  const { setupCompleted, restaurantProfile, resetSetup, restaurantHours, updateRestaurantDay } = useStore();
   return (
     <div className="space-y-4">
       <Card>
@@ -797,6 +922,15 @@ function SettingsTab({ onOpenSetup }: { onOpenSetup: () => void }) {
               <Button onClick={onOpenSetup}>Complete your setup</Button>
             </>
           )}
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Restaurant hours</CardTitle>
+          <p className="mt-1 text-xs text-muted-foreground">AI scheduling only books staff during the hours you're open.</p>
+        </CardHeader>
+        <CardContent>
+          <RestaurantHoursEditor value={restaurantHours} onChange={updateRestaurantDay} />
         </CardContent>
       </Card>
     </div>
