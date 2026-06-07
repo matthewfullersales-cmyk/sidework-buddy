@@ -56,6 +56,11 @@ function CareersPage() {
     return empty;
   });
   const [pitch, setPitch] = useState("");
+  const [workExp, setWorkExp] = useState<WorkExperience[]>([
+    { employer: "", position: "", duration: "" },
+    { employer: "", position: "", duration: "" },
+    { employer: "", position: "", duration: "" },
+  ]);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
 
