@@ -186,7 +186,7 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
 function TrainingTab({ employeeId }: { employeeId: string }) {
   const { employees, videos, recordVideoProgress, recordQuizAttempt } = useStore();
   const me = employees.find((e) => e.id === employeeId)!;
-  const assigned = videosForRole(videos, me.primaryRole);
+  const assigned = videosForEmployee(videos, me);
 
   // sequential: previous module must be passed
   const firstUnlockedIndex = useMemo(() => {
