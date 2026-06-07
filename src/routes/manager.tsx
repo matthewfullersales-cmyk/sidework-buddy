@@ -689,11 +689,11 @@ function JobsTab() {
       />
 
       <ApplicationSection
-        title="Video Interview Scheduled"
+        title="Interview Scheduled"
         subtitle="Awaiting time confirmation or interview"
         items={videoApps}
-        emptyText="No video interviews in progress."
-        renderExtra={(a) => <VideoStageDetails app={a} />}
+        emptyText="No interviews in progress."
+        renderExtra={(a) => <InterviewStageDetails app={a} restaurantName={restaurantName} />}
         renderActions={(a) => {
           const stage = getHiringStage(a);
           if (stage === "video_offered") {
@@ -705,9 +705,17 @@ function JobsTab() {
             );
           }
           if (stage === "video_scheduled") {
+            const type = a.interviewType ?? "video";
             return (
               <>
-                <Button size="sm" onClick={() => setCallFor(a.id)}>Join Video Call</Button>
+                {type === "video" ? (
+                  <Button size="sm" onClick={() => setCallFor(a.id)}>Join Video Call</Button>
+                ) : (
+                  <Button size="sm" onClick={() => {
+                    completeInterview(a.id);
+                    toast.success("Interview marked complete", { description: "Add notes and decide next step." });
+                  }}>Mark Interview Complete</Button>
+                )}
                 <Button size="sm" variant="outline" onClick={() => setDeclineConfirmFor({ id: a.id })}>Decline</Button>
               </>
             );
