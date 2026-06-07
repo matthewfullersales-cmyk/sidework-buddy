@@ -767,14 +767,27 @@ function JobsTab() {
         )}
       />
 
-      {approveApp && (
-        <ApproveVideoDialog
+      {pickTypeApp && (
+        <InterviewTypeDialog
+          application={pickTypeApp}
+          onClose={() => setPickTypeFor(null)}
+          onPick={(type) => {
+            setPickTypeFor(null);
+            setApproveFor({ id: pickTypeApp.id, type });
+          }}
+        />
+      )}
+
+      {approveApp && approveFor && (
+        <ApproveInterviewDialog
           application={approveApp}
+          type={approveFor.type}
           onClose={() => setApproveFor(null)}
           onConfirm={(slots) => {
-            approveForVideo(approveApp.id, slots);
+            approveForInterview(approveApp.id, approveFor.type, slots);
             const name = approveApp.firstName ?? approveApp.name;
-            toast.success(`Video interview invite sent to ${name}`, {
+            const label = approveFor.type === "video" ? "Video interview" : approveFor.type === "in_person" ? "In-person interview" : "Phone interview";
+            toast.success(`${label} invite sent to ${name}`, {
               description: `Text & email with ${slots.length} time slot${slots.length === 1 ? "" : "s"}. Applicant link: /interview/${approveApp.id}`,
             });
             setApproveFor(null);
