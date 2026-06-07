@@ -905,7 +905,7 @@ function TrainingProgram({ menuName }: { menuName: string }) {
 }
 
 function SettingsTab({ onOpenSetup }: { onOpenSetup: () => void }) {
-  const { setupCompleted, restaurantProfile, resetSetup } = useStore();
+  const { setupCompleted, restaurantProfile, resetSetup, restaurantHours, updateRestaurantDay } = useStore();
   return (
     <div className="space-y-4">
       <Card>
@@ -922,6 +922,15 @@ function SettingsTab({ onOpenSetup }: { onOpenSetup: () => void }) {
               <Button onClick={onOpenSetup}>Complete your setup</Button>
             </>
           )}
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Restaurant hours</CardTitle>
+          <p className="mt-1 text-xs text-muted-foreground">AI scheduling only books staff during the hours you're open.</p>
+        </CardHeader>
+        <CardContent>
+          <RestaurantHoursEditor value={restaurantHours} onChange={updateRestaurantDay} />
         </CardContent>
       </Card>
     </div>
