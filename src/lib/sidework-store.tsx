@@ -794,14 +794,14 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
       setState((s) => ({
         ...s,
         applications: s.applications.map((a) =>
-          a.id === id ? { ...a, status: "rejected", archived: true } : a,
+          a.id === id ? { ...a, status: "rejected", stage: "rejected", archived: true } : a,
         ),
       })),
     reconsiderApplication: (id) =>
       setState((s) => ({
         ...s,
         applications: s.applications.map((a) =>
-          a.id === id ? { ...a, status: "new", archived: false, hiredEmployeeId: undefined } : a,
+          a.id === id ? { ...a, status: "new", stage: "new", archived: false, hiredEmployeeId: undefined } : a,
         ),
       })),
     hireApplication: (id, overrides) => {
