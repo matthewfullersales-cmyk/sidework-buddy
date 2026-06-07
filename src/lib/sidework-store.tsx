@@ -109,6 +109,7 @@ export interface Employee {
   hiredFromApplicationId?: string;
   applicationPitch?: string;
   appliedAt?: string;
+  workExperience?: WorkExperience[];
 }
 
 export interface Shift {
@@ -206,6 +207,7 @@ export interface JobApplication {
   shadowShift?: ShadowShiftDetails;
   archived?: boolean;
   hiredEmployeeId?: string;
+  workExperience?: WorkExperience[];
 }
 
 export function getHiringStage(a: Pick<JobApplication, "stage" | "status">): HiringStage {
@@ -908,6 +910,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           hiredFromApplicationId: a.id,
           applicationPitch: a.pitch ?? a.note,
           appliedAt: a.appliedAt,
+          workExperience: a.workExperience,
         };
         const restaurantName = s.restaurantProfile?.name ?? "Sidework";
         return {
