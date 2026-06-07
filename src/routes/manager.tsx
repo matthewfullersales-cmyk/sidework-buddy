@@ -913,9 +913,6 @@ const INTERVIEW_TYPE_META: Record<InterviewType, { emoji: string; label: string;
   },
 };
 
-function interviewTypeLabel(t?: InterviewType) {
-  return INTERVIEW_TYPE_META[t ?? "video"].label;
-}
 
 function InterviewStageDetails({ app, restaurantName }: { app: JobApplication; restaurantName: string }) {
   const stage = getHiringStage(app);
