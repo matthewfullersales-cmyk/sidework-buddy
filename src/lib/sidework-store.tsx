@@ -33,7 +33,7 @@ export interface VideoProgress {
 
 export type Section = "FOH" | "BOH";
 export type Position =
-  | "Hostess" | "Bartender" | "Server" | "Busser" | "Bar Back"
+  | "Hostess" | "Bartender" | "Server" | "Server Assistant" | "Busser" | "Bar Back"
   | "Manager" | "Assistant Manager"
   | "Chef" | "Sous Chef" | "Line Cook" | "Garde Manger" | "Dishwasher" | "Prep Cook";
 
