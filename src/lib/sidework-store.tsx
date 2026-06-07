@@ -1052,8 +1052,14 @@ export function useStore() {
 }
 
 export function videosForRole(videos: TrainingVideo[], role: Role) {
-  const cat = trainingCategoryForRole(role);
-  return videos.filter((v) => v.role === cat);
+  const ids = new Set(moduleIdsForRole(role));
+  return videos.filter((v) => ids.has(v.id));
+}
+
+/** Videos assigned across all of an employee's approved roles. */
+export function videosForEmployee(videos: TrainingVideo[], employee: { primaryRole: Role; approvedRoles?: Role[] }) {
+  const ids = new Set(moduleIdsForEmployee(employee));
+  return videos.filter((v) => ids.has(v.id));
 }
 
 export function aiScoreFor(a: Partial<JobApplication>): AiScore {
@@ -1078,7 +1084,7 @@ export function aiScoreFor(a: Partial<JobApplication>): AiScore {
 }
 
 export function onboardingStatus(employee: Employee, videos: TrainingVideo[]) {
-  const assigned = videosForRole(videos, employee.primaryRole);
+  const assigned = videosForEmployee(videos, employee);
   const passed = assigned.filter((v) => employee.progress.find((p) => p.videoId === v.id)?.passed).length;
   const total = assigned.length;
   const fullyOnboarded = employee.personalInfoComplete && total > 0 && passed === total;
