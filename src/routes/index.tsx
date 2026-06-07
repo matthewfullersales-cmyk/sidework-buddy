@@ -32,9 +32,9 @@ function Landing() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="mx-auto flex max-w-6xl items-center justify-between px-4 py-5">
+      <header className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-4 sm:py-5">
         <Logo />
-        <nav className="flex items-center gap-5 text-sm font-semibold">
+        <nav className="flex items-center gap-4 text-sm font-semibold sm:gap-5">
           <a href="#features" className="text-muted-foreground hover:text-foreground">Features</a>
           <Link to="/careers" className="text-muted-foreground hover:text-foreground">Careers</Link>
         </nav>
@@ -44,27 +44,28 @@ function Landing() {
       <section className="relative overflow-hidden bg-gradient-hero text-primary-foreground">
         <div className="pointer-events-none absolute -top-32 -right-32 h-96 w-96 rounded-full bg-white/10 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-32 -left-32 h-96 w-96 rounded-full bg-white/5 blur-3xl" />
-        <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-4 pt-16 pb-24 md:grid-cols-2 md:pt-24 md:pb-32">
+        <div className="relative mx-auto grid max-w-6xl items-center gap-10 px-4 pt-12 pb-16 sm:pt-16 sm:pb-24 md:grid-cols-2 md:gap-12 md:pt-24 md:pb-32">
           <div>
             <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider backdrop-blur">
               <span className="h-1.5 w-1.5 rounded-full bg-white" /> Built for restaurants
             </span>
-            <h1 className="mt-6 text-5xl font-bold leading-[1.02] tracking-tight md:text-7xl">
+            <h1 className="mt-5 text-4xl font-bold leading-[1.05] tracking-tight sm:text-5xl md:text-7xl md:leading-[1.02]">
               Run your <span className="italic text-white/90">whole team</span> in one place.
             </h1>
-            <p className="mt-6 max-w-xl text-lg text-white/80 md:text-xl">
+            <p className="mt-5 max-w-xl text-base text-white/80 sm:text-lg md:text-xl">
               20 years of restaurant expertise, built into software your whole team uses every day. Hire, onboard, train, schedule, swap shifts, and approve time off — without the chaos of group texts and paper binders.
             </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Button size="lg" onClick={() => enterAs("manager", "owner")} className="bg-white text-primary shadow-bold hover:bg-white/90">
+            <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+              <Button size="lg" onClick={() => enterAs("manager", "owner")} className="w-full bg-white text-primary shadow-bold hover:bg-white/90 sm:w-auto">
                 I'm a Manager / Owner
               </Button>
-              <Button size="lg" variant="outline" onClick={() => enterAs("employee", "e1")} className="border-white/30 bg-transparent text-white hover:bg-white/10 hover:text-white">
+              <Button size="lg" variant="outline" onClick={() => enterAs("employee", "e1")} className="w-full border-white/30 bg-transparent text-white hover:bg-white/10 hover:text-white sm:w-auto">
                 I'm an Employee
               </Button>
             </div>
             <p className="mt-4 text-xs text-white/60">Demo mode — explore with sample data. Switch roles anytime in the header.</p>
           </div>
+
 
           <div className="relative">
             <div className="rounded-2xl border border-white/15 bg-white p-5 text-foreground shadow-bold">
