@@ -1132,6 +1132,24 @@ function JobsTab() {
           }}
         />
       )}
+      {deleteJobId && (
+        <Dialog open onOpenChange={(o) => { if (!o) setDeleteJobId(null); }}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader><DialogTitle>Delete job posting?</DialogTitle></DialogHeader>
+            <p className="py-2 text-sm text-muted-foreground">
+              Are you sure? This will permanently delete this job posting and all applications. This cannot be undone.
+            </p>
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setDeleteJobId(null)}>Cancel</Button>
+              <Button variant="destructive" onClick={() => {
+                removeJob(deleteJobId);
+                toast.message("Job removed");
+                setDeleteJobId(null);
+              }}>Delete</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
