@@ -579,7 +579,8 @@ function JobsTab() {
   const archived = applications.filter((a) => a.archived);
 
   const hireApp = applications.find((a) => a.id === hireFor) ?? null;
-  const approveApp = applications.find((a) => a.id === approveFor) ?? null;
+  const approveApp = approveFor ? applications.find((a) => a.id === approveFor.id) ?? null : null;
+  const pickTypeApp = pickTypeFor ? applications.find((a) => a.id === pickTypeFor) ?? null : null;
   const callApp = applications.find((a) => a.id === callFor) ?? null;
   const shadowApp = applications.find((a) => a.id === shadowFor) ?? null;
   const declineApp = declineConfirmFor ? applications.find((a) => a.id === declineConfirmFor.id) ?? null : null;
