@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Brain, MonitorPlay, CalendarClock } from "lucide-react";
+import { Brain, MonitorPlay, CalendarClock, Check } from "lucide-react";
 import { Logo } from "@/components/sidework/Logo";
 import { Button } from "@/components/ui/button";
 import { useStore } from "@/lib/sidework-store";
