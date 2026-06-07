@@ -741,7 +741,31 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
         restaurantProfile: s.restaurantProfile ? { ...s.restaurantProfile, slug } : s.restaurantProfile,
       })),
     updateEmployee: (id, patch) =>
-      setState((s) => ({ ...s, employees: s.employees.map((e) => (e.id === id ? { ...e, ...patch } : e)) })),
+      setState((s) => {
+        const before = s.employees.find((e) => e.id === id);
+        const employees = s.employees.map((e) => (e.id === id ? { ...e, ...patch } : e));
+        const after = employees.find((e) => e.id === id);
+        let notifications = s.notifications;
+        if (before && after) {
+          const beforeIds = new Set(moduleIdsForEmployee(before));
+          const afterIds = moduleIdsForEmployee(after);
+          const added = afterIds.filter((mid) => !beforeIds.has(mid));
+          if (added.length > 0) {
+            notifications = [
+              {
+                id: uid("n"),
+                type: "training_passed",
+                message: `Training updated for ${after.name}: ${added.length} new module${added.length === 1 ? "" : "s"} assigned for ${after.primaryRole} role.`,
+                employeeId: after.id,
+                createdAt: new Date().toISOString(),
+                read: false,
+              },
+              ...notifications,
+            ];
+          }
+        }
+        return { ...s, employees, notifications };
+      }),
     recordVideoProgress: (employeeId, videoId, patch) =>
       setState((s) => ({
         ...s,
