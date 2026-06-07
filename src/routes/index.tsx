@@ -52,7 +52,7 @@ function Landing() {
               Run your <span className="italic text-white/90">whole team</span> in one place.
             </h1>
             <p className="mt-6 max-w-xl text-lg text-white/80 md:text-xl">
-              Hire, onboard, train, schedule, swap shifts, and approve time off — without the chaos of group texts and paper binders.
+              20 years of restaurant expertise, built into software your whole team uses every day. Hire, onboard, train, schedule, swap shifts, and approve time off — without the chaos of group texts and paper binders.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Button size="lg" onClick={() => enterAs("manager", "owner")} className="bg-white text-primary shadow-bold hover:bg-white/90">
