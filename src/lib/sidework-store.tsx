@@ -839,7 +839,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           ...s,
           employees: [...s.employees, employee],
           applications: s.applications.map((x) =>
-            x.id === id ? { ...x, status: "hired", archived: true, hiredEmployeeId: empId } : x,
+            x.id === id ? { ...x, status: "hired", stage: "hired", archived: true, hiredEmployeeId: empId } : x,
           ),
           notifications: [
             {
@@ -856,6 +856,59 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
       });
       return createdId;
     },
+    approveForVideo: (id, slots) =>
+      setState((s) => ({
+        ...s,
+        applications: s.applications.map((a) =>
+          a.id === id
+            ? { ...a, status: "interview", stage: "video_offered", offeredSlots: slots, interviewSentAt: new Date().toISOString(), archived: false }
+            : a,
+        ),
+        notifications: [
+          {
+            id: uid("n"),
+            type: "training_passed",
+            message: `Video interview invite sent — ${slots.length} time slot${slots.length === 1 ? "" : "s"} offered.`,
+            createdAt: new Date().toISOString(),
+            read: false,
+          },
+          ...s.notifications,
+        ],
+      })),
+    applicantSelectSlot: (id, slot) =>
+      setState((s) => {
+        const app = s.applications.find((a) => a.id === id);
+        return {
+          ...s,
+          applications: s.applications.map((a) =>
+            a.id === id ? { ...a, stage: "video_scheduled", selectedSlot: slot } : a,
+          ),
+          notifications: [
+            {
+              id: uid("n"),
+              type: "training_passed",
+              message: `${app?.firstName ?? app?.name ?? "Applicant"} confirmed video interview for ${new Date(slot).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}.`,
+              createdAt: new Date().toISOString(),
+              read: false,
+            },
+            ...s.notifications,
+          ],
+        };
+      }),
+    completeInterview: (id, notes) =>
+      setState((s) => ({
+        ...s,
+        applications: s.applications.map((a) =>
+          a.id === id ? { ...a, stage: "interviewed", interviewNotes: notes ?? a.interviewNotes } : a,
+        ),
+      })),
+    inviteShadowShift: (id, details) =>
+      setState((s) => ({
+        ...s,
+        applications: s.applications.map((a) =>
+          a.id === id ? { ...a, stage: "shadow_scheduled", shadowShift: details } : a,
+        ),
+      })),
     requestTimeOff: (data) =>
       setState((s) => ({
         ...s,
