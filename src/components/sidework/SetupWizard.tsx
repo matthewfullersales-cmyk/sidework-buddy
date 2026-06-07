@@ -127,7 +127,7 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
   const advance = (userSummary: string, nextBotPrompt: string) => {
     pushUser(userSummary);
     setTimeout(() => {
-      pushBot(nextBotPrompt);
+      if (nextBotPrompt) pushBot(nextBotPrompt);
       setStep((s) => s + 1);
     }, 250);
   };
