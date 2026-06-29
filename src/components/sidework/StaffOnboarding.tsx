@@ -76,7 +76,7 @@ export function StaffOnboardingCard() {
     <Card>
       <CardHeader>
         <CardTitle className="text-base">Staff Onboarding</CardTitle>
-        <p className="mt-1 text-xs text-muted-foreground">Share this link with your staff to let them join {restaurantName} on Sidework.</p>
+        <p className="mt-1 text-xs text-muted-foreground">Share this link with your staff to let them join {restaurantName} on 86Paper.</p>
       </CardHeader>
       <CardContent className="space-y-5">
         <div className="grid gap-2">
