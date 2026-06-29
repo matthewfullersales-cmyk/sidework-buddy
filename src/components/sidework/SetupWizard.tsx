@@ -108,7 +108,7 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
     {
       from: "bot",
       text:
-        "Welcome to Sidework! I'm your restaurant intelligence assistant. I'm going to ask you a few questions so I can customize everything specifically for your restaurant. This takes about 5 minutes. Ready?",
+        "Welcome to 86Paper! I'm your restaurant intelligence assistant. I'm going to ask you a few questions so I can customize everything specifically for your restaurant. This takes about 5 minutes. Ready?",
     },
   ]);
   const [finishing, setFinishing] = useState(false);

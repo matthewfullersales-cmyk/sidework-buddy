@@ -8,7 +8,7 @@ import { CheckCircle2, Video, Phone, MapPin } from "lucide-react";
 
 export const Route = createFileRoute("/interview/$id")({
   ssr: false,
-  head: () => ({ meta: [{ title: "Confirm Interview — Sidework" }] }),
+  head: () => ({ meta: [{ title: "Confirm Interview — 86Paper" }] }),
   component: InterviewConfirmPage,
 });
 

@@ -738,7 +738,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
             {
               id: uid("n"),
               type: "training_passed",
-              message: `${fullName} just joined Sidework!`,
+              message: `${fullName} just joined 86Paper!`,
               employeeId: empId,
               createdAt: new Date().toISOString(),
               read: false,
@@ -968,7 +968,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           appliedAt: a.appliedAt,
           workExperience: a.workExperience,
         };
-        const restaurantName = s.restaurantProfile?.name ?? "Sidework";
+        const restaurantName = s.restaurantProfile?.name ?? "86Paper";
         return {
           ...s,
           employees: [...s.employees, employee],
@@ -987,7 +987,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
             {
               id: uid("n"),
               type: "training_passed",
-              message: `Welcome to ${restaurantName}! ${employee.name} has been added to Sidework. Welcome link sent so they can complete their profile and start training.`,
+              message: `Welcome to ${restaurantName}! ${employee.name} has been added to 86Paper. Welcome link sent so they can complete their profile and start training.`,
               employeeId: empId,
               createdAt: new Date().toISOString(),
               read: false,
