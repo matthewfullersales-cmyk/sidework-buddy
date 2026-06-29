@@ -12,7 +12,7 @@ import { Copy, Download, QrCode, Printer } from "lucide-react";
 function useJoinUrl() {
   const { restaurantProfile } = useStore();
   const slug = restaurantProfile?.slug ?? (restaurantProfile?.name ? slugify(restaurantProfile.name) : "team");
-  const origin = typeof window !== "undefined" ? window.location.origin : "https://sidework.app";
+  const origin = typeof window !== "undefined" ? window.location.origin : "https://86paper.app";
   return { slug, url: `${origin}/join/${slug}`, restaurantName: restaurantProfile?.name ?? "your restaurant" };
 }
 
@@ -58,7 +58,7 @@ export function StaffOnboardingCard() {
     if (!qr) return;
     const a = document.createElement("a");
     a.href = qr;
-    a.download = `sidework-join-${slug}.png`;
+    a.download = `86paper-join-${slug}.png`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -175,7 +175,7 @@ function PrintablePosterDialog({ restaurantName, url, qr, onClose }: { restauran
     const w = window.open("", "_blank", "width=800,height=1000");
     if (!w) return toast.error("Pop-up blocked");
     w.document.write(`
-      <html><head><title>Sidework Join Poster — ${restaurantName}</title>
+      <html><head><title>86Paper Join Poster — ${restaurantName}</title>
       <style>
         body { margin: 0; font-family: -apple-system, system-ui, sans-serif; color: #14532d; }
         .poster { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:48px 32px; text-align:center; min-height: 100vh; }
@@ -186,9 +186,9 @@ function PrintablePosterDialog({ restaurantName, url, qr, onClose }: { restauran
         .url { margin-top: 16px; font-family: ui-monospace, monospace; font-size: 14px; color: #475569; }
       </style></head><body onload="setTimeout(()=>window.print(),200)">
         <div class="poster">
-          <div class="brand">▤ Sidework</div>
+          <div class="brand">▤ 86Paper</div>
           <div class="restaurant">${restaurantName}</div>
-          <div class="headline">Scan to join our team on Sidework</div>
+          <div class="headline">Scan to join our team on 86Paper</div>
           <img src="${qr}" alt="QR" />
           <div class="url">${url}</div>
         </div>
@@ -204,9 +204,9 @@ function PrintablePosterDialog({ restaurantName, url, qr, onClose }: { restauran
           <DialogTitle>Print-ready poster</DialogTitle>
         </DialogHeader>
         <div ref={ref} className="rounded-xl border-2 border-border bg-white p-6 text-center text-foreground">
-          <p className="text-lg font-bold tracking-tight">▤ Sidework</p>
+          <p className="text-lg font-bold tracking-tight">▤ 86Paper</p>
           <p className="text-sm text-muted-foreground">{restaurantName}</p>
-          <p className="mt-4 text-2xl font-extrabold leading-tight">Scan to join our team on Sidework</p>
+          <p className="mt-4 text-2xl font-extrabold leading-tight">Scan to join our team on 86Paper</p>
           <div className="mt-4 grid place-items-center">
             {qr && <img src={qr} alt="QR" className="h-56 w-56" />}
           </div>

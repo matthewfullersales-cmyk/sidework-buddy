@@ -28,7 +28,7 @@ export const Route = createFileRoute("/careers")({
   }),
   head: () => ({
     meta: [
-      { title: "Careers — Sidework" },
+      { title: "Careers — 86Paper" },
       { name: "description", content: "Apply to join our restaurant team." },
     ],
   }),
@@ -303,7 +303,7 @@ function CareersPage() {
       </section>
 
       <footer className="mx-auto max-w-3xl px-4 py-8 text-xs text-muted-foreground">
-        © {new Date().getFullYear()} Sidework
+        © {new Date().getFullYear()} 86Paper
       </footer>
     </div>
   );

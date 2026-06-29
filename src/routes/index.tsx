@@ -7,9 +7,9 @@ import { useStore } from "@/lib/sidework-store";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Sidework — Restaurant Staff Management" },
+      { title: "86Paper — Restaurant Staff Management" },
       { name: "description", content: "Onboard, train, schedule and hire restaurant staff. Trade shifts, request time off, post jobs — built for restaurant owners." },
-      { property: "og:title", content: "Sidework — Restaurant Staff Management" },
+      { property: "og:title", content: "86Paper — Restaurant Staff Management" },
       { property: "og:description", content: "Onboard, train, schedule and hire restaurant staff in one place." },
     ],
   }),
@@ -108,7 +108,7 @@ function Landing() {
       <section className="bg-background">
         <div className="mx-auto max-w-6xl px-4 py-20">
           <div className="mb-12 max-w-2xl">
-            <p className="text-xs font-bold uppercase tracking-widest text-primary">Why Sidework</p>
+            <p className="text-xs font-bold uppercase tracking-widest text-primary">Why 86Paper</p>
             <h2 className="mt-3 text-4xl font-bold tracking-tight md:text-5xl">Built by a restaurant veteran, powered for your team.</h2>
           </div>
           <div className="grid gap-6 md:grid-cols-3">
@@ -270,7 +270,7 @@ function Landing() {
       </section>
 
       <footer className="mx-auto max-w-6xl px-4 py-8 text-xs text-muted-foreground">
-        © {new Date().getFullYear()} Sidework
+        © {new Date().getFullYear()} 86Paper
       </footer>
     </div>
   );

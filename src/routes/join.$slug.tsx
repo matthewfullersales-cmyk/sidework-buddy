@@ -27,7 +27,7 @@ const joinSchema = z.object({
 
 export const Route = createFileRoute("/join/$slug")({
   ssr: false,
-  head: () => ({ meta: [{ title: "Join the team — Sidework" }] }),
+  head: () => ({ meta: [{ title: "Join the team — 86Paper" }] }),
   component: JoinPage,
 });
 
@@ -84,7 +84,7 @@ function JoinPage() {
       <Shell>
         <div className="mx-auto max-w-md px-4 py-16 text-center">
           <h1 className="text-2xl font-bold">Join link not found</h1>
-          <p className="mt-2 text-muted-foreground">This staff link doesn't match a restaurant on Sidework.</p>
+          <p className="mt-2 text-muted-foreground">This staff link doesn't match a restaurant on 86Paper.</p>
           <Button asChild className="mt-6"><Link to="/">Go home</Link></Button>
         </div>
       </Shell>
@@ -97,7 +97,7 @@ function JoinPage() {
     <Shell>
       <section className="bg-gradient-hero text-primary-foreground">
         <div className="mx-auto max-w-2xl px-4 py-10">
-          <h1 className="text-3xl font-bold leading-tight">{restaurantName} is hiring you on Sidework!</h1>
+          <h1 className="text-3xl font-bold leading-tight">{restaurantName} is hiring you on 86Paper!</h1>
           <p className="mt-2 text-white/90">Fill out your profile to get started. Takes under 2 minutes.</p>
         </div>
       </section>
@@ -220,14 +220,14 @@ function SuccessScreen({ firstName, restaurantName }: { firstName: string; resta
           <CheckCircle2 className="h-12 w-12 text-success" />
         </div>
         <h1 className="mt-6 text-3xl font-bold">Welcome to {restaurantName}, {firstName}!</h1>
-        <p className="mt-3 text-base text-muted-foreground">You're all set on Sidework.</p>
+        <p className="mt-3 text-base text-muted-foreground">You're all set on 86Paper.</p>
         <p className="mt-1 text-sm text-muted-foreground">Your manager has been notified.</p>
 
         <Card className="mt-8 border-2 text-left">
           <CardContent className="space-y-3 p-5">
             <div className="flex items-center gap-2">
               <Plus className="h-5 w-5 text-primary" />
-              <p className="font-semibold">Add Sidework to your home screen</p>
+              <p className="font-semibold">Add 86Paper to your home screen</p>
             </div>
             <p className="text-sm text-muted-foreground">
               For easy access to your schedule, training, and more — no app store needed.
@@ -262,7 +262,7 @@ function SuccessScreen({ firstName, restaurantName }: { firstName: string; resta
         </Card>
 
         <div className="mt-8 rounded-xl border border-primary/30 bg-primary/5 p-4 text-left">
-          <p className="font-semibold text-primary">Welcome to Sidework!</p>
+          <p className="font-semibold text-primary">Welcome to 86Paper!</p>
           <p className="mt-1 text-sm text-foreground/90">
             Your training starts here. Complete your videos and quizzes before your first shift.
           </p>

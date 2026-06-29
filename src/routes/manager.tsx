@@ -57,7 +57,7 @@ const nav = [
 
 export const Route = createFileRoute("/manager")({
   ssr: false,
-  head: () => ({ meta: [{ title: "Manager Dashboard — Sidework" }] }),
+  head: () => ({ meta: [{ title: "Manager Dashboard — 86Paper" }] }),
   component: ManagerPage,
 });
 
@@ -106,7 +106,7 @@ function ManagerPage() {
           <CardContent className="flex flex-wrap items-center justify-between gap-4 p-5">
             <div>
               <p className="font-semibold text-primary">Your restaurant setup is incomplete</p>
-              <p className="text-sm text-muted-foreground">Finish a few questions so Sidework can build your custom training program.</p>
+              <p className="text-sm text-muted-foreground">Finish a few questions so 86Paper can build your custom training program.</p>
             </div>
             <Button size="sm" onClick={() => setShowSetupWizard(true)}>Complete your setup</Button>
           </CardContent>
@@ -1081,11 +1081,11 @@ const INTERVIEW_TYPE_META: Record<InterviewType, { emoji: string; label: string;
   video: {
     emoji: "📹",
     label: "Video Call",
-    tagline: "5 minute video call inside Sidework",
+    tagline: "5 minute video call inside 86Paper",
     bullets: [
       "You pick available time slots",
       "Applicant picks a time that works",
-      "Video happens inside Sidework via Daily.co",
+      "Video happens inside 86Paper via Daily.co",
       "5-minute timer visible during call",
     ],
   },
