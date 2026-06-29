@@ -36,7 +36,7 @@ function Landing() {
         <Logo />
         <nav className="flex items-center gap-4 text-sm font-semibold sm:gap-5">
           <a href="#features" className="text-muted-foreground hover:text-foreground">Features</a>
-          <Link to="/careers" className="text-muted-foreground hover:text-foreground">Careers</Link>
+          
         </nav>
       </header>
 

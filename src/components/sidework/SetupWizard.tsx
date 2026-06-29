@@ -29,7 +29,7 @@ const BOH_ROLES = [
 
 const PAIN_POINTS = [
   "Staff training", "Menu knowledge", "Scheduling", "Paperwork",
-  "Sidework", "Turnover", "Sick calls", "Shift trading",
+  "Side work", "Turnover", "Sick calls", "Shift trading",
 ] as const;
 
 const RESTAURANT_TYPES: RestaurantType[] = [
