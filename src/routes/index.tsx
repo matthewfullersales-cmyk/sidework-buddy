@@ -16,18 +16,6 @@ export const Route = createFileRoute("/")({
 });
 
 function Landing() {
-  const navigate = useNavigate();
-  const { setCurrentUser } = useStore();
-
-  const enterAs = (type: "manager" | "employee", id: string) => {
-    if (type === "manager") {
-      setCurrentUser({ type: "manager", id: "owner" });
-      navigate({ to: "/manager" });
-    } else {
-      setCurrentUser({ type: "employee", id });
-      navigate({ to: "/employee" });
-    }
-  };
 
   return (
     <div className="min-h-screen bg-background">
