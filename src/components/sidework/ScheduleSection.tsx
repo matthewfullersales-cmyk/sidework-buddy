@@ -267,17 +267,39 @@ export function ScheduleSection() {
           <Button size="sm" variant="outline" onClick={() => setWeekStart(addDays(weekStart, 7))} aria-label="Next week">→</Button>
           <Button size="sm" variant="ghost" onClick={() => setWeekStart(startOfWeek(new Date()))}>This week</Button>
         </div>
-        <Button onClick={generateAI} disabled={generating} className="gap-2">
-          {generating ? (
-            <>
-              <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
-              AI is building your schedule…
-            </>
-          ) : (
-            <>✨ Generate AI Schedule</>
-          )}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={handleCopyToNextWeek} disabled={generating} className="gap-2">
+            <Copy className="h-4 w-4" />
+            Copy to Next Week
+          </Button>
+          <Button onClick={generateAI} disabled={generating} className="gap-2">
+            {generating ? (
+              <>
+                <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                AI is building your schedule…
+              </>
+            ) : (
+              <>✨ Generate AI Schedule</>
+            )}
+          </Button>
+        </div>
       </div>
+
+      <Dialog open={!!confirmCopy} onOpenChange={(o) => { if (!o) setConfirmCopy(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Overwrite next week's schedule?</DialogTitle>
+            <DialogDescription>
+              Next week already has {confirmCopy?.count} shift{confirmCopy?.count === 1 ? "" : "s"} scheduled. Copying will delete those and replace them with a copy of this week.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setConfirmCopy(null)}>Cancel</Button>
+            <Button onClick={() => { setConfirmCopy(null); performCopyToNextWeek(); }}>Overwrite &amp; copy</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
 
       <Legend />
 
