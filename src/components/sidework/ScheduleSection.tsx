@@ -213,6 +213,48 @@ export function ScheduleSection() {
     }, 1400);
   }
 
+  function performCopyToNextWeek() {
+    const nextDayISOs = days.map((d) => fmtISO(addDays(d, 7)));
+    // delete existing in destination
+    shifts.filter((s) => nextDayISOs.includes(s.date)).forEach((s) => deleteShift(s.id));
+
+    let copied = 0;
+    let skipped = 0;
+    const sourceShifts = shifts.filter((s) => dayISOs.includes(s.date));
+    sourceShifts.forEach((s) => {
+      const srcIdx = dayISOs.indexOf(s.date);
+      const newDate = nextDayISOs[srcIdx];
+      if (timeOffStatusFor(s.employeeId, newDate) === "approved") {
+        skipped += 1;
+        return;
+      }
+      upsertShift({
+        id: `s_${s.employeeId}_${newDate}_${Math.random().toString(36).slice(2, 8)}`,
+        employeeId: s.employeeId,
+        role: s.role,
+        date: newDate,
+        start: s.start,
+        end: s.end,
+        notes: s.notes,
+        position: s.position,
+      });
+      copied += 1;
+    });
+
+    const skipMsg = skipped > 0 ? ` (${skipped} skipped — approved time off)` : "";
+    toast.success(`Copied ${copied} shift${copied === 1 ? "" : "s"} to next week${skipMsg}`);
+  }
+
+  function handleCopyToNextWeek() {
+    const nextDayISOs = days.map((d) => fmtISO(addDays(d, 7)));
+    const existingCount = shifts.filter((s) => nextDayISOs.includes(s.date)).length;
+    if (existingCount > 0) {
+      setConfirmCopy({ count: existingCount });
+      return;
+    }
+    performCopyToNextWeek();
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
