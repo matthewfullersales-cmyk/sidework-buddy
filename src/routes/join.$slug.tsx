@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useStore, type Role, type Relationship, type WeeklyAvailability, type DayKey, DAY_KEYS, defaultWeeklyAvailability } from "@/lib/sidework-store";
+import { supabase } from "@/integrations/supabase/client";
 import { slugify } from "@/lib/slug";
 import { toast } from "sonner";
 import { CheckCircle2, Share, Plus } from "lucide-react";
