@@ -121,6 +121,7 @@ function RootShell({ children }: { children: ReactNode }) {
 }
 
 import { SideworkProvider } from "@/lib/sidework-store";
+import { AuthProvider } from "@/lib/auth-context";
 import { Toaster } from "@/components/ui/sonner";
 import { registerServiceWorker } from "@/lib/register-sw";
 
@@ -133,11 +134,13 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <SideworkProvider>
-        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-        <Outlet />
-        <Toaster richColors position="top-center" />
-      </SideworkProvider>
+      <AuthProvider>
+        <SideworkProvider>
+          {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+          <Outlet />
+          <Toaster richColors position="top-center" />
+        </SideworkProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

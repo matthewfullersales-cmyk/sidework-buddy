@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useStore, type Role, type Relationship, type WeeklyAvailability, type DayKey, DAY_KEYS, defaultWeeklyAvailability } from "@/lib/sidework-store";
+import { supabase } from "@/integrations/supabase/client";
 import { slugify } from "@/lib/slug";
 import { toast } from "sonner";
 import { CheckCircle2, Share, Plus } from "lucide-react";
@@ -49,6 +50,8 @@ function JoinPage() {
   const [ecName, setEcName] = useState("");
   const [ecPhone, setEcPhone] = useState("");
   const [ecRel, setEcRel] = useState<Relationship>("Friend");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState<{ firstName: string } | null>(null);
 
@@ -64,9 +67,11 @@ function JoinPage() {
       const first = parsed.error.issues[0];
       return toast.error(first?.message ?? "Please complete the form");
     }
+    if (password.length < 8) return toast.error("Password must be at least 8 characters");
+    if (password !== confirmPassword) return toast.error("Passwords don't match");
+
     setSubmitting(true);
-    await new Promise((r) => setTimeout(r, 500));
-    joinStaff({
+    const empId = joinStaff({
       firstName: parsed.data.firstName,
       lastName: parsed.data.lastName,
       email: parsed.data.email,
@@ -75,6 +80,31 @@ function JoinPage() {
       weeklyAvailability: availability,
       emergencyContact: { name: parsed.data.ecName, phone: parsed.data.ecPhone, relationship: ecRel },
     });
+
+    const redirectTo = typeof window !== "undefined" ? window.location.origin : undefined;
+    const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
+      email: parsed.data.email,
+      password,
+      options: { emailRedirectTo: redirectTo, data: { full_name: `${parsed.data.firstName} ${parsed.data.lastName}`, role: "employee" } },
+    });
+    if (signUpErr) {
+      setSubmitting(false);
+      return toast.error(signUpErr.message);
+    }
+    const uid = signUpData.user?.id;
+    if (uid) {
+      const { error: pErr } = await supabase.from("profiles").insert({
+        id: uid,
+        role: "employee",
+        full_name: `${parsed.data.firstName} ${parsed.data.lastName}`,
+        employee_id: empId,
+      });
+      if (pErr) {
+        setSubmitting(false);
+        return toast.error(pErr.message);
+      }
+    }
+
     setSubmitting(false);
     setDone({ firstName: parsed.data.firstName });
   };
@@ -173,6 +203,14 @@ function JoinPage() {
                 </Select>
               </Field>
             </div>
+
+            <div className="grid gap-3 rounded-lg border border-border bg-muted/30 p-3">
+              <Label className="text-sm font-medium">Create a password</Label>
+              <p className="-mt-1 text-xs text-muted-foreground">You'll use this with your email to sign in to 86Paper.</p>
+              <Field label="Password"><Input type="password" autoComplete="new-password" minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} /></Field>
+              <Field label="Confirm password"><Input type="password" autoComplete="new-password" minLength={8} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} /></Field>
+            </div>
+
 
             <Button size="lg" className="h-14 text-base shadow-elegant" onClick={submit} disabled={submitting}>
               {submitting ? "Joining…" : `Join ${restaurantName}`}

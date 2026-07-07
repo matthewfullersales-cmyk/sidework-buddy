@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useRequireRole } from "@/lib/use-require-role";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AppShell, PageHeader } from "@/components/sidework/AppShell";
 import { SetupWizard } from "@/components/sidework/SetupWizard";
@@ -65,6 +66,7 @@ function ManagerPage() {
   const { setupCompleted, restaurantProfile, resetSetup } = useStore();
   const [tab, setTab] = useState("dashboard");
   const [showSetupWizard, setShowSetupWizard] = useState(false);
+  useRequireRole("owner", "/login");
 
   if (showSetupWizard) {
     return (

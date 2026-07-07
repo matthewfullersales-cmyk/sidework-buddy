@@ -2,13 +2,21 @@ import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { Logo } from "./Logo";
 import { useStore } from "@/lib/sidework-store";
+import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { LogOut } from "lucide-react";
 
 export function AppShell({ children, nav }: { children: ReactNode; nav: { to: string; label: string; icon: ReactNode }[] }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { currentUser, setCurrentUser, employees } = useStore();
+  const { session, signOut } = useAuth();
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate({ to: "/" });
+  };
 
   const onSwitch = (val: string) => {
     if (val === "manager") {
@@ -39,6 +47,12 @@ export function AppShell({ children, nav }: { children: ReactNode; nav: { to: st
                 ))}
               </SelectContent>
             </Select>
+            {session && (
+              <Button variant="ghost" size="sm" onClick={handleSignOut} title="Sign out" className="h-11 md:h-9">
+                <LogOut className="h-4 w-4" />
+                <span className="ml-1.5 hidden sm:inline">Sign out</span>
+              </Button>
+            )}
           </div>
         </div>
         <nav className="mx-auto hidden max-w-6xl gap-1 px-4 pb-2 md:flex">

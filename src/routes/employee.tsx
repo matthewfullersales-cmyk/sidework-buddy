@@ -1,5 +1,7 @@
 import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { useAuth } from "@/lib/auth-context";
+import { useRequireRole } from "@/lib/use-require-role";
 import { AppShell, PageHeader } from "@/components/sidework/AppShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,7 +29,14 @@ export const Route = createFileRoute("/employee")({
 });
 
 function EmployeePage() {
-  const { currentUser, employees, videos } = useStore();
+  useRequireRole("employee", "/employee-login");
+  const { profile } = useAuth();
+  const { currentUser, setCurrentUser, employees, videos } = useStore();
+  useEffect(() => {
+    if (profile?.employee_id && (currentUser.type !== "employee" || currentUser.id !== profile.employee_id)) {
+      setCurrentUser({ type: "employee", id: profile.employee_id });
+    }
+  }, [profile?.employee_id, currentUser, setCurrentUser]);
   if (currentUser.type === "manager") return <Navigate to="/manager" />;
   const me = employees.find((e) => e.id === currentUser.id);
   if (!me) return <Navigate to="/" />;
