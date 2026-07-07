@@ -372,6 +372,14 @@ export function ScheduleSection() {
                             {emp.position}
                             {emp.seniority && emp.seniority >= 4 && <span className="ml-1 text-primary">★</span>}
                           </p>
+                          {(() => {
+                            const summary = summarizeAvailability(emp.weeklyAvailability);
+                            return summary ? (
+                              <p className="text-[10px] text-muted-foreground truncate" title={summary}>
+                                {summary}
+                              </p>
+                            ) : null;
+                          })()}
                         </div>
                       </td>
                       {dayISOs.map((date) => {
