@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { useStore, type Role, type Shift, type Position, type Section, DAY_KEYS, isAvailableFor } from "@/lib/sidework-store";
+import { useStore, type Role, type Shift, type Position, type Section, type WeeklyAvailability, DAY_KEYS, isAvailableFor } from "@/lib/sidework-store";
 import { toast } from "sonner";
 
 import { ROLES_ORDERED as ROLES, roleStyle, STATUS_COLORS, contrastText } from "@/lib/role-colors";
@@ -38,6 +38,34 @@ function fmtRange(start: Date) {
   const s = start.toLocaleDateString(undefined, { month: "short", day: "numeric" });
   const e = end.toLocaleDateString(undefined, { month: sameMo ? undefined : "short", day: "numeric", year: "numeric" });
   return `${s} – ${e}`;
+}
+
+function summarizeAvailability(weekly?: WeeklyAvailability): string {
+  if (!weekly) return "";
+  if (DAY_KEYS.every((d) => weekly[d]?.kind === "full")) return "Available all week";
+
+  const groups: { label: string; startIdx: number; endIdx: number }[] = [];
+  for (let i = 0; i < DAY_KEYS.length; i++) {
+    const d = DAY_KEYS[i];
+    const av = weekly[d];
+    if (!av || av.kind === "full") continue;
+    const label = av.kind === "none"
+      ? "Off"
+      : `${av.meals.join(" & ")} only`;
+    const last = groups[groups.length - 1];
+    if (last && last.label === label && last.endIdx === i - 1) {
+      last.endIdx = i;
+    } else {
+      groups.push({ label, startIdx: i, endIdx: i });
+    }
+  }
+
+  return groups.map((g) => {
+    const start = DAY_LABELS[g.startIdx];
+    const end = DAY_LABELS[g.endIdx];
+    const days = start === end ? start : `${start}–${end}`;
+    return `${g.label} ${days}`;
+  }).join(", ");
 }
 
 
@@ -344,6 +372,14 @@ export function ScheduleSection() {
                             {emp.position}
                             {emp.seniority && emp.seniority >= 4 && <span className="ml-1 text-primary">★</span>}
                           </p>
+                          {(() => {
+                            const summary = summarizeAvailability(emp.weeklyAvailability);
+                            return summary ? (
+                              <p className="text-[10px] text-muted-foreground truncate" title={summary}>
+                                {summary}
+                              </p>
+                            ) : null;
+                          })()}
                         </div>
                       </td>
                       {dayISOs.map((date) => {
