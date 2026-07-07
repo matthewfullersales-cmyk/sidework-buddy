@@ -204,6 +204,14 @@ function JoinPage() {
               </Field>
             </div>
 
+            <div className="grid gap-3 rounded-lg border border-border bg-muted/30 p-3">
+              <Label className="text-sm font-medium">Create a password</Label>
+              <p className="-mt-1 text-xs text-muted-foreground">You'll use this with your email to sign in to 86Paper.</p>
+              <Field label="Password"><Input type="password" autoComplete="new-password" minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} /></Field>
+              <Field label="Confirm password"><Input type="password" autoComplete="new-password" minLength={8} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} /></Field>
+            </div>
+
+
             <Button size="lg" className="h-14 text-base shadow-elegant" onClick={submit} disabled={submitting}>
               {submitting ? "Joining…" : `Join ${restaurantName}`}
             </Button>
