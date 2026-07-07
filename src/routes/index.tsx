@@ -43,14 +43,14 @@ function Landing() {
               20 years of restaurant expertise, built into software your whole team uses every day. Hire, onboard, train, schedule, swap shifts, and approve time off — without the chaos of group texts and paper binders.
             </p>
             <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-              <Button size="lg" onClick={() => enterAs("manager", "owner")} className="w-full bg-white text-primary shadow-bold hover:bg-white/90 sm:w-auto">
-                I'm a Manager / Owner
+              <Button asChild size="lg" className="w-full bg-white text-primary shadow-bold hover:bg-white/90 sm:w-auto">
+                <Link to="/login">I'm a Manager / Owner</Link>
               </Button>
-              <Button size="lg" variant="outline" onClick={() => enterAs("employee", "e1")} className="w-full border-white/30 bg-transparent text-white hover:bg-white/10 hover:text-white sm:w-auto">
-                I'm an Employee
+              <Button asChild size="lg" variant="outline" className="w-full border-white/30 bg-transparent text-white hover:bg-white/10 hover:text-white sm:w-auto">
+                <Link to="/employee-login">I'm an Employee</Link>
               </Button>
             </div>
-            <p className="mt-4 text-xs text-white/60">Demo mode — explore with sample data. Switch roles anytime in the header.</p>
+            <p className="mt-4 text-xs text-white/60">Sign in or create an account to get started.</p>
           </div>
 
 
