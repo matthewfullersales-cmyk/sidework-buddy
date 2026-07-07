@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Copy } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -6,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { useStore, type Role, type Shift, type Position, type Section, DAY_KEYS, isAvailableFor } from "@/lib/sidework-store";
 import { toast } from "sonner";
 
@@ -75,6 +76,7 @@ export function ScheduleSection() {
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date()));
   const [editing, setEditing] = useState<{ employeeId: string; date: string; existing?: Shift } | null>(null);
   const [generating, setGenerating] = useState(false);
+  const [confirmCopy, setConfirmCopy] = useState<{ count: number } | null>(null);
 
   const days = useMemo(
     () => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)),
@@ -211,6 +213,48 @@ export function ScheduleSection() {
     }, 1400);
   }
 
+  function performCopyToNextWeek() {
+    const nextDayISOs = days.map((d) => fmtISO(addDays(d, 7)));
+    // delete existing in destination
+    shifts.filter((s) => nextDayISOs.includes(s.date)).forEach((s) => deleteShift(s.id));
+
+    let copied = 0;
+    let skipped = 0;
+    const sourceShifts = shifts.filter((s) => dayISOs.includes(s.date));
+    sourceShifts.forEach((s) => {
+      const srcIdx = dayISOs.indexOf(s.date);
+      const newDate = nextDayISOs[srcIdx];
+      if (timeOffStatusFor(s.employeeId, newDate) === "approved") {
+        skipped += 1;
+        return;
+      }
+      upsertShift({
+        id: `s_${s.employeeId}_${newDate}_${Math.random().toString(36).slice(2, 8)}`,
+        employeeId: s.employeeId,
+        role: s.role,
+        date: newDate,
+        start: s.start,
+        end: s.end,
+        notes: s.notes,
+        position: s.position,
+      });
+      copied += 1;
+    });
+
+    const skipMsg = skipped > 0 ? ` (${skipped} skipped — approved time off)` : "";
+    toast.success(`Copied ${copied} shift${copied === 1 ? "" : "s"} to next week${skipMsg}`);
+  }
+
+  function handleCopyToNextWeek() {
+    const nextDayISOs = days.map((d) => fmtISO(addDays(d, 7)));
+    const existingCount = shifts.filter((s) => nextDayISOs.includes(s.date)).length;
+    if (existingCount > 0) {
+      setConfirmCopy({ count: existingCount });
+      return;
+    }
+    performCopyToNextWeek();
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -223,17 +267,39 @@ export function ScheduleSection() {
           <Button size="sm" variant="outline" onClick={() => setWeekStart(addDays(weekStart, 7))} aria-label="Next week">→</Button>
           <Button size="sm" variant="ghost" onClick={() => setWeekStart(startOfWeek(new Date()))}>This week</Button>
         </div>
-        <Button onClick={generateAI} disabled={generating} className="gap-2">
-          {generating ? (
-            <>
-              <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
-              AI is building your schedule…
-            </>
-          ) : (
-            <>✨ Generate AI Schedule</>
-          )}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={handleCopyToNextWeek} disabled={generating} className="gap-2">
+            <Copy className="h-4 w-4" />
+            Copy to Next Week
+          </Button>
+          <Button onClick={generateAI} disabled={generating} className="gap-2">
+            {generating ? (
+              <>
+                <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                AI is building your schedule…
+              </>
+            ) : (
+              <>✨ Generate AI Schedule</>
+            )}
+          </Button>
+        </div>
       </div>
+
+      <Dialog open={!!confirmCopy} onOpenChange={(o) => { if (!o) setConfirmCopy(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Overwrite next week's schedule?</DialogTitle>
+            <DialogDescription>
+              Next week already has {confirmCopy?.count} shift{confirmCopy?.count === 1 ? "" : "s"} scheduled. Copying will delete those and replace them with a copy of this week.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setConfirmCopy(null)}>Cancel</Button>
+            <Button onClick={() => { setConfirmCopy(null); performCopyToNextWeek(); }}>Overwrite &amp; copy</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
 
       <Legend />
 
