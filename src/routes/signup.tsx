@@ -1,0 +1,91 @@
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
+import { AuthShell } from "./login";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+
+export const Route = createFileRoute("/signup")({
+  ssr: false,
+  head: () => ({ meta: [{ title: "Create account — 86Paper" }] }),
+  component: SignupPage,
+});
+
+function SignupPage() {
+  const navigate = useNavigate();
+  const [restaurantName, setRestaurantName] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (password.length < 8) return toast.error("Password must be at least 8 characters");
+    if (password !== confirm) return toast.error("Passwords don't match");
+    if (!restaurantName.trim() || !fullName.trim()) return toast.error("All fields required");
+
+    setBusy(true);
+    const redirectTo = typeof window !== "undefined" ? window.location.origin : undefined;
+    const { data, error } = await supabase.auth.signUp({
+      email: email.trim(),
+      password,
+      options: { emailRedirectTo: redirectTo, data: { full_name: fullName, restaurant_name: restaurantName, role: "owner" } },
+    });
+    if (error) { setBusy(false); return toast.error(error.message); }
+
+    const uid = data.user?.id;
+    if (uid) {
+      const { error: pErr } = await supabase.from("profiles").insert({
+        id: uid,
+        role: "owner",
+        full_name: fullName.trim(),
+        restaurant_name: restaurantName.trim(),
+      });
+      if (pErr) { setBusy(false); return toast.error(pErr.message); }
+    }
+
+    if (data.session) {
+      toast.success("Account created");
+      navigate({ to: "/manager" });
+    } else {
+      toast.success("Check your email to confirm your account, then sign in.");
+      navigate({ to: "/login" });
+    }
+    setBusy(false);
+  };
+
+  return (
+    <AuthShell title="Create your 86Paper account">
+      <form onSubmit={submit} className="grid gap-4">
+        <div className="grid gap-1.5">
+          <Label htmlFor="restaurant">Restaurant name</Label>
+          <Input id="restaurant" required value={restaurantName} onChange={(e) => setRestaurantName(e.target.value)} maxLength={120} />
+        </div>
+        <div className="grid gap-1.5">
+          <Label htmlFor="name">Your full name</Label>
+          <Input id="name" required autoComplete="name" value={fullName} onChange={(e) => setFullName(e.target.value)} maxLength={120} />
+        </div>
+        <div className="grid gap-1.5">
+          <Label htmlFor="email">Email</Label>
+          <Input id="email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+        </div>
+        <div className="grid gap-1.5">
+          <Label htmlFor="password">Password</Label>
+          <Input id="password" type="password" autoComplete="new-password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} />
+        </div>
+        <div className="grid gap-1.5">
+          <Label htmlFor="confirm">Confirm password</Label>
+          <Input id="confirm" type="password" autoComplete="new-password" required minLength={8} value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+        </div>
+        <Button type="submit" size="lg" className="h-12" disabled={busy}>{busy ? "Creating…" : "Create account"}</Button>
+      </form>
+      <p className="mt-6 text-center text-sm text-muted-foreground">
+        Already have an account? <Link to="/login" className="font-semibold text-primary hover:underline">Sign in</Link>
+      </p>
+    </AuthShell>
+  );
+}
