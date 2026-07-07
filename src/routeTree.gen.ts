@@ -9,16 +9,34 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SignupRouteImport } from './routes/signup'
 import { Route as ManagerRouteImport } from './routes/manager'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as EmployeeLoginRouteImport } from './routes/employee-login'
 import { Route as EmployeeRouteImport } from './routes/employee'
 import { Route as CareersRouteImport } from './routes/careers'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as JoinSlugRouteImport } from './routes/join.$slug'
 import { Route as InterviewIdRouteImport } from './routes/interview.$id'
 
+const SignupRoute = SignupRouteImport.update({
+  id: '/signup',
+  path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ManagerRoute = ManagerRouteImport.update({
   id: '/manager',
   path: '/manager',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EmployeeLoginRoute = EmployeeLoginRouteImport.update({
+  id: '/employee-login',
+  path: '/employee-login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EmployeeRoute = EmployeeRouteImport.update({
@@ -51,7 +69,10 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/careers': typeof CareersRoute
   '/employee': typeof EmployeeRoute
+  '/employee-login': typeof EmployeeLoginRoute
+  '/login': typeof LoginRoute
   '/manager': typeof ManagerRoute
+  '/signup': typeof SignupRoute
   '/interview/$id': typeof InterviewIdRoute
   '/join/$slug': typeof JoinSlugRoute
 }
@@ -59,7 +80,10 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/careers': typeof CareersRoute
   '/employee': typeof EmployeeRoute
+  '/employee-login': typeof EmployeeLoginRoute
+  '/login': typeof LoginRoute
   '/manager': typeof ManagerRoute
+  '/signup': typeof SignupRoute
   '/interview/$id': typeof InterviewIdRoute
   '/join/$slug': typeof JoinSlugRoute
 }
@@ -68,7 +92,10 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/careers': typeof CareersRoute
   '/employee': typeof EmployeeRoute
+  '/employee-login': typeof EmployeeLoginRoute
+  '/login': typeof LoginRoute
   '/manager': typeof ManagerRoute
+  '/signup': typeof SignupRoute
   '/interview/$id': typeof InterviewIdRoute
   '/join/$slug': typeof JoinSlugRoute
 }
@@ -78,7 +105,10 @@ export interface FileRouteTypes {
     | '/'
     | '/careers'
     | '/employee'
+    | '/employee-login'
+    | '/login'
     | '/manager'
+    | '/signup'
     | '/interview/$id'
     | '/join/$slug'
   fileRoutesByTo: FileRoutesByTo
@@ -86,7 +116,10 @@ export interface FileRouteTypes {
     | '/'
     | '/careers'
     | '/employee'
+    | '/employee-login'
+    | '/login'
     | '/manager'
+    | '/signup'
     | '/interview/$id'
     | '/join/$slug'
   id:
@@ -94,7 +127,10 @@ export interface FileRouteTypes {
     | '/'
     | '/careers'
     | '/employee'
+    | '/employee-login'
+    | '/login'
     | '/manager'
+    | '/signup'
     | '/interview/$id'
     | '/join/$slug'
   fileRoutesById: FileRoutesById
@@ -103,18 +139,42 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CareersRoute: typeof CareersRoute
   EmployeeRoute: typeof EmployeeRoute
+  EmployeeLoginRoute: typeof EmployeeLoginRoute
+  LoginRoute: typeof LoginRoute
   ManagerRoute: typeof ManagerRoute
+  SignupRoute: typeof SignupRoute
   InterviewIdRoute: typeof InterviewIdRoute
   JoinSlugRoute: typeof JoinSlugRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/signup': {
+      id: '/signup'
+      path: '/signup'
+      fullPath: '/signup'
+      preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/manager': {
       id: '/manager'
       path: '/manager'
       fullPath: '/manager'
       preLoaderRoute: typeof ManagerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/employee-login': {
+      id: '/employee-login'
+      path: '/employee-login'
+      fullPath: '/employee-login'
+      preLoaderRoute: typeof EmployeeLoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/employee': {
@@ -159,7 +219,10 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CareersRoute: CareersRoute,
   EmployeeRoute: EmployeeRoute,
+  EmployeeLoginRoute: EmployeeLoginRoute,
+  LoginRoute: LoginRoute,
   ManagerRoute: ManagerRoute,
+  SignupRoute: SignupRoute,
   InterviewIdRoute: InterviewIdRoute,
   JoinSlugRoute: JoinSlugRoute,
 }
