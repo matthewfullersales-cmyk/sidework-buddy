@@ -50,6 +50,8 @@ function JoinPage() {
   const [ecName, setEcName] = useState("");
   const [ecPhone, setEcPhone] = useState("");
   const [ecRel, setEcRel] = useState<Relationship>("Friend");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState<{ firstName: string } | null>(null);
 
@@ -65,9 +67,11 @@ function JoinPage() {
       const first = parsed.error.issues[0];
       return toast.error(first?.message ?? "Please complete the form");
     }
+    if (password.length < 8) return toast.error("Password must be at least 8 characters");
+    if (password !== confirmPassword) return toast.error("Passwords don't match");
+
     setSubmitting(true);
-    await new Promise((r) => setTimeout(r, 500));
-    joinStaff({
+    const empId = joinStaff({
       firstName: parsed.data.firstName,
       lastName: parsed.data.lastName,
       email: parsed.data.email,
@@ -76,6 +80,31 @@ function JoinPage() {
       weeklyAvailability: availability,
       emergencyContact: { name: parsed.data.ecName, phone: parsed.data.ecPhone, relationship: ecRel },
     });
+
+    const redirectTo = typeof window !== "undefined" ? window.location.origin : undefined;
+    const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
+      email: parsed.data.email,
+      password,
+      options: { emailRedirectTo: redirectTo, data: { full_name: `${parsed.data.firstName} ${parsed.data.lastName}`, role: "employee" } },
+    });
+    if (signUpErr) {
+      setSubmitting(false);
+      return toast.error(signUpErr.message);
+    }
+    const uid = signUpData.user?.id;
+    if (uid) {
+      const { error: pErr } = await supabase.from("profiles").insert({
+        id: uid,
+        role: "employee",
+        full_name: `${parsed.data.firstName} ${parsed.data.lastName}`,
+        employee_id: empId,
+      });
+      if (pErr) {
+        setSubmitting(false);
+        return toast.error(pErr.message);
+      }
+    }
+
     setSubmitting(false);
     setDone({ firstName: parsed.data.firstName });
   };
