@@ -15,6 +15,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as EmployeeLoginRouteImport } from './routes/employee-login'
 import { Route as EmployeeRouteImport } from './routes/employee'
 import { Route as CareersRouteImport } from './routes/careers'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as JoinSlugRouteImport } from './routes/join.$slug'
 import { Route as InterviewIdRouteImport } from './routes/interview.$id'
@@ -49,6 +50,11 @@ const CareersRoute = CareersRouteImport.update({
   path: '/careers',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -67,6 +73,7 @@ const InterviewIdRoute = InterviewIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/careers': typeof CareersRoute
   '/employee': typeof EmployeeRoute
   '/employee-login': typeof EmployeeLoginRoute
@@ -78,6 +85,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/careers': typeof CareersRoute
   '/employee': typeof EmployeeRoute
   '/employee-login': typeof EmployeeLoginRoute
@@ -90,6 +98,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/careers': typeof CareersRoute
   '/employee': typeof EmployeeRoute
   '/employee-login': typeof EmployeeLoginRoute
@@ -103,6 +112,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/admin'
     | '/careers'
     | '/employee'
     | '/employee-login'
@@ -114,6 +124,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/admin'
     | '/careers'
     | '/employee'
     | '/employee-login'
@@ -125,6 +136,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/admin'
     | '/careers'
     | '/employee'
     | '/employee-login'
@@ -137,6 +149,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRoute
   CareersRoute: typeof CareersRoute
   EmployeeRoute: typeof EmployeeRoute
   EmployeeLoginRoute: typeof EmployeeLoginRoute
@@ -191,6 +204,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CareersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -217,6 +237,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRoute,
   CareersRoute: CareersRoute,
   EmployeeRoute: EmployeeRoute,
   EmployeeLoginRoute: EmployeeLoginRoute,
