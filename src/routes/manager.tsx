@@ -65,6 +65,7 @@ function ManagerPage() {
   const { setupCompleted, restaurantProfile, resetSetup } = useStore();
   const [tab, setTab] = useState("dashboard");
   const [showSetupWizard, setShowSetupWizard] = useState(false);
+  useRequireRole("owner", "/login");
 
   if (showSetupWizard) {
     return (
