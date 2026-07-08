@@ -143,7 +143,7 @@ function JoinPage() {
               <Field label="Last name"><Input value={lastName} onChange={(e) => setLastName(e.target.value)} maxLength={60} autoComplete="family-name" /></Field>
             </div>
             <Field label="Email"><Input type="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} maxLength={255} autoComplete="email" /></Field>
-            <Field label="Phone"><Input type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={30} autoComplete="tel" /></Field>
+            <Field label="Phone"><Input type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(formatPhone(e.target.value))} maxLength={30} autoComplete="tel" placeholder="(555) 555-1234" /></Field>
 
             <Field label="Primary role">
               <Select value={role} onValueChange={(v: Role) => setRole(v)}>
