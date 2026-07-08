@@ -65,7 +65,7 @@ function JoinPage() {
     }));
 
   const submit = async () => {
-    const parsed = joinSchema.safeParse({ firstName, lastName, email, phone, ecName, ecPhone });
+    const parsed = joinSchema.safeParse({ firstName, lastName, email, phone, ecFirstName, ecLastName, ecPhone });
     if (!parsed.success) {
       const first = parsed.error.issues[0];
       return toast.error(first?.message ?? "Please complete the form");
@@ -81,7 +81,7 @@ function JoinPage() {
       phone: parsed.data.phone,
       role,
       weeklyAvailability: availability,
-      emergencyContact: { name: parsed.data.ecName, phone: parsed.data.ecPhone, relationship: ecRel },
+      emergencyContact: { firstName: parsed.data.ecFirstName, lastName: parsed.data.ecLastName, phone: parsed.data.ecPhone, relationship: ecRel },
     });
 
     const redirectTo = typeof window !== "undefined" ? window.location.origin : undefined;
