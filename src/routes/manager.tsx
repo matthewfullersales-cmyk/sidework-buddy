@@ -831,7 +831,7 @@ function JobsTab() {
                         <SelectSeparator />
                         <SelectGroup>
                           <SelectLabel>Back of House</SelectLabel>
-                          {BOH_ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                          {bohActive.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
                         </SelectGroup>
                       </SelectContent>
                     </Select>
