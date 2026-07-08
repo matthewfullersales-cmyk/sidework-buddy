@@ -537,7 +537,7 @@ function TeamTab() {
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Emergency contact</p>
                     {e.emergencyContact ? (
                       <div className="mt-1 text-sm">
-                        <p className="font-medium">{e.emergencyContact.name} <span className="text-xs text-muted-foreground">· {e.emergencyContact.relationship}</span></p>
+                        <p className="font-medium">{`${e.emergencyContact.firstName ?? ""} ${e.emergencyContact.lastName ?? ""}`.trim() || "—"} <span className="text-xs text-muted-foreground">· {e.emergencyContact.relationship}</span></p>
                         <a href={`tel:${e.emergencyContact.phone}`} className="text-xs text-primary underline">{e.emergencyContact.phone}</a>
                       </div>
                     ) : (
@@ -545,6 +545,13 @@ function TeamTab() {
                     )}
                   </div>
                 </div>
+
+                {e.specialTalents && (
+                  <div className="mt-3 rounded-lg border border-border bg-muted/30 p-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Special talents</p>
+                    <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">{e.specialTalents}</p>
+                  </div>
+                )}
 
                 <div className="mt-3 flex flex-wrap justify-end gap-2">
                   <Button size="sm" variant="outline" onClick={() => setEditing(e)}>Edit profile</Button>
