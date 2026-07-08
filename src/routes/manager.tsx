@@ -240,7 +240,9 @@ function NotificationsCard() {
 }
 
 function TeamTab() {
-  const { employees, videos, inviteEmployee, restaurantProfile } = useStore();
+  const { employees, videos, inviteEmployee, restaurantProfile, activeRoles } = useStore();
+  const fohActive = FOH_ROLES.filter((r) => activeRoles.includes(r));
+  const bohActive = BOH_ROLES.filter((r) => activeRoles.includes(r));
   const [open, setOpen] = useState(false);
   const [addStaffOpen, setAddStaffOpen] = useState(false);
   const [showQr, setShowQr] = useState(false);
@@ -433,12 +435,12 @@ function TeamTab() {
                   <SelectContent>
                     <SelectGroup>
                       <SelectLabel>Front of House</SelectLabel>
-                      {FOH_ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                      {fohActive.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
                     </SelectGroup>
                     <SelectSeparator />
                     <SelectGroup>
                       <SelectLabel>Back of House</SelectLabel>
-                      {BOH_ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                      {bohActive.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
                     </SelectGroup>
                   </SelectContent>
                 </Select>
@@ -546,7 +548,9 @@ function TeamTab() {
 }
 
 function EmployeeProfileDialog({ employee, onClose }: { employee: Employee; onClose: () => void }) {
-  const { updateEmployee } = useStore();
+  const { updateEmployee, activeRoles } = useStore();
+  const fohActive = FOH_ROLES.filter((r) => activeRoles.includes(r) || employee.approvedRoles.includes(r));
+  const bohActive = BOH_ROLES.filter((r) => activeRoles.includes(r) || employee.approvedRoles.includes(r));
   const [firstName, setFirstName] = useState(employee.firstName ?? employee.name.split(" ")[0] ?? "");
   const [lastName, setLastName] = useState(employee.lastName ?? employee.name.split(" ").slice(1).join(" ") ?? "");
   const [email, setEmail] = useState(employee.email);
@@ -591,7 +595,7 @@ function EmployeeProfileDialog({ employee, onClose }: { employee: Employee; onCl
               <div>
                 <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Front of House</p>
                 <div className="flex flex-wrap gap-2">
-                  {FOH_ROLES.map((r) => {
+                  {fohActive.map((r) => {
                     const checked = approvedRoles.includes(r);
                     return (
                       <label key={r} className={`flex cursor-pointer items-center gap-2 rounded-md border px-2.5 py-1.5 text-sm min-h-11 ${checked ? "border-primary bg-primary-soft" : "border-border"}`}>
@@ -607,7 +611,7 @@ function EmployeeProfileDialog({ employee, onClose }: { employee: Employee; onCl
               <div>
                 <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Back of House</p>
                 <div className="flex flex-wrap gap-2">
-                  {BOH_ROLES.map((r) => {
+                  {bohActive.map((r) => {
                     const checked = approvedRoles.includes(r);
                     return (
                       <label key={r} className={`flex cursor-pointer items-center gap-2 rounded-md border px-2.5 py-1.5 text-sm min-h-11 ${checked ? "border-primary bg-primary-soft" : "border-border"}`}>
@@ -751,7 +755,10 @@ function JobsTab() {
     completeInterview,
     inviteShadowShift,
     restaurantProfile,
+    activeRoles,
   } = useStore();
+  const fohActive = FOH_ROLES.filter((r) => activeRoles.includes(r));
+  const bohActive = BOH_ROLES.filter((r) => activeRoles.includes(r));
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ title: "", role: "Server" as Role, type: "Full-time" as "Full-time" | "Part-time", payRange: "", description: "" });
   const [hireFor, setHireFor] = useState<string | null>(null);
@@ -819,12 +826,12 @@ function JobsTab() {
                       <SelectContent>
                         <SelectGroup>
                           <SelectLabel>Front of House</SelectLabel>
-                          {FOH_ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                          {fohActive.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
                         </SelectGroup>
                         <SelectSeparator />
                         <SelectGroup>
                           <SelectLabel>Back of House</SelectLabel>
-                          {BOH_ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                          {bohActive.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
                         </SelectGroup>
                       </SelectContent>
                     </Select>
@@ -1563,6 +1570,9 @@ function HireReviewDialog({
   const [phone, setPhone] = useState(application.phone);
   const [role, setRole] = useState<Role>(application.role ?? "Server");
   const [submitting, setSubmitting] = useState(false);
+  const { activeRoles } = useStore();
+  const fohActive = FOH_ROLES.filter((r) => activeRoles.includes(r) || r === role);
+  const bohActive = BOH_ROLES.filter((r) => activeRoles.includes(r) || r === role);
 
   const confirm = async () => {
     if (!firstName.trim() || !lastName.trim()) return toast.error("Name required.");
@@ -1640,12 +1650,12 @@ function HireReviewDialog({
               <SelectContent>
                 <SelectGroup>
                   <SelectLabel>Front of House</SelectLabel>
-                  {FOH_ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                  {fohActive.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
                 </SelectGroup>
                 <SelectSeparator />
                 <SelectGroup>
                   <SelectLabel>Back of House</SelectLabel>
-                  {BOH_ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                  {bohActive.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
                 </SelectGroup>
               </SelectContent>
             </Select>

@@ -283,6 +283,8 @@ interface Store {
   restaurantHours: RestaurantHours;
   setRestaurantHours: (h: RestaurantHours) => void;
   updateRestaurantDay: (day: DayKey, patch: Partial<DayHours>) => void;
+  activeRoles: Role[];
+  setActiveRoles: (roles: Role[]) => void;
   setupCompleted: boolean;
   notifications: Notification[];
   setMenu: (m: MenuUpload | null) => void;
@@ -650,6 +652,10 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     drinkMenu: null as MenuUpload | null,
     restaurantProfile: null as RestaurantProfile | null,
     restaurantHours: defaultRestaurantHours(),
+    activeRoles: [
+      "Host","Server Assistant","Busser","Bar Back","Bartender","Server","Manager","Assistant Manager",
+      "Chef","Sous Chef","Saute","Grill","Line Cook","Fry Cook","Pizza","Garde Manger","Prep","Dishwasher",
+    ] as Role[],
     setupCompleted: false,
     notifications: [] as Notification[],
   }));
@@ -680,6 +686,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     setRestaurantHours: (h) => setState((s) => ({ ...s, restaurantHours: h })),
     updateRestaurantDay: (day, patch) =>
       setState((s) => ({ ...s, restaurantHours: { ...s.restaurantHours, [day]: { ...s.restaurantHours[day], ...patch } } })),
+    setActiveRoles: (roles) => setState((s) => ({ ...s, activeRoles: roles })),
     setCurrentUser: (u) => setState((s) => ({ ...s, currentUser: u })),
     inviteEmployee: ({ name, email, role }) =>
       setState((s) => {
