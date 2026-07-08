@@ -495,10 +495,23 @@ export function ScheduleSection() {
 }
 
 function Legend() {
+  const { activeRoles, setActiveRoles } = useStore();
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState<Role[]>(activeRoles);
+  const shown = ROLES.filter((r) => activeRoles.includes(r));
+
+  function openDialog() {
+    setDraft(activeRoles);
+    setOpen(true);
+  }
+  function toggle(r: Role, on: boolean) {
+    setDraft((prev) => on ? [...new Set([...prev, r])] : prev.filter((x) => x !== r));
+  }
+
   return (
     <div className="flex flex-wrap items-center gap-2 text-[11px]">
       <span className="text-muted-foreground">Legend:</span>
-      {ROLES.map((r) => (
+      {shown.map((r) => (
         <span key={r} className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5" style={roleStyle(r)}>
           <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: contrastText(roleStyle(r).backgroundColor as string) }} />{r}
         </span>
@@ -515,6 +528,51 @@ function Legend() {
       >
         PTO pending
       </span>
+      <Button size="sm" variant="ghost" className="h-6 gap-1 px-2 text-[11px]" onClick={openDialog}>
+        <Settings2 className="h-3 w-3" />
+        Customize roles
+      </Button>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Customize roles in use</DialogTitle>
+            <DialogDescription>
+              Turn off any roles this restaurant doesn't use. They'll be hidden from the legend and role pickers. Existing shifts already assigned to a deactivated role keep their color and data.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={() => setDraft([...ROLES])}>Select all</Button>
+            <Button size="sm" variant="outline" onClick={() => setDraft([])}>Deselect all</Button>
+          </div>
+          <div className="grid gap-6 sm:grid-cols-2">
+            {[
+              { title: "Front of House", roles: FOH_ROLES_ORDERED },
+              { title: "Back of House", roles: BOH_ROLES_ORDERED },
+            ].map((group) => (
+              <div key={group.title}>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{group.title}</p>
+                <div className="space-y-1.5">
+                  {group.roles.map((r) => {
+                    const checked = draft.includes(r);
+                    return (
+                      <label key={r} className="flex cursor-pointer items-center gap-2 rounded-md border border-border px-2 py-1.5 text-sm">
+                        <Checkbox checked={checked} onCheckedChange={(v) => toggle(r, !!v)} />
+                        <span className="h-3 w-3 rounded-sm border border-border" style={{ backgroundColor: ROLE_COLORS[r] }} />
+                        <span>{r}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button onClick={() => { setActiveRoles(ROLES.filter((r) => draft.includes(r))); setOpen(false); toast.success("Roles updated"); }}>Done</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
