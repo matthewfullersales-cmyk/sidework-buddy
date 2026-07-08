@@ -193,9 +193,10 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
       <Card>
         <CardHeader><CardTitle className="text-base">Emergency contact</CardTitle></CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2">
-          <div className="grid gap-2"><Label>Full name</Label><Input placeholder="Emergency contact full name" value={ec.name} onChange={(e) => setEc({ ...ec, name: e.target.value })} /></div>
-          <div className="grid gap-2"><Label>Phone</Label><Input type="tel" value={ec.phone} onChange={(e) => setEc({ ...ec, phone: e.target.value })} /></div>
-          <div className="grid gap-2 sm:col-span-2">
+          <div className="grid gap-2"><Label>First name</Label><Input value={ec.firstName} onChange={(e) => setEc({ ...ec, firstName: e.target.value })} /></div>
+          <div className="grid gap-2"><Label>Last name</Label><Input value={ec.lastName} onChange={(e) => setEc({ ...ec, lastName: e.target.value })} /></div>
+          <div className="grid gap-2"><Label>Phone</Label><Input type="tel" inputMode="tel" value={ec.phone} onChange={(e) => setEc({ ...ec, phone: formatPhone(e.target.value) })} placeholder="(555) 555-1234" /></div>
+          <div className="grid gap-2">
             <Label>Relationship</Label>
             <Select value={ec.relationship} onValueChange={(v: Relationship) => setEc({ ...ec, relationship: v })}>
               <SelectTrigger><SelectValue /></SelectTrigger>
@@ -206,6 +207,22 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
               </SelectContent>
             </Select>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Special talents</CardTitle>
+          <p className="mt-1 text-xs text-muted-foreground">Share anything fun about yourself — your manager will see it on your profile.</p>
+        </CardHeader>
+        <CardContent>
+          <Textarea
+            rows={3}
+            value={specialTalents}
+            onChange={(e) => setSpecialTalents(e.target.value)}
+            placeholder="Anything you're good at? Singing, art, a second language — you never know when it'll come in handy."
+            maxLength={500}
+          />
         </CardContent>
       </Card>
 
