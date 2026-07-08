@@ -663,6 +663,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
       "Host","Server Assistant","Busser","Bar Back","Bartender","Server","Manager","Assistant Manager",
       "Chef","Sous Chef","Saute","Grill","Line Cook","Fry Cook","Pizza","Garde Manger","Prep","Dishwasher",
     ] as Role[],
+    customRoles: [] as CustomRole[],
     setupCompleted: false,
     notifications: [] as Notification[],
   }));
