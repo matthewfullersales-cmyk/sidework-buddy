@@ -284,6 +284,22 @@ export function ScheduleSection() {
     performCopyToNextWeek();
   }
 
+  function performClearWeek() {
+    const toClear = shifts.filter((s) => dayISOs.includes(s.date));
+    toClear.forEach((s) => deleteShift(s.id));
+    const count = toClear.length;
+    toast.success(`Cleared ${count} shift${count === 1 ? "" : "s"} from this week.`);
+  }
+
+  function handleClearWeek() {
+    const count = shifts.filter((s) => dayISOs.includes(s.date)).length;
+    if (count === 0) {
+      toast("This week is already empty");
+      return;
+    }
+    setConfirmClear({ count });
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
