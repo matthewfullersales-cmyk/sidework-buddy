@@ -195,8 +195,11 @@ function JoinPage() {
 
             <div className="grid gap-2 rounded-lg border border-border bg-muted/30 p-3">
               <Label className="text-sm font-medium">Emergency contact</Label>
-              <Field label="Name"><Input value={ecName} onChange={(e) => setEcName(e.target.value)} maxLength={80} /></Field>
-              <Field label="Phone"><Input type="tel" inputMode="tel" value={ecPhone} onChange={(e) => setEcPhone(e.target.value)} maxLength={30} /></Field>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Field label="First name"><Input value={ecFirstName} onChange={(e) => setEcFirstName(e.target.value)} maxLength={60} /></Field>
+                <Field label="Last name"><Input value={ecLastName} onChange={(e) => setEcLastName(e.target.value)} maxLength={60} /></Field>
+              </div>
+              <Field label="Phone"><Input type="tel" inputMode="tel" value={ecPhone} onChange={(e) => setEcPhone(formatPhone(e.target.value))} maxLength={30} placeholder="(555) 555-1234" /></Field>
               <Field label="Relationship">
                 <Select value={ecRel} onValueChange={(v: Relationship) => setEcRel(v)}>
                   <SelectTrigger className="h-12"><SelectValue /></SelectTrigger>
