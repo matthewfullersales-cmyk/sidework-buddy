@@ -1570,6 +1570,9 @@ function HireReviewDialog({
   const [phone, setPhone] = useState(application.phone);
   const [role, setRole] = useState<Role>(application.role ?? "Server");
   const [submitting, setSubmitting] = useState(false);
+  const { activeRoles } = useStore();
+  const fohActive = FOH_ROLES.filter((r) => activeRoles.includes(r) || r === role);
+  const bohActive = BOH_ROLES.filter((r) => activeRoles.includes(r) || r === role);
 
   const confirm = async () => {
     if (!firstName.trim() || !lastName.trim()) return toast.error("Name required.");
