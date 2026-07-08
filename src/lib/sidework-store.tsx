@@ -485,10 +485,10 @@ export function moduleIdsForRole(role: Role, customRoles: CustomRole[] = []): st
 }
 
 /** Union of module ids across an employee's approved roles (or primary role as fallback). */
-export function moduleIdsForEmployee(emp: { primaryRole: Role; approvedRoles?: Role[] }): string[] {
+export function moduleIdsForEmployee(emp: { primaryRole: Role; approvedRoles?: Role[] }, customRoles: CustomRole[] = []): string[] {
   const roles = emp.approvedRoles && emp.approvedRoles.length > 0 ? emp.approvedRoles : [emp.primaryRole];
   const ids = new Set<string>();
-  roles.forEach((r) => moduleIdsForRole(r).forEach((id) => ids.add(id)));
+  roles.forEach((r) => moduleIdsForRole(r, customRoles).forEach((id) => ids.add(id)));
   return Array.from(ids);
 }
 
