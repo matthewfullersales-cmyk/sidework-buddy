@@ -283,6 +283,8 @@ interface Store {
   restaurantHours: RestaurantHours;
   setRestaurantHours: (h: RestaurantHours) => void;
   updateRestaurantDay: (day: DayKey, patch: Partial<DayHours>) => void;
+  activeRoles: Role[];
+  setActiveRoles: (roles: Role[]) => void;
   setupCompleted: boolean;
   notifications: Notification[];
   setMenu: (m: MenuUpload | null) => void;
