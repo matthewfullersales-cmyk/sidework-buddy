@@ -20,27 +20,12 @@ export function AppShell({ children, nav }: { children: ReactNode; nav: { to: st
       <header className="sticky top-0 z-30 border-b border-border bg-background/85 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
           <Link to="/" className="shrink-0"><Logo /></Link>
-          <div className="flex min-w-0 items-center gap-2">
-            <span className="hidden text-xs text-muted-foreground sm:inline">Demo as</span>
-            <Select
-              value={currentUser.type === "manager" ? "manager" : currentUser.id}
-              onValueChange={onSwitch}
-            >
-              <SelectTrigger className="h-11 w-[160px] text-sm sm:w-[180px] md:h-9"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="manager">Manager (Owner)</SelectItem>
-                {employees.map((e) => (
-                  <SelectItem key={e.id} value={e.id}>{e.name} — {e.primaryRole}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {session && (
-              <Button variant="ghost" size="sm" onClick={handleSignOut} title="Sign out" className="h-11 md:h-9">
-                <LogOut className="h-4 w-4" />
-                <span className="ml-1.5 hidden sm:inline">Sign out</span>
-              </Button>
-            )}
-          </div>
+          {session && (
+            <Button variant="ghost" size="sm" onClick={handleSignOut} title="Sign out" className="h-11 md:h-9">
+              <LogOut className="h-4 w-4" />
+              <span className="ml-1.5 hidden sm:inline">Sign out</span>
+            </Button>
+          )}
         </div>
         <nav className="mx-auto hidden max-w-6xl gap-1 px-4 pb-2 md:flex">
           {nav.map((n) => {
