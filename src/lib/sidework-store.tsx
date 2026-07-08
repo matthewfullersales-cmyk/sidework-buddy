@@ -562,7 +562,8 @@ function seedEmployees(): Employee[] {
       availability: s.availability ?? "Flexible",
       weeklyAvailability: weekly,
       emergencyContact: {
-        name: `${["Sam","Jordan","Alex","Taylor","Chris"][i % 5]} ${s.last}`,
+        firstName: ["Sam","Jordan","Alex","Taylor","Chris"][i % 5],
+        lastName: s.last,
         phone: `(555) 887-${phoneTail}`,
         relationship: relPool[i % relPool.length],
       },
