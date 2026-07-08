@@ -451,10 +451,12 @@ const MODULE_DEFS: ModuleDef[] = [
   { id: "mgr-guest-recovery", title: "Guest Recovery", category: "Server", roles: ["Manager", "Assistant Manager"] },
 ];
 
-export function trainingCategoryForRole(role: Role): TrainingCategory {
+export function trainingCategoryForRole(role: Role, customRoles: CustomRole[] = []): TrainingCategory {
   if (role === "Host") return "Host";
   if (role === "Bartender" || role === "Bar Back") return "Bartender";
   if (["Chef", "Sous Chef", "Line Cook", "Fry Cook", "Saute", "Grill", "Pizza", "Garde Manger", "Dishwasher", "Prep"].includes(role)) return "Kitchen";
+  const custom = customRoles.find((c) => c.name === role);
+  if (custom) return custom.section === "BOH" ? "Kitchen" : "Server";
   return "Server";
 }
 
