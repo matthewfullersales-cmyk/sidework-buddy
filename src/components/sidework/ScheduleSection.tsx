@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { useStore, type Role, type Shift, type Position, type Section, type WeeklyAvailability, DAY_KEYS, isAvailableFor } from "@/lib/sidework-store";
 import { toast } from "sonner";
 
-import { ROLES_ORDERED as ROLES, FOH_ROLES_ORDERED, BOH_ROLES_ORDERED, ROLE_COLORS, roleStyle, STATUS_COLORS, contrastText } from "@/lib/role-colors";
+import { ROLE_COLORS, roleStyle, STATUS_COLORS, contrastText, fohRolesWithCustom, bohRolesWithCustom, allRolesWithCustom, nextCustomColor } from "@/lib/role-colors";
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -495,18 +495,43 @@ export function ScheduleSection() {
 }
 
 function Legend() {
-  const { activeRoles, setActiveRoles } = useStore();
+  const { activeRoles, setActiveRoles, customRoles, addCustomRole, removeCustomRole } = useStore();
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<Role[]>(activeRoles);
-  const shown = ROLES.filter((r) => activeRoles.includes(r));
+  const [newName, setNewName] = useState("");
+  const [newSection, setNewSection] = useState<"FOH" | "BOH">("FOH");
+  const allRoles = allRolesWithCustom(customRoles);
+  const shown = allRoles.filter((r) => activeRoles.includes(r));
 
   function openDialog() {
     setDraft(activeRoles);
+    setNewName("");
+    setNewSection("FOH");
     setOpen(true);
   }
   function toggle(r: Role, on: boolean) {
     setDraft((prev) => on ? [...new Set([...prev, r])] : prev.filter((x) => x !== r));
   }
+  function submitCustom() {
+    const name = newName.trim();
+    if (!name) return toast.error("Enter a role name");
+    if (allRoles.some((r) => r.toLowerCase() === name.toLowerCase())) {
+      return toast.error("That role already exists");
+    }
+    const color = nextCustomColor(customRoles);
+    addCustomRole({ name, section: newSection, color });
+    setDraft((prev) => [...new Set([...prev, name])]);
+    setNewName("");
+    toast.success(`Added "${name}"`);
+  }
+  function deleteCustom(name: string) {
+    removeCustomRole(name);
+    setDraft((prev) => prev.filter((r) => r !== name));
+  }
+
+  const fohList = fohRolesWithCustom(customRoles);
+  const bohList = bohRolesWithCustom(customRoles);
+  const isCustom = (name: string) => customRoles.some((c) => c.name === name);
 
   return (
     <div className="flex flex-wrap items-center gap-2 text-[11px]">
@@ -534,42 +559,86 @@ function Legend() {
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Customize roles in use</DialogTitle>
             <DialogDescription>
-              Turn off any roles this restaurant doesn't use. They'll be hidden from the legend and role pickers. Existing shifts already assigned to a deactivated role keep their color and data.
+              Turn off any roles this restaurant doesn't use, or add your own. Existing shifts already assigned to a deactivated or deleted role keep their color and data.
             </DialogDescription>
           </DialogHeader>
           <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" onClick={() => setDraft([...ROLES])}>Select all</Button>
+            <Button size="sm" variant="outline" onClick={() => setDraft([...allRolesWithCustom(customRoles)])}>Select all</Button>
             <Button size="sm" variant="outline" onClick={() => setDraft([])}>Deselect all</Button>
           </div>
           <div className="grid gap-6 sm:grid-cols-2">
             {[
-              { title: "Front of House", roles: FOH_ROLES_ORDERED },
-              { title: "Back of House", roles: BOH_ROLES_ORDERED },
+              { title: "Front of House", roles: fohList },
+              { title: "Back of House", roles: bohList },
             ].map((group) => (
               <div key={group.title}>
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{group.title}</p>
                 <div className="space-y-1.5">
                   {group.roles.map((r) => {
                     const checked = draft.includes(r);
+                    const custom = isCustom(r);
                     return (
-                      <label key={r} className="flex cursor-pointer items-center gap-2 rounded-md border border-border px-2 py-1.5 text-sm">
-                        <Checkbox checked={checked} onCheckedChange={(v) => toggle(r, !!v)} />
-                        <span className="h-3 w-3 rounded-sm border border-border" style={{ backgroundColor: ROLE_COLORS[r] }} />
-                        <span>{r}</span>
-                      </label>
+                      <div key={r} className="flex items-center gap-2 rounded-md border border-border px-2 py-1.5 text-sm">
+                        <label className="flex flex-1 cursor-pointer items-center gap-2">
+                          <Checkbox checked={checked} onCheckedChange={(v) => toggle(r, !!v)} />
+                          <span className="h-3 w-3 rounded-sm border border-border" style={{ backgroundColor: ROLE_COLORS[r] ?? "#7F8C8D" }} />
+                          <span>{r}</span>
+                          {custom && <span className="text-[10px] uppercase tracking-wide text-muted-foreground">custom</span>}
+                        </label>
+                        {custom && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                            onClick={() => deleteCustom(r)}
+                            aria-label={`Delete ${r}`}
+                          >
+                            ×
+                          </Button>
+                        )}
+                      </div>
                     );
                   })}
                 </div>
               </div>
             ))}
           </div>
+
+          <div className="mt-2 rounded-md border border-dashed border-border p-3">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Add custom role</p>
+            <div className="flex flex-wrap items-end gap-2">
+              <div className="flex-1 min-w-[160px]">
+                <Label className="text-xs">Role name</Label>
+                <Input
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  placeholder="e.g. Sommelier"
+                />
+              </div>
+              <div className="w-40">
+                <Label className="text-xs">Department</Label>
+                <Select value={newSection} onValueChange={(v) => setNewSection(v as "FOH" | "BOH")}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="FOH">Front of House</SelectItem>
+                    <SelectItem value="BOH">Back of House</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="h-6 w-6 rounded-sm border border-border" style={{ backgroundColor: nextCustomColor(customRoles) }} title="Auto-assigned color" />
+                <Button size="sm" onClick={submitCustom}>Add</Button>
+              </div>
+            </div>
+          </div>
+
           <DialogFooter>
             <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={() => { setActiveRoles(ROLES.filter((r) => draft.includes(r))); setOpen(false); toast.success("Roles updated"); }}>Done</Button>
+            <Button onClick={() => { setActiveRoles(allRolesWithCustom(customRoles).filter((r) => draft.includes(r))); setOpen(false); toast.success("Roles updated"); }}>Done</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -583,13 +652,13 @@ function ShiftDetailsDialog({
   employeeId: string; date: string; existing?: Shift;
   onClose: () => void; onSave: (s: Shift) => void; onDelete: (id: string) => void;
 }) {
-  const { employees, activeRoles } = useStore();
+  const { employees, activeRoles, customRoles } = useStore();
   const emp = employees.find((e) => e.id === employeeId);
   const [start, setStart] = useState(existing?.start ?? "17:00");
   const [end, setEnd] = useState(existing?.end ?? "23:00");
   const [role, setRole] = useState<Role>(existing?.role ?? (emp?.primaryRole ?? "Server"));
   const [notes, setNotes] = useState(existing?.notes ?? "");
-  const rolesForPicker = ROLES.filter((r) => activeRoles.includes(r) || r === role);
+  const rolesForPicker = allRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r) || r === role);
 
   return (
     <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>

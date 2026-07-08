@@ -1,8 +1,13 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import { ROLE_COLORS } from "@/lib/role-colors";
 
-export type Role =
-  | "Host" | "Busser" | "Server Assistant" | "Bar Back" | "Bartender" | "Server" | "Manager" | "Assistant Manager"
-  | "Chef" | "Sous Chef" | "Line Cook" | "Fry Cook" | "Saute" | "Grill" | "Pizza" | "Garde Manger" | "Dishwasher" | "Prep";
+export type Role = string;
+export const BUILT_IN_ROLES = [
+  "Host","Busser","Server Assistant","Bar Back","Bartender","Server","Manager","Assistant Manager",
+  "Chef","Sous Chef","Line Cook","Fry Cook","Saute","Grill","Pizza","Garde Manger","Dishwasher","Prep",
+] as const;
+export type BuiltInRole = typeof BUILT_IN_ROLES[number];
+export interface CustomRole { name: string; section: "FOH" | "BOH"; color: string }
 
 export type TrainingCategory = "Server" | "Bartender" | "Host" | "Kitchen";
 
@@ -285,6 +290,9 @@ interface Store {
   updateRestaurantDay: (day: DayKey, patch: Partial<DayHours>) => void;
   activeRoles: Role[];
   setActiveRoles: (roles: Role[]) => void;
+  customRoles: CustomRole[];
+  addCustomRole: (role: CustomRole) => void;
+  removeCustomRole: (name: string) => void;
   setupCompleted: boolean;
   notifications: Notification[];
   setMenu: (m: MenuUpload | null) => void;
@@ -444,10 +452,12 @@ const MODULE_DEFS: ModuleDef[] = [
   { id: "mgr-guest-recovery", title: "Guest Recovery", category: "Server", roles: ["Manager", "Assistant Manager"] },
 ];
 
-export function trainingCategoryForRole(role: Role): TrainingCategory {
+export function trainingCategoryForRole(role: Role, customRoles: CustomRole[] = []): TrainingCategory {
   if (role === "Host") return "Host";
   if (role === "Bartender" || role === "Bar Back") return "Bartender";
   if (["Chef", "Sous Chef", "Line Cook", "Fry Cook", "Saute", "Grill", "Pizza", "Garde Manger", "Dishwasher", "Prep"].includes(role)) return "Kitchen";
+  const custom = customRoles.find((c) => c.name === role);
+  if (custom) return custom.section === "BOH" ? "Kitchen" : "Server";
   return "Server";
 }
 
@@ -465,16 +475,21 @@ function seedVideos(): TrainingVideo[] {
 const MANAGER_ROLES: Role[] = ["Manager", "Assistant Manager"];
 
 /** All module ids assigned to a single role. Manager/Asst Manager receive every module. */
-export function moduleIdsForRole(role: Role): string[] {
+export function moduleIdsForRole(role: Role, customRoles: CustomRole[] = []): string[] {
   if (MANAGER_ROLES.includes(role)) return MODULE_DEFS.map((m) => m.id);
+  const custom = customRoles.find((c) => c.name === role);
+  if (custom) {
+    const cat: TrainingCategory = custom.section === "BOH" ? "Kitchen" : "Server";
+    return MODULE_DEFS.filter((m) => m.category === cat).map((m) => m.id);
+  }
   return MODULE_DEFS.filter((m) => m.roles.includes(role)).map((m) => m.id);
 }
 
 /** Union of module ids across an employee's approved roles (or primary role as fallback). */
-export function moduleIdsForEmployee(emp: { primaryRole: Role; approvedRoles?: Role[] }): string[] {
+export function moduleIdsForEmployee(emp: { primaryRole: Role; approvedRoles?: Role[] }, customRoles: CustomRole[] = []): string[] {
   const roles = emp.approvedRoles && emp.approvedRoles.length > 0 ? emp.approvedRoles : [emp.primaryRole];
   const ids = new Set<string>();
-  roles.forEach((r) => moduleIdsForRole(r).forEach((id) => ids.add(id)));
+  roles.forEach((r) => moduleIdsForRole(r, customRoles).forEach((id) => ids.add(id)));
   return Array.from(ids);
 }
 
@@ -656,6 +671,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
       "Host","Server Assistant","Busser","Bar Back","Bartender","Server","Manager","Assistant Manager",
       "Chef","Sous Chef","Saute","Grill","Line Cook","Fry Cook","Pizza","Garde Manger","Prep","Dishwasher",
     ] as Role[],
+    customRoles: [] as CustomRole[],
     setupCompleted: false,
     notifications: [] as Notification[],
   }));
@@ -679,6 +695,14 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     if (hydrated) localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [state, hydrated]);
 
+  // Sync custom role colors into the shared ROLE_COLORS registry so
+  // roleStyle(role) picks them up everywhere without threading a palette.
+  useEffect(() => {
+    for (const c of state.customRoles) {
+      ROLE_COLORS[c.name] = c.color;
+    }
+  }, [state.customRoles]);
+
   const uid = (prefix: string) => `${prefix}${Date.now()}${Math.floor(Math.random() * 1000)}`;
 
   const store: Store = {
@@ -687,6 +711,23 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     updateRestaurantDay: (day, patch) =>
       setState((s) => ({ ...s, restaurantHours: { ...s.restaurantHours, [day]: { ...s.restaurantHours[day], ...patch } } })),
     setActiveRoles: (roles) => setState((s) => ({ ...s, activeRoles: roles })),
+    addCustomRole: (role) =>
+      setState((s) => {
+        if (s.customRoles.some((c) => c.name === role.name) || (BUILT_IN_ROLES as readonly string[]).includes(role.name)) {
+          return s;
+        }
+        return {
+          ...s,
+          customRoles: [...s.customRoles, role],
+          activeRoles: s.activeRoles.includes(role.name) ? s.activeRoles : [...s.activeRoles, role.name],
+        };
+      }),
+    removeCustomRole: (name) =>
+      setState((s) => ({
+        ...s,
+        customRoles: s.customRoles.filter((c) => c.name !== name),
+        activeRoles: s.activeRoles.filter((r) => r !== name),
+      })),
     setCurrentUser: (u) => setState((s) => ({ ...s, currentUser: u })),
     inviteEmployee: ({ name, email, role }) =>
       setState((s) => {
@@ -1104,14 +1145,14 @@ export function useStore() {
   return ctx;
 }
 
-export function videosForRole(videos: TrainingVideo[], role: Role) {
-  const ids = new Set(moduleIdsForRole(role));
+export function videosForRole(videos: TrainingVideo[], role: Role, customRoles: CustomRole[] = []) {
+  const ids = new Set(moduleIdsForRole(role, customRoles));
   return videos.filter((v) => ids.has(v.id));
 }
 
 /** Videos assigned across all of an employee's approved roles. */
-export function videosForEmployee(videos: TrainingVideo[], employee: { primaryRole: Role; approvedRoles?: Role[] }) {
-  const ids = new Set(moduleIdsForEmployee(employee));
+export function videosForEmployee(videos: TrainingVideo[], employee: { primaryRole: Role; approvedRoles?: Role[] }, customRoles: CustomRole[] = []) {
+  const ids = new Set(moduleIdsForEmployee(employee, customRoles));
   return videos.filter((v) => ids.has(v.id));
 }
 

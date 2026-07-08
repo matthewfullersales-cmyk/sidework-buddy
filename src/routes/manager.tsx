@@ -19,7 +19,7 @@ import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { onboardingStatus, useStore, type Role, type ApplicationStatus, type Employee, type Relationship, DAY_KEYS, type JobApplication, type HiringStage, type ShadowShiftDetails, type InterviewType, getHiringStage } from "@/lib/sidework-store";
-import { roleStyle } from "@/lib/role-colors";
+import { roleStyle, fohRolesWithCustom, bohRolesWithCustom } from "@/lib/role-colors";
 import { AvailabilityEditor, RestaurantHoursEditor } from "@/components/sidework/AvailabilityEditor";
 import { StaffJoinBanner, FullscreenQrDialog, StaffOnboardingCard } from "@/components/sidework/StaffOnboarding";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -240,9 +240,9 @@ function NotificationsCard() {
 }
 
 function TeamTab() {
-  const { employees, videos, inviteEmployee, restaurantProfile, activeRoles } = useStore();
-  const fohActive = FOH_ROLES.filter((r) => activeRoles.includes(r));
-  const bohActive = BOH_ROLES.filter((r) => activeRoles.includes(r));
+  const { employees, videos, inviteEmployee, restaurantProfile, activeRoles, customRoles } = useStore();
+  const fohActive = fohRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r));
+  const bohActive = bohRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r));
   const [open, setOpen] = useState(false);
   const [addStaffOpen, setAddStaffOpen] = useState(false);
   const [showQr, setShowQr] = useState(false);
@@ -548,9 +548,9 @@ function TeamTab() {
 }
 
 function EmployeeProfileDialog({ employee, onClose }: { employee: Employee; onClose: () => void }) {
-  const { updateEmployee, activeRoles } = useStore();
-  const fohActive = FOH_ROLES.filter((r) => activeRoles.includes(r) || employee.approvedRoles.includes(r));
-  const bohActive = BOH_ROLES.filter((r) => activeRoles.includes(r) || employee.approvedRoles.includes(r));
+  const { updateEmployee, activeRoles, customRoles } = useStore();
+  const fohActive = fohRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r) || employee.approvedRoles.includes(r));
+  const bohActive = bohRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r) || employee.approvedRoles.includes(r));
   const [firstName, setFirstName] = useState(employee.firstName ?? employee.name.split(" ")[0] ?? "");
   const [lastName, setLastName] = useState(employee.lastName ?? employee.name.split(" ").slice(1).join(" ") ?? "");
   const [email, setEmail] = useState(employee.email);
@@ -756,9 +756,10 @@ function JobsTab() {
     inviteShadowShift,
     restaurantProfile,
     activeRoles,
+    customRoles,
   } = useStore();
-  const fohActive = FOH_ROLES.filter((r) => activeRoles.includes(r));
-  const bohActive = BOH_ROLES.filter((r) => activeRoles.includes(r));
+  const fohActive = fohRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r));
+  const bohActive = bohRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r));
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ title: "", role: "Server" as Role, type: "Full-time" as "Full-time" | "Part-time", payRange: "", description: "" });
   const [hireFor, setHireFor] = useState<string | null>(null);
@@ -1570,9 +1571,9 @@ function HireReviewDialog({
   const [phone, setPhone] = useState(application.phone);
   const [role, setRole] = useState<Role>(application.role ?? "Server");
   const [submitting, setSubmitting] = useState(false);
-  const { activeRoles } = useStore();
-  const fohActive = FOH_ROLES.filter((r) => activeRoles.includes(r) || r === role);
-  const bohActive = BOH_ROLES.filter((r) => activeRoles.includes(r) || r === role);
+  const { activeRoles, customRoles } = useStore();
+  const fohActive = fohRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r) || r === role);
+  const bohActive = bohRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r) || r === role);
 
   const confirm = async () => {
     if (!firstName.trim() || !lastName.trim()) return toast.error("Name required.");
