@@ -548,7 +548,9 @@ function TeamTab() {
 }
 
 function EmployeeProfileDialog({ employee, onClose }: { employee: Employee; onClose: () => void }) {
-  const { updateEmployee } = useStore();
+  const { updateEmployee, activeRoles } = useStore();
+  const fohActive = FOH_ROLES.filter((r) => activeRoles.includes(r) || employee.approvedRoles.includes(r));
+  const bohActive = BOH_ROLES.filter((r) => activeRoles.includes(r) || employee.approvedRoles.includes(r));
   const [firstName, setFirstName] = useState(employee.firstName ?? employee.name.split(" ")[0] ?? "");
   const [lastName, setLastName] = useState(employee.lastName ?? employee.name.split(" ").slice(1).join(" ") ?? "");
   const [email, setEmail] = useState(employee.email);
