@@ -1,8 +1,12 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
 
-export type Role =
-  | "Host" | "Busser" | "Server Assistant" | "Bar Back" | "Bartender" | "Server" | "Manager" | "Assistant Manager"
-  | "Chef" | "Sous Chef" | "Line Cook" | "Fry Cook" | "Saute" | "Grill" | "Pizza" | "Garde Manger" | "Dishwasher" | "Prep";
+export type Role = string;
+export const BUILT_IN_ROLES = [
+  "Host","Busser","Server Assistant","Bar Back","Bartender","Server","Manager","Assistant Manager",
+  "Chef","Sous Chef","Line Cook","Fry Cook","Saute","Grill","Pizza","Garde Manger","Dishwasher","Prep",
+] as const;
+export type BuiltInRole = typeof BUILT_IN_ROLES[number];
+export interface CustomRole { name: string; section: "FOH" | "BOH"; color: string }
 
 export type TrainingCategory = "Server" | "Bartender" | "Host" | "Kitchen";
 
