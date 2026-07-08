@@ -560,6 +560,37 @@ function TeamTab() {
           onClose={() => setEditing(null)}
         />
       )}
+      <Dialog open={confirmClearAll} onOpenChange={setConfirmClearAll}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>Clear all employees?</DialogTitle></DialogHeader>
+          <div className="space-y-2 py-2 text-sm text-muted-foreground">
+            <p>
+              This will permanently remove <span className="font-semibold text-foreground">{employees.length}</span> {employees.length === 1 ? "employee" : "employees"} from your roster.
+            </p>
+            <p>
+              It also removes all of their scheduled shifts ({shifts.length}), trade history ({trades.length}), and time-off requests ({timeOff.length}), since those reference deleted employees.
+            </p>
+            <p className="font-medium text-destructive">This can't be undone.</p>
+            <p className="text-xs">Your restaurant profile, hours, roles, job postings, and applications will not be affected.</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmClearAll(false)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                const count = employees.length;
+                clearAllEmployees();
+                setConfirmClearAll(false);
+                toast.success(`Cleared ${count} ${count === 1 ? "employee" : "employees"}`, {
+                  description: "Your roster is empty and ready for real staff to be added.",
+                });
+              }}
+            >
+              Clear all employees
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
