@@ -246,9 +246,15 @@ function NotificationsCard() {
 }
 
 function TeamTab() {
-  const { employees, videos, inviteEmployee, restaurantProfile, activeRoles, customRoles } = useStore();
+  const { employees, videos, inviteEmployee, restaurantProfile, activeRoles, customRoles, shifts, trades, timeOff, clearAllEmployees } = useStore();
   const fohActive = fohRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r));
   const bohActive = bohRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r));
+  const [open, setOpen] = useState(false);
+  const [addStaffOpen, setAddStaffOpen] = useState(false);
+  const [showQr, setShowQr] = useState(false);
+  const [form, setForm] = useState({ name: "", email: "", role: "Server" as Role });
+  const [editing, setEditing] = useState<Employee | null>(null);
+  const [confirmClearAll, setConfirmClearAll] = useState(false);
   const [open, setOpen] = useState(false);
   const [addStaffOpen, setAddStaffOpen] = useState(false);
   const [showQr, setShowQr] = useState(false);
