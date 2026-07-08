@@ -614,7 +614,12 @@ function EmployeeProfileDialog({ employee, onClose }: { employee: Employee; onCl
   const [approvedRoles, setApprovedRoles] = useState<Role[]>(employee.approvedRoles);
   const [autoApprove, setAutoApprove] = useState<Role[]>(employee.autoApproveRoles);
   const [weekly, setWeekly] = useState(employee.weeklyAvailability);
-  const [ec, setEc] = useState(employee.emergencyContact ?? { name: "", phone: "", relationship: "Other" as Relationship });
+  const [ec, setEc] = useState<{ firstName: string; lastName: string; phone: string; relationship: Relationship }>({
+    firstName: employee.emergencyContact?.firstName ?? "",
+    lastName: employee.emergencyContact?.lastName ?? "",
+    phone: employee.emergencyContact?.phone ?? "",
+    relationship: employee.emergencyContact?.relationship ?? "Other",
+  });
 
   const save = () => {
     if (!firstName.trim()) return toast.error("First name is required");
