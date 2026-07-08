@@ -105,6 +105,7 @@ export function ScheduleSection() {
   const [editing, setEditing] = useState<{ employeeId: string; date: string; existing?: Shift } | null>(null);
   const [generating, setGenerating] = useState(false);
   const [confirmCopy, setConfirmCopy] = useState<{ count: number } | null>(null);
+  const [confirmClear, setConfirmClear] = useState<{ count: number } | null>(null);
 
   const days = useMemo(
     () => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)),
