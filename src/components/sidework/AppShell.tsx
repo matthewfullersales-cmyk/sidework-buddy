@@ -1,31 +1,18 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { Logo } from "./Logo";
-import { useStore } from "@/lib/sidework-store";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LogOut } from "lucide-react";
 
 export function AppShell({ children, nav }: { children: ReactNode; nav: { to: string; label: string; icon: ReactNode }[] }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { currentUser, setCurrentUser, employees } = useStore();
   const { session, signOut } = useAuth();
 
   const handleSignOut = async () => {
     await signOut();
     navigate({ to: "/" });
-  };
-
-  const onSwitch = (val: string) => {
-    if (val === "manager") {
-      setCurrentUser({ type: "manager", id: "owner" });
-      navigate({ to: "/manager" });
-    } else {
-      setCurrentUser({ type: "employee", id: val });
-      navigate({ to: "/employee" });
-    }
   };
 
   return (
