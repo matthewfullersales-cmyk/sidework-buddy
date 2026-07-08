@@ -1136,14 +1136,14 @@ export function useStore() {
   return ctx;
 }
 
-export function videosForRole(videos: TrainingVideo[], role: Role) {
-  const ids = new Set(moduleIdsForRole(role));
+export function videosForRole(videos: TrainingVideo[], role: Role, customRoles: CustomRole[] = []) {
+  const ids = new Set(moduleIdsForRole(role, customRoles));
   return videos.filter((v) => ids.has(v.id));
 }
 
 /** Videos assigned across all of an employee's approved roles. */
-export function videosForEmployee(videos: TrainingVideo[], employee: { primaryRole: Role; approvedRoles?: Role[] }) {
-  const ids = new Set(moduleIdsForEmployee(employee));
+export function videosForEmployee(videos: TrainingVideo[], employee: { primaryRole: Role; approvedRoles?: Role[] }, customRoles: CustomRole[] = []) {
+  const ids = new Set(moduleIdsForEmployee(employee, customRoles));
   return videos.filter((v) => ids.has(v.id));
 }
 
