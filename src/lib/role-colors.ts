@@ -1,6 +1,6 @@
-import type { Role } from "@/lib/sidework-store";
+import type { Role, CustomRole } from "@/lib/sidework-store";
 
-export const ROLE_COLORS: Record<Role, string> = {
+export const ROLE_COLORS: Record<string, string> = {
   // FOH
   Host: "#9B59B6",
   "Server Assistant": "#BDC3E0",
