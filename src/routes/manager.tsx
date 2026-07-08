@@ -255,11 +255,6 @@ function TeamTab() {
   const [form, setForm] = useState({ name: "", email: "", role: "Server" as Role });
   const [editing, setEditing] = useState<Employee | null>(null);
   const [confirmClearAll, setConfirmClearAll] = useState(false);
-  const [open, setOpen] = useState(false);
-  const [addStaffOpen, setAddStaffOpen] = useState(false);
-  const [showQr, setShowQr] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "", role: "Server" as Role });
-  const [editing, setEditing] = useState<Employee | null>(null);
 
   const [sortKey, setSortKey] = useState<TeamSortKey>("firstNameAsc");
   const [filters, setFilters] = useState<Set<string>>(new Set(["all"]));
