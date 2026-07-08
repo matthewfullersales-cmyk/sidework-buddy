@@ -826,7 +826,7 @@ function JobsTab() {
                       <SelectContent>
                         <SelectGroup>
                           <SelectLabel>Front of House</SelectLabel>
-                          {FOH_ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                          {fohActive.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
                         </SelectGroup>
                         <SelectSeparator />
                         <SelectGroup>
