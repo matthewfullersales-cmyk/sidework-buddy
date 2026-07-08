@@ -632,7 +632,7 @@ function EmployeeProfileDialog({ employee, onClose }: { employee: Employee; onCl
       approvedRoles,
       autoApproveRoles: autoApprove.filter((r) => approvedRoles.includes(r)),
       weeklyAvailability: weekly,
-      emergencyContact: ec.name || ec.phone ? ec : undefined,
+      emergencyContact: (ec.firstName || ec.lastName || ec.phone) ? { firstName: ec.firstName.trim(), lastName: ec.lastName.trim(), phone: ec.phone.trim(), relationship: ec.relationship } : undefined,
     });
     toast.success("Profile saved");
     onClose();
