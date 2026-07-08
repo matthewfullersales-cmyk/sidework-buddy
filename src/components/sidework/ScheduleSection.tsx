@@ -1,17 +1,18 @@
 import { useMemo, useState } from "react";
-import { Copy, Eraser } from "lucide-react";
+import { Copy, Eraser, Settings2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { useStore, type Role, type Shift, type Position, type Section, type WeeklyAvailability, DAY_KEYS, isAvailableFor } from "@/lib/sidework-store";
 import { toast } from "sonner";
 
-import { ROLES_ORDERED as ROLES, roleStyle, STATUS_COLORS, contrastText } from "@/lib/role-colors";
+import { ROLES_ORDERED as ROLES, FOH_ROLES_ORDERED, BOH_ROLES_ORDERED, ROLE_COLORS, roleStyle, STATUS_COLORS, contrastText } from "@/lib/role-colors";
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
