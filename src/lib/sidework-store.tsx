@@ -730,6 +730,14 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
         activeRoles: s.activeRoles.filter((r) => r !== name),
       })),
     setCurrentUser: (u) => setState((s) => ({ ...s, currentUser: u })),
+    clearAllEmployees: () =>
+      setState((s) => ({
+        ...s,
+        employees: [],
+        shifts: [],
+        trades: [],
+        timeOff: [],
+      })),
     inviteEmployee: ({ name, email, role }) =>
       setState((s) => {
         const newId = uid("e");
