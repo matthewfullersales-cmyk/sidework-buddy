@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Copy } from "lucide-react";
+import { Copy, Eraser } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -105,6 +105,7 @@ export function ScheduleSection() {
   const [editing, setEditing] = useState<{ employeeId: string; date: string; existing?: Shift } | null>(null);
   const [generating, setGenerating] = useState(false);
   const [confirmCopy, setConfirmCopy] = useState<{ count: number } | null>(null);
+  const [confirmClear, setConfirmClear] = useState<{ count: number } | null>(null);
 
   const days = useMemo(
     () => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)),
@@ -283,6 +284,22 @@ export function ScheduleSection() {
     performCopyToNextWeek();
   }
 
+  function performClearWeek() {
+    const toClear = shifts.filter((s) => dayISOs.includes(s.date));
+    toClear.forEach((s) => deleteShift(s.id));
+    const count = toClear.length;
+    toast.success(`Cleared ${count} shift${count === 1 ? "" : "s"} from this week.`);
+  }
+
+  function handleClearWeek() {
+    const count = shifts.filter((s) => dayISOs.includes(s.date)).length;
+    if (count === 0) {
+      toast("This week is already empty");
+      return;
+    }
+    setConfirmClear({ count });
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -296,6 +313,15 @@ export function ScheduleSection() {
           <Button size="sm" variant="ghost" onClick={() => setWeekStart(startOfWeek(new Date()))}>This week</Button>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={handleClearWeek}
+            disabled={generating}
+            className="gap-2 text-destructive hover:bg-destructive/5 hover:text-destructive hover:border-destructive/50"
+          >
+            <Eraser className="h-4 w-4" />
+            Clear Week
+          </Button>
           <Button variant="outline" onClick={handleCopyToNextWeek} disabled={generating} className="gap-2">
             <Copy className="h-4 w-4" />
             Copy to Next Week
@@ -328,6 +354,22 @@ export function ScheduleSection() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={!!confirmClear} onOpenChange={(o) => { if (!o) setConfirmClear(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Clear this week's schedule?</DialogTitle>
+            <DialogDescription>
+              This will remove all {confirmClear?.count} shift{confirmClear?.count === 1 ? "" : "s"} from this week. This can't be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setConfirmClear(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={() => { setConfirmClear(null); performClearWeek(); }}>
+              Clear shifts
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Legend />
 
