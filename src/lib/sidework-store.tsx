@@ -53,7 +53,8 @@ export type WeeklyAvailability = Record<DayKey, DayAvailability>;
 
 export type Relationship = "Spouse" | "Parent" | "Sibling" | "Child" | "Friend" | "Other";
 export interface EmergencyContact {
-  name: string;
+  firstName: string;
+  lastName: string;
   phone: string;
   relationship: Relationship;
 }
