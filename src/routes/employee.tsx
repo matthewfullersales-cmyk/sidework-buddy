@@ -89,7 +89,13 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
   const [email, setEmail] = useState(me.email);
   const [phone, setPhone] = useState(me.phone ?? "");
   const [weekly, setWeekly] = useState<WeeklyAvailability | undefined>(me.weeklyAvailability);
-  const [ec, setEc] = useState({ name: "", phone: me.emergencyContact?.phone ?? "", relationship: me.emergencyContact?.relationship ?? "Other" as Relationship });
+  const [ec, setEc] = useState({
+    firstName: me.emergencyContact?.firstName ?? "",
+    lastName: me.emergencyContact?.lastName ?? "",
+    phone: me.emergencyContact?.phone ?? "",
+    relationship: me.emergencyContact?.relationship ?? "Other" as Relationship,
+  });
+  const [specialTalents, setSpecialTalents] = useState(me.specialTalents ?? "");
   const [photoUrl, setPhotoUrl] = useState(me.photoUrl ?? "");
   const s = onboardingStatus(me, videos);
 
@@ -102,7 +108,7 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
 
   const save = () => {
     if (!firstName.trim() || !email.trim() || !phone.trim()) return toast.error("Please fill name, email, and phone.");
-    if (!ec.name.trim() || !ec.phone.trim()) return toast.error("Please add an emergency contact.");
+    if (!ec.firstName.trim() || !ec.lastName.trim() || !ec.phone.trim()) return toast.error("Please add an emergency contact.");
     updateEmployee(me.id, {
       firstName: firstName.trim(),
       lastName: lastName.trim(),
@@ -110,7 +116,8 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
       email: email.trim(),
       phone: phone.trim(),
       weeklyAvailability: weekly,
-      emergencyContact: ec,
+      emergencyContact: { ...ec, firstName: ec.firstName.trim(), lastName: ec.lastName.trim() },
+      specialTalents: specialTalents.trim() || undefined,
       photoUrl: photoUrl || undefined,
       personalInfoComplete: true,
       onboardingStarted: true,
