@@ -755,7 +755,10 @@ function JobsTab() {
     completeInterview,
     inviteShadowShift,
     restaurantProfile,
+    activeRoles,
   } = useStore();
+  const fohActive = FOH_ROLES.filter((r) => activeRoles.includes(r));
+  const bohActive = BOH_ROLES.filter((r) => activeRoles.includes(r));
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ title: "", role: "Server" as Role, type: "Full-time" as "Full-time" | "Part-time", payRange: "", description: "" });
   const [hireFor, setHireFor] = useState<string | null>(null);
