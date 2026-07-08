@@ -240,7 +240,9 @@ function NotificationsCard() {
 }
 
 function TeamTab() {
-  const { employees, videos, inviteEmployee, restaurantProfile } = useStore();
+  const { employees, videos, inviteEmployee, restaurantProfile, activeRoles } = useStore();
+  const fohActive = FOH_ROLES.filter((r) => activeRoles.includes(r));
+  const bohActive = BOH_ROLES.filter((r) => activeRoles.includes(r));
   const [open, setOpen] = useState(false);
   const [addStaffOpen, setAddStaffOpen] = useState(false);
   const [showQr, setShowQr] = useState(false);
