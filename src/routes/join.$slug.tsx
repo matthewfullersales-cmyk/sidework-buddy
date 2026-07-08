@@ -49,7 +49,8 @@ function JoinPage() {
   const [phone, setPhone] = useState("");
   const [role, setRole] = useState<Role>("Server");
   const [availability, setAvailability] = useState<WeeklyAvailability>(() => defaultWeeklyAvailability());
-  const [ecName, setEcName] = useState("");
+  const [ecFirstName, setEcFirstName] = useState("");
+  const [ecLastName, setEcLastName] = useState("");
   const [ecPhone, setEcPhone] = useState("");
   const [ecRel, setEcRel] = useState<Relationship>("Friend");
   const [password, setPassword] = useState("");
