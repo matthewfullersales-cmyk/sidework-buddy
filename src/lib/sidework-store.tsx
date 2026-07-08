@@ -313,6 +313,7 @@ interface Store {
   }) => string;
   updateRestaurantSlug: (slug: string) => void;
   updateEmployee: (id: string, patch: Partial<Employee>) => void;
+  clearAllEmployees: () => void;
   recordVideoProgress: (employeeId: string, videoId: string, patch: Partial<VideoProgress>) => void;
   recordQuizAttempt: (employeeId: string, videoId: string, score: number, passed: boolean) => void;
   postTrade: (shiftId: string, note?: string) => void;
@@ -729,6 +730,14 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
         activeRoles: s.activeRoles.filter((r) => r !== name),
       })),
     setCurrentUser: (u) => setState((s) => ({ ...s, currentUser: u })),
+    clearAllEmployees: () =>
+      setState((s) => ({
+        ...s,
+        employees: [],
+        shifts: [],
+        trades: [],
+        timeOff: [],
+      })),
     inviteEmployee: ({ name, email, role }) =>
       setState((s) => {
         const newId = uid("e");
