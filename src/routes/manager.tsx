@@ -396,6 +396,16 @@ function TeamTab() {
           </PopoverContent>
         </Popover>
 
+        {employees.length > 0 && (
+          <Button
+            variant="outline"
+            className="text-destructive hover:bg-destructive/5 hover:text-destructive hover:border-destructive/50"
+            onClick={() => setConfirmClearAll(true)}
+          >
+            Clear all employees
+          </Button>
+        )}
+
         <Dialog open={addStaffOpen} onOpenChange={setAddStaffOpen}>
           <DialogTrigger asChild><Button>+ Add Staff</Button></DialogTrigger>
           <DialogContent className="sm:max-w-md">
