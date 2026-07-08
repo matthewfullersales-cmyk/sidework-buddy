@@ -63,10 +63,16 @@ export const Route = createFileRoute("/manager")({
 });
 
 function ManagerPage() {
-  const { setupCompleted, restaurantProfile, resetSetup } = useStore();
+  const { setupCompleted, restaurantProfile, resetSetup, currentUser, setCurrentUser } = useStore();
   const [tab, setTab] = useState("dashboard");
   const [showSetupWizard, setShowSetupWizard] = useState(false);
   useRequireRole("owner", "/login");
+  useEffect(() => {
+    if (currentUser.type !== "manager") {
+      setCurrentUser({ type: "manager", id: "owner" });
+    }
+  }, [currentUser, setCurrentUser]);
+
 
   if (showSetupWizard) {
     return (
