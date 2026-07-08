@@ -686,6 +686,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     setRestaurantHours: (h) => setState((s) => ({ ...s, restaurantHours: h })),
     updateRestaurantDay: (day, patch) =>
       setState((s) => ({ ...s, restaurantHours: { ...s.restaurantHours, [day]: { ...s.restaurantHours[day], ...patch } } })),
+    setActiveRoles: (roles) => setState((s) => ({ ...s, activeRoles: roles })),
     setCurrentUser: (u) => setState((s) => ({ ...s, currentUser: u })),
     inviteEmployee: ({ name, email, role }) =>
       setState((s) => {
