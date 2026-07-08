@@ -595,7 +595,7 @@ function EmployeeProfileDialog({ employee, onClose }: { employee: Employee; onCl
               <div>
                 <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Front of House</p>
                 <div className="flex flex-wrap gap-2">
-                  {FOH_ROLES.map((r) => {
+                  {fohActive.map((r) => {
                     const checked = approvedRoles.includes(r);
                     return (
                       <label key={r} className={`flex cursor-pointer items-center gap-2 rounded-md border px-2.5 py-1.5 text-sm min-h-11 ${checked ? "border-primary bg-primary-soft" : "border-border"}`}>
