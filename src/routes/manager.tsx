@@ -714,8 +714,9 @@ function EmployeeProfileDialog({ employee, onClose }: { employee: Employee; onCl
           <div className="rounded-lg border border-border p-3">
             <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Emergency contact (manager-only)</p>
             <div className="grid gap-3 sm:grid-cols-2">
-              <div className="grid gap-1.5"><Label>Full name</Label><Input value={ec.name} onChange={(e) => setEc({ ...ec, name: e.target.value })} /></div>
-              <div className="grid gap-1.5"><Label>Phone</Label><Input type="tel" value={ec.phone} onChange={(e) => setEc({ ...ec, phone: e.target.value })} /></div>
+              <div className="grid gap-1.5"><Label>First name</Label><Input value={ec.firstName} onChange={(e) => setEc({ ...ec, firstName: e.target.value })} /></div>
+              <div className="grid gap-1.5"><Label>Last name</Label><Input value={ec.lastName} onChange={(e) => setEc({ ...ec, lastName: e.target.value })} /></div>
+              <div className="grid gap-1.5"><Label>Phone</Label><Input type="tel" inputMode="tel" value={ec.phone} onChange={(e) => setEc({ ...ec, phone: formatPhone(e.target.value) })} placeholder="(555) 555-1234" /></div>
               <div className="grid gap-1.5 sm:col-span-2">
                 <Label>Relationship</Label>
                 <Select value={ec.relationship} onValueChange={(v: Relationship) => setEc({ ...ec, relationship: v })}>
