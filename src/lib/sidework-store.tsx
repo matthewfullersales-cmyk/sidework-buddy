@@ -474,8 +474,13 @@ function seedVideos(): TrainingVideo[] {
 const MANAGER_ROLES: Role[] = ["Manager", "Assistant Manager"];
 
 /** All module ids assigned to a single role. Manager/Asst Manager receive every module. */
-export function moduleIdsForRole(role: Role): string[] {
+export function moduleIdsForRole(role: Role, customRoles: CustomRole[] = []): string[] {
   if (MANAGER_ROLES.includes(role)) return MODULE_DEFS.map((m) => m.id);
+  const custom = customRoles.find((c) => c.name === role);
+  if (custom) {
+    const cat: TrainingCategory = custom.section === "BOH" ? "Kitchen" : "Server";
+    return MODULE_DEFS.filter((m) => m.category === cat).map((m) => m.id);
+  }
   return MODULE_DEFS.filter((m) => m.roles.includes(role)).map((m) => m.id);
 }
 
