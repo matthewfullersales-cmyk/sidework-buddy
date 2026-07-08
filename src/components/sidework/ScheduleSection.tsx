@@ -313,6 +313,15 @@ export function ScheduleSection() {
           <Button size="sm" variant="ghost" onClick={() => setWeekStart(startOfWeek(new Date()))}>This week</Button>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={handleClearWeek}
+            disabled={generating}
+            className="gap-2 text-destructive hover:bg-destructive/5 hover:text-destructive hover:border-destructive/50"
+          >
+            <Eraser className="h-4 w-4" />
+            Clear Week
+          </Button>
           <Button variant="outline" onClick={handleCopyToNextWeek} disabled={generating} className="gap-2">
             <Copy className="h-4 w-4" />
             Copy to Next Week
