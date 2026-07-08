@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSepa
 import { useStore, type Role, type Relationship, type WeeklyAvailability, type DayKey, DAY_KEYS, defaultWeeklyAvailability } from "@/lib/sidework-store";
 import { supabase } from "@/integrations/supabase/client";
 import { slugify } from "@/lib/slug";
+import { formatPhone } from "@/lib/format-phone";
 import { toast } from "sonner";
 import { CheckCircle2, Share, Plus } from "lucide-react";
 
