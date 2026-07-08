@@ -289,6 +289,9 @@ interface Store {
   updateRestaurantDay: (day: DayKey, patch: Partial<DayHours>) => void;
   activeRoles: Role[];
   setActiveRoles: (roles: Role[]) => void;
+  customRoles: CustomRole[];
+  addCustomRole: (role: CustomRole) => void;
+  removeCustomRole: (name: string) => void;
   setupCompleted: boolean;
   notifications: Notification[];
   setMenu: (m: MenuUpload | null) => void;
