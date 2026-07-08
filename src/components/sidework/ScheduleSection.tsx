@@ -354,6 +354,22 @@ export function ScheduleSection() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={!!confirmClear} onOpenChange={(o) => { if (!o) setConfirmClear(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Clear this week's schedule?</DialogTitle>
+            <DialogDescription>
+              This will remove all {confirmClear?.count} shift{confirmClear?.count === 1 ? "" : "s"} from this week. This can't be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setConfirmClear(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={() => { setConfirmClear(null); performClearWeek(); }}>
+              Clear shifts
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Legend />
 
