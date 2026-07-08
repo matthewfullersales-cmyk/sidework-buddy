@@ -694,6 +694,14 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     if (hydrated) localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [state, hydrated]);
 
+  // Sync custom role colors into the shared ROLE_COLORS registry so
+  // roleStyle(role) picks them up everywhere without threading a palette.
+  useEffect(() => {
+    for (const c of state.customRoles) {
+      ROLE_COLORS[c.name] = c.color;
+    }
+  }, [state.customRoles]);
+
   const uid = (prefix: string) => `${prefix}${Date.now()}${Math.floor(Math.random() * 1000)}`;
 
   const store: Store = {
