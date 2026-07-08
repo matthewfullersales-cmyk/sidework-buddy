@@ -313,6 +313,7 @@ interface Store {
   }) => string;
   updateRestaurantSlug: (slug: string) => void;
   updateEmployee: (id: string, patch: Partial<Employee>) => void;
+  clearAllEmployees: () => void;
   recordVideoProgress: (employeeId: string, videoId: string, patch: Partial<VideoProgress>) => void;
   recordQuizAttempt: (employeeId: string, videoId: string, score: number, passed: boolean) => void;
   postTrade: (shiftId: string, note?: string) => void;
