@@ -146,7 +146,7 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
             <div className="grid gap-2"><Label>First name</Label><Input value={firstName} onChange={(e) => setFirstName(e.target.value)} /></div>
             <div className="grid gap-2"><Label>Last name</Label><Input value={lastName} onChange={(e) => setLastName(e.target.value)} /></div>
             <div className="grid gap-2"><Label>Email</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
-            <div className="grid gap-2"><Label>Phone number</Label><Input type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(555) 555-1234" /></div>
+            <div className="grid gap-2"><Label>Phone number</Label><Input type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(formatPhone(e.target.value))} placeholder="(555) 555-1234" /></div>
           </div>
           <div className="grid gap-2"><Label>Role</Label><Input disabled value={me.primaryRole} /></div>
           <div className="grid gap-2">
