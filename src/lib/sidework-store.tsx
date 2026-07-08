@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import { ROLE_COLORS } from "@/lib/role-colors";
 
 export type Role = string;
 export const BUILT_IN_ROLES = [
