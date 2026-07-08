@@ -77,3 +77,31 @@ export function roleStyle(role: Role): React.CSSProperties {
 export function roleSwatch(role: Role): React.CSSProperties {
   return { backgroundColor: ROLE_COLORS[role] ?? "#7F8C8D" };
 }
+
+// Palette used when auto-assigning a color to a new custom role.
+export const CUSTOM_COLOR_PALETTE: string[] = [
+  "#8E44AD", "#16A085", "#2C3E50", "#E91E63", "#00ACC1",
+  "#FF7043", "#5D4037", "#6D4C41", "#546E7A", "#AD1457",
+  "#00897B", "#43A047", "#FB8C00", "#3949AB", "#C2185B",
+];
+
+export function nextCustomColor(existing: CustomRole[]): string {
+  const used = new Set([
+    ...Object.values(ROLE_COLORS).map((c) => c.toLowerCase()),
+    ...existing.map((c) => c.color.toLowerCase()),
+  ]);
+  const free = CUSTOM_COLOR_PALETTE.find((c) => !used.has(c.toLowerCase()));
+  return free ?? CUSTOM_COLOR_PALETTE[existing.length % CUSTOM_COLOR_PALETTE.length];
+}
+
+export function fohRolesWithCustom(customRoles: CustomRole[]): Role[] {
+  return [...FOH_ROLES_ORDERED, ...customRoles.filter((c) => c.section === "FOH").map((c) => c.name)];
+}
+
+export function bohRolesWithCustom(customRoles: CustomRole[]): Role[] {
+  return [...BOH_ROLES_ORDERED, ...customRoles.filter((c) => c.section === "BOH").map((c) => c.name)];
+}
+
+export function allRolesWithCustom(customRoles: CustomRole[]): Role[] {
+  return [...fohRolesWithCustom(customRoles), ...bohRolesWithCustom(customRoles)];
+}
