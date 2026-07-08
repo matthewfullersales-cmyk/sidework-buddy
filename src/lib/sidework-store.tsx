@@ -695,6 +695,23 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     updateRestaurantDay: (day, patch) =>
       setState((s) => ({ ...s, restaurantHours: { ...s.restaurantHours, [day]: { ...s.restaurantHours[day], ...patch } } })),
     setActiveRoles: (roles) => setState((s) => ({ ...s, activeRoles: roles })),
+    addCustomRole: (role) =>
+      setState((s) => {
+        if (s.customRoles.some((c) => c.name === role.name) || (BUILT_IN_ROLES as readonly string[]).includes(role.name)) {
+          return s;
+        }
+        return {
+          ...s,
+          customRoles: [...s.customRoles, role],
+          activeRoles: s.activeRoles.includes(role.name) ? s.activeRoles : [...s.activeRoles, role.name],
+        };
+      }),
+    removeCustomRole: (name) =>
+      setState((s) => ({
+        ...s,
+        customRoles: s.customRoles.filter((c) => c.name !== name),
+        activeRoles: s.activeRoles.filter((r) => r !== name),
+      })),
     setCurrentUser: (u) => setState((s) => ({ ...s, currentUser: u })),
     inviteEmployee: ({ name, email, role }) =>
       setState((s) => {
