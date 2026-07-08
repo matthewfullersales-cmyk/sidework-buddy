@@ -583,12 +583,13 @@ function ShiftDetailsDialog({
   employeeId: string; date: string; existing?: Shift;
   onClose: () => void; onSave: (s: Shift) => void; onDelete: (id: string) => void;
 }) {
-  const { employees } = useStore();
+  const { employees, activeRoles } = useStore();
   const emp = employees.find((e) => e.id === employeeId);
   const [start, setStart] = useState(existing?.start ?? "17:00");
   const [end, setEnd] = useState(existing?.end ?? "23:00");
   const [role, setRole] = useState<Role>(existing?.role ?? (emp?.primaryRole ?? "Server"));
   const [notes, setNotes] = useState(existing?.notes ?? "");
+  const rolesForPicker = ROLES.filter((r) => activeRoles.includes(r) || r === role);
 
   return (
     <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
