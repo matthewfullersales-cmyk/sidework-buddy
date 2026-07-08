@@ -116,6 +116,7 @@ export interface Employee {
   applicationPitch?: string;
   appliedAt?: string;
   workExperience?: WorkExperience[];
+  specialTalents?: string;
 }
 
 export interface Shift {
