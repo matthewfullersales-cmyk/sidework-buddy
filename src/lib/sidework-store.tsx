@@ -53,7 +53,8 @@ export type WeeklyAvailability = Record<DayKey, DayAvailability>;
 
 export type Relationship = "Spouse" | "Parent" | "Sibling" | "Child" | "Friend" | "Other";
 export interface EmergencyContact {
-  name: string;
+  firstName: string;
+  lastName: string;
   phone: string;
   relationship: Relationship;
 }
@@ -115,6 +116,7 @@ export interface Employee {
   applicationPitch?: string;
   appliedAt?: string;
   workExperience?: WorkExperience[];
+  specialTalents?: string;
 }
 
 export interface Shift {
@@ -561,7 +563,8 @@ function seedEmployees(): Employee[] {
       availability: s.availability ?? "Flexible",
       weeklyAvailability: weekly,
       emergencyContact: {
-        name: `${["Sam","Jordan","Alex","Taylor","Chris"][i % 5]} ${s.last}`,
+        firstName: ["Sam","Jordan","Alex","Taylor","Chris"][i % 5],
+        lastName: s.last,
         phone: `(555) 887-${phoneTail}`,
         relationship: relPool[i % relPool.length],
       },

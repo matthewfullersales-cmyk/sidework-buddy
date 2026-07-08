@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSepa
 import { useStore, type Role, type Relationship, type WeeklyAvailability, type DayKey, DAY_KEYS, defaultWeeklyAvailability } from "@/lib/sidework-store";
 import { supabase } from "@/integrations/supabase/client";
 import { slugify } from "@/lib/slug";
+import { formatPhone } from "@/lib/format-phone";
 import { toast } from "sonner";
 import { CheckCircle2, Share, Plus } from "lucide-react";
 
@@ -22,7 +23,8 @@ const joinSchema = z.object({
   lastName: z.string().trim().min(1, "Last name required").max(60),
   email: z.string().trim().email("Valid email required").max(255),
   phone: z.string().trim().min(7, "Phone number required").max(30),
-  ecName: z.string().trim().min(1, "Emergency contact name required").max(80),
+  ecFirstName: z.string().trim().min(1, "Emergency contact first name required").max(60),
+  ecLastName: z.string().trim().min(1, "Emergency contact last name required").max(60),
   ecPhone: z.string().trim().min(7, "Emergency contact phone required").max(30),
 });
 
@@ -47,7 +49,8 @@ function JoinPage() {
   const [phone, setPhone] = useState("");
   const [role, setRole] = useState<Role>("Server");
   const [availability, setAvailability] = useState<WeeklyAvailability>(() => defaultWeeklyAvailability());
-  const [ecName, setEcName] = useState("");
+  const [ecFirstName, setEcFirstName] = useState("");
+  const [ecLastName, setEcLastName] = useState("");
   const [ecPhone, setEcPhone] = useState("");
   const [ecRel, setEcRel] = useState<Relationship>("Friend");
   const [password, setPassword] = useState("");
@@ -62,7 +65,7 @@ function JoinPage() {
     }));
 
   const submit = async () => {
-    const parsed = joinSchema.safeParse({ firstName, lastName, email, phone, ecName, ecPhone });
+    const parsed = joinSchema.safeParse({ firstName, lastName, email, phone, ecFirstName, ecLastName, ecPhone });
     if (!parsed.success) {
       const first = parsed.error.issues[0];
       return toast.error(first?.message ?? "Please complete the form");
@@ -78,7 +81,7 @@ function JoinPage() {
       phone: parsed.data.phone,
       role,
       weeklyAvailability: availability,
-      emergencyContact: { name: parsed.data.ecName, phone: parsed.data.ecPhone, relationship: ecRel },
+      emergencyContact: { firstName: parsed.data.ecFirstName, lastName: parsed.data.ecLastName, phone: parsed.data.ecPhone, relationship: ecRel },
     });
 
     const redirectTo = typeof window !== "undefined" ? window.location.origin : undefined;
@@ -140,7 +143,7 @@ function JoinPage() {
               <Field label="Last name"><Input value={lastName} onChange={(e) => setLastName(e.target.value)} maxLength={60} autoComplete="family-name" /></Field>
             </div>
             <Field label="Email"><Input type="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} maxLength={255} autoComplete="email" /></Field>
-            <Field label="Phone"><Input type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={30} autoComplete="tel" /></Field>
+            <Field label="Phone"><Input type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(formatPhone(e.target.value))} maxLength={30} autoComplete="tel" placeholder="(555) 555-1234" /></Field>
 
             <Field label="Primary role">
               <Select value={role} onValueChange={(v: Role) => setRole(v)}>
@@ -192,8 +195,11 @@ function JoinPage() {
 
             <div className="grid gap-2 rounded-lg border border-border bg-muted/30 p-3">
               <Label className="text-sm font-medium">Emergency contact</Label>
-              <Field label="Name"><Input value={ecName} onChange={(e) => setEcName(e.target.value)} maxLength={80} /></Field>
-              <Field label="Phone"><Input type="tel" inputMode="tel" value={ecPhone} onChange={(e) => setEcPhone(e.target.value)} maxLength={30} /></Field>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Field label="First name"><Input value={ecFirstName} onChange={(e) => setEcFirstName(e.target.value)} maxLength={60} /></Field>
+                <Field label="Last name"><Input value={ecLastName} onChange={(e) => setEcLastName(e.target.value)} maxLength={60} /></Field>
+              </div>
+              <Field label="Phone"><Input type="tel" inputMode="tel" value={ecPhone} onChange={(e) => setEcPhone(formatPhone(e.target.value))} maxLength={30} placeholder="(555) 555-1234" /></Field>
               <Field label="Relationship">
                 <Select value={ecRel} onValueChange={(v: Relationship) => setEcRel(v)}>
                   <SelectTrigger className="h-12"><SelectValue /></SelectTrigger>

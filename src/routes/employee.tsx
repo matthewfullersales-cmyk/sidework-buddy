@@ -16,6 +16,7 @@ import { TrainingModule } from "@/components/sidework/TrainingModule";
 import { AvailabilityEditor } from "@/components/sidework/AvailabilityEditor";
 import { onboardingStatus, useStore, videosForEmployee, type Relationship, type WeeklyAvailability } from "@/lib/sidework-store";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { formatPhone } from "@/lib/format-phone";
 import { toast } from "sonner";
 
 const nav = [
@@ -64,14 +65,14 @@ function EmployeePage() {
         title={`Hi, ${me.name.split(" ")[0]}`}
         subtitle={status.fullyOnboarded ? "You're fully onboarded. Nice work." : "Finish your training to get on the schedule."}
       />
-      <Tabs defaultValue={!me.personalInfoComplete ? "onboarding" : "training"}>
+      <Tabs defaultValue={!me.personalInfoComplete ? "profile" : "training"}>
         <TabsList className="mb-6 grid h-auto w-full grid-cols-2 md:grid-cols-4">
-          <TabsTrigger value="onboarding">Onboarding</TabsTrigger>
+          <TabsTrigger value="profile">{me.personalInfoComplete ? "My Profile" : "Onboarding"}</TabsTrigger>
           <TabsTrigger value="training">Training</TabsTrigger>
           <TabsTrigger value="trades">Shifts</TabsTrigger>
           <TabsTrigger value="timeoff">Time Off</TabsTrigger>
         </TabsList>
-        <TabsContent value="onboarding"><OnboardingTab employeeId={me.id} /></TabsContent>
+        <TabsContent value="profile"><OnboardingTab employeeId={me.id} /></TabsContent>
         <TabsContent value="training"><TrainingTab employeeId={me.id} /></TabsContent>
         <TabsContent value="trades"><TradesTab employeeId={me.id} /></TabsContent>
         <TabsContent value="timeoff"><TimeOffTab employeeId={me.id} /></TabsContent>
@@ -88,7 +89,13 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
   const [email, setEmail] = useState(me.email);
   const [phone, setPhone] = useState(me.phone ?? "");
   const [weekly, setWeekly] = useState<WeeklyAvailability | undefined>(me.weeklyAvailability);
-  const [ec, setEc] = useState({ name: "", phone: me.emergencyContact?.phone ?? "", relationship: me.emergencyContact?.relationship ?? "Other" as Relationship });
+  const [ec, setEc] = useState({
+    firstName: me.emergencyContact?.firstName ?? "",
+    lastName: me.emergencyContact?.lastName ?? "",
+    phone: me.emergencyContact?.phone ?? "",
+    relationship: me.emergencyContact?.relationship ?? "Other" as Relationship,
+  });
+  const [specialTalents, setSpecialTalents] = useState(me.specialTalents ?? "");
   const [photoUrl, setPhotoUrl] = useState(me.photoUrl ?? "");
   const s = onboardingStatus(me, videos);
 
@@ -101,7 +108,7 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
 
   const save = () => {
     if (!firstName.trim() || !email.trim() || !phone.trim()) return toast.error("Please fill name, email, and phone.");
-    if (!ec.name.trim() || !ec.phone.trim()) return toast.error("Please add an emergency contact.");
+    if (!ec.firstName.trim() || !ec.lastName.trim() || !ec.phone.trim()) return toast.error("Please add an emergency contact.");
     updateEmployee(me.id, {
       firstName: firstName.trim(),
       lastName: lastName.trim(),
@@ -109,7 +116,8 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
       email: email.trim(),
       phone: phone.trim(),
       weeklyAvailability: weekly,
-      emergencyContact: ec,
+      emergencyContact: { ...ec, firstName: ec.firstName.trim(), lastName: ec.lastName.trim() },
+      specialTalents: specialTalents.trim() || undefined,
       photoUrl: photoUrl || undefined,
       personalInfoComplete: true,
       onboardingStarted: true,
@@ -138,7 +146,7 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
             <div className="grid gap-2"><Label>First name</Label><Input value={firstName} onChange={(e) => setFirstName(e.target.value)} /></div>
             <div className="grid gap-2"><Label>Last name</Label><Input value={lastName} onChange={(e) => setLastName(e.target.value)} /></div>
             <div className="grid gap-2"><Label>Email</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
-            <div className="grid gap-2"><Label>Phone number</Label><Input type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(555) 555-1234" /></div>
+            <div className="grid gap-2"><Label>Phone number</Label><Input type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(formatPhone(e.target.value))} placeholder="(555) 555-1234" /></div>
           </div>
           <div className="grid gap-2"><Label>Role</Label><Input disabled value={me.primaryRole} /></div>
           <div className="grid gap-2">
@@ -185,9 +193,10 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
       <Card>
         <CardHeader><CardTitle className="text-base">Emergency contact</CardTitle></CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2">
-          <div className="grid gap-2"><Label>Full name</Label><Input placeholder="Emergency contact full name" value={ec.name} onChange={(e) => setEc({ ...ec, name: e.target.value })} /></div>
-          <div className="grid gap-2"><Label>Phone</Label><Input type="tel" value={ec.phone} onChange={(e) => setEc({ ...ec, phone: e.target.value })} /></div>
-          <div className="grid gap-2 sm:col-span-2">
+          <div className="grid gap-2"><Label>First name</Label><Input value={ec.firstName} onChange={(e) => setEc({ ...ec, firstName: e.target.value })} /></div>
+          <div className="grid gap-2"><Label>Last name</Label><Input value={ec.lastName} onChange={(e) => setEc({ ...ec, lastName: e.target.value })} /></div>
+          <div className="grid gap-2"><Label>Phone</Label><Input type="tel" inputMode="tel" value={ec.phone} onChange={(e) => setEc({ ...ec, phone: formatPhone(e.target.value) })} placeholder="(555) 555-1234" /></div>
+          <div className="grid gap-2">
             <Label>Relationship</Label>
             <Select value={ec.relationship} onValueChange={(v: Relationship) => setEc({ ...ec, relationship: v })}>
               <SelectTrigger><SelectValue /></SelectTrigger>
@@ -198,6 +207,22 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
               </SelectContent>
             </Select>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Special talents</CardTitle>
+          <p className="mt-1 text-xs text-muted-foreground">Share anything fun about yourself — your manager will see it on your profile.</p>
+        </CardHeader>
+        <CardContent>
+          <Textarea
+            rows={3}
+            value={specialTalents}
+            onChange={(e) => setSpecialTalents(e.target.value)}
+            placeholder="Anything you're good at? Singing, art, a second language — you never know when it'll come in handy."
+            maxLength={500}
+          />
         </CardContent>
       </Card>
 

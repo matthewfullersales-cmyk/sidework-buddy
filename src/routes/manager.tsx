@@ -20,6 +20,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { onboardingStatus, useStore, type Role, type ApplicationStatus, type Employee, type Relationship, DAY_KEYS, type JobApplication, type HiringStage, type ShadowShiftDetails, type InterviewType, getHiringStage } from "@/lib/sidework-store";
 import { roleStyle, fohRolesWithCustom, bohRolesWithCustom } from "@/lib/role-colors";
+import { formatPhone } from "@/lib/format-phone";
 import { AvailabilityEditor, RestaurantHoursEditor } from "@/components/sidework/AvailabilityEditor";
 import { StaffJoinBanner, FullscreenQrDialog, StaffOnboardingCard } from "@/components/sidework/StaffOnboarding";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -537,7 +538,7 @@ function TeamTab() {
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Emergency contact</p>
                     {e.emergencyContact ? (
                       <div className="mt-1 text-sm">
-                        <p className="font-medium">{e.emergencyContact.name} <span className="text-xs text-muted-foreground">· {e.emergencyContact.relationship}</span></p>
+                        <p className="font-medium">{`${e.emergencyContact.firstName ?? ""} ${e.emergencyContact.lastName ?? ""}`.trim() || "—"} <span className="text-xs text-muted-foreground">· {e.emergencyContact.relationship}</span></p>
                         <a href={`tel:${e.emergencyContact.phone}`} className="text-xs text-primary underline">{e.emergencyContact.phone}</a>
                       </div>
                     ) : (
@@ -545,6 +546,13 @@ function TeamTab() {
                     )}
                   </div>
                 </div>
+
+                {e.specialTalents && (
+                  <div className="mt-3 rounded-lg border border-border bg-muted/30 p-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Special talents</p>
+                    <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">{e.specialTalents}</p>
+                  </div>
+                )}
 
                 <div className="mt-3 flex flex-wrap justify-end gap-2">
                   <Button size="sm" variant="outline" onClick={() => setEditing(e)}>Edit profile</Button>
@@ -606,7 +614,12 @@ function EmployeeProfileDialog({ employee, onClose }: { employee: Employee; onCl
   const [approvedRoles, setApprovedRoles] = useState<Role[]>(employee.approvedRoles);
   const [autoApprove, setAutoApprove] = useState<Role[]>(employee.autoApproveRoles);
   const [weekly, setWeekly] = useState(employee.weeklyAvailability);
-  const [ec, setEc] = useState(employee.emergencyContact ?? { name: "", phone: "", relationship: "Other" as Relationship });
+  const [ec, setEc] = useState<{ firstName: string; lastName: string; phone: string; relationship: Relationship }>({
+    firstName: employee.emergencyContact?.firstName ?? "",
+    lastName: employee.emergencyContact?.lastName ?? "",
+    phone: employee.emergencyContact?.phone ?? "",
+    relationship: employee.emergencyContact?.relationship ?? "Other",
+  });
 
   const save = () => {
     if (!firstName.trim()) return toast.error("First name is required");
@@ -619,7 +632,7 @@ function EmployeeProfileDialog({ employee, onClose }: { employee: Employee; onCl
       approvedRoles,
       autoApproveRoles: autoApprove.filter((r) => approvedRoles.includes(r)),
       weeklyAvailability: weekly,
-      emergencyContact: ec.name || ec.phone ? ec : undefined,
+      emergencyContact: (ec.firstName || ec.lastName || ec.phone) ? { firstName: ec.firstName.trim(), lastName: ec.lastName.trim(), phone: ec.phone.trim(), relationship: ec.relationship } : undefined,
     });
     toast.success("Profile saved");
     onClose();
@@ -634,7 +647,7 @@ function EmployeeProfileDialog({ employee, onClose }: { employee: Employee; onCl
             <div className="grid gap-1.5"><Label>First name</Label><Input value={firstName} onChange={(e) => setFirstName(e.target.value)} /></div>
             <div className="grid gap-1.5"><Label>Last name</Label><Input value={lastName} onChange={(e) => setLastName(e.target.value)} /></div>
             <div className="grid gap-1.5"><Label>Email</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
-            <div className="grid gap-1.5"><Label>Phone</Label><Input type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} /></div>
+            <div className="grid gap-1.5"><Label>Phone</Label><Input type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(formatPhone(e.target.value))} placeholder="(555) 555-1234" /></div>
           </div>
 
           <div>
@@ -701,8 +714,9 @@ function EmployeeProfileDialog({ employee, onClose }: { employee: Employee; onCl
           <div className="rounded-lg border border-border p-3">
             <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Emergency contact (manager-only)</p>
             <div className="grid gap-3 sm:grid-cols-2">
-              <div className="grid gap-1.5"><Label>Full name</Label><Input value={ec.name} onChange={(e) => setEc({ ...ec, name: e.target.value })} /></div>
-              <div className="grid gap-1.5"><Label>Phone</Label><Input type="tel" value={ec.phone} onChange={(e) => setEc({ ...ec, phone: e.target.value })} /></div>
+              <div className="grid gap-1.5"><Label>First name</Label><Input value={ec.firstName} onChange={(e) => setEc({ ...ec, firstName: e.target.value })} /></div>
+              <div className="grid gap-1.5"><Label>Last name</Label><Input value={ec.lastName} onChange={(e) => setEc({ ...ec, lastName: e.target.value })} /></div>
+              <div className="grid gap-1.5"><Label>Phone</Label><Input type="tel" inputMode="tel" value={ec.phone} onChange={(e) => setEc({ ...ec, phone: formatPhone(e.target.value) })} placeholder="(555) 555-1234" /></div>
               <div className="grid gap-1.5 sm:col-span-2">
                 <Label>Relationship</Label>
                 <Select value={ec.relationship} onValueChange={(v: Relationship) => setEc({ ...ec, relationship: v })}>
