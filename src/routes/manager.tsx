@@ -435,12 +435,12 @@ function TeamTab() {
                   <SelectContent>
                     <SelectGroup>
                       <SelectLabel>Front of House</SelectLabel>
-                      {FOH_ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                      {fohActive.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
                     </SelectGroup>
                     <SelectSeparator />
                     <SelectGroup>
                       <SelectLabel>Back of House</SelectLabel>
-                      {BOH_ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                      {bohActive.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
                     </SelectGroup>
                   </SelectContent>
                 </Select>
