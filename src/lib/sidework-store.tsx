@@ -799,8 +799,6 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
   }, [authLoading, hydrated, effectiveOwnerId, acting]);
 
   const uid = (prefix: string) => `${prefix}${Date.now()}${Math.floor(Math.random() * 1000)}`;
-
-  const uid = (prefix: string) => `${prefix}${Date.now()}${Math.floor(Math.random() * 1000)}`;
   const newUuid = () =>
     typeof crypto !== "undefined" && "randomUUID" in crypto
       ? crypto.randomUUID()
