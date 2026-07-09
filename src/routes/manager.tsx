@@ -1268,9 +1268,6 @@ function InterviewStageDetails({
   return (<>{block}{reassignRow}</>);
 }
 
-  }
-  return null;
-}
 
 function InterviewTypeDialog({
   application, onClose, onPick,
