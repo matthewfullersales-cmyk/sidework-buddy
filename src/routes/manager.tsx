@@ -29,7 +29,12 @@ import { slugify } from "@/lib/slug";
 import { useTeamMembers } from "@/lib/use-team-members";
 import type { TeamMember } from "@/lib/hiring-supabase";
 import { toast } from "sonner";
-import { ChevronDown, Check } from "lucide-react";
+import { ChevronDown, Check, CalendarIcon } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
+import { useAuth } from "@/lib/auth-context";
+import { fetchBookedInterviewSlots } from "@/lib/hiring-supabase";
+import { cn } from "@/lib/utils";
 
 type TeamSortKey =
   | "firstNameAsc" | "firstNameDesc"
