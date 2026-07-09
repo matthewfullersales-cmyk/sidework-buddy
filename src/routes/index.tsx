@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Brain, MonitorPlay, CalendarClock, Check } from "lucide-react";
+import { Brain, MonitorPlay, CalendarClock, Check, Quote, Smartphone } from "lucide-react";
 import { Logo } from "@/components/sidework/Logo";
 import { Button } from "@/components/ui/button";
 
@@ -21,9 +21,13 @@ function Landing() {
     <div className="min-h-screen bg-background">
       <header className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-4 sm:py-5">
         <Logo />
-        <nav className="flex items-center gap-4 text-sm font-semibold sm:gap-5">
-          <a href="#features" className="text-muted-foreground hover:text-foreground">Features</a>
-          
+        <nav className="flex items-center gap-4 text-sm font-semibold sm:gap-6">
+          <a href="#features" className="hidden text-muted-foreground hover:text-foreground sm:inline">Features</a>
+          <a href="#pricing" className="hidden text-muted-foreground hover:text-foreground sm:inline">Pricing</a>
+          <Link to="/get-app" className="text-muted-foreground hover:text-foreground">Employee?</Link>
+          <Button asChild size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90">
+            <Link to="/login">Log in</Link>
+          </Button>
         </nav>
       </header>
 
@@ -44,13 +48,16 @@ function Landing() {
             </p>
             <div className="mt-7 flex flex-col gap-3 sm:flex-row">
               <Button asChild size="lg" className="w-full bg-white text-primary shadow-bold hover:bg-white/90 sm:w-auto">
-                <Link to="/login">I'm a Manager / Owner</Link>
+                <Link to="/login">Get started — free 30-day trial</Link>
               </Button>
               <Button asChild size="lg" variant="outline" className="w-full border-white/30 bg-transparent text-white hover:bg-white/10 hover:text-white sm:w-auto">
-                <Link to="/employee-login">I'm an Employee</Link>
+                <a href="#features">See how it works</a>
               </Button>
             </div>
-            <p className="mt-4 text-xs text-white/60">Sign in or create an account to get started.</p>
+            <p className="mt-4 text-xs text-white/60">
+              For restaurant owners &amp; managers. Employee?{" "}
+              <Link to="/get-app" className="underline underline-offset-2 hover:text-white">Get the app</Link>.
+            </p>
           </div>
 
 
