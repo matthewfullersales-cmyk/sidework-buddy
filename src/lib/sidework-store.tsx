@@ -1194,7 +1194,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           ],
         };
       });
-      updateApplication(id, patch).catch((e) => console.error("[applicantSelectSlot]", e));
+      confirmApplicantSlot(id, slot).catch((e) => console.error("[applicantSelectSlot]", e));
     },
     completeInterview: (id, notes) => {
       setState((s) => ({
