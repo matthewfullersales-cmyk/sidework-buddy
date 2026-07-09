@@ -143,17 +143,17 @@ export async function fetchMyTimeOff(employeeId: string): Promise<TimeOffRequest
   });
 }
 
-/** Fetch the "other party" employee rows referenced by a set of trades so
- * the UI can show names. Uses the trade-board SELECT visibility that RLS
- * grants employees in the same restaurant — actually restaurant_employees
- * SELECT is more restrictive (own row only + manager visibility), so we
- * fall back to name-less display for non-self trades. */
-export async function fetchVisibleEmployeeRows(ids: string[]): Promise<Employee[]> {
-  if (ids.length === 0) return [];
-  const { data, error } = await supabase
-    .from("restaurant_employees")
-    .select("*")
-    .in("id", ids);
-  if (error) return [];
-  return (data ?? []).map((r) => employeeFromRow(r as never));
+/** Fetch coworker first names via the SECURITY DEFINER RPC. Returns
+ * lightweight stub Employee objects (id + name only) so trade-board cards
+ * can render "from {firstName}" without exposing contact/personal info. */
+export async function fetchCoworkerNames(ownerId: string): Promise<Pick<Employee, "id" | "name" | "firstName">[]> {
+  const { data, error } = await supabase.rpc("get_restaurant_coworker_names", { p_owner_id: ownerId });
+  if (error || !data) return [];
+  const rows = (data as { employee_id: string; first_name: string | null }[]) ?? [];
+  return rows.map((r) => ({
+    id: r.employee_id,
+    name: r.first_name ?? "",
+    firstName: r.first_name ?? undefined,
+  }));
 }
+
