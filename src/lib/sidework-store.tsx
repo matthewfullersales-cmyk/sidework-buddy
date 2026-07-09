@@ -887,11 +887,12 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     ownerIdRef.current = employeeCtxOwnerId;
     (async () => {
       try {
-        const [me, myShifts, openTrades, myTimeOff] = await Promise.all([
+        const [me, myShifts, openTrades, myTimeOff, coworkers] = await Promise.all([
           fetchMyEmployeeRow(employeeCtxEmployeeId),
           fetchMyShifts(employeeCtxEmployeeId),
           fetchOwnerOpenTrades(employeeCtxOwnerId),
           fetchMyTimeOff(employeeCtxEmployeeId),
+          fetchCoworkerNames(employeeCtxOwnerId),
         ]);
         if (cancelled) return;
         // Also fetch shifts referenced by open trades so the trade board
@@ -902,13 +903,26 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
         const boardShifts = await fetchShiftsByIds(tradeShiftIds);
         if (cancelled) return;
 
+        // Merge: prefer the full "me" row over the coworker stub for self.
+        const coworkerStubs = coworkers
+          .filter((c) => !me || c.id !== me.id)
+          .map((c) => ({
+            id: c.id,
+            name: c.name,
+            firstName: c.firstName,
+            email: "",
+            primaryRole: "server" as Role,
+            approvedRoles: [] as Role[],
+            autoApproveRoles: [] as Role[],
+            availability: "",
+            invitedAt: "",
+            onboardingStarted: false,
+            personalInfoComplete: false,
+            progress: [] as VideoProgress[],
+          }));
         setState((s) => ({
           ...s,
-          // Only include the employee's own row. Coworker names aren't
-          // fetched here — restaurant_employees RLS restricts SELECT to own
-          // row + manager-visible rows, so trade cards will show blank
-          // "from" until we add a coworker-name RPC.
-          employees: me ? [me] : [],
+          employees: me ? [me, ...coworkerStubs] : coworkerStubs,
           shifts: [...myShifts, ...boardShifts],
           trades: openTrades,
           timeOff: myTimeOff,
