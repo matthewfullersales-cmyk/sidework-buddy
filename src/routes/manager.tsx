@@ -75,12 +75,19 @@ function ManagerPage() {
   const { setupCompleted, restaurantProfile, resetSetup, currentUser, setCurrentUser } = useStore();
   const [tab, setTab] = useState("dashboard");
   const [showSetupWizard, setShowSetupWizard] = useState(false);
-  useRequireRole("owner", "/login");
+  useRequireManagerAccess("/login");
+  const { effectiveOwner } = useAuth();
+  const isHiringManagerOnly = effectiveOwner?.acting === "hiring_manager";
   useEffect(() => {
     if (currentUser.type !== "manager") {
       setCurrentUser({ type: "manager", id: "owner" });
     }
   }, [currentUser, setCurrentUser]);
+
+  // Hiring managers only see the Jobs tab, so pin the tab there.
+  useEffect(() => {
+    if (isHiringManagerOnly && tab !== "jobs") setTab("jobs");
+  }, [isHiringManagerOnly, tab]);
 
 
   if (showSetupWizard) {
