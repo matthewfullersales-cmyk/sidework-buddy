@@ -502,11 +502,11 @@ export async function insertTeamMember(
       phone: data.phone ?? null,
       title: data.title ?? null,
     })
-    .select("id, name, first_name, last_name, email, phone, title, can_manage_hiring, auth_user_id")
+    .select("id, name, first_name, last_name, email, phone, title, can_manage_hiring, can_manage_schedule, auth_user_id")
     .single();
   if (error) throw error;
-  const r = row as { id: string; name: string; first_name: string | null; last_name: string | null; email: string | null; phone: string | null; title: string | null; can_manage_hiring: boolean; auth_user_id: string | null };
-  return { id: r.id, name: r.name, firstName: r.first_name, lastName: r.last_name, email: r.email, phone: r.phone, title: r.title, canManageHiring: r.can_manage_hiring, authUserId: r.auth_user_id };
+  const r = row as { id: string; name: string; first_name: string | null; last_name: string | null; email: string | null; phone: string | null; title: string | null; can_manage_hiring: boolean; can_manage_schedule: boolean; auth_user_id: string | null };
+  return { id: r.id, name: r.name, firstName: r.first_name, lastName: r.last_name, email: r.email, phone: r.phone, title: r.title, canManageHiring: r.can_manage_hiring, canManageSchedule: r.can_manage_schedule, authUserId: r.auth_user_id };
 }
 
 export async function updateTeamMember(
