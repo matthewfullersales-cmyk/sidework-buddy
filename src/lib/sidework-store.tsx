@@ -9,6 +9,7 @@ import {
   deletePosting,
   insertApplication,
   updateApplication,
+  confirmApplicantSlot,
 } from "@/lib/hiring-supabase";
 import { toast } from "sonner";
 
