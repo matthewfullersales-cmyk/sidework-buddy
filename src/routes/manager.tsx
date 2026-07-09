@@ -1230,7 +1230,7 @@ function InterviewStageDetails({
     </div>
   );
 
-  let block: JSX.Element | null = null;
+  let block: React.ReactNode = null;
   if (stage === "video_offered" && app.offeredSlots) {
     block = (
       <div className="mt-3 rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm">
