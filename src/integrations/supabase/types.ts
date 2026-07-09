@@ -712,6 +712,10 @@ export type Database = {
           slug: string
         }[]
       }
+      shift_is_on_trade_board: {
+        Args: { p_owner_id: string; p_shift_id: string }
+        Returns: boolean
+      }
       slugify_name: { Args: { input: string }; Returns: string }
     }
     Enums: {
