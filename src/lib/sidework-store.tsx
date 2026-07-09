@@ -711,16 +711,27 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     }
   }, [state.customRoles]);
 
-  // Owner-scoped Supabase sync for the hiring pipeline (jobs + applications).
+  // Owner-scoped Supabase sync for the hiring pipeline (jobs + applications)
+  // AND the employee roster + restaurant hours (Wave A of scheduling).
   // Uses the "effective owner id" from AuthContext so both real owners and
   // hiring-managers (with can_manage_hiring granted for that owner) hydrate
   // against the same owner's data.
   const { effectiveOwner, loading: authLoading } = useAuth();
   const ownerIdRef = useRef<string | null>(null);
   const effectiveOwnerId = effectiveOwner?.ownerId ?? null;
+  const acting = effectiveOwner?.acting ?? null;
+  // Track owners we've already run the one-time local→cloud bootstrap for,
+  // so re-hydrations (tab focus, auth refresh) can't re-upload. The DB unique
+  // index (owner_id, local_id) is a second line of defense.
+  const bootstrappedOwnersRef = useRef<Set<string>>(new Set());
+  // Mirror of latest state so the hydrate effect can read local employees /
+  // hours without re-firing on every store change.
+  const latestStateRef = useRef(state);
+  useEffect(() => { latestStateRef.current = state; }, [state]);
+
   useEffect(() => {
     ownerIdRef.current = effectiveOwnerId;
-    if (authLoading) return;
+    if (!hydrated || authLoading) return;
     let cancelled = false;
     if (!effectiveOwnerId) {
       setState((s) => ({ ...s, jobs: [], applications: [] }));
@@ -728,18 +739,64 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     }
     (async () => {
       try {
-        const [postings, apps] = await Promise.all([
+        const [postings, apps, remoteEmployeesInitial, remoteHours] = await Promise.all([
           fetchOwnerPostings(effectiveOwnerId),
           fetchOwnerApplications(effectiveOwnerId),
+          fetchOwnerEmployees(effectiveOwnerId),
+          fetchRestaurantHours(effectiveOwnerId),
         ]);
         if (cancelled) return;
-        setState((s) => ({ ...s, jobs: postings, applications: apps }));
+
+        // Employees: cloud is authoritative once anything exists there. Otherwise,
+        // if this signed-in user is the real owner and their local roster has
+        // employees, upload them one time (idempotent via UNIQUE(owner_id, local_id)).
+        let remoteEmployees = remoteEmployeesInitial;
+        const local = latestStateRef.current.employees;
+        const alreadyBootstrapped = bootstrappedOwnersRef.current.has(effectiveOwnerId);
+        if (
+          remoteEmployees.length === 0 &&
+          acting === "owner" &&
+          local.length > 0 &&
+          !alreadyBootstrapped
+        ) {
+          bootstrappedOwnersRef.current.add(effectiveOwnerId);
+          try {
+            remoteEmployees = await bootstrapLocalEmployees(effectiveOwnerId, local);
+            if (cancelled) return;
+          } catch (e) {
+            // Roll back the guard so a transient failure can retry next mount.
+            bootstrappedOwnersRef.current.delete(effectiveOwnerId);
+            console.error("[employees-bootstrap] failed", e);
+            remoteEmployees = [];
+          }
+        }
+
+        // Hours: if cloud has a value use it; otherwise seed from local once.
+        let hoursPatch: Partial<typeof state> = {};
+        if (remoteHours && typeof remoteHours === "object") {
+          hoursPatch = { restaurantHours: remoteHours as typeof state.restaurantHours };
+        } else if (acting === "owner") {
+          try {
+            await saveRestaurantHours(effectiveOwnerId, latestStateRef.current.restaurantHours);
+          } catch (e) {
+            console.error("[hours-bootstrap] failed", e);
+          }
+        }
+
+        setState((s) => ({
+          ...s,
+          jobs: postings,
+          applications: apps,
+          // If nothing remote and no bootstrap happened, keep local (single-device owner).
+          employees: remoteEmployees.length > 0 ? remoteEmployees : s.employees,
+          ...hoursPatch,
+        }));
       } catch (e) {
-        console.error("[hiring-sync] failed to load", e);
+        console.error("[owner-sync] failed to load", e);
       }
     })();
     return () => { cancelled = true; };
-  }, [authLoading, effectiveOwnerId]);
+  }, [authLoading, hydrated, effectiveOwnerId, acting]);
 
   const uid = (prefix: string) => `${prefix}${Date.now()}${Math.floor(Math.random() * 1000)}`;
 
