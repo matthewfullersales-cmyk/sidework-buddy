@@ -67,10 +67,17 @@ type ApplicationRow = {
 export type TeamMember = {
   id: string;
   name: string;
+  firstName: string | null;
+  lastName: string | null;
   email: string | null;
   phone: string | null;
   title: string | null;
 };
+
+export function teamMemberDisplayName(m: Pick<TeamMember, "firstName" | "lastName" | "name">): string {
+  const combined = [m.firstName, m.lastName].filter(Boolean).join(" ").trim();
+  return combined || m.name;
+}
 
 export type PublicInterviewInfo = {
   id: string;
