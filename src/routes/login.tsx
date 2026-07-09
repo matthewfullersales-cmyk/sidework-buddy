@@ -28,11 +28,13 @@ function LoginPage() {
       setBusy(false);
       return toast.error(error.message);
     }
-    // Check role
+    // Resolve access: owners AND granted hiring-managers land on /manager.
     const uid = data.user?.id;
     if (uid) {
-      const { data: prof } = await supabase.from("profiles").select("role").eq("id", uid).maybeSingle();
-      if (prof?.role === "employee") {
+      const { data: eff } = await supabase.rpc("get_effective_owner");
+      const row = (eff ?? [])[0] as { acting: string } | undefined;
+      if (!row) {
+        // Not an owner and not a granted hiring manager — likely a plain employee.
         toast.message("This is the manager sign-in. Redirecting to employee sign-in…");
         await supabase.auth.signOut();
         setBusy(false);
