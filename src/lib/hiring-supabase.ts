@@ -72,7 +72,10 @@ export type TeamMember = {
   email: string | null;
   phone: string | null;
   title: string | null;
+  canManageHiring: boolean;
+  authUserId: string | null;
 };
+
 
 export function teamMemberDisplayName(m: Pick<TeamMember, "firstName" | "lastName" | "name">): string {
   const combined = [m.firstName, m.lastName].filter(Boolean).join(" ").trim();
