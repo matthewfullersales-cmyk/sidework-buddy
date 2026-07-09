@@ -86,7 +86,11 @@ function TeamInvitePage() {
         <h1 className="mb-2 text-center text-2xl font-bold tracking-tight">Accept your team invite</h1>
         {invite?.restaurantName && (
           <p className="mb-6 text-center text-sm text-muted-foreground">
-            You've been invited to help manage hiring at <span className="font-semibold text-foreground">{invite.restaurantName}</span>.
+            {invite.canManageHiring && invite.canManageSchedule
+              ? <>You've been invited to help manage hiring and scheduling at <span className="font-semibold text-foreground">{invite.restaurantName}</span>.</>
+              : invite.canManageHiring
+                ? <>You've been invited to help manage hiring at <span className="font-semibold text-foreground">{invite.restaurantName}</span>.</>
+                : <>You've been invited to help manage scheduling at <span className="font-semibold text-foreground">{invite.restaurantName}</span>.</>}
           </p>
         )}
         <Card className="border-2">
@@ -100,14 +104,14 @@ function TeamInvitePage() {
                 <Button asChild className="w-full"><Link to="/login">Go to sign in</Link></Button>
               </div>
             )}
-            {!loading && invite && !invite.claimed && !invite.canManageHiring && (
+            {!loading && invite && !invite.claimed && !invite.canManageHiring && !invite.canManageSchedule && (
               <div className="space-y-3">
                 <p className="text-sm text-muted-foreground">
-                  Your restaurant owner hasn't turned on hiring access for you yet. Ask them to enable "Can manage hiring &amp; interviews" for your name, then reopen this link.
+                  Your restaurant owner hasn't turned on manager access for you yet. Ask them to enable "Can manage hiring" or "Can manage scheduling" for your name, then reopen this link.
                 </p>
               </div>
             )}
-            {!loading && invite && !invite.claimed && invite.canManageHiring && (
+            {!loading && invite && !invite.claimed && (invite.canManageHiring || invite.canManageSchedule) && (
               <form onSubmit={submit} className="grid gap-4">
                 <p className="text-sm text-muted-foreground">
                   Hi <span className="font-semibold text-foreground">{invite.firstName ?? invite.name}</span> — create a password to activate your login. If you already have an account with this email, we'll just link it.
