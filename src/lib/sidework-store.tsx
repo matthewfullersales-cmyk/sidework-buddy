@@ -922,7 +922,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
         ...s,
         restaurantProfile: s.restaurantProfile ? { ...s.restaurantProfile, slug } : s.restaurantProfile,
       })),
-    updateEmployee: (id, patch) =>
+    updateEmployee: (id, patch) => {
       setState((s) => {
         const before = s.employees.find((e) => e.id === id);
         const employees = s.employees.map((e) => (e.id === id ? { ...e, ...patch } : e));
@@ -947,7 +947,10 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           }
         }
         return { ...s, employees, notifications };
-      }),
+      });
+      const oid = ownerIdRef.current;
+      if (oid) updateEmployeeRow(id, patch).catch((e) => console.error("[updateEmployee]", e));
+    },
     recordVideoProgress: (employeeId, videoId, patch) =>
       setState((s) => ({
         ...s,
