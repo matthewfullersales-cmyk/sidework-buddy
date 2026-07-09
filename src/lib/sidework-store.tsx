@@ -224,6 +224,8 @@ export interface JobApplication {
   offeredSlots?: string[];
   selectedSlot?: string;
   shadowShift?: ShadowShiftDetails;
+  shadowConfirmedAt?: string | null;
+  shadowResponseNote?: string | null;
   archived?: boolean;
   hiredEmployeeId?: string;
   workExperience?: WorkExperience[];

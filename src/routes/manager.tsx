@@ -1020,6 +1020,13 @@ function JobsTab() {
             <p className="mt-1">{a.shadowShift.date} at {a.shadowShift.time}</p>
             {a.shadowShift.dressCode && <p className="text-xs text-muted-foreground">Dress code: {a.shadowShift.dressCode}</p>}
             {a.shadowShift.instructions && <p className="mt-1 text-xs text-muted-foreground">{a.shadowShift.instructions}</p>}
+            {a.shadowConfirmedAt ? (
+              <p className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-success">✓ Confirmed by applicant</p>
+            ) : a.shadowResponseNote ? (
+              <p className="mt-2 text-xs font-semibold text-warning">⚠ Can't make it: {a.shadowResponseNote}</p>
+            ) : (
+              <p className="mt-2 text-xs text-muted-foreground">Awaiting applicant confirmation · link: /shadow/{a.id}</p>
+            )}
           </div>
         )}
         renderActions={(a) => (
@@ -1096,7 +1103,7 @@ function JobsTab() {
             inviteShadowShift(shadowApp.id, details);
             const name = shadowApp.firstName ?? shadowApp.name;
             toast.success(`Shadow shift invite sent to ${name}`, {
-              description: `${details.date} at ${details.time}`,
+              description: `${details.date} at ${details.time} · Applicant link: /shadow/${shadowApp.id}`,
             });
             setShadowFor(null);
           }}

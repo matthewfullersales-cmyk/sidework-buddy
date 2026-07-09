@@ -55,6 +55,8 @@ type ApplicationRow = {
   offered_slots: string[] | null;
   selected_slot: string | null;
   shadow_shift: unknown;
+  shadow_confirmed_at: string | null;
+  shadow_response_note: string | null;
   archived: boolean;
   hired_employee_id: string | null;
   work_experience: unknown;
@@ -86,6 +88,19 @@ export type PublicInterviewInfo = {
   assigneeName: string | null;
   assigneeEmail: string | null;
   assigneePhone: string | null;
+};
+
+export type PublicShadowShiftInfo = {
+  id: string;
+  firstName: string | null;
+  name: string;
+  role: string | null;
+  stage: string | null;
+  shadowShift: ShadowShiftDetails | null;
+  shadowConfirmedAt: string | null;
+  shadowResponseNote: string | null;
+  restaurantName: string | null;
+  jobTitle: string | null;
 };
 
 export function postingFromRow(r: PostingRow): JobPosting {
@@ -128,6 +143,8 @@ export function applicationFromRow(r: ApplicationRow): JobApplication {
     offeredSlots: r.offered_slots ?? undefined,
     selectedSlot: r.selected_slot ?? undefined,
     shadowShift: (r.shadow_shift as ShadowShiftDetails | null) ?? undefined,
+    shadowConfirmedAt: r.shadow_confirmed_at ?? null,
+    shadowResponseNote: r.shadow_response_note ?? null,
     archived: r.archived,
     hiredEmployeeId: r.hired_employee_id ?? undefined,
     workExperience: (r.work_experience as WorkExperience[] | null) ?? undefined,
@@ -325,6 +342,42 @@ export async function hostCompleteInterview(id: string, notes: string): Promise<
   });
   if (error) throw error;
 }
+
+/** Public: fetch minimal shadow-shift details for the applicant confirmation page. */
+export async function fetchPublicShadowShift(id: string): Promise<PublicShadowShiftInfo | null> {
+  const { data, error } = await supabase.rpc("get_public_shadow_shift", { p_application_id: id });
+  if (error) throw error;
+  const row = Array.isArray(data) ? data[0] : null;
+  if (!row) return null;
+  return {
+    id: row.id,
+    firstName: row.first_name ?? null,
+    name: row.name,
+    role: row.role ?? null,
+    stage: row.stage ?? null,
+    shadowShift: (row.shadow_shift as ShadowShiftDetails | null) ?? null,
+    shadowConfirmedAt: row.shadow_confirmed_at ?? null,
+    shadowResponseNote: row.shadow_response_note ?? null,
+    restaurantName: row.restaurant_name ?? null,
+    jobTitle: row.job_title ?? null,
+  };
+}
+
+/** Public: applicant confirms the shadow shift (anon). */
+export async function confirmApplicantShadowShift(id: string): Promise<void> {
+  const { error } = await supabase.rpc("applicant_confirm_shadow_shift", { p_application_id: id });
+  if (error) throw error;
+}
+
+/** Public: applicant can't make it — stores a note (anon). */
+export async function declineApplicantShadowShift(id: string, note: string): Promise<void> {
+  const { error } = await supabase.rpc("applicant_decline_shadow_shift", {
+    p_application_id: id,
+    p_note: note,
+  });
+  if (error) throw error;
+}
+
 
 /* ---------------- Team roster ---------------- */
 

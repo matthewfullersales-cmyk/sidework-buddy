@@ -40,6 +40,8 @@ export type Database = {
           pitch: string | null
           role: string | null
           selected_slot: string | null
+          shadow_confirmed_at: string | null
+          shadow_response_note: string | null
           shadow_shift: Json | null
           source: string | null
           special_talents: string | null
@@ -75,6 +77,8 @@ export type Database = {
           pitch?: string | null
           role?: string | null
           selected_slot?: string | null
+          shadow_confirmed_at?: string | null
+          shadow_response_note?: string | null
           shadow_shift?: Json | null
           source?: string | null
           special_talents?: string | null
@@ -110,6 +114,8 @@ export type Database = {
           pitch?: string | null
           role?: string | null
           selected_slot?: string | null
+          shadow_confirmed_at?: string | null
+          shadow_response_note?: string | null
           shadow_shift?: Json | null
           source?: string | null
           special_talents?: string | null
@@ -266,6 +272,14 @@ export type Database = {
         Args: { p_application_id: string; p_slot: string }
         Returns: undefined
       }
+      applicant_confirm_shadow_shift: {
+        Args: { p_application_id: string }
+        Returns: undefined
+      }
+      applicant_decline_shadow_shift: {
+        Args: { p_application_id: string; p_note: string }
+        Returns: undefined
+      }
       get_public_interview: {
         Args: { p_application_id: string }
         Returns: {
@@ -283,6 +297,21 @@ export type Database = {
           restaurant_name: string
           role: string
           selected_slot: string
+          stage: string
+        }[]
+      }
+      get_public_shadow_shift: {
+        Args: { p_application_id: string }
+        Returns: {
+          first_name: string
+          id: string
+          job_title: string
+          name: string
+          restaurant_name: string
+          role: string
+          shadow_confirmed_at: string
+          shadow_response_note: string
+          shadow_shift: Json
           stage: string
         }[]
       }
