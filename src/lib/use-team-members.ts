@@ -6,6 +6,7 @@ import {
   updateTeamMember,
   deleteTeamMember,
   type TeamMember,
+  type TeamMemberInput,
 } from "@/lib/hiring-supabase";
 
 export function useTeamMembers() {
