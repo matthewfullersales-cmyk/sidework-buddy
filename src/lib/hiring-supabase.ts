@@ -103,6 +103,20 @@ export type PublicShadowShiftInfo = {
   jobTitle: string | null;
 };
 
+export type PublicHireInviteInfo = {
+  id: string;
+  firstName: string | null;
+  lastName: string | null;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  role: string | null;
+  stage: string | null;
+  hiredEmployeeId: string | null;
+  restaurantName: string | null;
+  jobTitle: string | null;
+};
+
 export function postingFromRow(r: PostingRow): JobPosting {
   return {
     id: r.id,
@@ -377,6 +391,37 @@ export async function declineApplicantShadowShift(id: string, note: string): Pro
   });
   if (error) throw error;
 }
+
+/** Public: fetch minimal hire-invite details for the applicant signup page. */
+export async function fetchPublicHireInvite(id: string): Promise<PublicHireInviteInfo | null> {
+  const { data, error } = await supabase.rpc("get_public_hire_invite", { p_application_id: id });
+  if (error) throw error;
+  const row = Array.isArray(data) ? data[0] : null;
+  if (!row) return null;
+  return {
+    id: row.id,
+    firstName: row.first_name ?? null,
+    lastName: row.last_name ?? null,
+    name: row.name,
+    email: row.email ?? null,
+    phone: row.phone ?? null,
+    role: row.role ?? null,
+    stage: row.stage ?? null,
+    hiredEmployeeId: row.hired_employee_id ?? null,
+    restaurantName: row.restaurant_name ?? null,
+    jobTitle: row.job_title ?? null,
+  };
+}
+
+/** Public: link a new employee profile back to the hired application (anon, single-use). */
+export async function claimHireInvite(applicationId: string, employeeProfileId: string): Promise<void> {
+  const { error } = await supabase.rpc("claim_hire_invite", {
+    p_application_id: applicationId,
+    p_employee_profile_id: employeeProfileId,
+  });
+  if (error) throw error;
+}
+
 
 
 /* ---------------- Team roster ---------------- */
