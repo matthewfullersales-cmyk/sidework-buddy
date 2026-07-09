@@ -103,6 +103,20 @@ export type PublicShadowShiftInfo = {
   jobTitle: string | null;
 };
 
+export type PublicHireInviteInfo = {
+  id: string;
+  firstName: string | null;
+  lastName: string | null;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  role: string | null;
+  stage: string | null;
+  hiredEmployeeId: string | null;
+  restaurantName: string | null;
+  jobTitle: string | null;
+};
+
 export function postingFromRow(r: PostingRow): JobPosting {
   return {
     id: r.id,
