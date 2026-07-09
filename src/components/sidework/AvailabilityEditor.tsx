@@ -12,6 +12,7 @@ import {
   type RestaurantHours,
   defaultWeeklyAvailability,
   defaultMealPeriods,
+  findMealPeriodOverlaps,
 } from "@/lib/sidework-store";
 
 const DAY_FULL: Record<DayKey, string> = {
