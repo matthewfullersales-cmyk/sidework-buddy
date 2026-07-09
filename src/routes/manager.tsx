@@ -853,14 +853,8 @@ function JobsTab() {
   const shadowApp = applications.find((a) => a.id === shadowFor) ?? null;
   const declineApp = declineConfirmFor ? applications.find((a) => a.id === declineConfirmFor.id) ?? null : null;
 
-  const copyApplicationLink = async (jobId: string) => {
-    const url = `${window.location.origin}/careers?job=${jobId}`;
-    try {
-      await navigator.clipboard.writeText(url);
-      toast.success("Application link copied", { description: url });
-    } catch {
-      toast.message("Copy this link", { description: url });
-    }
+  const copyApplicationLink = (jobId: string) => {
+    copyLinkWithToast(`${window.location.origin}/careers?job=${jobId}`, "Application link copied");
   };
 
   return (
