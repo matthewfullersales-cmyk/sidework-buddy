@@ -1,6 +1,5 @@
 import { createContext, useContext, useState, useEffect, useRef, type ReactNode } from "react";
 import { ROLE_COLORS } from "@/lib/role-colors";
-import { supabase } from "@/integrations/supabase/client";
 import {
   fetchOwnerPostings,
   fetchOwnerApplications,
@@ -11,6 +10,7 @@ import {
   updateApplication,
   confirmApplicantSlot,
 } from "@/lib/hiring-supabase";
+import { useAuth } from "@/lib/auth-context";
 import { toast } from "sonner";
 
 export type Role = string;
