@@ -837,80 +837,84 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
         activeRoles: s.activeRoles.filter((r) => r !== name),
       })),
     setCurrentUser: (u) => setState((s) => ({ ...s, currentUser: u })),
-    clearAllEmployees: () =>
+    clearAllEmployees: () => {
+      setState((s) => ({ ...s, employees: [], shifts: [], trades: [], timeOff: [] }));
+      const oid = ownerIdRef.current;
+      if (oid) deleteAllOwnerEmployees(oid).catch((e) => console.error("[clearAllEmployees]", e));
+    },
+    inviteEmployee: ({ name, email, role }) => {
+      const newId = newUuid();
+      const employee: Employee = {
+        id: newId, name, email, primaryRole: role,
+        approvedRoles: [role], autoApproveRoles: [], availability: "",
+        invitedAt: new Date().toISOString().slice(0, 10),
+        onboardingStarted: false, personalInfoComplete: false, progress: [],
+      };
       setState((s) => ({
         ...s,
-        employees: [],
-        shifts: [],
-        trades: [],
-        timeOff: [],
-      })),
-    inviteEmployee: ({ name, email, role }) =>
-      setState((s) => {
-        const newId = uid("e");
-        return {
-          ...s,
-          employees: [
-            ...s.employees,
-            {
-              id: newId, name, email, primaryRole: role,
-              approvedRoles: [role], autoApproveRoles: [], availability: "",
-              invitedAt: new Date().toISOString().slice(0, 10),
-              onboardingStarted: false, personalInfoComplete: false, progress: [],
-            },
-          ],
-          notifications: [
-            {
-              id: uid("n"),
-              type: "training_passed",
-              message: `Training automatically assigned to ${name} based on their ${role} position.`,
-              employeeId: newId,
-              createdAt: new Date().toISOString(),
-              read: false,
-            },
-            ...s.notifications,
-          ],
-        };
-      }),
+        employees: [...s.employees, employee],
+        notifications: [
+          {
+            id: uid("n"),
+            type: "training_passed",
+            message: `Training automatically assigned to ${name} based on their ${role} position.`,
+            employeeId: newId,
+            createdAt: new Date().toISOString(),
+            read: false,
+          },
+          ...s.notifications,
+        ],
+      }));
+      const oid = ownerIdRef.current;
+      if (oid) {
+        insertEmployee(oid, employee, { localId: newId }).catch((e) =>
+          console.error("[inviteEmployee]", e),
+        );
+      }
+    },
     joinStaff: (data) => {
-      const empId = uid("e");
+      const empId = newUuid();
       const fullName = `${data.firstName} ${data.lastName}`.trim();
-      setState((s) => {
-        const employee: Employee = {
-          id: empId,
-          name: fullName,
-          firstName: data.firstName,
-          lastName: data.lastName,
-          email: data.email,
-          phone: data.phone,
-          primaryRole: data.role,
-          approvedRoles: [data.role],
-          autoApproveRoles: [],
-          availability: "",
-          weeklyAvailability: data.weeklyAvailability,
-          emergencyContact: data.emergencyContact,
-          invitedAt: new Date().toISOString().slice(0, 10),
-          onboardingStarted: true,
-          personalInfoComplete: true,
-          progress: [],
-          seniority: 1,
-        };
-        return {
-          ...s,
-          employees: [...s.employees, employee],
-          notifications: [
-            {
-              id: uid("n"),
-              type: "training_passed",
-              message: `${fullName} just joined 86Paper!`,
-              employeeId: empId,
-              createdAt: new Date().toISOString(),
-              read: false,
-            },
-            ...s.notifications,
-          ],
-        };
-      });
+      const employee: Employee = {
+        id: empId,
+        name: fullName,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email,
+        phone: data.phone,
+        primaryRole: data.role,
+        approvedRoles: [data.role],
+        autoApproveRoles: [],
+        availability: "",
+        weeklyAvailability: data.weeklyAvailability,
+        emergencyContact: data.emergencyContact,
+        invitedAt: new Date().toISOString().slice(0, 10),
+        onboardingStarted: true,
+        personalInfoComplete: true,
+        progress: [],
+        seniority: 1,
+      };
+      setState((s) => ({
+        ...s,
+        employees: [...s.employees, employee],
+        notifications: [
+          {
+            id: uid("n"),
+            type: "training_passed",
+            message: `${fullName} just joined 86Paper!`,
+            employeeId: empId,
+            createdAt: new Date().toISOString(),
+            read: false,
+          },
+          ...s.notifications,
+        ],
+      }));
+      const oid = ownerIdRef.current;
+      if (oid) {
+        insertEmployee(oid, employee, { localId: empId }).catch((e) =>
+          console.error("[joinStaff]", e),
+        );
+      }
       return empId;
     },
     updateRestaurantSlug: (slug) =>
