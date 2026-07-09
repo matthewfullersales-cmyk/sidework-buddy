@@ -1163,7 +1163,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
       setState((s) => {
         const a = s.applications.find((x) => x.id === id);
         if (!a) return s;
-        const empId = uid("e");
+        const empId = newUuid();
         createdId = empId;
         const first = overrides?.firstName ?? a.firstName ?? a.name.split(" ")[0] ?? "";
         const last = overrides?.lastName ?? a.lastName ?? a.name.split(" ").slice(1).join(" ") ?? "";
