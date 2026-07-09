@@ -973,7 +973,8 @@ function JobsTab() {
             teamMembers={team.members}
             onReassign={(tid) => {
               reassignApplication(a.id, tid);
-              const label = tid ? team.members.find((m) => m.id === tid)?.name ?? "team member" : "you";
+              const m = tid ? team.members.find((x) => x.id === tid) : null;
+              const label = m ? teamMemberDisplayName(m) : tid ? "team member" : "you";
               toast.success(`Interview reassigned to ${label}`);
             }}
           />
