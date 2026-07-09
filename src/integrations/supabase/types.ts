@@ -345,6 +345,15 @@ export type Database = {
         Args: { p_application_id: string; p_notes: string }
         Returns: undefined
       }
+      search_restaurants: {
+        Args: { q: string }
+        Returns: {
+          owner_id: string
+          restaurant_name: string
+          slug: string
+        }[]
+      }
+      slugify_name: { Args: { input: string }; Returns: string }
     }
     Enums: {
       user_role: "owner" | "employee"
