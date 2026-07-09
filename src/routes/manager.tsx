@@ -1043,6 +1043,15 @@ function JobsTab() {
         items={archived}
         emptyText="No archived applications."
         compact
+        renderExtra={(a) => (
+          a.status === "hired" ? (
+            <div className="mt-2 rounded-lg border border-primary/30 bg-primary/5 p-3 text-xs">
+              <p className="font-semibold text-primary">🎉 Hired</p>
+              <p className="mt-1">Signup link: <code className="rounded bg-background px-1.5 py-0.5">/hired/{a.id}</code></p>
+              <p className="mt-1 text-muted-foreground">Share this link with {a.firstName ?? a.name} so they can finish setting up their account.</p>
+            </div>
+          ) : null
+        )}
         renderActions={(a) => (
           a.status !== "hired" ? (
             <Button size="sm" variant="outline" onClick={() => {
