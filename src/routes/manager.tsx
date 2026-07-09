@@ -1103,7 +1103,7 @@ function JobsTab() {
             inviteShadowShift(shadowApp.id, details);
             const name = shadowApp.firstName ?? shadowApp.name;
             toast.success(`Shadow shift invite sent to ${name}`, {
-              description: `${details.date} at ${details.time}`,
+              description: `${details.date} at ${details.time} · Applicant link: /shadow/${shadowApp.id}`,
             });
             setShadowFor(null);
           }}
