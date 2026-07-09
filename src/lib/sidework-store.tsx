@@ -769,6 +769,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     drinkMenu: null as MenuUpload | null,
     restaurantProfile: null as RestaurantProfile | null,
     restaurantHours: defaultRestaurantHours(),
+    mealPeriods: defaultMealPeriods(),
     activeRoles: [
       "Host","Server Assistant","Busser","Bar Back","Bartender","Server","Manager","Assistant Manager",
       "Chef","Sous Chef","Saute","Grill","Line Cook","Fry Cook","Pizza","Garde Manger","Prep","Dishwasher",
