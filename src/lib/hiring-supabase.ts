@@ -245,3 +245,20 @@ export async function updateApplication(
   const { error } = await supabase.from("job_applications").update(row as never).eq("id", id);
   if (error) throw error;
 }
+
+/**
+ * Public: applicant confirms their chosen interview slot.
+ * Anonymous visitors have no direct UPDATE on job_applications; this RPC
+ * validates the transition (video_offered -> video_scheduled) and slot
+ * membership server-side (SECURITY DEFINER).
+ */
+export async function confirmApplicantSlot(
+  applicationId: string,
+  slot: string,
+): Promise<void> {
+  const { error } = await supabase.rpc("applicant_confirm_interview_slot", {
+    p_application_id: applicationId,
+    p_slot: slot,
+  });
+  if (error) throw error;
+}

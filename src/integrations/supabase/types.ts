@@ -219,7 +219,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      applicant_confirm_interview_slot: {
+        Args: { p_application_id: string; p_slot: string }
+        Returns: undefined
+      }
     }
     Enums: {
       user_role: "owner" | "employee"

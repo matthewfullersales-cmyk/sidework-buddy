@@ -1286,6 +1286,7 @@ function ApproveInterviewDialog({
     return out;
   }, [application.id]);
   const [selected, setSelected] = useState<string[]>([]);
+  const [customInput, setCustomInput] = useState("");
 
   const toggle = (s: string) => {
     setSelected((prev) => {
@@ -1298,6 +1299,18 @@ function ApproveInterviewDialog({
     });
   };
 
+  const addCustom = () => {
+    if (!customInput) return toast.error("Pick a date and time first.");
+    const d = new Date(customInput);
+    if (Number.isNaN(d.getTime())) return toast.error("That doesn't look like a valid date/time.");
+    if (d.getTime() < Date.now()) return toast.error("Pick a time in the future.");
+    const iso = d.toISOString();
+    if (selected.includes(iso)) return toast.message("That time is already added.");
+    if (selected.length >= 5) return toast.error("Max 5 slots. Deselect one to add another.");
+    setSelected((prev) => [...prev, iso]);
+    setCustomInput("");
+  };
+
   const submit = () => {
     if (selected.length < 1) return toast.error("Pick at least one time slot.");
     if (selected.length > 5) return toast.error("Pick up to 5 time slots.");
@@ -1305,15 +1318,16 @@ function ApproveInterviewDialog({
   };
 
   const name = application.firstName ?? application.name;
+  const customSelected = selected.filter((s) => !suggested.includes(s));
 
   return (
     <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{meta.emoji} Pick your available times</DialogTitle>
-          <p className="text-sm text-muted-foreground">Tap any time slot to mark as available. Up to 5 slots. {name} will pick their preferred time.</p>
+          <p className="text-sm text-muted-foreground">Tap any time slot below, or add a custom date/time. Up to 5 total. {name} will pick their preferred time.</p>
         </DialogHeader>
-        <div className="grid max-h-[50vh] gap-2 overflow-y-auto py-2 sm:grid-cols-2">
+        <div className="grid max-h-[40vh] gap-2 overflow-y-auto py-2 sm:grid-cols-2">
           {suggested.map((s) => {
             const on = selected.includes(s);
             const d = new Date(s);
@@ -1329,6 +1343,37 @@ function ApproveInterviewDialog({
               </button>
             );
           })}
+        </div>
+        <div className="space-y-2 border-t pt-3">
+          <Label className="text-sm font-semibold">Add a custom time</Label>
+          <div className="flex gap-2">
+            <Input
+              type="datetime-local"
+              value={customInput}
+              onChange={(e) => setCustomInput(e.target.value)}
+              className="flex-1"
+            />
+            <Button type="button" variant="secondary" onClick={addCustom}>Add</Button>
+          </div>
+          {customSelected.length > 0 && (
+            <div className="flex flex-wrap gap-2 pt-1">
+              {customSelected.map((s) => {
+                const d = new Date(s);
+                return (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => toggle(s)}
+                    className="inline-flex items-center gap-1 rounded-full border border-primary bg-primary px-3 py-1 text-xs font-medium text-primary-foreground hover:opacity-90"
+                    title="Click to remove"
+                  >
+                    {d.toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                    <span aria-hidden>×</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
