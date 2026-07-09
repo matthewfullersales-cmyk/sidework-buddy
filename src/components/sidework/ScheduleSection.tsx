@@ -710,14 +710,38 @@ function ShiftDetailsDialog({
   employeeId: string; date: string; existing?: Shift;
   onClose: () => void; onSave: (s: Shift) => void; onDelete: (id: string) => void;
 }) {
-  const { employees, activeRoles, customRoles, timeOff, mealPeriods } = useStore();
+  const { employees, activeRoles, customRoles, timeOff, mealPeriods, restaurantHours, arrivalOffsets } = useStore();
   const emp = employees.find((e) => e.id === employeeId);
-  const [start, setStart] = useState(existing?.start ?? "17:00");
-  const [end, setEnd] = useState(existing?.end ?? "23:00");
+  // Compute suggestions up-front so a brand-new shift is seeded with the
+  // first suggestion (Dinner arrival for the employee's section/position),
+  // replacing the old hardcoded 17:00–23:00 default. Manual entry always
+  // stays open — the inputs remain type="time" below.
+  const [dy0, dm0, dd0] = date.split("-").map(Number);
+  const localDate0 = new Date(dy0, (dm0 ?? 1) - 1, dd0 ?? 1);
+  const dayKey0 = DAY_KEYS[(localDate0.getDay() + 6) % 7]!;
+  const availDay0 = emp?.weeklyAvailability?.[dayKey0];
+  const preferredMeals: Meal[] | undefined = availDay0?.kind === "partial" ? availDay0.meals : undefined;
+  const suggestions = useMemo(
+    () => suggestedShiftTimes({
+      dayKey: dayKey0,
+      position: emp?.position,
+      section: emp?.section,
+      restaurantHours,
+      mealPeriods,
+      arrivalOffsets,
+      preferredMeals,
+    }),
+    [dayKey0, emp?.position, emp?.section, restaurantHours, mealPeriods, arrivalOffsets, preferredMeals],
+  );
+  const seed = existing ? null : suggestions[0];
+  const [start, setStart] = useState(existing?.start ?? seed?.start ?? "17:00");
+  const [end, setEnd] = useState(existing?.end ?? seed?.end ?? "23:00");
   const [role, setRole] = useState<Role>(existing?.role ?? (emp?.primaryRole ?? "Server"));
   const [notes, setNotes] = useState(existing?.notes ?? "");
   const [overrideAvailability, setOverrideAvailability] = useState(false);
+  const [suggestOpen, setSuggestOpen] = useState(false);
   const rolesForPicker = allRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r) || r === role);
+  const showSuggestions = hoursConfigured(restaurantHours, mealPeriods) && suggestions.length > 0;
 
   const timeOffConflict = (() => {
     const rows = timeOff.filter((t) =>
