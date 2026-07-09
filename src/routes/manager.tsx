@@ -1511,12 +1511,9 @@ function aiScoreReasons(a: JobApplication): string[] {
   if (!a.role) reasons.push("missing position");
   const pitchText = (a.pitch ?? a.note ?? "").trim();
   const words = pitchText ? pitchText.split(/\s+/).length : 0;
-  if (words < 40) reasons.push("short pitch");
-  const days = a.weeklyAvailability
-    ? DAY_KEYS.filter((d) => a.weeklyAvailability![d]?.kind !== "none").length
-    : (a.availabilityDays?.length ?? 0);
-  if (days < 3) reasons.push("limited availability");
-  if (reasons.length === 0) return ["complete profile, strong pitch, good availability"];
+  if (words < 20) reasons.push("brief experience");
+  if (!(a.specialTalents ?? "").trim()) reasons.push("no special talents listed");
+  if (reasons.length === 0) return ["complete profile, detailed experience, extras filled in"];
   return reasons;
 }
 
@@ -1573,29 +1570,43 @@ function ApplicantCard({
 
       {!compact && (
         <div className="mt-3 grid gap-3">
-          <div className="rounded-lg border border-border bg-muted/30 p-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Availability</p>
-            <div className="mt-1.5 grid grid-cols-7 gap-1 text-center">
-              {DAY_KEYS.map((d) => {
-                const on = a.weeklyAvailability
-                  ? a.weeklyAvailability[d]?.kind !== "none"
-                  : a.availabilityDays.includes(d);
-                return (
-                  <div
-                    key={d}
-                    className={`rounded border px-1 py-1 text-[10px] ${on ? "border-primary/30 bg-primary/15 text-primary" : "border-border bg-muted text-muted-foreground"}`}
-                  >
-                    <div className="font-semibold">{d}</div>
-                    <div>{on ? "✓" : "—"}</div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+          {(() => {
+            const hasLegacyAvail = a.weeklyAvailability
+              ? DAY_KEYS.some((d) => a.weeklyAvailability![d]?.kind !== "none")
+              : a.availabilityDays.length > 0;
+            if (!hasLegacyAvail) return null;
+            return (
+              <div className="rounded-lg border border-border bg-muted/30 p-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Availability</p>
+                <div className="mt-1.5 grid grid-cols-7 gap-1 text-center">
+                  {DAY_KEYS.map((d) => {
+                    const on = a.weeklyAvailability
+                      ? a.weeklyAvailability[d]?.kind !== "none"
+                      : a.availabilityDays.includes(d);
+                    return (
+                      <div
+                        key={d}
+                        className={`rounded border px-1 py-1 text-[10px] ${on ? "border-primary/30 bg-primary/15 text-primary" : "border-border bg-muted text-muted-foreground"}`}
+                      >
+                        <div className="font-semibold">{d}</div>
+                        <div>{on ? "✓" : "—"}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
           {(a.pitch || a.note) && (
             <div className="rounded-lg border border-border bg-muted/30 p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Pitch</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Experience</p>
               <p className="mt-1 text-sm italic text-foreground/90">"{a.pitch ?? a.note}"</p>
+            </div>
+          )}
+          {a.specialTalents && (
+            <div className="rounded-lg border border-border bg-muted/30 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Special talents</p>
+              <p className="mt-1 whitespace-pre-wrap text-sm text-foreground/90">{a.specialTalents}</p>
             </div>
           )}
         </div>
