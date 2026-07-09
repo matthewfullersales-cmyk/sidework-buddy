@@ -646,7 +646,10 @@ function seedApplications(): JobApplication[] {
 function seedTimeOff(): TimeOffRequest[] {
   const d = (offset: number) => {
     const x = new Date(); x.setDate(x.getDate() + offset);
-    return x.toISOString().slice(0, 10);
+    const y = x.getFullYear();
+    const m = String(x.getMonth() + 1).padStart(2, "0");
+    const day = String(x.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
   };
   return [
     {
