@@ -320,15 +320,10 @@ function TeamTab() {
   }, [employees, videos, filters, sortKey]);
 
   const joinSlug = restaurantProfile?.slug ?? (restaurantProfile?.name ? slugify(restaurantProfile.name) : "team");
-  const copyJoinLink = async () => {
-    const url = `${window.location.origin}/join/${joinSlug}`;
-    try {
-      await navigator.clipboard.writeText(url);
-      toast.success("Join link copied", { description: url });
-    } catch {
-      toast.message("Copy this link", { description: url });
-    }
+  const copyJoinLink = () => {
+    copyLinkWithToast(`${window.location.origin}/join/${joinSlug}`, "Join link copied");
   };
+
 
 
   return (
