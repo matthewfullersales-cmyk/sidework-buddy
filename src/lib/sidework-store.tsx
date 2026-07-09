@@ -910,13 +910,22 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           }
         }
 
-        // Hours: if cloud has a value use it; otherwise seed from local once.
+        // Hours: normalize v1/v2 shapes; if nothing remote, seed the current
+        // local defaults up. If we upgraded a v1 payload, write v2 back.
         let hoursPatch: Partial<typeof state> = {};
-        if (remoteHours && typeof remoteHours === "object") {
-          hoursPatch = { restaurantHours: remoteHours as typeof state.restaurantHours };
+        if (remoteHours != null) {
+          const norm = normalizeRestaurantHoursConfig(remoteHours);
+          hoursPatch = { restaurantHours: norm.days, mealPeriods: norm.mealPeriods };
+          if (norm.upgradedFromV1 && acting === "owner") {
+            saveRestaurantHours(effectiveOwnerId, serializeRestaurantHoursConfig(norm.days, norm.mealPeriods))
+              .catch((e) => console.error("[hours-upgrade-v2] failed", e));
+          }
         } else if (acting === "owner") {
           try {
-            await saveRestaurantHours(effectiveOwnerId, latestStateRef.current.restaurantHours);
+            await saveRestaurantHours(
+              effectiveOwnerId,
+              serializeRestaurantHoursConfig(latestStateRef.current.restaurantHours, latestStateRef.current.mealPeriods),
+            );
           } catch (e) {
             console.error("[hours-bootstrap] failed", e);
           }
