@@ -457,7 +457,7 @@ export async function claimHireInvite(applicationId: string, employeeProfileId: 
 export async function fetchTeamMembers(ownerId: string): Promise<TeamMember[]> {
   const { data, error } = await supabase
     .from("restaurant_team_members")
-    .select("id, name, first_name, last_name, email, phone, title")
+    .select("id, name, first_name, last_name, email, phone, title, can_manage_hiring, auth_user_id")
     .eq("owner_id", ownerId)
     .order("created_at", { ascending: true });
   if (error) throw error;
@@ -469,6 +469,8 @@ export async function fetchTeamMembers(ownerId: string): Promise<TeamMember[]> {
     email: r.email,
     phone: r.phone,
     title: r.title,
+    canManageHiring: (r as { can_manage_hiring: boolean }).can_manage_hiring ?? false,
+    authUserId: (r as { auth_user_id: string | null }).auth_user_id ?? null,
   }));
 }
 
@@ -498,11 +500,11 @@ export async function insertTeamMember(
       phone: data.phone ?? null,
       title: data.title ?? null,
     })
-    .select("id, name, first_name, last_name, email, phone, title")
+    .select("id, name, first_name, last_name, email, phone, title, can_manage_hiring, auth_user_id")
     .single();
   if (error) throw error;
-  const r = row as { id: string; name: string; first_name: string | null; last_name: string | null; email: string | null; phone: string | null; title: string | null };
-  return { id: r.id, name: r.name, firstName: r.first_name, lastName: r.last_name, email: r.email, phone: r.phone, title: r.title };
+  const r = row as { id: string; name: string; first_name: string | null; last_name: string | null; email: string | null; phone: string | null; title: string | null; can_manage_hiring: boolean; auth_user_id: string | null };
+  return { id: r.id, name: r.name, firstName: r.first_name, lastName: r.last_name, email: r.email, phone: r.phone, title: r.title, canManageHiring: r.can_manage_hiring, authUserId: r.auth_user_id };
 }
 
 export async function updateTeamMember(
