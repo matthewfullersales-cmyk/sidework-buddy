@@ -190,7 +190,7 @@ export function ScheduleSection() {
           if (booked.has(emp.id)) return false;
           if (isOff(emp.id, date)) return false;
           const av = emp.weeklyAvailability?.[dayKey];
-          if (!isAvailableFor(av, desiredStart)) {
+          if (!isAvailableFor(av, desiredStart, mealPeriods)) {
             return false;
           }
           const clamped = clampToHours(dayIdx, desiredStart, desiredEnd);
