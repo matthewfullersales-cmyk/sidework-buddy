@@ -2308,25 +2308,32 @@ function IconSwap() { return <svg viewBox="0 0 24 24" className="h-4 w-4" fill="
 function TeamRosterCard({ team }: { team: ReturnType<typeof useTeamMembers> }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<TeamMember | null>(null);
-  const [form, setForm] = useState({ name: "", email: "", phone: "", title: "" });
+  const [form, setForm] = useState({ firstName: "", lastName: "", email: "", phone: "", title: "" });
 
   const openAdd = () => {
     setEditing(null);
-    setForm({ name: "", email: "", phone: "", title: "" });
+    setForm({ firstName: "", lastName: "", email: "", phone: "", title: "" });
     setOpen(true);
   };
   const openEdit = (m: TeamMember) => {
     setEditing(m);
-    setForm({ name: m.name, email: m.email ?? "", phone: m.phone ?? "", title: m.title ?? "" });
+    setForm({
+      firstName: m.firstName ?? m.name.split(" ")[0] ?? "",
+      lastName: m.lastName ?? m.name.split(" ").slice(1).join(" ") ?? "",
+      email: m.email ?? "",
+      phone: m.phone ?? "",
+      title: m.title ?? "",
+    });
     setOpen(true);
   };
 
   const submit = async () => {
-    if (!form.name.trim()) return toast.error("Name is required");
+    if (!form.firstName.trim()) return toast.error("First name is required");
     try {
       if (editing) {
         await team.update(editing.id, {
-          name: form.name.trim(),
+          firstName: form.firstName.trim(),
+          lastName: form.lastName.trim() || null,
           email: form.email.trim() || null,
           phone: form.phone.trim() || null,
           title: form.title.trim() || null,
@@ -2334,10 +2341,11 @@ function TeamRosterCard({ team }: { team: ReturnType<typeof useTeamMembers> }) {
         toast.success("Team member updated");
       } else {
         await team.add({
-          name: form.name.trim(),
-          email: form.email.trim() || undefined,
-          phone: form.phone.trim() || undefined,
-          title: form.title.trim() || undefined,
+          firstName: form.firstName.trim(),
+          lastName: form.lastName.trim() || null,
+          email: form.email.trim() || null,
+          phone: form.phone.trim() || null,
+          title: form.title.trim() || null,
         });
         toast.success("Team member added");
       }
@@ -2348,7 +2356,7 @@ function TeamRosterCard({ team }: { team: ReturnType<typeof useTeamMembers> }) {
   };
 
   const remove = async (m: TeamMember) => {
-    if (!window.confirm(`Remove ${m.name} from your hiring team?`)) return;
+    if (!window.confirm(`Remove ${teamMemberDisplayName(m)} from your hiring team?`)) return;
     try { await team.remove(m.id); toast.message("Team member removed"); }
     catch (e) { toast.error(e instanceof Error ? e.message : "Could not remove"); }
   };
