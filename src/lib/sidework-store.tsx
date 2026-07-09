@@ -747,16 +747,19 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     if (!hydrated || authLoading) return;
     let cancelled = false;
     if (!effectiveOwnerId) {
-      setState((s) => ({ ...s, jobs: [], applications: [] }));
+      setState((s) => ({ ...s, jobs: [], applications: [], shifts: [], trades: [], timeOff: [] }));
       return () => { cancelled = true; };
     }
     (async () => {
       try {
-        const [postings, apps, remoteEmployeesInitial, remoteHours] = await Promise.all([
+        const [postings, apps, remoteEmployeesInitial, remoteHours, remoteShiftsInitial, remoteTimeOffInitial, remoteTradesInitial] = await Promise.all([
           fetchOwnerPostings(effectiveOwnerId),
           fetchOwnerApplications(effectiveOwnerId),
           fetchOwnerEmployees(effectiveOwnerId),
           fetchRestaurantHours(effectiveOwnerId),
+          fetchOwnerShifts(effectiveOwnerId),
+          fetchOwnerTimeOff(effectiveOwnerId),
+          fetchOwnerTrades(effectiveOwnerId),
         ]);
         if (cancelled) return;
 
@@ -764,18 +767,59 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
         // if this signed-in user is the real owner and their local roster has
         // employees, upload them one time (idempotent via UNIQUE(owner_id, local_id)).
         let remoteEmployees = remoteEmployeesInitial;
-        const local = latestStateRef.current.employees;
+        let remoteShifts = remoteShiftsInitial;
+        let remoteTimeOff = remoteTimeOffInitial;
+        let remoteTrades = remoteTradesInitial;
+        const local = latestStateRef.current;
         const alreadyBootstrapped = bootstrappedOwnersRef.current.has(effectiveOwnerId);
         if (
           remoteEmployees.length === 0 &&
           acting === "owner" &&
-          local.length > 0 &&
+          local.employees.length > 0 &&
           !alreadyBootstrapped
         ) {
           bootstrappedOwnersRef.current.add(effectiveOwnerId);
           try {
-            remoteEmployees = await bootstrapLocalEmployees(effectiveOwnerId, local);
+            remoteEmployees = await bootstrapLocalEmployees(effectiveOwnerId, local.employees);
             if (cancelled) return;
+            // Build local→cloud id map to translate FKs on shifts/trades/time-off.
+            const idMap = new Map<string, string>();
+            for (const e of remoteEmployees) {
+              // The bootstrap stored the old id in local_id; refetch that mapping.
+              // fetchOwnerEmployees doesn't return local_id, but we know 1:1 by
+              // matching name+email+phone+invitedAt against the local list. We
+              // instead re-derive the map by matching each local employee to
+              // the cloud row created for the same name (safe for our data).
+            }
+            // Fetch local_id map directly.
+            const { supabase } = await import("@/integrations/supabase/client");
+            const { data: mapRows } = await supabase
+              .from("restaurant_employees")
+              .select("id, local_id")
+              .eq("owner_id", effectiveOwnerId)
+              .not("local_id", "is", null);
+            for (const r of (mapRows ?? []) as Array<{ id: string; local_id: string | null }>) {
+              if (r.local_id) idMap.set(r.local_id, r.id);
+            }
+            // Wave B: also bootstrap schedule/time-off/trades.
+            if (local.shifts.length > 0 || local.timeOff.length > 0 || local.trades.length > 0) {
+              try {
+                const { shifts: bs, timeOff: bt, trades: btr } = await bootstrapLocalSchedule(
+                  effectiveOwnerId,
+                  {
+                    shifts: local.shifts,
+                    timeOff: local.timeOff,
+                    trades: local.trades,
+                    localToCloudEmployeeId: idMap,
+                  },
+                );
+                remoteShifts = bs;
+                remoteTimeOff = bt;
+                remoteTrades = btr;
+              } catch (e) {
+                console.error("[schedule-bootstrap] failed", e);
+              }
+            }
           } catch (e) {
             // Roll back the guard so a transient failure can retry next mount.
             bootstrappedOwnersRef.current.delete(effectiveOwnerId);
@@ -802,6 +846,9 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           applications: apps,
           // If nothing remote and no bootstrap happened, keep local (single-device owner).
           employees: remoteEmployees.length > 0 ? remoteEmployees : s.employees,
+          shifts: remoteShifts,
+          timeOff: remoteTimeOff.length > 0 ? remoteTimeOff : s.timeOff,
+          trades: remoteTrades,
           ...hoursPatch,
         }));
       } catch (e) {
