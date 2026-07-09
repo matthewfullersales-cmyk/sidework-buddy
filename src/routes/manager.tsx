@@ -101,6 +101,19 @@ function ManagerPage() {
     );
   }
 
+  // Scoped view for hiring managers: only the Jobs (hiring pipeline) tab.
+  if (isHiringManagerOnly) {
+    return (
+      <AppShell nav={[{ to: "/manager", label: "Hiring", icon: <IconHome /> }]}>
+        <PageHeader
+          title={effectiveOwner?.restaurantName ? `${effectiveOwner.restaurantName} — Hiring` : "Hiring"}
+          subtitle="You have access to review and manage this restaurant's applications and interviews."
+        />
+        <JobsTab />
+      </AppShell>
+    );
+  }
+
   return (
     <AppShell nav={[{ to: "/manager", label: "Dashboard", icon: <IconHome /> }]}>
       <PageHeader
