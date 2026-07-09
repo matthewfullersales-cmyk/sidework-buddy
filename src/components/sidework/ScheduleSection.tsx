@@ -725,7 +725,7 @@ function ShiftDetailsDialog({
   const availConflict: null | { kind: "none" } | { kind: "partial"; meals: string[] } = (() => {
     if (!availDay || availDay.kind === "full") return null;
     if (availDay.kind === "none") return { kind: "none" };
-    if (!isAvailableFor(availDay, start)) return { kind: "partial", meals: availDay.meals };
+    if (!isAvailableFor(availDay, start, mealPeriods)) return { kind: "partial", meals: availDay.meals };
     return null;
   })();
   const needsOverride = !!availConflict && !overrideAvailability;
