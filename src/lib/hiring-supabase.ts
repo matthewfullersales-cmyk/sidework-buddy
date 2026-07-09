@@ -104,6 +104,7 @@ export function applicationFromRow(r: ApplicationRow): JobApplication {
     archived: r.archived,
     hiredEmployeeId: r.hired_employee_id ?? undefined,
     workExperience: (r.work_experience as WorkExperience[] | null) ?? undefined,
+    specialTalents: r.special_talents ?? undefined,
   };
 }
 
