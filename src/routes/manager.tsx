@@ -1193,34 +1193,68 @@ const INTERVIEW_TYPE_META: Record<InterviewType, { emoji: string; label: string;
 };
 
 
-function InterviewStageDetails({ app, restaurantName }: { app: JobApplication; restaurantName: string }) {
+function InterviewStageDetails({
+  app,
+  restaurantName,
+  teamMembers,
+  onReassign,
+}: {
+  app: JobApplication;
+  restaurantName: string;
+  teamMembers: TeamMember[];
+  onReassign: (teamMemberId: string | null) => void;
+}) {
   const stage = getHiringStage(app);
   const type = app.interviewType ?? "video";
   const meta = INTERVIEW_TYPE_META[type];
+  const assignedTo = app.assignedTo ?? null;
+  const assignee = assignedTo ? teamMembers.find((m) => m.id === assignedTo) : null;
+  const assigneeLabel = assignee ? assignee.name : "You (owner)";
+
+  const reassignRow = (
+    <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/30 p-2 text-xs">
+      <span className="text-muted-foreground">Assigned to</span>
+      <Select
+        value={assignedTo ?? "__owner__"}
+        onValueChange={(v) => onReassign(v === "__owner__" ? null : v)}
+      >
+        <SelectTrigger className="h-8 w-auto min-w-[10rem] gap-2 text-xs"><SelectValue /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value="__owner__">You (owner)</SelectItem>
+          {teamMembers.map((m) => (
+            <SelectItem key={m.id} value={m.id}>{m.name}{m.title ? ` — ${m.title}` : ""}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <span className="ml-auto text-muted-foreground">Host link: <code className="rounded bg-background px-1.5 py-0.5">/interview/{app.id}/host</code></span>
+    </div>
+  );
+
+  let block: JSX.Element | null = null;
   if (stage === "video_offered" && app.offeredSlots) {
-    return (
+    block = (
       <div className="mt-3 rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm">
         <p className="font-semibold">{meta.emoji} {meta.label} — awaiting applicant time selection</p>
         <p className="mt-1 text-xs text-muted-foreground">Offered {app.offeredSlots.length} slot{app.offeredSlots.length === 1 ? "" : "s"}. They'll get a text + email with the link.</p>
         <p className="mt-2 text-xs">Applicant link: <code className="rounded bg-background px-1.5 py-0.5">/interview/{app.id}</code></p>
+        <p className="mt-1 text-xs text-muted-foreground">Currently assigned to <span className="font-medium text-foreground">{assigneeLabel}</span>.</p>
       </div>
     );
-  }
-  if (stage === "video_scheduled" && app.selectedSlot) {
+  } else if (stage === "video_scheduled" && app.selectedSlot) {
     const reminderCopy =
       type === "video" ? "Both parties get a reminder 30 minutes before with the join link."
       : type === "in_person" ? `Both parties get reminders 24 hours and 1 hour before. They'll meet at ${restaurantName}.`
       : "Both parties get a reminder 30 minutes before the call.";
-    return (
+    block = (
       <div className="mt-3 rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm">
         <p className="font-semibold text-primary">{meta.emoji} {meta.label} confirmed</p>
         <p className="mt-1">{new Date(app.selectedSlot).toLocaleString([], { weekday: "long", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</p>
         <p className="mt-1 text-xs text-muted-foreground">{reminderCopy}</p>
+        <p className="mt-1 text-xs text-muted-foreground">Host: <span className="font-medium text-foreground">{assigneeLabel}</span>.</p>
       </div>
     );
-  }
-  if (stage === "interviewed") {
-    return (
+  } else if (stage === "interviewed") {
+    block = (
       <div className="mt-3 grid gap-2 rounded-lg border border-border bg-muted/30 p-3">
         <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Interview notes ({meta.label.toLowerCase()})</Label>
         {app.interviewNotes
@@ -1228,6 +1262,12 @@ function InterviewStageDetails({ app, restaurantName }: { app: JobApplication; r
           : <p className="text-xs text-muted-foreground">No notes recorded.</p>}
       </div>
     );
+  }
+
+  if (!block) return null;
+  return (<>{block}{reassignRow}</>);
+}
+
   }
   return null;
 }
