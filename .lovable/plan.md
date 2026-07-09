@@ -1,93 +1,141 @@
-# Real Meal-Period Configuration
+# Smarter shift-time suggestions from restaurant hours + meal periods
 
-## 1. What's currently in the code
+## Goal
 
-**Availability meal picker** — `src/components/sidework/AvailabilityEditor.tsx`, `MEAL_PRESETS` (lines ~20-27). Today it shows a single-select dropdown with 6 presets:
-- Lunch Only, Dinner Only, Lunch & Dinner, Breakfast Only, Breakfast & Lunch, Breakfast & Dinner.
+Replace the two blank `<input type="time">` fields in the Add/Edit Shift dialog with a **suggestion-first time picker** whose options are computed from that restaurant's real `restaurant_hours` + `mealPeriods`, offset by a per-section/role "arrival lead time" (BOH prep-in is earlier than FOH floor-in, both are before food service). Manual entry stays fully open — the suggestions are a shortcut, never a gate. No changes to the meal-period conflict-warning logic.
 
-Breakfast is **already** exposed here (I was wrong to assume it wasn't). What's missing is a "Breakfast, Lunch & Dinner" preset (all three) and — more importantly — the fact that "Breakfast" is meaningless because `mealForShiftStart` uses fixed clock cutoffs.
+## Current state (audit)
 
-**Hours editor UI** — exists at `src/routes/manager.tsx` line 2338-2346 (Settings tab, "Restaurant hours" card) using `RestaurantHoursEditor` from `AvailabilityEditor.tsx`. Today: one open/close per day + closed toggle. No concept of meal periods.
+- `ShiftDetailsDialog` (ScheduleSection.tsx line 706+) currently uses two raw `<Input type="time">` fields, defaulting to `existing?.start ?? "17:00"` / `"23:00"`. No awareness of the day's open/close or the configured meal periods.
+- `defaultShift(position, isWeekend)` (line 83) has a hardcoded per-position start/end table — the exact thing Matt wants replaced by per-restaurant config.
+- Store already exposes `restaurantHours: RestaurantHours` (per-day `{open, close, closed}`) and `mealPeriods: MealPeriods` (Breakfast/Lunch/Dinner each `{enabled, start, end}`), persisted in `profiles.restaurant_hours` as `RestaurantHoursConfigV2`.
+- Employee has `position: Position` and `section: "FOH" | "BOH"` already — no schema change needed to key offsets by section, and position is available for finer overrides.
+- Meal-period conflict UI (`availConflict` block, lines 745–812) is independent of the time picker and will not be touched. Same for `isAvailableForRange`.
 
-**Hardcoded cutoffs** — `sidework-store.tsx` `mealForShiftStart`: <11:00 Breakfast, <16:00 Lunch, ≥16:00 Dinner. Consumed by `isAvailableFor`, which is called from `ScheduleSection.tsx` at three sites: AI generate (line 193), copy-to-next-week (line 277), and dialog warning (line 728).
+### Copy-to-next-week audit (requested)
 
-**Persistence** — `restaurant_hours` is a jsonb column on `profiles`; `fetchRestaurantHours`/`saveRestaurantHours` treat it as opaque `unknown`. Safe to evolve the shape.
+**Already implemented, no gap.** `performCopyToNextWeek` (lines 275–319) does:
+- Skips any shift whose destination date has `timeOffStatusFor === "approved"` (counted as "X skipped — approved time off").
+- Skips any shift where the destination weekday violates the employee's recurring `weeklyAvailability` via `isAvailableFor(av, s.start, mealPeriods)` ("X skipped — recurring unavailability").
+- Toast reports both skip counts. Destination week's existing shifts are cleared first, with a confirm dialog when count > 0.
 
-## 2. Proposed data model — per restaurant, site-wide
+Two minor gaps worth flagging (not fixing this turn):
+1. It skips on `isAvailableFor(av, start)` (start-only), not `isAvailableForRange(av, start, end)` — so a shift that starts in Lunch but extends into a Dinner-unavailable window would copy through silently. Same class as the bug we already fixed in the dialog.
+2. Pending (not approved) time-off on the destination date is not surfaced at all — copies through without a warning.
 
-Keep the per-day `closed`/`open`/`close` window (some restaurants close Mondays; overall business hours still matter for the schedule grid). **Add** a site-wide meal-period config alongside it — three periods, each toggleable with its own start/end:
+## Proposed data model addition — arrival offsets
+
+Live it entirely in the existing `profiles.restaurant_hours` JSON blob so no migration is needed. Bump to `V3` with backward-compatible normalization (same pattern used for the V1→V2 upgrade).
 
 ```ts
-type MealPeriodConfig = { enabled: boolean; start: string; end: string }; // "HH:MM"
-type MealPeriods = { Breakfast: MealPeriodConfig; Lunch: MealPeriodConfig; Dinner: MealPeriodConfig };
+// Minutes an employee is expected to clock in BEFORE food-service start
+// for the meal period they're working. Section defaults cover the common case;
+// per-position map overrides for the exceptions (e.g. Prep Cook needs more lead).
+type ArrivalOffsets = {
+  bySection: { FOH: number; BOH: number };   // default 60 / 120
+  byPosition?: Partial<Record<Position, number>>;
+};
 
-type RestaurantHoursV2 = {
-  version: 2;
-  days: Record<DayKey, DayHours>;      // existing shape, per-day open/close/closed
-  mealPeriods: MealPeriods;            // NEW, site-wide
+type RestaurantHoursConfigV3 = {
+  version: 3;
+  days: RestaurantHours;
+  mealPeriods: MealPeriods;
+  arrivalOffsets: ArrivalOffsets;
 };
 ```
 
-Site-wide (not per-day) matches the owner's ask ("three choices... start and end time for each") and keeps the UI simple. Per-day would double the surface area with almost no real-world benefit for independent restaurants.
+**Defaults:** FOH 60 min, BOH 120 min. Common per-position overrides pre-seeded (adjustable): Prep Cook 240, Dishwasher 30, Manager 90, Hostess 30. Owner sees a small table in Settings under the Meal Periods card to edit any of these — one row per section (always shown) and one row per position that has staff.
 
-Sensible defaults on first load: Breakfast disabled (7:00–10:30), Lunch disabled (11:00–14:30), Dinner enabled (16:00–21:30). Owner opts periods in.
+**Read path:** helper `arrivalOffsetFor(position, section, offsets)` → returns `byPosition[position] ?? bySection[section] ?? 60`.
 
-## 3. Replacing `mealForShiftStart`
+`normalizeRestaurantHoursConfig` gains a V2→V3 branch that just injects default `arrivalOffsets` when missing. No SQL migration; existing rows just re-hydrate as V3 next save.
 
-New signature: `mealForShiftStart(start: string, periods: MealPeriods): Meal | null`.
+## Suggested-times generation
 
-Rules, in order:
-1. If the start time falls inside an **enabled** period's `[start, end)` window, return that meal.
-2. If it falls in a gap between two enabled periods (e.g. 3:15 when Lunch ends 15:00 and Dinner starts 16:00), snap to the **next upcoming** enabled period (Dinner). Rationale: a 3:15 shift start almost always means the employee is coming in early to prep for dinner service, not extending lunch.
-3. If it's after the last enabled period ends, snap to that last period (closing shift).
-4. If it's before the first enabled period starts, snap to that first period.
-5. If no periods are enabled at all, return `null` and treat `isAvailableFor` as unrestricted (fall back to today's behavior of not blocking).
+For the shift's employee + role + date, build an ordered list of `{label, start, end}` suggestions:
 
-`isAvailableFor(av, start, periods)` gains a `periods` arg; call sites in `ScheduleSection.tsx` pull `mealPeriods` from the store.
+1. Determine the day's hours from `restaurantHours[dayKey]`. If `closed`, still allow suggestions from meal periods (owner may need a special-day shift) but flag with `(day marked closed)`.
+2. For each **enabled** meal period `m` (Breakfast/Lunch/Dinner):
+   - `serviceStart = m.start`, `serviceEnd = m.end`.
+   - `arrivalMin = arrivalOffsetFor(emp.position, emp.section)`.
+   - `suggestStart = max(dayOpen, serviceStart − arrivalMin)` (never propose earlier than the door opens — owner still overrides manually if needed).
+   - `suggestEnd = min(dayClose, serviceEnd + closeoutMin)` where `closeoutMin` is a symmetric section default (FOH 30, BOH 60) — same offsets table, second field, or a fixed constant with a follow-up if we want it configurable.
+   - Emit `{ label: "Dinner — arrive 3:00pm, out 9:30pm", start: "15:00", end: "21:30" }`.
+3. If two adjacent meal periods are both enabled (Lunch + Dinner) and this employee is typically a double, emit a combined suggestion spanning the earliest arrival to the latest closeout.
+4. Emit an "Open-to-close" suggestion using raw `dayOpen`/`dayClose` when both are set.
+5. De-dupe by `(start,end)` and order by `start` ascending.
 
-## 4. Migration plan for the jsonb column
+Suggestions are ordered so the picker's first option matches the meal period that best fits `emp.weeklyAvailability` for that day (e.g. Dinner-only employee → Dinner suggestion first), keeping picker + availability warning aligned without the picker enforcing anything.
 
-No SQL migration needed — column is jsonb. Handle shape in the loader:
+## UI: shift dialog time inputs
 
-- `fetchRestaurantHours` returns `unknown`. Add a `normalizeRestaurantHours(raw)` helper in the store:
-  - If `raw?.version === 2`, use as-is.
-  - If `raw` looks like the current flat `Record<DayKey, DayHours>` (no `version`), wrap as `{ version: 2, days: raw, mealPeriods: defaultMealPeriods() }`.
-  - If null/invalid, return full defaults.
-- `saveRestaurantHours` always writes the v2 shape.
-- One-time: on first load after upgrade, if we upgraded a v1 payload we save it back so the DB reflects v2.
+Replace the two bare time inputs with a compact composite:
 
-## 5. AI Generate Schedule integration
+```text
+┌ Start ────────────┐  ┌ End ──────────────┐
+│ [ 15:00  ▾ ]      │  │ [ 21:30  ▾ ]      │
+└───────────────────┘  └───────────────────┘
+  Suggestions
+  • Dinner  (arrive 3:00pm → 9:30pm)     ← primary suggestion, highlighted
+  • Lunch   (arrive 10:00am → 3:30pm)
+  • Lunch + Dinner double (10:00am → 9:30pm)
+  • Open-to-close (10:00am → 10:00pm)
+  • Custom…                              ← keeps free-form entry
+```
 
-The AI generator (`ScheduleSection.tsx` ~line 193) already calls `isAvailableFor(av, desiredStart)`. Two changes:
+Behavior:
+- The inputs remain `type="time"`, so typing/keyboard/native picker still works exactly as today. Clicking a suggestion just fills both fields.
+- A small "Suggestions" popover (Command / Popover from shadcn — already in the codebase) hangs off each input, or a single "Suggestions ▾" button above the pair. Prefer the single button so keyboard flow into the two inputs is unchanged.
+- No suggestion is auto-applied for a brand-new shift beyond seeding the *first* suggestion into the fields as the default (replaces today's hardcoded 17:00–23:00). User can immediately clear or overtype.
+- If `hoursConfigured(...)` is false, skip suggestions entirely and show an inline hint "Set operating hours in Settings to get time suggestions" — free-form inputs behave exactly like today so the picker never regresses.
+- Suggestions never *disable* the Save button and never gate the availability warning — those keep firing based purely on the actual entered `start`/`end` against `mealPeriods` + `weeklyAvailability`.
 
-1. Pass `mealPeriods` through so `desiredStart` maps to the *real* configured meal, not the hardcoded one.
-2. When choosing candidate shift start times per role, derive them from the enabled meal periods (e.g. start Lunch shifts at `mealPeriods.Lunch.start`, Dinner at `mealPeriods.Dinner.start`) rather than a fixed default. This means an employee marked "Lunch only" is naturally offered the lunch slot and never gets proposed for a dinner shift — no post-hoc warning needed.
+## Settings UI (adjacent to existing Meal Periods card)
 
-Copy-to-next-week: same predicate swap; behavior is otherwise unchanged (already skips conflicts).
+New "Arrival lead time" card:
+- Two always-visible rows: FOH default (min), BOH default (min).
+- Collapsible "Per-position overrides" list: one row per `Position` currently held by any active employee, blank input meaning "use section default". Small "Reset to defaults" link.
+- Copy above the card: "How early should staff clock in before their meal period's service start? Used to suggest shift times when you build the schedule."
 
-## 6. "Is hours setup complete?" surfacing
+## Interaction with existing conflict warnings (guardrail)
 
-- Add a `hoursConfigured` derived flag: true when at least one meal period is enabled AND at least one day is open.
-- Show an amber banner on the Schedule tab and on the Settings → Restaurant hours card when `hoursConfigured` is false: *"Set your restaurant's meal periods so scheduling can respect employee availability accurately."* Link scrolls to the Restaurant hours card.
-- On the AvailabilityEditor meal-picker, dim/hide preset options that reference a disabled period (e.g. hide "Breakfast Only" when Breakfast is disabled site-wide) so owners aren't offered nonsense choices.
+Explicitly reaffirm:
+- `availConflict` / `isAvailableForRange` still runs against the entered `start`/`end`.
+- If an owner picks a suggestion whose start falls inside e.g. Lunch (bartender arriving 3pm for a 4pm dinner service, when meal periods happen to be Lunch 11–15 & Dinner 15–21), the warning behaves exactly as it does today for that shift. That's the correct, documented behavior — the arrival offset is a scheduling convenience, not a bypass. If an owner wants "3pm counts as Dinner prep, not Lunch," the correct answer is to adjust the Lunch end / Dinner start in Meal Periods.
 
-## 7. UI changes summary
+## Out of scope
 
-- `RestaurantHoursEditor` gains a new top section "Meal periods" — three rows (Breakfast/Lunch/Dinner), each with an enable switch + two time inputs. Below it, the existing per-day open/close list stays.
-- `AvailabilityEditor` preset list is filtered by enabled meal periods; if all three are enabled, add a "Breakfast, Lunch & Dinner" preset.
-- Banner component when hours aren't configured.
+- AI-generated first week, preferred-staff learning — deferred.
+- Fixing the two `copy-to-next-week` gaps flagged above — surface only, do not touch in this change.
+- Auto-adjusting meal-period boundaries from arrival offsets — offsets are additive UI only.
 
-## 8. Technical notes
+## Technical work list
 
-- All new types in `sidework-store.tsx`; no new files needed beyond editor tweaks.
-- No DB migration; jsonb absorbs the shape change with a normalizer.
-- No breaking changes to `Meal` type or `DayAvailability`.
-- Time comparisons stay as `"HH:MM"` string compares (already the pattern).
+1. `src/lib/sidework-store.tsx`
+   - Add `ArrivalOffsets`, `RestaurantHoursConfigV3`, `defaultArrivalOffsets()`.
+   - Extend `normalizeRestaurantHoursConfig` for V2→V3 (inject defaults).
+   - Extend `serializeRestaurantHoursConfig` to persist V3.
+   - Add store fields `arrivalOffsets` + `setArrivalOffsets` (persist via existing `saveRestaurantHours` path).
+   - Export helpers `arrivalOffsetFor(position, section, offsets)` and `suggestedShiftTimes({dayKey, position, section, restaurantHours, mealPeriods, arrivalOffsets})`.
+2. `src/components/sidework/AvailabilityEditor.tsx` (Settings tab already renders Meal Periods here)
+   - New `ArrivalOffsetsEditor` card below Meal Periods, reads/writes via store.
+3. `src/components/sidework/ScheduleSection.tsx`
+   - Replace the two-input block in `ShiftDetailsDialog` with a `TimeWithSuggestions` subcomponent (single Popover trigger, two `type="time"` inputs unchanged).
+   - When opening for a *new* shift (`existing` falsy), seed `start`/`end` from `suggestedShiftTimes(...)`'s first entry instead of the hardcoded `17:00`/`23:00`.
+   - Leave `availConflict` / time-off / override logic untouched.
+4. Live verify with Playwright (America/Los_Angeles) at `/manager`:
+   - Set Dinner 16:00–21:00, FOH arrival 60, BOH arrival 120.
+   - Open Add Shift for a Server → first suggestion reads "Dinner — arrive 3:00pm → …" and clicking it sets 15:00 start.
+   - Open Add Shift for a Line Cook → first suggestion is 14:00 start (120 min).
+   - Manually type 02:30 start → Save still works, no picker interference.
+   - Existing availability warning still fires for a Dinner-only employee scheduled at a Lunch time.
+5. `bun run build` clean.
 
-## 9. Out of scope
+## Verification checklist before "done"
 
-- Per-day meal periods (deferrable if a user ever needs it).
-- Multi-service overlap (e.g. brunch bridging Breakfast+Lunch).
-- Hard-blocking (vs warn+override) partial-availability conflicts — keeping current UX.
-
-Waiting for your go-ahead before implementing.
+- [ ] V2 profiles auto-upgrade to V3 on load with default offsets, no crash.
+- [ ] Settings arrival-offset edits round-trip through save/reload.
+- [ ] Suggestions dropdown matches expected list for a known hours/meal-period/offset config.
+- [ ] Manual typing in the time inputs works exactly like today.
+- [ ] Meal-period availability warning still fires unchanged for the same start/end that would have fired before this feature.
+- [ ] `copyToNextWeek` behavior unchanged (still skips approved time off + recurring unavailability with the same toast).
