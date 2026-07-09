@@ -307,35 +307,240 @@ function TrainingTab({ employeeId }: { employeeId: string }) {
   );
 }
 
+function MyScheduleTab({ employeeId }: { employeeId: string }) {
+  const { shifts, trades, postTrade } = useStore();
+  const [weekOffset, setWeekOffset] = useState(0);
+
+  const myShifts = useMemo(() => shifts.filter((s) => s.employeeId === employeeId), [shifts, employeeId]);
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  // Monday-anchored week start
+  const weekStart = useMemo(() => {
+    const d = new Date(today);
+    const dow = d.getDay(); // 0=Sun..6=Sat
+    const diffToMon = (dow + 6) % 7;
+    d.setDate(d.getDate() - diffToMon + weekOffset * 7);
+    return d;
+  }, [today, weekOffset]);
+
+  const days = useMemo(() => {
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(weekStart);
+      d.setDate(weekStart.getDate() + i);
+      return d;
+    });
+  }, [weekStart]);
+
+  const weekEnd = days[6];
+
+  // Next upcoming shift (across all shifts, not just this week)
+  const nextShift = useMemo(() => {
+    const upcoming = myShifts
+      .map((s) => ({ s, dt: new Date(`${s.date}T${s.start}`) }))
+      .filter(({ dt }) => dt.getTime() >= now.getTime() - 60 * 60 * 1000) // include in-progress within last hour
+      .sort((a, b) => a.dt.getTime() - b.dt.getTime());
+    return upcoming[0]?.s ?? null;
+  }, [myShifts, now]);
+
+  const nextShiftLabel = (s: typeof myShifts[number]) => {
+    const d = new Date(`${s.date}T00:00:00`);
+    const diffDays = Math.round((d.getTime() - today.getTime()) / 86400000);
+    if (diffDays === 0) return "Today";
+    if (diffDays === 1) return "Tomorrow";
+    if (diffDays > 1 && diffDays < 7) return d.toLocaleDateString(undefined, { weekday: "long" });
+    return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+  };
+
+  const fmtRange = (a: Date, b: Date) => {
+    const sameMonth = a.getMonth() === b.getMonth();
+    const aStr = a.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    const bStr = sameMonth
+      ? b.toLocaleDateString(undefined, { day: "numeric" })
+      : b.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    return `${aStr} – ${bStr}`;
+  };
+
+  const fmtTime = (t: string) => {
+    // t is "HH:MM" 24h
+    const [hh, mm] = t.split(":").map(Number);
+    const h12 = ((hh + 11) % 12) + 1;
+    const ampm = hh >= 12 ? "PM" : "AM";
+    return mm === 0 ? `${h12} ${ampm}` : `${h12}:${String(mm).padStart(2, "0")} ${ampm}`;
+  };
+
+  const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const todayIso = iso(today);
+
+  return (
+    <div className="grid gap-5">
+      {nextShift ? (
+        <Card className="border-primary/40 bg-primary-soft/40">
+          <CardContent className="p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">Next shift</p>
+            <p className="mt-1 text-lg font-semibold leading-tight">
+              {nextShiftLabel(nextShift)}, {fmtTime(nextShift.start)}–{fmtTime(nextShift.end)}
+            </p>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              {nextShift.role}
+              {nextShift.notes ? ` · ${nextShift.notes}` : ""}
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Next shift</p>
+            <p className="mt-1 text-sm text-muted-foreground">Nothing scheduled yet.</p>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="flex items-center justify-between gap-2">
+        <Button variant="outline" size="icon" className="h-11 w-11 shrink-0" onClick={() => setWeekOffset((w) => w - 1)} aria-label="Previous week">
+          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        </Button>
+        <div className="min-w-0 text-center">
+          <p className="text-sm font-semibold">{fmtRange(weekStart, weekEnd)}</p>
+          <button
+            type="button"
+            onClick={() => setWeekOffset(0)}
+            className={`text-xs ${weekOffset === 0 ? "text-muted-foreground" : "text-primary hover:underline"}`}
+          >
+            {weekOffset === 0 ? "This week" : "Jump to this week"}
+          </button>
+        </div>
+        <Button variant="outline" size="icon" className="h-11 w-11 shrink-0" onClick={() => setWeekOffset((w) => w + 1)} aria-label="Next week">
+          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </Button>
+      </div>
+
+      <div className="grid gap-2">
+        {days.map((d) => {
+          const dIso = iso(d);
+          const dayShifts = myShifts.filter((s) => s.date === dIso).sort((a, b) => a.start.localeCompare(b.start));
+          const isToday = dIso === todayIso;
+          const isPast = dIso < todayIso;
+          const dayName = d.toLocaleDateString(undefined, { weekday: "short" });
+          const dayNum = d.getDate();
+
+          if (dayShifts.length === 0) {
+            return (
+              <div
+                key={dIso}
+                className={`flex items-center gap-3 rounded-lg border px-3 py-2 ${
+                  isToday ? "border-primary/50 bg-primary-soft/30" : "border-border/60 bg-muted/20"
+                } ${isPast && !isToday ? "opacity-50" : ""}`}
+              >
+                <DayBadge dayName={dayName} dayNum={dayNum} isToday={isToday} muted />
+                <span className="text-xs text-muted-foreground">Off</span>
+              </div>
+            );
+          }
+
+          return (
+            <div
+              key={dIso}
+              className={`rounded-lg border p-3 ${
+                isToday ? "border-primary/60 bg-primary-soft/40" : "border-border bg-background"
+              } ${isPast && !isToday ? "opacity-60" : ""}`}
+            >
+              <div className="flex items-start gap-3">
+                <DayBadge dayName={dayName} dayNum={dayNum} isToday={isToday} />
+                <div className="min-w-0 flex-1 space-y-2">
+                  {dayShifts.map((s) => {
+                    const onBoard = trades.find((t) => t.shiftId === s.id && ["open", "pending_approval"].includes(t.status));
+                    const canPost = !isPast;
+                    return (
+                      <div key={s.id} className="min-w-0">
+                        <p className="text-sm font-semibold leading-tight">
+                          {fmtTime(s.start)}–{fmtTime(s.end)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">{s.role}{s.notes ? ` · ${s.notes}` : ""}</p>
+                        <div className="mt-2">
+                          {onBoard ? (
+                            <Badge variant="secondary" className="text-[11px]">On trade board</Badge>
+                          ) : canPost ? (
+                            <PostTradeButton onPost={(note) => { postTrade(s.id, note); toast.success("Posted to trade board"); }} />
+                          ) : null}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function DayBadge({ dayName, dayNum, isToday, muted }: { dayName: string; dayNum: number; isToday: boolean; muted?: boolean }) {
+  return (
+    <div
+      className={`grid h-12 w-12 shrink-0 place-items-center rounded-lg text-center ${
+        isToday
+          ? "bg-primary text-primary-foreground"
+          : muted
+          ? "bg-transparent text-muted-foreground"
+          : "bg-muted text-foreground"
+      }`}
+    >
+      <div className="leading-none">
+        <p className="text-[10px] font-semibold uppercase tracking-wider">{dayName}</p>
+        <p className="mt-0.5 text-base font-bold">{dayNum}</p>
+      </div>
+    </div>
+  );
+}
+
 function TradesTab({ employeeId }: { employeeId: string }) {
-  const { shifts, employees, trades, postTrade, claimTrade } = useStore();
+  const { shifts, employees, trades, claimTrade } = useStore();
   const me = employees.find((e) => e.id === employeeId)!;
 
-  const myShifts = shifts.filter((s) => s.employeeId === me.id);
-  const myShiftIds = new Set(myShifts.map((s) => s.id));
+  const myShiftIds = new Set(shifts.filter((s) => s.employeeId === me.id).map((s) => s.id));
   const openTrades = trades.filter((t) => t.status === "open" && !myShiftIds.has(t.shiftId));
 
   return (
     <div className="grid gap-6">
+      <div>
+        <p className="text-xs text-muted-foreground">
+          Need a shift covered? Head to <span className="font-medium text-foreground">Schedule</span> and tap “Post to trade board” on the day you can't work.
+        </p>
+      </div>
+
       <Card>
-        <CardHeader><CardTitle className="text-base">My upcoming shifts</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-base">Open trades you can pick up</CardTitle></CardHeader>
         <CardContent className="space-y-2">
-          {myShifts.length === 0 && <p className="text-sm text-muted-foreground">No shifts yet.</p>}
-          {myShifts.map((s) => {
-            const onBoard = trades.find((t) => t.shiftId === s.id && ["open", "pending_approval"].includes(t.status));
+          {openTrades.length === 0 && <p className="text-sm text-muted-foreground">Nothing available right now.</p>}
+          {openTrades.map((t) => {
+            const shift = shifts.find((s) => s.id === t.shiftId)!;
+            const from = employees.find((e) => e.id === t.postedBy);
+            const eligible = me.approvedRoles.includes(shift.role);
+            const auto = me.autoApproveRoles.includes(shift.role);
             return (
-              <div key={s.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-background p-3">
+              <div key={t.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-background p-3">
                 <div>
-                  <p className="text-sm font-medium">{new Date(s.date).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })} · {s.start}–{s.end}</p>
-                  <p className="text-xs text-muted-foreground">{s.role}</p>
+                  <p className="text-sm font-medium">{new Date(shift.date).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })} · {shift.start}–{shift.end}</p>
+                  <p className="text-xs text-muted-foreground">{shift.role} · from {from?.name ?? "coworker"}{t.note ? ` · "${t.note}"` : ""}</p>
                 </div>
-                {onBoard ? <Badge variant="secondary">On trade board</Badge> :
-                  <PostTradeButton onPost={(note) => { postTrade(s.id, note); toast.success("Posted to trade board"); }} />}
+                {eligible ? (
+                  <Button size="sm" onClick={() => {
+                    claimTrade(t.id, me.id);
+                    toast.success(auto ? "Picked up — auto-approved" : "Picked up — awaiting manager approval");
+                  }}>{auto ? "Pick up" : "Request pickup"}</Button>
+                ) : (
+                  <Badge variant="secondary">Not approved for {shift.role}</Badge>
+                )}
               </div>
             );
           })}
         </CardContent>
       </Card>
+
 
       <Card>
         <CardHeader><CardTitle className="text-base">Open trades you can pick up</CardTitle></CardHeader>
