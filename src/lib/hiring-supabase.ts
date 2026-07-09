@@ -59,6 +59,33 @@ type ApplicationRow = {
   hired_employee_id: string | null;
   work_experience: unknown;
   special_talents: string | null;
+  assigned_to: string | null;
+};
+
+export type TeamMember = {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  title: string | null;
+};
+
+export type PublicInterviewInfo = {
+  id: string;
+  firstName: string | null;
+  name: string;
+  phone: string;
+  role: string | null;
+  stage: string | null;
+  interviewType: string | null;
+  offeredSlots: string[] | null;
+  selectedSlot: string | null;
+  interviewNotes: string | null;
+  restaurantName: string | null;
+  jobTitle: string | null;
+  assigneeName: string | null;
+  assigneeEmail: string | null;
+  assigneePhone: string | null;
 };
 
 export function postingFromRow(r: PostingRow): JobPosting {
