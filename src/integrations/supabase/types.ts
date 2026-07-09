@@ -19,6 +19,7 @@ export type Database = {
           ai_score: string | null
           applied_at: string
           archived: boolean
+          assigned_to: string | null
           availability_days: string[]
           availability_hours: string
           created_at: string
@@ -53,6 +54,7 @@ export type Database = {
           ai_score?: string | null
           applied_at?: string
           archived?: boolean
+          assigned_to?: string | null
           availability_days?: string[]
           availability_hours?: string
           created_at?: string
@@ -87,6 +89,7 @@ export type Database = {
           ai_score?: string | null
           applied_at?: string
           archived?: boolean
+          assigned_to?: string | null
           availability_days?: string[]
           availability_hours?: string
           created_at?: string
@@ -118,6 +121,13 @@ export type Database = {
           work_experience?: Json | null
         }
         Relationships: [
+          {
+            foreignKeyName: "job_applications_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "restaurant_team_members"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "job_applications_job_id_fkey"
             columns: ["job_id"]
@@ -214,6 +224,39 @@ export type Database = {
         }
         Relationships: []
       }
+      restaurant_team_members: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          owner_id: string
+          phone: string | null
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          name: string
+          owner_id: string
+          phone?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          owner_id?: string
+          phone?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -221,6 +264,30 @@ export type Database = {
     Functions: {
       applicant_confirm_interview_slot: {
         Args: { p_application_id: string; p_slot: string }
+        Returns: undefined
+      }
+      get_public_interview: {
+        Args: { p_application_id: string }
+        Returns: {
+          assignee_email: string
+          assignee_name: string
+          assignee_phone: string
+          first_name: string
+          id: string
+          interview_notes: string
+          interview_type: string
+          job_title: string
+          name: string
+          offered_slots: string[]
+          phone: string
+          restaurant_name: string
+          role: string
+          selected_slot: string
+          stage: string
+        }[]
+      }
+      host_complete_interview: {
+        Args: { p_application_id: string; p_notes: string }
         Returns: undefined
       }
     }
