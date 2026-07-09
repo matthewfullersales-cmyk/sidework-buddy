@@ -19,6 +19,19 @@ import {
   fetchRestaurantHours,
   saveRestaurantHours,
 } from "@/lib/employees-supabase";
+import {
+  fetchOwnerShifts,
+  upsertShiftRow,
+  deleteShiftRow,
+  reassignShiftEmployee,
+  fetchOwnerTimeOff,
+  insertTimeOffRow,
+  updateTimeOffRow,
+  fetchOwnerTrades,
+  insertTradeRow,
+  updateTradeRow,
+  bootstrapLocalSchedule,
+} from "@/lib/schedule-supabase";
 import { useAuth } from "@/lib/auth-context";
 import { toast } from "sonner";
 
@@ -734,16 +747,19 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     if (!hydrated || authLoading) return;
     let cancelled = false;
     if (!effectiveOwnerId) {
-      setState((s) => ({ ...s, jobs: [], applications: [] }));
+      setState((s) => ({ ...s, jobs: [], applications: [], shifts: [], trades: [], timeOff: [] }));
       return () => { cancelled = true; };
     }
     (async () => {
       try {
-        const [postings, apps, remoteEmployeesInitial, remoteHours] = await Promise.all([
+        const [postings, apps, remoteEmployeesInitial, remoteHours, remoteShiftsInitial, remoteTimeOffInitial, remoteTradesInitial] = await Promise.all([
           fetchOwnerPostings(effectiveOwnerId),
           fetchOwnerApplications(effectiveOwnerId),
           fetchOwnerEmployees(effectiveOwnerId),
           fetchRestaurantHours(effectiveOwnerId),
+          fetchOwnerShifts(effectiveOwnerId),
+          fetchOwnerTimeOff(effectiveOwnerId),
+          fetchOwnerTrades(effectiveOwnerId),
         ]);
         if (cancelled) return;
 
@@ -751,18 +767,59 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
         // if this signed-in user is the real owner and their local roster has
         // employees, upload them one time (idempotent via UNIQUE(owner_id, local_id)).
         let remoteEmployees = remoteEmployeesInitial;
-        const local = latestStateRef.current.employees;
+        let remoteShifts = remoteShiftsInitial;
+        let remoteTimeOff = remoteTimeOffInitial;
+        let remoteTrades = remoteTradesInitial;
+        const local = latestStateRef.current;
         const alreadyBootstrapped = bootstrappedOwnersRef.current.has(effectiveOwnerId);
         if (
           remoteEmployees.length === 0 &&
           acting === "owner" &&
-          local.length > 0 &&
+          local.employees.length > 0 &&
           !alreadyBootstrapped
         ) {
           bootstrappedOwnersRef.current.add(effectiveOwnerId);
           try {
-            remoteEmployees = await bootstrapLocalEmployees(effectiveOwnerId, local);
+            remoteEmployees = await bootstrapLocalEmployees(effectiveOwnerId, local.employees);
             if (cancelled) return;
+            // Build local→cloud id map to translate FKs on shifts/trades/time-off.
+            const idMap = new Map<string, string>();
+            for (const e of remoteEmployees) {
+              // The bootstrap stored the old id in local_id; refetch that mapping.
+              // fetchOwnerEmployees doesn't return local_id, but we know 1:1 by
+              // matching name+email+phone+invitedAt against the local list. We
+              // instead re-derive the map by matching each local employee to
+              // the cloud row created for the same name (safe for our data).
+            }
+            // Fetch local_id map directly.
+            const { supabase } = await import("@/integrations/supabase/client");
+            const { data: mapRows } = await supabase
+              .from("restaurant_employees")
+              .select("id, local_id")
+              .eq("owner_id", effectiveOwnerId)
+              .not("local_id", "is", null);
+            for (const r of (mapRows ?? []) as Array<{ id: string; local_id: string | null }>) {
+              if (r.local_id) idMap.set(r.local_id, r.id);
+            }
+            // Wave B: also bootstrap schedule/time-off/trades.
+            if (local.shifts.length > 0 || local.timeOff.length > 0 || local.trades.length > 0) {
+              try {
+                const { shifts: bs, timeOff: bt, trades: btr } = await bootstrapLocalSchedule(
+                  effectiveOwnerId,
+                  {
+                    shifts: local.shifts,
+                    timeOff: local.timeOff,
+                    trades: local.trades,
+                    localToCloudEmployeeId: idMap,
+                  },
+                );
+                remoteShifts = bs;
+                remoteTimeOff = bt;
+                remoteTrades = btr;
+              } catch (e) {
+                console.error("[schedule-bootstrap] failed", e);
+              }
+            }
           } catch (e) {
             // Roll back the guard so a transient failure can retry next mount.
             bootstrappedOwnersRef.current.delete(effectiveOwnerId);
@@ -789,6 +846,9 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           applications: apps,
           // If nothing remote and no bootstrap happened, keep local (single-device owner).
           employees: remoteEmployees.length > 0 ? remoteEmployees : s.employees,
+          shifts: remoteShifts,
+          timeOff: remoteTimeOff.length > 0 ? remoteTimeOff : s.timeOff,
+          trades: remoteTrades,
           ...hoursPatch,
         }));
       } catch (e) {
@@ -995,29 +1055,55 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           notifications: [newNotif, ...s.notifications],
         };
       }),
-    upsertShift: (shift) =>
+    upsertShift: (shift) => {
+      // Optimistic local update first.
       setState((s) => {
         const exists = s.shifts.some((x) => x.id === shift.id);
         return {
           ...s,
           shifts: exists ? s.shifts.map((x) => (x.id === shift.id ? shift : x)) : [...s.shifts, shift],
         };
-      }),
-    deleteShift: (id) =>
-      setState((s) => ({ ...s, shifts: s.shifts.filter((x) => x.id !== id) })),
-    postTrade: (shiftId, note) =>
-      setState((s) => {
-        const shift = s.shifts.find((x) => x.id === shiftId);
-        if (!shift) return s;
-        return {
-          ...s,
-          trades: [
-            ...s.trades,
-            { id: uid("t"), shiftId, postedBy: shift.employeeId, status: "open", createdAt: new Date().toISOString(), note },
-          ],
-        };
-      }),
-    claimTrade: (tradeId, employeeId) =>
+      });
+      const oid = ownerIdRef.current;
+      if (!oid) return;
+      upsertShiftRow(oid, shift)
+        .then((saved) => {
+          // If a fresh insert produced a new uuid, replace the optimistic row.
+          if (saved.id !== shift.id) {
+            setState((s) => ({
+              ...s,
+              shifts: s.shifts.map((x) => (x.id === shift.id ? saved : x)),
+            }));
+          }
+        })
+        .catch((e) => console.error("[upsertShift]", e));
+    },
+    deleteShift: (id) => {
+      setState((s) => ({ ...s, shifts: s.shifts.filter((x) => x.id !== id) }));
+      // Only bother deleting from cloud if id looks like a uuid (already persisted).
+      if (/^[0-9a-f-]{36}$/i.test(id)) {
+        deleteShiftRow(id).catch((e) => console.error("[deleteShift]", e));
+      }
+    },
+    postTrade: (shiftId, note) => {
+      const oid = ownerIdRef.current;
+      const shift = state.shifts.find((x) => x.id === shiftId);
+      if (!shift) return;
+      const tempId = uid("t");
+      const optimistic: Trade = {
+        id: tempId, shiftId, postedBy: shift.employeeId, status: "open",
+        createdAt: new Date().toISOString(), note,
+      };
+      setState((s) => ({ ...s, trades: [...s.trades, optimistic] }));
+      if (!oid) return;
+      insertTradeRow(oid, shiftId, shift.employeeId, note)
+        .then((row) => {
+          setState((s) => ({ ...s, trades: s.trades.map((t) => (t.id === tempId ? row : t)) }));
+        })
+        .catch((e) => console.error("[postTrade]", e));
+    },
+    claimTrade: (tradeId, employeeId) => {
+      let sideEffects: { tradeId: string; approved: boolean; auto: boolean; shiftId: string } | null = null;
       setState((s) => {
         const trade = s.trades.find((t) => t.id === tradeId);
         if (!trade) return s;
@@ -1026,6 +1112,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
         const claimer = s.employees.find((e) => e.id === employeeId);
         if (!claimer) return s;
         const auto = claimer.autoApproveRoles.includes(shift.role);
+        sideEffects = { tradeId, approved: auto, auto, shiftId: shift.id };
         return {
           ...s,
           trades: s.trades.map((t) =>
@@ -1041,11 +1128,27 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           ),
           shifts: auto ? s.shifts.map((x) => (x.id === shift.id ? { ...x, employeeId } : x)) : s.shifts,
         };
-      }),
-    resolveTrade: (tradeId, approved) =>
+      });
+      if (sideEffects) {
+        const { tradeId: tid, auto, shiftId } = sideEffects;
+        updateTradeRow(tid, {
+          claimedBy: employeeId,
+          status: auto ? "approved" : "pending_approval",
+          autoApproved: auto,
+          approvedBy: auto ? "auto" : undefined,
+          resolvedAt: auto ? new Date().toISOString() : undefined,
+        }).catch((e) => console.error("[claimTrade]", e));
+        if (auto && /^[0-9a-f-]{36}$/i.test(shiftId)) {
+          reassignShiftEmployee(shiftId, employeeId).catch((e) => console.error("[claimTrade:reassign]", e));
+        }
+      }
+    },
+    resolveTrade: (tradeId, approved) => {
+      const sideBox: { value: { shiftId: string; claimedBy: string } | null } = { value: null };
       setState((s) => {
         const trade = s.trades.find((t) => t.id === tradeId);
         if (!trade || !trade.claimedBy) return s;
+        sideBox.value = { shiftId: trade.shiftId, claimedBy: trade.claimedBy };
         return {
           ...s,
           trades: s.trades.map((t) =>
@@ -1055,7 +1158,17 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           ),
           shifts: approved ? s.shifts.map((x) => (x.id === trade.shiftId ? { ...x, employeeId: trade.claimedBy! } : x)) : s.shifts,
         };
-      }),
+      });
+      updateTradeRow(tradeId, {
+        status: approved ? "approved" : "denied",
+        approvedBy: "owner",
+        resolvedAt: new Date().toISOString(),
+      }).catch((e) => console.error("[resolveTrade]", e));
+      const side = sideBox.value;
+      if (approved && side && /^[0-9a-f-]{36}$/i.test(side.shiftId)) {
+        reassignShiftEmployee(side.shiftId, side.claimedBy).catch((e) => console.error("[resolveTrade:reassign]", e));
+      }
+    },
     postJob: (data) => {
       const ownerId = ownerIdRef.current;
       if (!ownerId) {
@@ -1333,23 +1446,44 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
         throw e;
       }
     },
-    requestTimeOff: (data) =>
+    requestTimeOff: (data) => {
+      const tempId = uid("to");
       setState((s) => ({
         ...s,
         timeOff: [
-          { id: uid("to"), createdAt: new Date().toISOString(), status: "pending", ...data },
+          { id: tempId, createdAt: new Date().toISOString(), status: "pending", ...data },
           ...s.timeOff,
         ],
-      })),
-    resolveTimeOff: (id, approved, note) =>
+      }));
+      const oid = ownerIdRef.current;
+      if (!oid) return;
+      insertTimeOffRow(oid, data)
+        .then((row) => {
+          setState((s) => ({
+            ...s,
+            timeOff: s.timeOff.map((t) => (t.id === tempId ? row : t)),
+          }));
+        })
+        .catch((e) => console.error("[requestTimeOff]", e));
+    },
+    resolveTimeOff: (id, approved, note) => {
+      const patch = {
+        status: (approved ? "approved" : "denied") as TimeOffStatus,
+        resolvedAt: new Date().toISOString(),
+        decisionNote: note ?? null,
+      };
       setState((s) => ({
         ...s,
         timeOff: s.timeOff.map((t) =>
           t.id === id
-            ? { ...t, status: approved ? "approved" : "denied", resolvedAt: new Date().toISOString(), decisionNote: note }
+            ? { ...t, status: patch.status, resolvedAt: patch.resolvedAt, decisionNote: note }
             : t,
         ),
-      })),
+      }));
+      if (/^[0-9a-f-]{36}$/i.test(id)) {
+        updateTimeOffRow(id, patch).catch((e) => console.error("[resolveTimeOff]", e));
+      }
+    },
     setMenu: (m) => setState((s) => ({ ...s, menu: m })),
     setDrinkMenu: (m) => setState((s) => ({ ...s, drinkMenu: m })),
     markMenuGenerated: () =>

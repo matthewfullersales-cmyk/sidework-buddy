@@ -77,17 +77,30 @@ function ManagerPage() {
   const [showSetupWizard, setShowSetupWizard] = useState(false);
   useRequireManagerAccess("/login");
   const { effectiveOwner } = useAuth();
-  const isHiringManagerOnly = effectiveOwner?.acting === "hiring_manager";
+  const isTeamMember = effectiveOwner?.acting === "team_member";
+  const canHiring = effectiveOwner?.canManageHiring ?? false;
+  const canSchedule = effectiveOwner?.canManageSchedule ?? false;
+  // Only scope down for actual team members. Owners always get the full dashboard.
+  const scoped = isTeamMember;
+  const scopedTabs = useMemo(() => {
+    if (!scoped) return null;
+    const tabs: string[] = [];
+    if (canSchedule) tabs.push("schedule", "trades", "timeoff");
+    if (canHiring) tabs.push("jobs");
+    return tabs;
+  }, [scoped, canHiring, canSchedule]);
   useEffect(() => {
     if (currentUser.type !== "manager") {
       setCurrentUser({ type: "manager", id: "owner" });
     }
   }, [currentUser, setCurrentUser]);
 
-  // Hiring managers only see the Jobs tab, so pin the tab there.
+  // Pin the tab to a permitted one for scoped team members.
   useEffect(() => {
-    if (isHiringManagerOnly && tab !== "jobs") setTab("jobs");
-  }, [isHiringManagerOnly, tab]);
+    if (scopedTabs && scopedTabs.length > 0 && !scopedTabs.includes(tab)) {
+      setTab(scopedTabs[0]);
+    }
+  }, [scopedTabs, tab]);
 
 
   if (showSetupWizard) {
@@ -101,15 +114,36 @@ function ManagerPage() {
     );
   }
 
-  // Scoped view for hiring managers: only the Jobs (hiring pipeline) tab.
-  if (isHiringManagerOnly) {
+  // Scoped view for team members with only some permissions.
+  if (scoped && scopedTabs) {
+    const bothPerms = canHiring && canSchedule;
+    const title = effectiveOwner?.restaurantName
+      ? `${effectiveOwner.restaurantName} — ${bothPerms ? "Hiring & Scheduling" : canHiring ? "Hiring" : "Scheduling"}`
+      : bothPerms ? "Hiring & Scheduling" : canHiring ? "Hiring" : "Scheduling";
     return (
-      <AppShell nav={[{ to: "/manager", label: "Hiring", icon: <IconHome /> }]}>
+      <AppShell nav={[{ to: "/manager", label: bothPerms ? "Manage" : canHiring ? "Hiring" : "Schedule", icon: <IconHome /> }]}>
         <PageHeader
-          title={effectiveOwner?.restaurantName ? `${effectiveOwner.restaurantName} — Hiring` : "Hiring"}
-          subtitle="You have access to review and manage this restaurant's applications and interviews."
+          title={title}
+          subtitle={
+            bothPerms
+              ? "You have access to this restaurant's schedule and hiring pipeline."
+              : canHiring
+                ? "You have access to review and manage this restaurant's applications and interviews."
+                : "You have access to build and adjust this restaurant's schedule, trades, and time off."
+          }
         />
-        <JobsTab />
+        <Tabs value={tab} onValueChange={setTab}>
+          <TabsList className={`mb-6 grid h-auto w-full gap-1 ${scopedTabs.length === 1 ? "grid-cols-1" : scopedTabs.length === 2 ? "grid-cols-2" : `grid-cols-2 sm:grid-cols-${scopedTabs.length}`}`}>
+            {scopedTabs.includes("schedule") && <TabsTrigger value="schedule">Schedule</TabsTrigger>}
+            {scopedTabs.includes("trades") && <TabsTrigger value="trades">Trades</TabsTrigger>}
+            {scopedTabs.includes("timeoff") && <TabsTrigger value="timeoff">Time Off</TabsTrigger>}
+            {scopedTabs.includes("jobs") && <TabsTrigger value="jobs">Hiring</TabsTrigger>}
+          </TabsList>
+          {scopedTabs.includes("schedule") && <TabsContent value="schedule"><ScheduleTab /></TabsContent>}
+          {scopedTabs.includes("trades") && <TabsContent value="trades"><TradesTab /></TabsContent>}
+          {scopedTabs.includes("timeoff") && <TabsContent value="timeoff"><TimeOffTab /></TabsContent>}
+          {scopedTabs.includes("jobs") && <TabsContent value="jobs"><JobsTab /></TabsContent>}
+        </Tabs>
       </AppShell>
     );
   }
@@ -2481,12 +2515,13 @@ function TeamRosterCard({ team }: { team: ReturnType<typeof useTeamMembers> }) {
         )}
         {team.members.map((m) => {
           const hasAccount = !!m.authUserId;
+          const anyPerm = m.canManageHiring || m.canManageSchedule;
           const inviteUrl = typeof window !== "undefined" ? `${window.location.origin}/team-invite/${m.id}` : `/team-invite/${m.id}`;
           const statusBadge = hasAccount
             ? { label: "Active login", cls: "bg-success text-success-foreground hover:bg-success" }
-            : m.canManageHiring
+            : anyPerm
               ? { label: "Invited — not claimed", cls: "bg-warning text-warning-foreground hover:bg-warning" }
-              : { label: "No login", cls: "" };
+              : { label: "No login yet", cls: "" };
           return (
             <div key={m.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-background p-3">
               <div className="min-w-0">
@@ -2495,23 +2530,36 @@ function TeamRosterCard({ team }: { team: ReturnType<typeof useTeamMembers> }) {
                   {m.title && <Badge variant="outline">{m.title}</Badge>}
                   <Badge variant={statusBadge.cls ? "default" : "outline"} className={statusBadge.cls}>{statusBadge.label}</Badge>
                   {hasAccount && m.canManageHiring && <Badge variant="outline">Hiring access</Badge>}
+                  {hasAccount && m.canManageSchedule && <Badge variant="outline">Scheduling access</Badge>}
                 </div>
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   {m.email ?? "—"} · {m.phone ?? "—"}
                 </p>
-                <label className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-                  <Switch
-                    checked={m.canManageHiring}
-                    onCheckedChange={async (v) => {
-                      try { await team.setPermission(m.id, v); toast.success(v ? "Hiring access enabled" : "Hiring access removed"); }
-                      catch (e) { toast.error(e instanceof Error ? e.message : "Could not update"); }
-                    }}
-                  />
-                  <span>Can manage hiring &amp; interviews</span>
-                </label>
+                <div className="mt-2 flex flex-col gap-1.5">
+                  <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Switch
+                      checked={m.canManageHiring}
+                      onCheckedChange={async (v) => {
+                        try { await team.setPermission(m.id, v); toast.success(v ? "Hiring access enabled" : "Hiring access removed"); }
+                        catch (e) { toast.error(e instanceof Error ? e.message : "Could not update"); }
+                      }}
+                    />
+                    <span>Can manage hiring &amp; interviews</span>
+                  </label>
+                  <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Switch
+                      checked={m.canManageSchedule}
+                      onCheckedChange={async (v) => {
+                        try { await team.setSchedulePermission(m.id, v); toast.success(v ? "Scheduling access enabled" : "Scheduling access removed"); }
+                        catch (e) { toast.error(e instanceof Error ? e.message : "Could not update"); }
+                      }}
+                    />
+                    <span>Can manage scheduling</span>
+                  </label>
+                </div>
               </div>
               <div className="flex flex-wrap gap-2">
-                {!hasAccount && m.canManageHiring && (
+                {!hasAccount && anyPerm && (
                   <Button size="sm" variant="outline" onClick={() => copyLinkWithToast(inviteUrl, "Invite link copied")}>Copy invite link</Button>
                 )}
                 <Button size="sm" variant="outline" onClick={() => openEdit(m)}>Edit</Button>

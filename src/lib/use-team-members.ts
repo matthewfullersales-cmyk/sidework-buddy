@@ -5,6 +5,7 @@ import {
   updateTeamMember,
   deleteTeamMember,
   setTeamMemberHiringPermission,
+  setTeamMemberSchedulePermission,
   type TeamMember,
   type TeamMemberInput,
 } from "@/lib/hiring-supabase";
@@ -62,6 +63,10 @@ export function useTeamMembers() {
     setPermission: async (id: string, canManageHiring: boolean) => {
       await setTeamMemberHiringPermission(id, canManageHiring);
       setMembers((m) => m.map((r) => (r.id === id ? { ...r, canManageHiring } : r)));
+    },
+    setSchedulePermission: async (id: string, canManageSchedule: boolean) => {
+      await setTeamMemberSchedulePermission(id, canManageSchedule);
+      setMembers((m) => m.map((r) => (r.id === id ? { ...r, canManageSchedule } : r)));
     },
     remove: async (id: string) => {
       await deleteTeamMember(id);

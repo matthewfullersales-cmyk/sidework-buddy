@@ -5,7 +5,8 @@ import { useAuth } from "./auth-context";
 /**
  * Allows access to the manager dashboard for:
  *  - actual owners (profiles.role === "owner")
- *  - hiring managers (any auth user with a claimed restaurant_team_members row + can_manage_hiring)
+ *  - team members with any granted permission (can_manage_hiring OR
+ *    can_manage_schedule) via a claimed restaurant_team_members row
  * Anyone else is redirected.
  */
 export function useRequireManagerAccess(redirectTo = "/login") {
@@ -15,8 +16,10 @@ export function useRequireManagerAccess(redirectTo = "/login") {
     if (loading) return;
     if (!session) { navigate({ to: redirectTo }); return; }
     const isOwner = profile?.role === "owner";
-    const isHiringManager = effectiveOwner?.acting === "hiring_manager";
-    if (!isOwner && !isHiringManager) {
+    const isTeamManager =
+      effectiveOwner?.acting === "team_member" &&
+      (effectiveOwner.canManageHiring || effectiveOwner.canManageSchedule);
+    if (!isOwner && !isTeamManager) {
       navigate({ to: "/employee" });
     }
   }, [loading, session, profile, effectiveOwner, redirectTo, navigate]);
