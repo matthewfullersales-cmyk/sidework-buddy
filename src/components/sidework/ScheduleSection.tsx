@@ -297,9 +297,7 @@ export function ScheduleSection() {
       const dayKey = DAY_KEYS[(local.getDay() + 6) % 7];
       const emp = employees.find((e) => e.id === s.employeeId);
       const av = emp?.weeklyAvailability?.[dayKey];
-      const rangeResult = av ? isAvailableForRange(av, s.start, s.end, mealPeriods) : null;
-      console.log("[copyDbg]", s.id, "emp", s.employeeId, "dayKey", dayKey, "av", av, "range", rangeResult);
-      if (av && !rangeResult!.ok) {
+      if (av && !isAvailableForRange(av, s.start, s.end, mealPeriods).ok) {
         skippedAvail += 1;
         return;
       }
