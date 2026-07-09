@@ -280,6 +280,26 @@ export type Database = {
         Args: { p_application_id: string; p_note: string }
         Returns: undefined
       }
+      claim_hire_invite: {
+        Args: { p_application_id: string; p_employee_profile_id: string }
+        Returns: undefined
+      }
+      get_public_hire_invite: {
+        Args: { p_application_id: string }
+        Returns: {
+          email: string
+          first_name: string
+          hired_employee_id: string
+          id: string
+          job_title: string
+          last_name: string
+          name: string
+          phone: string
+          restaurant_name: string
+          role: string
+          stage: string
+        }[]
+      }
       get_public_interview: {
         Args: { p_application_id: string }
         Returns: {
