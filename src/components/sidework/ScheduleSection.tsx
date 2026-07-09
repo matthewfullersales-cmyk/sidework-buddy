@@ -222,7 +222,27 @@ export function ScheduleSection() {
             if (!def) continue;
             const ds = emp.position === "Bartender" && emp.availability === "Swing 4hr"
               ? { start: "19:00", end: "23:00" } : def;
-            if (trySchedule(emp, ds.start, ds.end)) filled += 1;
+            if (trySchedule(emp, ds.start, ds.end)) { filled += 1; continue; }
+            // Fallback: try each enabled meal-period start so lunch-only or
+            // breakfast-only employees still land in an appropriate slot.
+            const av = emp.weeklyAvailability?.[dayKey];
+            if (av?.kind === "partial") {
+              const durationMin = (() => {
+                const [sh, sm] = ds.start.split(":").map(Number);
+                const [eh, em] = ds.end.split(":").map(Number);
+                return ((eh ?? 0) * 60 + (em ?? 0)) - ((sh ?? 0) * 60 + (sm ?? 0));
+              })();
+              for (const meal of av.meals) {
+                const period = mealPeriods[meal];
+                if (!period.enabled) continue;
+                const [ph, pm] = period.start.split(":").map(Number);
+                const startMin = (ph ?? 0) * 60 + (pm ?? 0);
+                const endMin = Math.min(startMin + Math.max(durationMin, 240), 24 * 60 - 1);
+                const eh = String(Math.floor(endMin / 60)).padStart(2, "0");
+                const em = String(endMin % 60).padStart(2, "0");
+                if (trySchedule(emp, period.start, `${eh}:${em}`)) { filled += 1; break; }
+              }
+            }
           }
           if (filled < target) {
             conflicts.push(`${dayKey}: needed ${target} ${pos}${target === 1 ? "" : "s"}, filled ${filled}`);
