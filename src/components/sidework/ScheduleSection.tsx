@@ -836,14 +836,55 @@ function ShiftDetailsDialog({
               </label>
             </div>
           )}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-xs">Start</Label>
-              <Input type="time" value={start} onChange={(e) => setStart(e.target.value)} />
-            </div>
-            <div>
-              <Label className="text-xs">End</Label>
-              <Input type="time" value={end} onChange={(e) => setEnd(e.target.value)} />
+          <div className="space-y-2">
+            {showSuggestions ? (
+              <Popover open={suggestOpen} onOpenChange={setSuggestOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-1 text-xs"
+                    aria-label="Show shift-time suggestions from restaurant hours"
+                  >
+                    Suggestions <ChevronDown className="h-3 w-3" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="start" className="w-[320px] p-1">
+                  <p className="px-2 py-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+                    Based on this restaurant's hours + {emp?.section === "BOH" ? "BOH" : "FOH"} arrival lead time
+                  </p>
+                  <div className="max-h-[240px] overflow-y-auto">
+                    {suggestions.map((s, i) => (
+                      <button
+                        key={s.key}
+                        type="button"
+                        onClick={() => { setStart(s.start); setEnd(s.end); setSuggestOpen(false); }}
+                        className={`block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-muted ${i === 0 ? "font-semibold" : ""}`}
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="border-t border-border px-2 py-1.5 text-[10px] text-muted-foreground">
+                    Or type any custom time in the fields below.
+                  </p>
+                </PopoverContent>
+              </Popover>
+            ) : (
+              <p className="text-[11px] text-muted-foreground">
+                Set operating hours + meal periods in Settings to get time suggestions.
+              </p>
+            )}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Start</Label>
+                <Input type="time" value={start} onChange={(e) => setStart(e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-xs">End</Label>
+                <Input type="time" value={end} onChange={(e) => setEnd(e.target.value)} />
+              </div>
             </div>
           </div>
           <div>
