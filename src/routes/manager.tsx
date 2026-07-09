@@ -1239,7 +1239,7 @@ function InterviewStageDetails({
   app: JobApplication;
   restaurantName: string;
   teamMembers: TeamMember[];
-  onReassign: (teamMemberId: string | null) => void;
+  onReassign: (teamMemberId: string | null) => void | Promise<void>;
 }) {
   const stage = getHiringStage(app);
   const type = app.interviewType ?? "video";
