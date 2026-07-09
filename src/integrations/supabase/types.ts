@@ -700,6 +700,13 @@ export type Database = {
           restaurant_name: string
         }[]
       }
+      get_restaurant_coworker_names: {
+        Args: { p_owner_id: string }
+        Returns: {
+          employee_id: string
+          first_name: string
+        }[]
+      }
       host_complete_interview: {
         Args: { p_application_id: string; p_notes: string }
         Returns: undefined
