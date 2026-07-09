@@ -1446,23 +1446,44 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
         throw e;
       }
     },
-    requestTimeOff: (data) =>
+    requestTimeOff: (data) => {
+      const tempId = uid("to");
       setState((s) => ({
         ...s,
         timeOff: [
-          { id: uid("to"), createdAt: new Date().toISOString(), status: "pending", ...data },
+          { id: tempId, createdAt: new Date().toISOString(), status: "pending", ...data },
           ...s.timeOff,
         ],
-      })),
-    resolveTimeOff: (id, approved, note) =>
+      }));
+      const oid = ownerIdRef.current;
+      if (!oid) return;
+      insertTimeOffRow(oid, data)
+        .then((row) => {
+          setState((s) => ({
+            ...s,
+            timeOff: s.timeOff.map((t) => (t.id === tempId ? row : t)),
+          }));
+        })
+        .catch((e) => console.error("[requestTimeOff]", e));
+    },
+    resolveTimeOff: (id, approved, note) => {
+      const patch = {
+        status: (approved ? "approved" : "denied") as TimeOffStatus,
+        resolvedAt: new Date().toISOString(),
+        decisionNote: note ?? null,
+      };
       setState((s) => ({
         ...s,
         timeOff: s.timeOff.map((t) =>
           t.id === id
-            ? { ...t, status: approved ? "approved" : "denied", resolvedAt: new Date().toISOString(), decisionNote: note }
+            ? { ...t, status: patch.status, resolvedAt: patch.resolvedAt, decisionNote: note }
             : t,
         ),
-      })),
+      }));
+      if (/^[0-9a-f-]{36}$/i.test(id)) {
+        updateTimeOffRow(id, patch).catch((e) => console.error("[resolveTimeOff]", e));
+      }
+    },
     setMenu: (m) => setState((s) => ({ ...s, menu: m })),
     setDrinkMenu: (m) => setState((s) => ({ ...s, drinkMenu: m })),
     markMenuGenerated: () =>
