@@ -90,6 +90,19 @@ export type PublicInterviewInfo = {
   assigneePhone: string | null;
 };
 
+export type PublicShadowShiftInfo = {
+  id: string;
+  firstName: string | null;
+  name: string;
+  role: string | null;
+  stage: string | null;
+  shadowShift: ShadowShiftDetails | null;
+  shadowConfirmedAt: string | null;
+  shadowResponseNote: string | null;
+  restaurantName: string | null;
+  jobTitle: string | null;
+};
+
 export function postingFromRow(r: PostingRow): JobPosting {
   return {
     id: r.id,
