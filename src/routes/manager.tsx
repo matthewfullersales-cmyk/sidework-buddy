@@ -1244,7 +1244,7 @@ function InterviewStageDetails({
         <SelectContent>
           <SelectItem value="__owner__">You (owner)</SelectItem>
           {teamMembers.map((m) => (
-            <SelectItem key={m.id} value={m.id}>{m.name}{m.title ? ` — ${m.title}` : ""}</SelectItem>
+            <SelectItem key={m.id} value={m.id}>{teamMemberDisplayName(m)}{m.title ? ` — ${m.title}` : ""}</SelectItem>
           ))}
         </SelectContent>
       </Select>
