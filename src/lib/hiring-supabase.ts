@@ -179,36 +179,49 @@ export async function insertApplication(
   },
 ): Promise<JobApplication> {
   if (!data.jobId) throw new Error("jobId is required to submit an application");
-  const { data: row, error } = await supabase
-    .from("job_applications")
-    .insert({
-      // owner_id is required by the type but the trigger overrides it.
-      // We pass a placeholder that matches job_id's owner; server ignores the value.
-      owner_id: "00000000-0000-0000-0000-000000000000",
-      job_id: data.jobId,
-      name: data.name,
-      first_name: data.firstName ?? null,
-      last_name: data.lastName ?? null,
-      email: data.email ?? null,
-      phone: data.phone,
-      role: data.role ?? null,
-      pitch: data.pitch ?? null,
-      source: data.source ?? null,
-      weekly_availability: (data.weeklyAvailability ?? null) as never,
-      availability_days: data.availabilityDays ?? [],
-      availability_hours: data.availabilityHours,
-      note: data.note ?? null,
-      verified: data.verified,
-      ai_score: data.aiScore ?? null,
-      work_experience: (data.workExperience ?? null) as never,
-      special_talents: data.specialTalents ?? null,
-      status: "new",
-    })
-    .select("*")
-    .single();
+  // Anonymous submitters can INSERT but have no SELECT policy on job_applications,
+  // so we cannot use `.select().single()` to read the row back — PostgREST would
+  // report "new row violates row-level security policy" from the post-insert read.
+  // Generate the id client-side and build the returned JobApplication locally.
+  const id =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const appliedAt = new Date().toISOString();
+  const { error } = await supabase.from("job_applications").insert({
+    id,
+    // owner_id is required by the type but the trigger overrides it.
+    owner_id: "00000000-0000-0000-0000-000000000000",
+    job_id: data.jobId,
+    name: data.name,
+    first_name: data.firstName ?? null,
+    last_name: data.lastName ?? null,
+    email: data.email ?? null,
+    phone: data.phone,
+    role: data.role ?? null,
+    pitch: data.pitch ?? null,
+    source: data.source ?? null,
+    weekly_availability: (data.weeklyAvailability ?? null) as never,
+    availability_days: data.availabilityDays ?? [],
+    availability_hours: data.availabilityHours,
+    note: data.note ?? null,
+    verified: data.verified,
+    ai_score: data.aiScore ?? null,
+    work_experience: (data.workExperience ?? null) as never,
+    special_talents: data.specialTalents ?? null,
+    status: "new",
+    applied_at: appliedAt,
+  });
   if (error) throw error;
-  return applicationFromRow(row as ApplicationRow);
+  return {
+    ...data,
+    id,
+    appliedAt,
+    status: "new",
+    verified: data.verified,
+  } as JobApplication;
 }
+
 
 /** Owner-scoped patch. Maps camelCase fields to snake_case columns. */
 export async function updateApplication(
