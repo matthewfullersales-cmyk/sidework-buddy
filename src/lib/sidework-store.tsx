@@ -938,6 +938,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
 
   const store: Store = {
     ...state,
+    employeeHydrating,
     setRestaurantHours: (h) => {
       setState((s) => ({ ...s, restaurantHours: h }));
       const oid = ownerIdRef.current;
