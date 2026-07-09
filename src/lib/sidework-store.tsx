@@ -228,6 +228,7 @@ export interface JobApplication {
   hiredEmployeeId?: string;
   workExperience?: WorkExperience[];
   specialTalents?: string;
+  assignedTo?: string | null;
 }
 
 export function getHiringStage(a: Pick<JobApplication, "stage" | "status">): HiringStage {
