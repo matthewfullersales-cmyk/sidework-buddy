@@ -1671,6 +1671,12 @@ function HireReviewDialog({
             {(application.pitch || application.note) && (
               <p className="mt-2 italic text-foreground/90">"{application.pitch ?? application.note}"</p>
             )}
+            {application.specialTalents && (
+              <div className="mt-2">
+                <p className="font-semibold text-primary">Special talents</p>
+                <p className="whitespace-pre-wrap text-muted-foreground">{application.specialTalents}</p>
+              </div>
+            )}
             {application.workExperience && application.workExperience.length > 0 && (
               <div className="mt-2 space-y-1">
                 <p className="font-semibold text-primary">Work experience</p>
@@ -1687,19 +1693,27 @@ function HireReviewDialog({
                 ))}
               </div>
             )}
-            <div className="mt-2 grid grid-cols-7 gap-1 text-center">
-              {DAY_KEYS.map((d) => {
-                const on = application.weeklyAvailability
-                  ? application.weeklyAvailability[d]?.kind !== "none"
-                  : application.availabilityDays.includes(d);
-                return (
-                  <div key={d} className={`rounded border px-1 py-0.5 text-[10px] ${on ? "border-primary/30 bg-primary/15 text-primary" : "border-border bg-muted text-muted-foreground"}`}>
-                    <div className="font-semibold">{d}</div>
-                    <div>{on ? "✓" : "—"}</div>
-                  </div>
-                );
-              })}
-            </div>
+            {(() => {
+              const hasLegacyAvail = application.weeklyAvailability
+                ? DAY_KEYS.some((d) => application.weeklyAvailability![d]?.kind !== "none")
+                : application.availabilityDays.length > 0;
+              if (!hasLegacyAvail) return null;
+              return (
+                <div className="mt-2 grid grid-cols-7 gap-1 text-center">
+                  {DAY_KEYS.map((d) => {
+                    const on = application.weeklyAvailability
+                      ? application.weeklyAvailability[d]?.kind !== "none"
+                      : application.availabilityDays.includes(d);
+                    return (
+                      <div key={d} className={`rounded border px-1 py-0.5 text-[10px] ${on ? "border-primary/30 bg-primary/15 text-primary" : "border-border bg-muted text-muted-foreground"}`}>
+                        <div className="font-semibold">{d}</div>
+                        <div>{on ? "✓" : "—"}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="grid gap-1.5"><Label>First name</Label><Input value={firstName} onChange={(e) => setFirstName(e.target.value)} /></div>
