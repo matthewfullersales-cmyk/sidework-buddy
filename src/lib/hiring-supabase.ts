@@ -506,7 +506,13 @@ export async function updateTeamMember(
   id: string,
   patch: { firstName?: string; lastName?: string | null; email?: string | null; phone?: string | null; title?: string | null },
 ): Promise<void> {
-  const row: Record<string, unknown> = {};
+  const row: {
+    first_name?: string;
+    last_name?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    title?: string | null;
+  } = {};
   if (patch.firstName !== undefined) row.first_name = patch.firstName.trim();
   if (patch.lastName !== undefined) row.last_name = patch.lastName == null ? null : patch.lastName.trim() || null;
   if (patch.email !== undefined) row.email = patch.email;
