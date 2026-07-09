@@ -1,21 +1,24 @@
 import { useCallback, useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import {
   fetchTeamMembers,
   insertTeamMember,
   updateTeamMember,
   deleteTeamMember,
+  setTeamMemberHiringPermission,
   type TeamMember,
   type TeamMemberInput,
 } from "@/lib/hiring-supabase";
+import { useAuth } from "@/lib/auth-context";
 
 export function useTeamMembers() {
+  const { effectiveOwner, loading: authLoading } = useAuth();
+  const ownerId = effectiveOwner?.ownerId ?? null;
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
-  const [ownerId, setOwnerId] = useState<string | null>(null);
 
   const reload = useCallback(async (uid: string | null) => {
     if (!uid) { setMembers([]); setLoading(false); return; }
+    setLoading(true);
     try {
       const res = await fetchTeamMembers(uid);
       setMembers(res);
@@ -27,20 +30,9 @@ export function useTeamMembers() {
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    supabase.auth.getSession().then(({ data }) => {
-      const uid = data.session?.user.id ?? null;
-      if (cancelled) return;
-      setOwnerId(uid);
-      void reload(uid);
-    });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      const uid = session?.user.id ?? null;
-      setOwnerId(uid);
-      void reload(uid);
-    });
-    return () => { cancelled = true; sub.subscription.unsubscribe(); };
-  }, [reload]);
+    if (authLoading) return;
+    void reload(ownerId);
+  }, [authLoading, ownerId, reload]);
 
   return {
     members,
@@ -66,6 +58,10 @@ export function useTeamMembers() {
         if (combined) next.name = combined;
         return next;
       }));
+    },
+    setPermission: async (id: string, canManageHiring: boolean) => {
+      await setTeamMemberHiringPermission(id, canManageHiring);
+      setMembers((m) => m.map((r) => (r.id === id ? { ...r, canManageHiring } : r)));
     },
     remove: async (id: string) => {
       await deleteTeamMember(id);
