@@ -401,8 +401,11 @@ interface Store {
   drinkMenu: MenuUpload | null;
   restaurantProfile: RestaurantProfile | null;
   restaurantHours: RestaurantHours;
+  mealPeriods: MealPeriods;
   setRestaurantHours: (h: RestaurantHours) => void;
   updateRestaurantDay: (day: DayKey, patch: Partial<DayHours>) => void;
+  setMealPeriods: (p: MealPeriods) => void;
+  updateMealPeriod: (meal: Meal, patch: Partial<MealPeriodConfig>) => void;
   activeRoles: Role[];
   setActiveRoles: (roles: Role[]) => void;
   customRoles: CustomRole[];
