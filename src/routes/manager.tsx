@@ -961,7 +961,18 @@ function JobsTab() {
         subtitle="Awaiting time confirmation or interview"
         items={videoApps}
         emptyText="No interviews in progress."
-        renderExtra={(a) => <InterviewStageDetails app={a} restaurantName={restaurantName} />}
+        renderExtra={(a) => (
+          <InterviewStageDetails
+            app={a}
+            restaurantName={restaurantName}
+            teamMembers={team.members}
+            onReassign={(tid) => {
+              reassignApplication(a.id, tid);
+              const label = tid ? team.members.find((m) => m.id === tid)?.name ?? "team member" : "you";
+              toast.success(`Interview reassigned to ${label}`);
+            }}
+          />
+        )}
         renderActions={(a) => {
           const stage = getHiringStage(a);
           if (stage === "video_offered") {
