@@ -742,10 +742,11 @@ function ShiftDetailsDialog({
   const dateLabel = localDate.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" });
 
   const availDay = emp?.weeklyAvailability?.[dayKey];
-  const availConflict: null | { kind: "none" } | { kind: "partial"; meals: string[] } = (() => {
+  const availConflict: null | { kind: "none" } | { kind: "partial"; meals: string[]; violating: string[]; touched: string[] } = (() => {
     if (!availDay || availDay.kind === "full") return null;
     if (availDay.kind === "none") return { kind: "none" };
-    if (!isAvailableFor(availDay, start, mealPeriods)) return { kind: "partial", meals: availDay.meals };
+    const r = isAvailableForRange(availDay, start, end, mealPeriods);
+    if (!r.ok) return { kind: "partial", meals: availDay.meals, violating: r.violating, touched: r.touched };
     return null;
   })();
   const needsOverride = !!availConflict && !overrideAvailability;
