@@ -615,12 +615,24 @@ export type Database = {
         Args: { p_auth_user_id: string; p_team_member_id: string }
         Returns: undefined
       }
+      employee_can_claim_role: {
+        Args: { p_owner_id: string; p_role: string }
+        Returns: boolean
+      }
       get_effective_owner: {
         Args: never
         Returns: {
           acting: string
           can_manage_hiring: boolean
           can_manage_schedule: boolean
+          owner_id: string
+          restaurant_name: string
+        }[]
+      }
+      get_employee_context: {
+        Args: never
+        Returns: {
+          employee_id: string
           owner_id: string
           restaurant_name: string
         }[]
