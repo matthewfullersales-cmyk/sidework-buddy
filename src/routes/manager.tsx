@@ -2353,6 +2353,19 @@ function SettingsTab({ onOpenSetup }: { onOpenSetup: () => void }) {
       </Card>
       <Card>
         <CardHeader>
+          <CardTitle className="text-base">Arrival lead time</CardTitle>
+          <p className="mt-1 text-xs text-muted-foreground">Front-of-house staff usually arrive an hour before service, kitchen prep more. These offsets seed the shift time suggestions in the schedule builder.</p>
+        </CardHeader>
+        <CardContent>
+          <ArrivalOffsetsEditor
+            value={arrivalOffsets}
+            onChange={setArrivalOffsets}
+            activePositions={Array.from(new Set(employees.map((e) => e.position).filter((p): p is NonNullable<typeof p> => Boolean(p))))}
+          />
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
           <CardTitle className="text-base">Daily hours</CardTitle>
           <p className="mt-1 text-xs text-muted-foreground">AI scheduling only books staff during the hours you're open. Mark a day closed if you don't operate that day.</p>
         </CardHeader>
