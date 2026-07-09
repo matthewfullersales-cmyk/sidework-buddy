@@ -274,7 +274,7 @@ export function ScheduleSection() {
       const dayKey = DAY_KEYS[(local.getDay() + 6) % 7];
       const emp = employees.find((e) => e.id === s.employeeId);
       const av = emp?.weeklyAvailability?.[dayKey];
-      if (av && !isAvailableFor(av, s.start)) {
+      if (av && !isAvailableFor(av, s.start, mealPeriods)) {
         skippedAvail += 1;
         return;
       }
