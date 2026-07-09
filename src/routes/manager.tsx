@@ -765,7 +765,7 @@ function EmployeeProfileDialog({ employee, onClose }: { employee: Employee; onCl
 
           <div>
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Weekly availability</p>
-            <AvailabilityEditor value={weekly} onChange={setWeekly} />
+            <AvailabilityEditor value={weekly} onChange={setWeekly} mealPeriods={mealPeriods} />
           </div>
 
           <div className="rounded-lg border border-border p-3">
