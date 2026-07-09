@@ -32,6 +32,13 @@ import {
   updateTradeRow,
   bootstrapLocalSchedule,
 } from "@/lib/schedule-supabase";
+import {
+  fetchMyEmployeeRow,
+  fetchMyShifts,
+  fetchOwnerOpenTrades,
+  fetchShiftsByIds,
+  fetchMyTimeOff,
+} from "@/lib/employee-supabase";
 import { useAuth } from "@/lib/auth-context";
 import { toast } from "sonner";
 
