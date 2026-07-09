@@ -104,6 +104,10 @@ export interface EmergencyContact {
 export type DayHours = { closed: boolean; open: string; close: string };
 export type RestaurantHours = Record<DayKey, DayHours>;
 
+export type MealPeriodConfig = { enabled: boolean; start: string; end: string };
+export type MealPeriods = { Breakfast: MealPeriodConfig; Lunch: MealPeriodConfig; Dinner: MealPeriodConfig };
+export type RestaurantHoursConfigV2 = { version: 2; days: RestaurantHours; mealPeriods: MealPeriods };
+
 export function defaultWeeklyAvailability(): WeeklyAvailability {
   return DAY_KEYS.reduce((acc, d) => { acc[d] = { kind: "full" }; return acc; }, {} as WeeklyAvailability);
 }
@@ -120,16 +124,78 @@ export function defaultRestaurantHours(): RestaurantHours {
   };
 }
 
-export function mealForShiftStart(start: string): Meal {
-  if (start < "11:00") return "Breakfast";
-  if (start < "16:00") return "Lunch";
-  return "Dinner";
+export function defaultMealPeriods(): MealPeriods {
+  return {
+    Breakfast: { enabled: false, start: "07:00", end: "10:30" },
+    Lunch: { enabled: false, start: "11:00", end: "14:30" },
+    Dinner: { enabled: true, start: "16:00", end: "21:30" },
+  };
 }
 
-export function isAvailableFor(av: DayAvailability | undefined, start: string): boolean {
+// Normalize whatever comes back from the jsonb column. Supports v1 (flat
+// Record<DayKey, DayHours>) and v2 ({version, days, mealPeriods}).
+export function normalizeRestaurantHoursConfig(raw: unknown): { days: RestaurantHours; mealPeriods: MealPeriods; upgradedFromV1: boolean } {
+  const defaults = { days: defaultRestaurantHours(), mealPeriods: defaultMealPeriods(), upgradedFromV1: false };
+  if (!raw || typeof raw !== "object") return defaults;
+  const obj = raw as Record<string, unknown>;
+  if (obj.version === 2 && obj.days && obj.mealPeriods) {
+    return {
+      days: { ...defaultRestaurantHours(), ...(obj.days as RestaurantHours) },
+      mealPeriods: { ...defaultMealPeriods(), ...(obj.mealPeriods as MealPeriods) },
+      upgradedFromV1: false,
+    };
+  }
+  // v1: flat DayKey map
+  const looksLikeV1 = DAY_KEYS.some((d) => d in obj);
+  if (looksLikeV1) {
+    return {
+      days: { ...defaultRestaurantHours(), ...(obj as RestaurantHours) },
+      mealPeriods: defaultMealPeriods(),
+      upgradedFromV1: true,
+    };
+  }
+  return defaults;
+}
+
+export function serializeRestaurantHoursConfig(days: RestaurantHours, mealPeriods: MealPeriods): RestaurantHoursConfigV2 {
+  return { version: 2, days, mealPeriods };
+}
+
+// Map a shift start "HH:MM" to a meal period using the restaurant's configured
+// windows. If the start falls in a gap between periods, snap to the NEXT
+// upcoming enabled period (a 3:15pm start with lunch ending at 15:00 and
+// dinner starting at 16:00 is treated as a dinner prep shift). If no periods
+// are enabled, returns null and callers treat availability as unrestricted.
+export function mealForShiftStart(start: string, periods?: MealPeriods): Meal | null {
+  const p = periods ?? defaultMealPeriods();
+  const order: Meal[] = ["Breakfast", "Lunch", "Dinner"];
+  const enabled = order.filter((m) => p[m].enabled);
+  if (enabled.length === 0) return null;
+  // Inside a window
+  for (const m of enabled) {
+    if (start >= p[m].start && start < p[m].end) return m;
+  }
+  // Before first
+  if (start < p[enabled[0]!].start) return enabled[0]!;
+  // Snap to next upcoming; if past all, snap to last
+  for (const m of enabled) {
+    if (start < p[m].start) return m;
+  }
+  return enabled[enabled.length - 1]!;
+}
+
+export function isAvailableFor(av: DayAvailability | undefined, start: string, periods?: MealPeriods): boolean {
   if (!av || av.kind === "full") return true;
   if (av.kind === "none") return false;
-  return av.meals.includes(mealForShiftStart(start));
+  const meal = mealForShiftStart(start, periods);
+  if (meal === null) return true; // no configured periods → don't block
+  return av.meals.includes(meal);
+}
+
+export function hoursConfigured(days: RestaurantHours, mealPeriods: MealPeriods): boolean {
+  const anyOpen = DAY_KEYS.some((d) => !days[d].closed);
+  const anyMeal = (["Breakfast", "Lunch", "Dinner"] as Meal[]).some((m) => mealPeriods[m].enabled);
+  return anyOpen && anyMeal;
 }
 
 export interface Employee {
