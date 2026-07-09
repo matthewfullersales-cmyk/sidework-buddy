@@ -689,7 +689,7 @@ function ShiftDetailsDialog({
   employeeId: string; date: string; existing?: Shift;
   onClose: () => void; onSave: (s: Shift) => void; onDelete: (id: string) => void;
 }) {
-  const { employees, activeRoles, customRoles, timeOff } = useStore();
+  const { employees, activeRoles, customRoles, timeOff, mealPeriods } = useStore();
   const emp = employees.find((e) => e.id === employeeId);
   const [start, setStart] = useState(existing?.start ?? "17:00");
   const [end, setEnd] = useState(existing?.end ?? "23:00");
