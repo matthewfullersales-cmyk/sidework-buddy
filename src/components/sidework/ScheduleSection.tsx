@@ -259,12 +259,23 @@ export function ScheduleSection() {
 
     let copied = 0;
     let skipped = 0;
+    let skippedAvail = 0;
     const sourceShifts = shifts.filter((s) => dayISOs.includes(s.date));
     sourceShifts.forEach((s) => {
       const srcIdx = dayISOs.indexOf(s.date);
       const newDate = nextDayISOs[srcIdx];
       if (timeOffStatusFor(s.employeeId, newDate) === "approved") {
         skipped += 1;
+        return;
+      }
+      // Recurring weekly availability. Parse newDate locally (never UTC).
+      const [ny, nm, nd] = newDate.split("-").map(Number);
+      const local = new Date(ny, (nm ?? 1) - 1, nd ?? 1);
+      const dayKey = DAY_KEYS[(local.getDay() + 6) % 7];
+      const emp = employees.find((e) => e.id === s.employeeId);
+      const av = emp?.weeklyAvailability?.[dayKey];
+      if (av && !isAvailableFor(av, s.start)) {
+        skippedAvail += 1;
         return;
       }
       upsertShift({
@@ -280,9 +291,13 @@ export function ScheduleSection() {
       copied += 1;
     });
 
-    const skipMsg = skipped > 0 ? ` (${skipped} skipped — approved time off)` : "";
+    const skipParts: string[] = [];
+    if (skipped > 0) skipParts.push(`${skipped} skipped — approved time off`);
+    if (skippedAvail > 0) skipParts.push(`${skippedAvail} skipped — recurring unavailability`);
+    const skipMsg = skipParts.length ? ` (${skipParts.join("; ")})` : "";
     toast.success(`Copied ${copied} shift${copied === 1 ? "" : "s"} to next week${skipMsg}`);
   }
+
 
   function handleCopyToNextWeek() {
     const nextDayISOs = days.map((d) => fmtISO(addDays(d, 7)));
