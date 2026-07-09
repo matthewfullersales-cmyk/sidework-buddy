@@ -2322,17 +2322,26 @@ function IconCal() { return <svg viewBox="0 0 24 24" className="h-4 w-4" fill="n
 function IconSwap() { return <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l-4-4m4 4l4-4"/></svg>; }
 
 function TeamRosterCard({ team }: { team: ReturnType<typeof useTeamMembers> }) {
+  const { employees } = useStore();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<TeamMember | null>(null);
   const [form, setForm] = useState({ firstName: "", lastName: "", email: "", phone: "", title: "" });
+  const [sourceEmployeeId, setSourceEmployeeId] = useState<string>("new");
+
+  const sortedEmployees = useMemo(
+    () => [...employees].sort((a, b) => (a.name ?? "").localeCompare(b.name ?? "")),
+    [employees],
+  );
 
   const openAdd = () => {
     setEditing(null);
+    setSourceEmployeeId("new");
     setForm({ firstName: "", lastName: "", email: "", phone: "", title: "" });
     setOpen(true);
   };
   const openEdit = (m: TeamMember) => {
     setEditing(m);
+    setSourceEmployeeId("new");
     setForm({
       firstName: m.firstName ?? m.name.split(" ")[0] ?? "",
       lastName: m.lastName ?? m.name.split(" ").slice(1).join(" ") ?? "",
@@ -2341,6 +2350,25 @@ function TeamRosterCard({ team }: { team: ReturnType<typeof useTeamMembers> }) {
       title: m.title ?? "",
     });
     setOpen(true);
+  };
+
+  const pickEmployee = (id: string) => {
+    setSourceEmployeeId(id);
+    if (id === "new") {
+      setForm({ firstName: "", lastName: "", email: "", phone: "", title: "" });
+      return;
+    }
+    const emp = employees.find((e) => e.id === id);
+    if (!emp) return;
+    const first = emp.firstName ?? emp.name.split(" ")[0] ?? "";
+    const last = emp.lastName ?? emp.name.split(" ").slice(1).join(" ") ?? "";
+    setForm({
+      firstName: first,
+      lastName: last,
+      email: emp.email ?? "",
+      phone: emp.phone ? formatPhone(emp.phone) : "",
+      title: "",
+    });
   };
 
   const submit = async () => {
