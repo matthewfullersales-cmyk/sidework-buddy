@@ -449,9 +449,13 @@ export function ScheduleSection() {
                           })()}
                         </div>
                       </td>
-                      {dayISOs.map((date) => {
+                      {dayISOs.map((date, dayIdx) => {
                         const s = shiftFor(emp.id, date);
                         const toStatus = timeOffStatusFor(emp.id, date);
+                        const dayKey = DAY_KEYS[dayIdx];
+                        const availDay = emp.weeklyAvailability?.[dayKey];
+                        const fullyUnavailable = availDay?.kind === "none";
+                        const showUnavailable = fullyUnavailable && !s && toStatus !== "approved";
                         return (
                           <td key={date} className="border-b border-border p-1 align-middle">
                             {toStatus === "approved" ? (
@@ -460,6 +464,14 @@ export function ScheduleSection() {
                                 style={{ backgroundColor: STATUS_COLORS.timeOff, color: contrastText(STATUS_COLORS.timeOff), borderColor: STATUS_COLORS.timeOff }}
                               >
                                 Time off
+                              </div>
+                            ) : showUnavailable ? (
+                              <div
+                                className="w-full min-h-[52px] rounded-md border border-dashed border-muted-foreground/30 bg-muted/40 text-muted-foreground text-[11px] grid place-items-center px-1 text-center leading-tight"
+                                title={`${emp.name} marked ${dayKey}s as unavailable in their profile`}
+                                aria-label={`${emp.name} is unavailable on ${dayKey}s`}
+                              >
+                                Unavailable
                               </div>
                             ) : (
                               <button
@@ -494,6 +506,7 @@ export function ScheduleSection() {
                           </td>
                         );
                       })}
+
                     </tr>
                   ))}
                 </tbody>
