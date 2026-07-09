@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Brain, MonitorPlay, CalendarClock, Check, Quote, Smartphone } from "lucide-react";
+import { Brain, MonitorPlay, CalendarClock, Check } from "lucide-react";
 import { Logo } from "@/components/sidework/Logo";
 import { Button } from "@/components/ui/button";
 
@@ -21,13 +21,9 @@ function Landing() {
     <div className="min-h-screen bg-background">
       <header className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-4 sm:py-5">
         <Logo />
-        <nav className="flex items-center gap-4 text-sm font-semibold sm:gap-6">
-          <a href="#features" className="hidden text-muted-foreground hover:text-foreground sm:inline">Features</a>
-          <a href="#pricing" className="hidden text-muted-foreground hover:text-foreground sm:inline">Pricing</a>
-          <Link to="/get-app" className="text-muted-foreground hover:text-foreground">Employee?</Link>
-          <Button asChild size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90">
-            <Link to="/login">Log in</Link>
-          </Button>
+        <nav className="flex items-center gap-4 text-sm font-semibold sm:gap-5">
+          <a href="#features" className="text-muted-foreground hover:text-foreground">Features</a>
+          
         </nav>
       </header>
 
@@ -48,16 +44,13 @@ function Landing() {
             </p>
             <div className="mt-7 flex flex-col gap-3 sm:flex-row">
               <Button asChild size="lg" className="w-full bg-white text-primary shadow-bold hover:bg-white/90 sm:w-auto">
-                <Link to="/login">Get started — free 30-day trial</Link>
+                <Link to="/login">I'm a Manager / Owner</Link>
               </Button>
               <Button asChild size="lg" variant="outline" className="w-full border-white/30 bg-transparent text-white hover:bg-white/10 hover:text-white sm:w-auto">
-                <a href="#features">See how it works</a>
+                <Link to="/employee-login">I'm an Employee</Link>
               </Button>
             </div>
-            <p className="mt-4 text-xs text-white/60">
-              For restaurant owners &amp; managers. Employee?{" "}
-              <Link to="/get-app" className="underline underline-offset-2 hover:text-white">Get the app</Link>.
-            </p>
+            <p className="mt-4 text-xs text-white/60">Sign in or create an account to get started.</p>
           </div>
 
 
@@ -163,123 +156,89 @@ function Landing() {
         </div>
       </section>
 
-      {/* TESTIMONIALS */}
-      <section className="bg-background">
-        <div className="mx-auto max-w-6xl px-4 py-20">
-          <div className="mb-12 max-w-2xl">
-            <p className="text-xs font-bold uppercase tracking-widest text-primary">What operators say</p>
-            <h2 className="mt-3 text-4xl font-bold tracking-tight md:text-5xl">Fewer texts. Faster training. Happier staff.</h2>
-          </div>
-          <div className="grid gap-6 md:grid-cols-3">
-            {[
-              {
-                quote: "We onboarded three new servers in a week without printing a single manual. The AI menu quizzes alone saved me hours.",
-                name: "Sarah M.",
-                title: "General Manager",
-              },
-              {
-                quote: "Shift trades used to be a group-text nightmare. Now the team handles it themselves and I just tap approve.",
-                name: "Marcus D.",
-                title: "Owner, neighborhood bistro",
-              },
-              {
-                quote: "Hiring, scheduling, training — one login for the whole team. I finally deleted three other apps.",
-                name: "Priya K.",
-                title: "Operations Director",
-              },
-            ].map((t) => (
-              <figure key={t.name} className="flex flex-col rounded-2xl border-2 border-border bg-card p-7">
-                <Quote className="h-6 w-6 text-primary/60" />
-                <blockquote className="mt-3 flex-1 text-sm leading-relaxed text-foreground">"{t.quote}"</blockquote>
-                <figcaption className="mt-5 border-t border-border pt-4">
-                  <p className="text-sm font-bold">{t.name}</p>
-                  <p className="text-xs text-muted-foreground">{t.title}</p>
-                </figcaption>
-              </figure>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* PRICING */}
-      <section id="pricing" className="border-y border-border bg-background">
+      <section className="border-y border-border bg-background">
         <div className="mx-auto max-w-6xl px-4 py-20">
           <div className="mb-12 max-w-2xl">
             <p className="text-xs font-bold uppercase tracking-widest text-primary">Pricing</p>
-            <h2 className="mt-3 text-4xl font-bold tracking-tight md:text-5xl">Pricing that scales with your team.</h2>
-            <p className="mt-3 text-muted-foreground">Talk to us about a plan that fits your restaurant.</p>
+            <h2 className="mt-3 text-4xl font-bold tracking-tight md:text-5xl">Simple pricing, no hidden fees.</h2>
           </div>
           <div className="grid gap-6 md:grid-cols-3">
-            {[
-              {
-                name: "Starter",
-                tag: "For a single location",
-                highlight: false,
-                features: [
+            {/* Starter */}
+            <div className="rounded-2xl border-2 border-border bg-card p-7">
+              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Starter</p>
+              <div className="mt-2 flex items-baseline gap-1">
+                <span className="text-4xl font-bold">$49</span>
+                <span className="text-sm text-muted-foreground">/month</span>
+              </div>
+              <p className="mt-2 text-sm text-muted-foreground">Perfect for small restaurants</p>
+              <ul className="mt-6 space-y-3">
+                {[
                   "Up to 15 staff members",
                   "Scheduling & shift trades",
                   "Time off management",
                   "Job postings & applications",
-                  "Basic onboarding checklist",
-                ],
-              },
-              {
-                name: "Growth",
-                tag: "For busy full-service teams",
-                highlight: true,
-                features: [
+                  "Basic onboarding",
+                ].map((item) => (
+                  <li key={item} className="flex items-start gap-2.5 text-sm">
+                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+              <Button className="mt-8 w-full bg-primary text-primary-foreground hover:bg-primary/90">Start Free 30-Day Trial</Button>
+            </div>
+
+            {/* Professional */}
+            <div className="relative rounded-2xl border-2 border-primary bg-card p-7">
+              <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground">Most Popular</span>
+              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Professional</p>
+              <div className="mt-2 flex items-baseline gap-1">
+                <span className="text-4xl font-bold">$99</span>
+                <span className="text-sm text-muted-foreground">/month</span>
+              </div>
+              <p className="mt-2 text-sm text-muted-foreground">Everything you need to run your restaurant</p>
+              <ul className="mt-6 space-y-3">
+                {[
                   "Unlimited staff",
                   "Everything in Starter",
                   "AI menu quiz generator",
                   "Expert training video library",
                   "Anti-cheat quiz system",
-                  "Real-time performance data",
-                ],
-              },
-              {
-                name: "Enterprise",
-                tag: "For multi-location groups",
-                highlight: false,
-                features: [
-                  "Everything in Growth",
-                  "Multiple locations",
-                  "Location performance comparison",
-                  "Dedicated onboarding & support",
-                  "Custom integrations",
-                ],
-              },
-            ].map((tier) => (
-              <div
-                key={tier.name}
-                className={
-                  tier.highlight
-                    ? "relative rounded-2xl border-2 border-primary bg-card p-7"
-                    : "rounded-2xl border-2 border-border bg-card p-7"
-                }
-              >
-                {tier.highlight && (
-                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground">
-                    Most Popular
-                  </span>
-                )}
-                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">{tier.name}</p>
-                <div className="mt-2 flex items-baseline gap-1">
-                  <span className="text-3xl font-bold">Contact us</span>
-                </div>
-                <p className="mt-2 text-sm text-muted-foreground">{tier.tag}</p>
-                <ul className="mt-6 space-y-3">
-                  {tier.features.map((item) => (
-                    <li key={item} className="flex items-start gap-2.5 text-sm">
-                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-                <Button asChild className="mt-8 w-full bg-primary text-primary-foreground hover:bg-primary/90">
-                  <Link to="/login">Get in touch</Link>
-                </Button>
+                  "Real time staff performance data",
+                ].map((item) => (
+                  <li key={item} className="flex items-start gap-2.5 text-sm">
+                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+              <Button className="mt-8 w-full bg-primary text-primary-foreground hover:bg-primary/90">Start Free 30-Day Trial</Button>
+            </div>
+
+            {/* Multi-Location */}
+            <div className="rounded-2xl border-2 border-border bg-card p-7">
+              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Multi-Location</p>
+              <div className="mt-2 flex items-baseline gap-1">
+                <span className="text-4xl font-bold">$149</span>
+                <span className="text-sm text-muted-foreground">/month per location</span>
               </div>
-            ))}
+              <p className="mt-2 text-sm text-muted-foreground">For growing restaurant groups</p>
+              <ul className="mt-6 space-y-3">
+                {[
+                  "Everything in Professional",
+                  "Multiple locations",
+                  "Priority support",
+                  "Location performance comparison",
+                ].map((item) => (
+                  <li key={item} className="flex items-start gap-2.5 text-sm">
+                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+              <Button className="mt-8 w-full bg-primary text-primary-foreground hover:bg-primary/90">Start Free 30-Day Trial</Button>
+            </div>
           </div>
         </div>
       </section>
@@ -297,16 +256,8 @@ function Landing() {
         </div>
       </section>
 
-      <footer className="border-t border-border bg-background">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-8 text-xs text-muted-foreground">
-          <p>© {new Date().getFullYear()} 86Paper</p>
-          <div className="flex items-center gap-5">
-            <Link to="/login" className="hover:text-foreground">Manager sign-in</Link>
-            <Link to="/get-app" className="inline-flex items-center gap-1 hover:text-foreground">
-              <Smartphone className="h-3.5 w-3.5" /> Employee? Get the app
-            </Link>
-          </div>
-        </div>
+      <footer className="mx-auto max-w-6xl px-4 py-8 text-xs text-muted-foreground">
+        © {new Date().getFullYear()} 86Paper
       </footer>
     </div>
   );
