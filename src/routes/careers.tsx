@@ -13,9 +13,11 @@ import {
   type Role,
   type WeeklyAvailability,
   type WorkExperience,
+  type JobPosting,
   DAY_KEYS,
   defaultWeeklyAvailability,
 } from "@/lib/sidework-store";
+import { fetchPublicPosting } from "@/lib/hiring-supabase";
 import { toast } from "sonner";
 import { CheckCircle2, Loader2 } from "lucide-react";
 
@@ -41,7 +43,27 @@ const BOH_ROLES: Role[] = ["Chef", "Sous Chef", "Line Cook", "Fry Cook", "Saute"
 function CareersPage() {
   const { jobs, submitApplication, restaurantProfile } = useStore();
   const { job: jobIdParam } = Route.useSearch();
-  const targetJob = jobIdParam ? jobs.find((j) => j.id === jobIdParam) : null;
+  // Fetch the target job from Supabase so shared /careers?job=<id> links load
+  // for anyone, not just users who happen to have the job in local state.
+  const [targetJob, setTargetJob] = useState<JobPosting | null>(null);
+  const [loadingJob, setLoadingJob] = useState(!!jobIdParam);
+  useEffect(() => {
+    if (!jobIdParam) {
+      setTargetJob(null);
+      setLoadingJob(false);
+      return;
+    }
+    // Fallback to local jobs first (owner-preview path) for a snappier render.
+    const local = jobs.find((j) => j.id === jobIdParam) ?? null;
+    if (local) setTargetJob(local);
+    setLoadingJob(true);
+    fetchPublicPosting(jobIdParam)
+      .then((row) => setTargetJob(row))
+      .catch((e) => {
+        console.error("[careers] failed to load job", e);
+      })
+      .finally(() => setLoadingJob(false));
+  }, [jobIdParam]);
   const open = jobs.filter((j) => j.open);
   const restaurantName = restaurantProfile?.name ?? "Our restaurant";
 

@@ -1,5 +1,16 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useRef, type ReactNode } from "react";
 import { ROLE_COLORS } from "@/lib/role-colors";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  fetchOwnerPostings,
+  fetchOwnerApplications,
+  insertPosting,
+  updatePostingOpen,
+  deletePosting,
+  insertApplication,
+  updateApplication,
+} from "@/lib/hiring-supabase";
+import { toast } from "sonner";
 
 export type Role = string;
 export const BUILT_IN_ROLES = [
@@ -588,33 +599,11 @@ function seedTrades(): Trade[] {
 }
 
 function seedJobs(): JobPosting[] {
-  return [
-    {
-      id: "j1", title: "Experienced Line Cook", role: "Line Cook", type: "Full-time",
-      payRange: "$22–$28/hr",
-      description: "We're hiring a line cook for our busy dinner service. Mediterranean menu, scratch kitchen, fast pace.",
-      postedAt: new Date().toISOString(), open: true,
-    },
-    {
-      id: "j2", title: "Weekend Server", role: "Server", type: "Part-time",
-      payRange: "$18/hr + tips",
-      description: "Friday and Saturday evenings. Wine knowledge a plus.",
-      postedAt: new Date().toISOString(), open: true,
-    },
-  ];
+  return [];
 }
 
 function seedApplications(): JobApplication[] {
-  return [
-    {
-      id: "a1", jobId: "j1", name: "Jordan Rivera",
-      phone: "555-204-3311",
-      availabilityDays: ["Tue", "Wed", "Thu", "Fri", "Sat"],
-      availabilityHours: "Open availability",
-      note: "Loved your menu when I dined last month.",
-      appliedAt: new Date().toISOString(), status: "new", verified: true,
-    },
-  ];
+  return [];
 }
 
 function seedTimeOff(): TimeOffRequest[] {
@@ -706,6 +695,43 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
       ROLE_COLORS[c.name] = c.color;
     }
   }, [state.customRoles]);
+
+  // Owner-scoped Supabase sync for the hiring pipeline (jobs + applications).
+  // On sign-in / mount, hydrate from Supabase so postings and applications
+  // submitted from anywhere show up for the signed-in owner.
+  const ownerIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const loadForOwner = async (ownerId: string) => {
+      try {
+        const [postings, apps] = await Promise.all([
+          fetchOwnerPostings(ownerId),
+          fetchOwnerApplications(ownerId),
+        ]);
+        if (cancelled) return;
+        setState((s) => ({ ...s, jobs: postings, applications: apps }));
+      } catch (e) {
+        console.error("[hiring-sync] failed to load", e);
+      }
+    };
+    supabase.auth.getSession().then(({ data }) => {
+      const uid = data.session?.user.id ?? null;
+      ownerIdRef.current = uid;
+      if (uid) loadForOwner(uid);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      const uid = session?.user.id ?? null;
+      ownerIdRef.current = uid;
+      if (event === "SIGNED_IN" && uid) loadForOwner(uid);
+      if (event === "SIGNED_OUT") {
+        setState((s) => ({ ...s, jobs: [], applications: [] }));
+      }
+    });
+    return () => {
+      cancelled = true;
+      sub.subscription.unsubscribe();
+    };
+  }, []);
 
   const uid = (prefix: string) => `${prefix}${Date.now()}${Math.floor(Math.random() * 1000)}`;
 
@@ -945,54 +971,108 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           shifts: approved ? s.shifts.map((x) => (x.id === trade.shiftId ? { ...x, employeeId: trade.claimedBy! } : x)) : s.shifts,
         };
       }),
-    postJob: (data) =>
-      setState((s) => ({
-        ...s,
-        jobs: [{ id: uid("j"), postedAt: new Date().toISOString(), open: true, ...data }, ...s.jobs],
-      })),
-    toggleJobOpen: (id) =>
-      setState((s) => ({ ...s, jobs: s.jobs.map((j) => (j.id === id ? { ...j, open: !j.open } : j)) })),
-    removeJob: (id) =>
-      setState((s) => ({ ...s, jobs: s.jobs.filter((j) => j.id !== id) })),
+    postJob: (data) => {
+      const ownerId = ownerIdRef.current;
+      if (!ownerId) {
+        toast.error("Please sign in to post a job.");
+        return;
+      }
+      insertPosting(ownerId, data)
+        .then((posting) => setState((s) => ({ ...s, jobs: [posting, ...s.jobs] })))
+        .catch((e) => {
+          console.error("[postJob] failed", e);
+          toast.error("Couldn't save job posting.");
+        });
+    },
+    toggleJobOpen: (id) => {
+      const current = state.jobs.find((j) => j.id === id);
+      if (!current) return;
+      const nextOpen = !current.open;
+      setState((s) => ({ ...s, jobs: s.jobs.map((j) => (j.id === id ? { ...j, open: nextOpen } : j)) }));
+      updatePostingOpen(id, nextOpen).catch((e) => {
+        console.error("[toggleJobOpen] failed", e);
+        toast.error("Couldn't update job status.");
+        setState((s) => ({ ...s, jobs: s.jobs.map((j) => (j.id === id ? { ...j, open: !nextOpen } : j)) }));
+      });
+    },
+    removeJob: (id) => {
+      const prev = state.jobs;
+      setState((s) => ({ ...s, jobs: s.jobs.filter((j) => j.id !== id) }));
+      deletePosting(id).catch((e) => {
+        console.error("[removeJob] failed", e);
+        toast.error("Couldn't delete job.");
+        setState((s) => ({ ...s, jobs: prev }));
+      });
+    },
     submitApplication: (data) => {
-      const id = uid("a");
+      // Public path: insert to Supabase. Local state append is skipped because
+      // unauthenticated submitters can't read applications back (RLS).
+      // For a signed-in owner previewing their own careers page, the row will
+      // load via fetchOwnerApplications on next refresh; we also optimistically
+      // append when the current user owns the referenced job.
+      const withScore = { ...data, aiScore: aiScoreFor(data as JobApplication) };
+      const tempId = uid("a");
+      insertApplication(withScore)
+        .then((app) => {
+          setState((s) => {
+            // Replace optimistic row if present, else prepend.
+            const exists = s.applications.some((a) => a.id === tempId);
+            const applications = exists
+              ? s.applications.map((a) => (a.id === tempId ? app : a))
+              : [app, ...s.applications];
+            return { ...s, applications };
+          });
+        })
+        .catch((e) => {
+          console.error("[submitApplication] failed", e);
+          toast.error("Couldn't submit application. Please try again.");
+          setState((s) => ({ ...s, applications: s.applications.filter((a) => a.id !== tempId) }));
+        });
+      // Optimistic local append so the manager preview sees it right away.
       setState((s) => ({
         ...s,
         applications: [
-          { id, appliedAt: new Date().toISOString(), status: "new", aiScore: aiScoreFor(data as JobApplication), ...data },
+          { id: tempId, appliedAt: new Date().toISOString(), status: "new", ...withScore } as JobApplication,
           ...s.applications,
         ],
       }));
-      return id;
+      return tempId;
     },
-    setApplicationStatus: (id, status) =>
-      setState((s) => ({ ...s, applications: s.applications.map((a) => (a.id === id ? { ...a, status } : a)) })),
-    scheduleInterview: (id) =>
+    setApplicationStatus: (id, status) => {
+      setState((s) => ({ ...s, applications: s.applications.map((a) => (a.id === id ? { ...a, status } : a)) }));
+      updateApplication(id, { status }).catch((e) => console.error("[setApplicationStatus]", e));
+    },
+    scheduleInterview: (id) => {
+      const patch = { status: "interview" as ApplicationStatus, interviewSentAt: new Date().toISOString(), archived: false };
       setState((s) => ({
         ...s,
-        applications: s.applications.map((a) =>
-          a.id === id ? { ...a, status: "interview", interviewSentAt: new Date().toISOString(), archived: false } : a,
-        ),
-      })),
-    setInterviewNotes: (id, notes) =>
+        applications: s.applications.map((a) => (a.id === id ? { ...a, ...patch } : a)),
+      }));
+      updateApplication(id, patch).catch((e) => console.error("[scheduleInterview]", e));
+    },
+    setInterviewNotes: (id, notes) => {
       setState((s) => ({
         ...s,
         applications: s.applications.map((a) => (a.id === id ? { ...a, interviewNotes: notes } : a)),
-      })),
-    declineApplication: (id) =>
+      }));
+      updateApplication(id, { interviewNotes: notes }).catch((e) => console.error("[setInterviewNotes]", e));
+    },
+    declineApplication: (id) => {
+      const patch = { status: "rejected" as ApplicationStatus, stage: "rejected" as HiringStage, archived: true };
       setState((s) => ({
         ...s,
-        applications: s.applications.map((a) =>
-          a.id === id ? { ...a, status: "rejected", stage: "rejected", archived: true } : a,
-        ),
-      })),
-    reconsiderApplication: (id) =>
+        applications: s.applications.map((a) => (a.id === id ? { ...a, ...patch } : a)),
+      }));
+      updateApplication(id, patch).catch((e) => console.error("[declineApplication]", e));
+    },
+    reconsiderApplication: (id) => {
+      const patch = { status: "new" as ApplicationStatus, stage: "new" as HiringStage, archived: false, hiredEmployeeId: undefined };
       setState((s) => ({
         ...s,
-        applications: s.applications.map((a) =>
-          a.id === id ? { ...a, status: "new", stage: "new", archived: false, hiredEmployeeId: undefined } : a,
-        ),
-      })),
+        applications: s.applications.map((a) => (a.id === id ? { ...a, ...patch } : a)),
+      }));
+      updateApplication(id, patch).catch((e) => console.error("[reconsiderApplication]", e));
+    },
     hireApplication: (id, overrides) => {
       let createdId: string | null = null;
       setState((s) => {
@@ -1029,6 +1109,13 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           workExperience: a.workExperience,
         };
         const restaurantName = s.restaurantProfile?.name ?? "86Paper";
+        // Persist application status → hired
+        updateApplication(id, {
+          status: "hired",
+          stage: "hired",
+          archived: true,
+          hiredEmployeeId: empId,
+        }).catch((e) => console.error("[hireApplication]", e));
         return {
           ...s,
           employees: [...s.employees, employee],
@@ -1058,16 +1145,20 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
       });
       return createdId;
     },
-    approveForInterview: (id, type, slots) =>
+    approveForInterview: (id, type, slots) => {
+      const patch = {
+        status: "interview" as ApplicationStatus,
+        stage: "video_offered" as HiringStage,
+        interviewType: type,
+        offeredSlots: slots,
+        interviewSentAt: new Date().toISOString(),
+        archived: false,
+      };
       setState((s) => {
         const label = type === "video" ? "Video interview" : type === "in_person" ? "In-person interview" : "Phone interview";
         return {
           ...s,
-          applications: s.applications.map((a) =>
-            a.id === id
-              ? { ...a, status: "interview", stage: "video_offered", interviewType: type, offeredSlots: slots, interviewSentAt: new Date().toISOString(), archived: false }
-              : a,
-          ),
+          applications: s.applications.map((a) => (a.id === id ? { ...a, ...patch } : a)),
           notifications: [
             {
               id: uid("n"),
@@ -1079,15 +1170,16 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
             ...s.notifications,
           ],
         };
-      }),
-    applicantSelectSlot: (id, slot) =>
+      });
+      updateApplication(id, patch).catch((e) => console.error("[approveForInterview]", e));
+    },
+    applicantSelectSlot: (id, slot) => {
+      const patch = { stage: "video_scheduled" as HiringStage, selectedSlot: slot };
       setState((s) => {
         const app = s.applications.find((a) => a.id === id);
         return {
           ...s,
-          applications: s.applications.map((a) =>
-            a.id === id ? { ...a, stage: "video_scheduled", selectedSlot: slot } : a,
-          ),
+          applications: s.applications.map((a) => (a.id === id ? { ...a, ...patch } : a)),
           notifications: [
             {
               id: uid("n"),
@@ -1099,21 +1191,28 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
             ...s.notifications,
           ],
         };
-      }),
-    completeInterview: (id, notes) =>
+      });
+      updateApplication(id, patch).catch((e) => console.error("[applicantSelectSlot]", e));
+    },
+    completeInterview: (id, notes) => {
       setState((s) => ({
         ...s,
         applications: s.applications.map((a) =>
           a.id === id ? { ...a, stage: "interviewed", interviewNotes: notes ?? a.interviewNotes } : a,
         ),
-      })),
-    inviteShadowShift: (id, details) =>
+      }));
+      const patch: Partial<JobApplication> = { stage: "interviewed" };
+      if (notes !== undefined) patch.interviewNotes = notes;
+      updateApplication(id, patch).catch((e) => console.error("[completeInterview]", e));
+    },
+    inviteShadowShift: (id, details) => {
+      const patch = { stage: "shadow_scheduled" as HiringStage, shadowShift: details };
       setState((s) => ({
         ...s,
-        applications: s.applications.map((a) =>
-          a.id === id ? { ...a, stage: "shadow_scheduled", shadowShift: details } : a,
-        ),
-      })),
+        applications: s.applications.map((a) => (a.id === id ? { ...a, ...patch } : a)),
+      }));
+      updateApplication(id, patch).catch((e) => console.error("[inviteShadowShift]", e));
+    },
     requestTimeOff: (data) =>
       setState((s) => ({
         ...s,

@@ -14,6 +14,173 @@ export type Database = {
   }
   public: {
     Tables: {
+      job_applications: {
+        Row: {
+          ai_score: string | null
+          applied_at: string
+          archived: boolean
+          availability_days: string[]
+          availability_hours: string
+          created_at: string
+          email: string | null
+          first_name: string | null
+          hired_employee_id: string | null
+          id: string
+          interview_notes: string | null
+          interview_sent_at: string | null
+          interview_type: string | null
+          job_id: string
+          last_name: string | null
+          name: string
+          note: string | null
+          offered_slots: string[] | null
+          owner_id: string
+          phone: string
+          pitch: string | null
+          role: string | null
+          selected_slot: string | null
+          shadow_shift: Json | null
+          source: string | null
+          stage: string | null
+          status: string
+          updated_at: string
+          verified: boolean
+          weekly_availability: Json | null
+          work_experience: Json | null
+        }
+        Insert: {
+          ai_score?: string | null
+          applied_at?: string
+          archived?: boolean
+          availability_days?: string[]
+          availability_hours?: string
+          created_at?: string
+          email?: string | null
+          first_name?: string | null
+          hired_employee_id?: string | null
+          id?: string
+          interview_notes?: string | null
+          interview_sent_at?: string | null
+          interview_type?: string | null
+          job_id: string
+          last_name?: string | null
+          name?: string
+          note?: string | null
+          offered_slots?: string[] | null
+          owner_id: string
+          phone?: string
+          pitch?: string | null
+          role?: string | null
+          selected_slot?: string | null
+          shadow_shift?: Json | null
+          source?: string | null
+          stage?: string | null
+          status?: string
+          updated_at?: string
+          verified?: boolean
+          weekly_availability?: Json | null
+          work_experience?: Json | null
+        }
+        Update: {
+          ai_score?: string | null
+          applied_at?: string
+          archived?: boolean
+          availability_days?: string[]
+          availability_hours?: string
+          created_at?: string
+          email?: string | null
+          first_name?: string | null
+          hired_employee_id?: string | null
+          id?: string
+          interview_notes?: string | null
+          interview_sent_at?: string | null
+          interview_type?: string | null
+          job_id?: string
+          last_name?: string | null
+          name?: string
+          note?: string | null
+          offered_slots?: string[] | null
+          owner_id?: string
+          phone?: string
+          pitch?: string | null
+          role?: string | null
+          selected_slot?: string | null
+          shadow_shift?: Json | null
+          source?: string | null
+          stage?: string | null
+          status?: string
+          updated_at?: string
+          verified?: boolean
+          weekly_availability?: Json | null
+          work_experience?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_applications_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "job_postings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_applications_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_postings: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          open: boolean
+          owner_id: string
+          pay_range: string
+          posted_at: string
+          role: string
+          title: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string
+          id?: string
+          open?: boolean
+          owner_id: string
+          pay_range?: string
+          posted_at?: string
+          role: string
+          title: string
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          open?: boolean
+          owner_id?: string
+          pay_range?: string
+          posted_at?: string
+          role?: string
+          title?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_postings_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
