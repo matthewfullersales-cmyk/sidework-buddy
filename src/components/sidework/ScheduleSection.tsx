@@ -259,12 +259,23 @@ export function ScheduleSection() {
 
     let copied = 0;
     let skipped = 0;
+    let skippedAvail = 0;
     const sourceShifts = shifts.filter((s) => dayISOs.includes(s.date));
     sourceShifts.forEach((s) => {
       const srcIdx = dayISOs.indexOf(s.date);
       const newDate = nextDayISOs[srcIdx];
       if (timeOffStatusFor(s.employeeId, newDate) === "approved") {
         skipped += 1;
+        return;
+      }
+      // Recurring weekly availability. Parse newDate locally (never UTC).
+      const [ny, nm, nd] = newDate.split("-").map(Number);
+      const local = new Date(ny, (nm ?? 1) - 1, nd ?? 1);
+      const dayKey = DAY_KEYS[(local.getDay() + 6) % 7];
+      const emp = employees.find((e) => e.id === s.employeeId);
+      const av = emp?.weeklyAvailability?.[dayKey];
+      if (av && !isAvailableFor(av, s.start)) {
+        skippedAvail += 1;
         return;
       }
       upsertShift({
@@ -280,9 +291,13 @@ export function ScheduleSection() {
       copied += 1;
     });
 
-    const skipMsg = skipped > 0 ? ` (${skipped} skipped — approved time off)` : "";
+    const skipParts: string[] = [];
+    if (skipped > 0) skipParts.push(`${skipped} skipped — approved time off`);
+    if (skippedAvail > 0) skipParts.push(`${skippedAvail} skipped — recurring unavailability`);
+    const skipMsg = skipParts.length ? ` (${skipParts.join("; ")})` : "";
     toast.success(`Copied ${copied} shift${copied === 1 ? "" : "s"} to next week${skipMsg}`);
   }
+
 
   function handleCopyToNextWeek() {
     const nextDayISOs = days.map((d) => fmtISO(addDays(d, 7)));
@@ -667,6 +682,7 @@ function ShiftDetailsDialog({
   const [end, setEnd] = useState(existing?.end ?? "23:00");
   const [role, setRole] = useState<Role>(existing?.role ?? (emp?.primaryRole ?? "Server"));
   const [notes, setNotes] = useState(existing?.notes ?? "");
+  const [overrideAvailability, setOverrideAvailability] = useState(false);
   const rolesForPicker = allRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r) || r === role);
 
   const timeOffConflict = (() => {
@@ -683,7 +699,23 @@ function ShiftDetailsDialog({
   })();
 
   const blocked = timeOffConflict?.status === "approved";
-  const dateLabel = new Date(date + "T00:00").toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" });
+  // Parse date as LOCAL midnight, not UTC. `new Date("YYYY-MM-DD")` is parsed
+  // as UTC and returns the previous day's weekday west of UTC — the same
+  // timezone bug class that hid the time-off check earlier.
+  const [dy, dm, dd] = date.split("-").map(Number);
+  const localDate = new Date(dy, (dm ?? 1) - 1, dd ?? 1);
+  const dayIdx = (localDate.getDay() + 6) % 7; // Mon=0..Sun=6
+  const dayKey = DAY_KEYS[dayIdx];
+  const dateLabel = localDate.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" });
+
+  const availDay = emp?.weeklyAvailability?.[dayKey];
+  const availConflict: null | { kind: "none" } | { kind: "partial"; meals: string[] } = (() => {
+    if (!availDay || availDay.kind === "full") return null;
+    if (availDay.kind === "none") return { kind: "none" };
+    if (!isAvailableFor(availDay, start)) return { kind: "partial", meals: availDay.meals };
+    return null;
+  })();
+  const needsOverride = !!availConflict && !overrideAvailability;
 
   return (
     <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
@@ -722,6 +754,29 @@ function ShiftDetailsDialog({
               </p>
             </div>
           )}
+          {availConflict && (
+            <div
+              role="alert"
+              className="rounded-lg border border-amber-500/60 bg-amber-500/10 p-3 text-sm text-amber-900 dark:text-amber-200"
+            >
+              <p className="font-semibold">
+                {availConflict.kind === "none"
+                  ? `⚠️ ${emp?.name ?? "This employee"} has ${dayKey}s marked unavailable in their profile`
+                  : `⚠️ ${emp?.name ?? "This employee"} is only available for ${availConflict.meals.join(" & ")} on ${dayKey}s`}
+              </p>
+              <p className="mt-1 text-xs">
+                Recurring weekly availability — not a one-off time-off request. Confirm below to schedule anyway.
+              </p>
+              <label className="mt-2 flex items-center gap-2 text-xs font-medium">
+                <Checkbox
+                  checked={overrideAvailability}
+                  onCheckedChange={(v) => setOverrideAvailability(v === true)}
+                  aria-label="Schedule despite unavailability"
+                />
+                Schedule anyway
+              </label>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label className="text-xs">Start</Label>
@@ -753,10 +808,14 @@ function ShiftDetailsDialog({
           <div className="flex gap-2">
             <Button variant="ghost" onClick={onClose}>Cancel</Button>
             <Button
-              disabled={blocked}
+              disabled={blocked || needsOverride}
               onClick={() => {
                 if (blocked) {
                   toast.error(`${emp?.name ?? "Employee"} has approved time off on this date`);
+                  return;
+                }
+                if (needsOverride) {
+                  toast.error(`Confirm scheduling despite ${emp?.name ?? "employee"}'s marked unavailability`);
                   return;
                 }
                 onSave({
@@ -776,3 +835,4 @@ function ShiftDetailsDialog({
   );
 
 }
+
