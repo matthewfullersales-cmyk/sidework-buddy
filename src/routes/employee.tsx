@@ -80,15 +80,17 @@ function EmployeePage() {
         title={`Hi, ${me.name.split(" ")[0]}`}
         subtitle={status.fullyOnboarded ? "You're fully onboarded. Nice work." : "Finish your training to get on the schedule."}
       />
-      <Tabs defaultValue={!me.personalInfoComplete ? "profile" : "training"}>
-        <TabsList className="mb-6 grid h-auto w-full grid-cols-2 md:grid-cols-4">
-          <TabsTrigger value="profile">{me.personalInfoComplete ? "My Profile" : "Onboarding"}</TabsTrigger>
+      <Tabs defaultValue={!me.personalInfoComplete ? "profile" : "schedule"}>
+        <TabsList className="mb-6 grid h-auto w-full grid-cols-3 md:grid-cols-5">
+          <TabsTrigger value="profile">{me.personalInfoComplete ? "Profile" : "Onboarding"}</TabsTrigger>
           <TabsTrigger value="training">Training</TabsTrigger>
-          <TabsTrigger value="trades">Shifts</TabsTrigger>
+          <TabsTrigger value="schedule">Schedule</TabsTrigger>
+          <TabsTrigger value="trades">Trades</TabsTrigger>
           <TabsTrigger value="timeoff">Time Off</TabsTrigger>
         </TabsList>
         <TabsContent value="profile"><OnboardingTab employeeId={me.id} /></TabsContent>
         <TabsContent value="training"><TrainingTab employeeId={me.id} /></TabsContent>
+        <TabsContent value="schedule"><MyScheduleTab employeeId={me.id} /></TabsContent>
         <TabsContent value="trades"><TradesTab employeeId={me.id} /></TabsContent>
         <TabsContent value="timeoff"><TimeOffTab employeeId={me.id} /></TabsContent>
       </Tabs>
