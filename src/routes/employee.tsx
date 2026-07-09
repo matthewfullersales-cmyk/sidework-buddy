@@ -31,17 +31,32 @@ export const Route = createFileRoute("/employee")({
 
 function EmployeePage() {
   useRequireRole("employee", "/employee-login");
-  const { profile } = useAuth();
-  const { currentUser, setCurrentUser, employees, videos } = useStore();
+  const { profile, employeeContext, loading: authLoading } = useAuth();
+  const { currentUser, setCurrentUser, employees, videos, employeeHydrating } = useStore();
+  const targetId = employeeContext?.employeeId ?? profile?.employee_id ?? null;
   useEffect(() => {
-    if (profile?.employee_id && (currentUser.type !== "employee" || currentUser.id !== profile.employee_id)) {
-      setCurrentUser({ type: "employee", id: profile.employee_id });
+    if (targetId && (currentUser.type !== "employee" || currentUser.id !== targetId)) {
+      setCurrentUser({ type: "employee", id: targetId });
     }
-  }, [profile?.employee_id, currentUser, setCurrentUser]);
+  }, [targetId, currentUser, setCurrentUser]);
   if (currentUser.type === "manager") return <Navigate to="/manager" />;
+
+  // Wait for auth + employee-context hydration before deciding to redirect.
+  // Without this gate, a fresh sign-in on a device with an empty local store
+  // Navigate()s away before Supabase has a chance to populate `employees`.
+  const stillLoading = authLoading || employeeHydrating || (targetId && employees.length === 0);
+  if (stillLoading) {
+    return (
+      <AppShell nav={nav}>
+        <div className="grid min-h-[40vh] place-items-center text-sm text-muted-foreground">Loading your account…</div>
+      </AppShell>
+    );
+  }
+
   const me = employees.find((e) => e.id === currentUser.id);
   if (!me) return <Navigate to="/" />;
   const status = onboardingStatus(me, videos);
+
 
   useEffect(() => {
     if (!me) return;

@@ -32,6 +32,13 @@ import {
   updateTradeRow,
   bootstrapLocalSchedule,
 } from "@/lib/schedule-supabase";
+import {
+  fetchMyEmployeeRow,
+  fetchMyShifts,
+  fetchOwnerOpenTrades,
+  fetchShiftsByIds,
+  fetchMyTimeOff,
+} from "@/lib/employee-supabase";
 import { useAuth } from "@/lib/auth-context";
 import { toast } from "sonner";
 
@@ -315,6 +322,7 @@ export interface Notification {
 interface Store {
   currentUser: { type: "manager"; id: "owner" } | { type: "employee"; id: string };
   setCurrentUser: (u: Store["currentUser"]) => void;
+  employeeHydrating: boolean;
   employees: Employee[];
   videos: TrainingVideo[];
   shifts: Shift[];
@@ -858,6 +866,70 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     return () => { cancelled = true; };
   }, [authLoading, hydrated, effectiveOwnerId, acting]);
 
+  // Employee-context hydration branch: runs when there's NO effective owner
+  // (not the owner, not a hiring/scheduling manager) BUT the signed-in user
+  // matches a restaurant_employees.auth_user_id via get_employee_context().
+  // Populates the store with the employee's own row + own shifts + open
+  // trades in the restaurant + own time-off history, so /employee reads real
+  // cloud data instead of an empty local store. Writes are mirrored to
+  // Supabase via ownerIdRef, which we set from the employee context here.
+  const { employeeContext } = useAuth();
+  const employeeCtxOwnerId = employeeContext?.ownerId ?? null;
+  const employeeCtxEmployeeId = employeeContext?.employeeId ?? null;
+  const [employeeHydrating, setEmployeeHydrating] = useState(false);
+  useEffect(() => {
+    if (!hydrated || authLoading) return;
+    if (effectiveOwnerId) return; // owner/manager branch already handled it
+    if (!employeeCtxOwnerId || !employeeCtxEmployeeId) return;
+    let cancelled = false;
+    setEmployeeHydrating(true);
+    ownerIdRef.current = employeeCtxOwnerId;
+    (async () => {
+      try {
+        const [me, myShifts, openTrades, myTimeOff] = await Promise.all([
+          fetchMyEmployeeRow(employeeCtxEmployeeId),
+          fetchMyShifts(employeeCtxEmployeeId),
+          fetchOwnerOpenTrades(employeeCtxOwnerId),
+          fetchMyTimeOff(employeeCtxEmployeeId),
+        ]);
+        if (cancelled) return;
+        // Also fetch shifts referenced by open trades so the trade board
+        // can render cards for shifts that aren't the caller's own.
+        const tradeShiftIds = Array.from(
+          new Set(openTrades.map((t) => t.shiftId).filter(Boolean)),
+        ).filter((id) => !myShifts.some((s) => s.id === id));
+        const boardShifts = await fetchShiftsByIds(tradeShiftIds);
+        if (cancelled) return;
+
+        setState((s) => ({
+          ...s,
+          // Only include the employee's own row. Coworker names aren't
+          // fetched here — restaurant_employees RLS restricts SELECT to own
+          // row + manager-visible rows, so trade cards will show blank
+          // "from" until we add a coworker-name RPC.
+          employees: me ? [me] : [],
+          shifts: [...myShifts, ...boardShifts],
+          trades: openTrades,
+          timeOff: myTimeOff,
+          // Owner-only surfaces cleared for employee sessions
+          jobs: [],
+          applications: [],
+        }));
+        // Auto-select this employee as currentUser so /employee finds them.
+        setState((s) => ({
+          ...s,
+          currentUser: { type: "employee", id: employeeCtxEmployeeId },
+        }));
+      } catch (e) {
+        console.error("[employee-sync] failed to load", e);
+      } finally {
+        if (!cancelled) setEmployeeHydrating(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [authLoading, hydrated, effectiveOwnerId, employeeCtxOwnerId, employeeCtxEmployeeId]);
+
+
   const uid = (prefix: string) => `${prefix}${Date.now()}${Math.floor(Math.random() * 1000)}`;
   const newUuid = () =>
     typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -866,6 +938,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
 
   const store: Store = {
     ...state,
+    employeeHydrating,
     setRestaurantHours: (h) => {
       setState((s) => ({ ...s, restaurantHours: h }));
       const oid = ownerIdRef.current;

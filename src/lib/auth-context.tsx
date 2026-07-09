@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchEmployeeContext, type EmployeeContext } from "@/lib/employee-supabase";
 
 export type ProfileRole = "owner" | "employee";
 export type ActingRole = "owner" | "team_member";
@@ -26,6 +27,7 @@ type AuthContextValue = {
   user: User | null;
   profile: Profile | null;
   effectiveOwner: EffectiveOwner;
+  employeeContext: EmployeeContext | null;
   loading: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -38,13 +40,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [effectiveOwner, setEffectiveOwner] = useState<EffectiveOwner>(null);
+  const [employeeContext, setEmployeeContext] = useState<EmployeeContext | null>(null);
   const [loading, setLoading] = useState(true);
 
   const loadProfile = async (uid: string | undefined) => {
-    if (!uid) {
-      setProfile(null);
-      return;
-    }
+    if (!uid) { setProfile(null); return; }
     const { data } = await supabase
       .from("profiles")
       .select("id, role, full_name, restaurant_name, employee_id")
@@ -54,15 +54,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const loadEffectiveOwner = async (uid: string | undefined) => {
-    if (!uid) {
-      setEffectiveOwner(null);
-      return;
-    }
+    if (!uid) { setEffectiveOwner(null); return; }
     const { data, error } = await supabase.rpc("get_effective_owner");
-    if (error || !data || data.length === 0) {
-      setEffectiveOwner(null);
-      return;
-    }
+    if (error || !data || data.length === 0) { setEffectiveOwner(null); return; }
     const row = data[0] as {
       owner_id: string;
       restaurant_name: string | null;
@@ -79,13 +73,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const loadEmployeeContext = async (uid: string | undefined) => {
+    if (!uid) { setEmployeeContext(null); return; }
+    try { setEmployeeContext(await fetchEmployeeContext()); }
+    catch { setEmployeeContext(null); }
+  };
+
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
       setSession(s);
-      // Defer to avoid deadlock
       setTimeout(() => {
         void loadProfile(s?.user.id);
         void loadEffectiveOwner(s?.user.id);
+        void loadEmployeeContext(s?.user.id);
       }, 0);
     });
 
@@ -94,6 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       Promise.all([
         loadProfile(data.session?.user.id),
         loadEffectiveOwner(data.session?.user.id),
+        loadEmployeeContext(data.session?.user.id),
       ]).finally(() => setLoading(false));
     });
 
@@ -105,10 +106,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user: session?.user ?? null,
     profile,
     effectiveOwner,
+    employeeContext,
     loading,
     signOut: async () => { await supabase.auth.signOut(); },
     refreshProfile: async () => { await loadProfile(session?.user.id); },
-    refreshEffectiveOwner: async () => { await loadEffectiveOwner(session?.user.id); },
+    refreshEffectiveOwner: async () => {
+      await loadEffectiveOwner(session?.user.id);
+      await loadEmployeeContext(session?.user.id);
+    },
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
