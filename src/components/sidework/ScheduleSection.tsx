@@ -31,7 +31,16 @@ function startOfWeek(d: Date) {
   x.setHours(0, 0, 0, 0);
   return x;
 }
-function fmtISO(d: Date) { return d.toISOString().slice(0, 10); }
+// Local-date YYYY-MM-DD. Never use toISOString() here — that shifts to UTC
+// and, in any timezone west of UTC, returns the previous day. That mismatch
+// silently breaks the time-off block against dates entered via <input type="date">
+// (which stores the local-picked date verbatim).
+function fmtISO(d: Date) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
 function addDays(d: Date, n: number) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
 function fmtRange(start: Date) {
   const end = addDays(start, 6);
