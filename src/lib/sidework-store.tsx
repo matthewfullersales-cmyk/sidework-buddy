@@ -669,6 +669,8 @@ interface Store {
   updateRestaurantDay: (day: DayKey, patch: Partial<DayHours>) => void;
   setMealPeriods: (p: MealPeriods) => void;
   updateMealPeriod: (meal: Meal, patch: Partial<MealPeriodConfig>) => void;
+  arrivalOffsets: ArrivalOffsets;
+  setArrivalOffsets: (o: ArrivalOffsets) => void;
   activeRoles: Role[];
   setActiveRoles: (roles: Role[]) => void;
   customRoles: CustomRole[];
