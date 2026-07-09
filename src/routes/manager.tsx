@@ -2401,7 +2401,7 @@ function TeamRosterCard({ team }: { team: ReturnType<typeof useTeamMembers> }) {
           <div key={m.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-background p-3">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <p className="font-semibold">{m.name}</p>
+                <p className="font-semibold">{teamMemberDisplayName(m)}</p>
                 {m.title && <Badge variant="outline">{m.title}</Badge>}
               </div>
               <p className="mt-0.5 text-xs text-muted-foreground">
