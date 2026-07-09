@@ -104,6 +104,7 @@ function CareersPage() {
   const selectedDays = DAY_KEYS.filter((d) => weekly[d]?.kind !== "none");
 
   const submit = async () => {
+    if (!targetJob) return toast.error("Please open a specific job link to apply.");
     if (!firstName.trim() || !lastName.trim()) return toast.error("Please enter your first and last name.");
     if (!/^\S+@\S+\.\S+$/.test(email)) return toast.error("Please enter a valid email address.");
     if (!/^[0-9()+\-.\s]{7,}$/.test(phone)) return toast.error("Please enter a valid phone number.");
@@ -115,27 +116,38 @@ function CareersPage() {
     const filledWorkExp = workExp.filter((w) => w.employer.trim() || w.position.trim());
 
     setSubmitting(true);
-    await new Promise((r) => setTimeout(r, 700));
 
-    submitApplication({
-      jobId: targetJob?.id,
-      name: `${firstName.trim()} ${lastName.trim()}`,
-      firstName: firstName.trim(),
-      lastName: lastName.trim(),
-      email: email.trim(),
-      phone: phone.trim(),
-      role: role as Role,
-      pitch: pitch.trim(),
-      weeklyAvailability: weekly,
-      availabilityDays: selectedDays as string[],
-      availabilityHours: "Open availability",
-      verified: false,
-      workExperience: filledWorkExp.length > 0 ? filledWorkExp : undefined,
-    });
-
-    setSubmitting(false);
-    setDone(true);
+    try {
+      // Direct anon insert — sidework-store's optimistic path only benefits the
+      // signed-in owner; public applicants shouldn't touch the store.
+      const { insertApplication } = await import("@/lib/hiring-supabase");
+      await insertApplication({
+        jobId: targetJob.id,
+        name: `${firstName.trim()} ${lastName.trim()}`,
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        email: email.trim(),
+        phone: phone.trim(),
+        role: role as Role,
+        pitch: pitch.trim(),
+        weeklyAvailability: weekly,
+        availabilityDays: selectedDays as string[],
+        availabilityHours: "Open availability",
+        verified: false,
+        workExperience: filledWorkExp.length > 0 ? filledWorkExp : undefined,
+      });
+      setDone(true);
+    } catch (e) {
+      console.error("[careers] submit failed", e);
+      toast.error("We couldn't submit your application. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
+  // submitApplication is exposed by the store for owner-side/manager previews,
+  // but the public careers form always goes through the anon insert path above
+  // so an unauthenticated applicant never depends on store state.
+  void submitApplication;
 
   if (done) {
     return (
