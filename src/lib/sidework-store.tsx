@@ -1217,6 +1217,17 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
       }));
       updateApplication(id, patch).catch((e) => console.error("[inviteShadowShift]", e));
     },
+    reassignApplication: (id, teamMemberId) => {
+      setState((s) => ({
+        ...s,
+        applications: s.applications.map((a) =>
+          a.id === id ? { ...a, assignedTo: teamMemberId } : a,
+        ),
+      }));
+      updateApplication(id, { assignedTo: teamMemberId }).catch((e) =>
+        console.error("[reassignApplication]", e),
+      );
+    },
     requestTimeOff: (data) =>
       setState((s) => ({
         ...s,
