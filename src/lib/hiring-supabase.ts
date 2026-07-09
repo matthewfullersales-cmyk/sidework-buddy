@@ -201,6 +201,7 @@ export async function insertApplication(
       verified: data.verified,
       ai_score: data.aiScore ?? null,
       work_experience: (data.workExperience ?? null) as never,
+      special_talents: data.specialTalents ?? null,
       status: "new",
     })
     .select("*")
