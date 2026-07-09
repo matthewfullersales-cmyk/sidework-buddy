@@ -2316,7 +2316,7 @@ function TrainingProgram({ menuName }: { menuName: string }) {
 }
 
 function SettingsTab({ onOpenSetup }: { onOpenSetup: () => void }) {
-  const { setupCompleted, restaurantProfile, resetSetup, restaurantHours, updateRestaurantDay, mealPeriods, updateMealPeriod } = useStore();
+  const { setupCompleted, restaurantProfile, resetSetup, restaurantHours, updateRestaurantDay, mealPeriods, updateMealPeriod, arrivalOffsets, setArrivalOffsets, employees } = useStore();
   const configured = hoursConfigured(restaurantHours, mealPeriods);
   return (
     <div className="space-y-4">
