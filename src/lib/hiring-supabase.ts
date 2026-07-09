@@ -59,6 +59,33 @@ type ApplicationRow = {
   hired_employee_id: string | null;
   work_experience: unknown;
   special_talents: string | null;
+  assigned_to: string | null;
+};
+
+export type TeamMember = {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  title: string | null;
+};
+
+export type PublicInterviewInfo = {
+  id: string;
+  firstName: string | null;
+  name: string;
+  phone: string;
+  role: string | null;
+  stage: string | null;
+  interviewType: string | null;
+  offeredSlots: string[] | null;
+  selectedSlot: string | null;
+  interviewNotes: string | null;
+  restaurantName: string | null;
+  jobTitle: string | null;
+  assigneeName: string | null;
+  assigneeEmail: string | null;
+  assigneePhone: string | null;
 };
 
 export function postingFromRow(r: PostingRow): JobPosting {
@@ -105,6 +132,7 @@ export function applicationFromRow(r: ApplicationRow): JobApplication {
     hiredEmployeeId: r.hired_employee_id ?? undefined,
     workExperience: (r.work_experience as WorkExperience[] | null) ?? undefined,
     specialTalents: r.special_talents ?? undefined,
+    assignedTo: r.assigned_to ?? undefined,
   };
 }
 
@@ -241,6 +269,7 @@ export async function updateApplication(
   if (patch.selectedSlot !== undefined) row.selected_slot = patch.selectedSlot;
   if (patch.shadowShift !== undefined) row.shadow_shift = patch.shadowShift as unknown;
   if (patch.hiredEmployeeId !== undefined) row.hired_employee_id = patch.hiredEmployeeId;
+  if (patch.assignedTo !== undefined) row.assigned_to = patch.assignedTo;
   if (Object.keys(row).length === 0) return;
   const { error } = await supabase.from("job_applications").update(row as never).eq("id", id);
   if (error) throw error;
@@ -260,5 +289,83 @@ export async function confirmApplicantSlot(
     p_application_id: applicationId,
     p_slot: slot,
   });
+  if (error) throw error;
+}
+
+/** Public: fetch minimal interview details for the applicant/host page. */
+export async function fetchPublicInterview(id: string): Promise<PublicInterviewInfo | null> {
+  const { data, error } = await supabase.rpc("get_public_interview", { p_application_id: id });
+  if (error) throw error;
+  const row = Array.isArray(data) ? data[0] : null;
+  if (!row) return null;
+  return {
+    id: row.id,
+    firstName: row.first_name ?? null,
+    name: row.name,
+    phone: row.phone,
+    role: row.role ?? null,
+    stage: row.stage ?? null,
+    interviewType: row.interview_type ?? null,
+    offeredSlots: row.offered_slots ?? null,
+    selectedSlot: row.selected_slot ?? null,
+    interviewNotes: row.interview_notes ?? null,
+    restaurantName: row.restaurant_name ?? null,
+    jobTitle: row.job_title ?? null,
+    assigneeName: row.assignee_name ?? null,
+    assigneeEmail: row.assignee_email ?? null,
+    assigneePhone: row.assignee_phone ?? null,
+  };
+}
+
+/** Public: host marks interview complete + saves notes (anon). */
+export async function hostCompleteInterview(id: string, notes: string): Promise<void> {
+  const { error } = await supabase.rpc("host_complete_interview", {
+    p_application_id: id,
+    p_notes: notes,
+  });
+  if (error) throw error;
+}
+
+/* ---------------- Team roster ---------------- */
+
+export async function fetchTeamMembers(ownerId: string): Promise<TeamMember[]> {
+  const { data, error } = await supabase
+    .from("restaurant_team_members")
+    .select("id, name, email, phone, title")
+    .eq("owner_id", ownerId)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as TeamMember[];
+}
+
+export async function insertTeamMember(
+  ownerId: string,
+  data: { name: string; email?: string | null; phone?: string | null; title?: string | null },
+): Promise<TeamMember> {
+  const { data: row, error } = await supabase
+    .from("restaurant_team_members")
+    .insert({
+      owner_id: ownerId,
+      name: data.name,
+      email: data.email ?? null,
+      phone: data.phone ?? null,
+      title: data.title ?? null,
+    })
+    .select("id, name, email, phone, title")
+    .single();
+  if (error) throw error;
+  return row as TeamMember;
+}
+
+export async function updateTeamMember(
+  id: string,
+  patch: { name?: string; email?: string | null; phone?: string | null; title?: string | null },
+): Promise<void> {
+  const { error } = await supabase.from("restaurant_team_members").update(patch).eq("id", id);
+  if (error) throw error;
+}
+
+export async function deleteTeamMember(id: string): Promise<void> {
+  const { error } = await supabase.from("restaurant_team_members").delete().eq("id", id);
   if (error) throw error;
 }

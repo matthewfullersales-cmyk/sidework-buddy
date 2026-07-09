@@ -19,6 +19,7 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as JoinSlugRouteImport } from './routes/join.$slug'
 import { Route as InterviewIdRouteImport } from './routes/interview.$id'
+import { Route as InterviewIdHostRouteImport } from './routes/interview.$id.host'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -70,6 +71,11 @@ const InterviewIdRoute = InterviewIdRouteImport.update({
   path: '/interview/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const InterviewIdHostRoute = InterviewIdHostRouteImport.update({
+  id: '/host',
+  path: '/host',
+  getParentRoute: () => InterviewIdRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -80,8 +86,9 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/manager': typeof ManagerRoute
   '/signup': typeof SignupRoute
-  '/interview/$id': typeof InterviewIdRoute
+  '/interview/$id': typeof InterviewIdRouteWithChildren
   '/join/$slug': typeof JoinSlugRoute
+  '/interview/$id/host': typeof InterviewIdHostRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -92,8 +99,9 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/manager': typeof ManagerRoute
   '/signup': typeof SignupRoute
-  '/interview/$id': typeof InterviewIdRoute
+  '/interview/$id': typeof InterviewIdRouteWithChildren
   '/join/$slug': typeof JoinSlugRoute
+  '/interview/$id/host': typeof InterviewIdHostRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -105,8 +113,9 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/manager': typeof ManagerRoute
   '/signup': typeof SignupRoute
-  '/interview/$id': typeof InterviewIdRoute
+  '/interview/$id': typeof InterviewIdRouteWithChildren
   '/join/$slug': typeof JoinSlugRoute
+  '/interview/$id/host': typeof InterviewIdHostRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -121,6 +130,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/interview/$id'
     | '/join/$slug'
+    | '/interview/$id/host'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -133,6 +143,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/interview/$id'
     | '/join/$slug'
+    | '/interview/$id/host'
   id:
     | '__root__'
     | '/'
@@ -145,6 +156,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/interview/$id'
     | '/join/$slug'
+    | '/interview/$id/host'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -156,7 +168,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   ManagerRoute: typeof ManagerRoute
   SignupRoute: typeof SignupRoute
-  InterviewIdRoute: typeof InterviewIdRoute
+  InterviewIdRoute: typeof InterviewIdRouteWithChildren
   JoinSlugRoute: typeof JoinSlugRoute
 }
 
@@ -232,8 +244,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InterviewIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/interview/$id/host': {
+      id: '/interview/$id/host'
+      path: '/host'
+      fullPath: '/interview/$id/host'
+      preLoaderRoute: typeof InterviewIdHostRouteImport
+      parentRoute: typeof InterviewIdRoute
+    }
   }
 }
+
+interface InterviewIdRouteChildren {
+  InterviewIdHostRoute: typeof InterviewIdHostRoute
+}
+
+const InterviewIdRouteChildren: InterviewIdRouteChildren = {
+  InterviewIdHostRoute: InterviewIdHostRoute,
+}
+
+const InterviewIdRouteWithChildren = InterviewIdRoute._addFileChildren(
+  InterviewIdRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -244,7 +275,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   ManagerRoute: ManagerRoute,
   SignupRoute: SignupRoute,
-  InterviewIdRoute: InterviewIdRoute,
+  InterviewIdRoute: InterviewIdRouteWithChildren,
   JoinSlugRoute: JoinSlugRoute,
 }
 export const routeTree = rootRouteImport

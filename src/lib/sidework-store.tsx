@@ -228,6 +228,7 @@ export interface JobApplication {
   hiredEmployeeId?: string;
   workExperience?: WorkExperience[];
   specialTalents?: string;
+  assignedTo?: string | null;
 }
 
 export function getHiringStage(a: Pick<JobApplication, "stage" | "status">): HiringStage {
@@ -350,6 +351,7 @@ interface Store {
   applicantSelectSlot: (id: string, slot: string) => void;
   completeInterview: (id: string, notes?: string) => void;
   inviteShadowShift: (id: string, details: ShadowShiftDetails) => void;
+  reassignApplication: (id: string, teamMemberId: string | null) => void;
   requestTimeOff: (data: Omit<TimeOffRequest, "id" | "createdAt" | "status">) => void;
   resolveTimeOff: (id: string, approved: boolean, note?: string) => void;
 }
@@ -1214,6 +1216,17 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
         applications: s.applications.map((a) => (a.id === id ? { ...a, ...patch } : a)),
       }));
       updateApplication(id, patch).catch((e) => console.error("[inviteShadowShift]", e));
+    },
+    reassignApplication: (id, teamMemberId) => {
+      setState((s) => ({
+        ...s,
+        applications: s.applications.map((a) =>
+          a.id === id ? { ...a, assignedTo: teamMemberId } : a,
+        ),
+      }));
+      updateApplication(id, { assignedTo: teamMemberId }).catch((e) =>
+        console.error("[reassignApplication]", e),
+      );
     },
     requestTimeOff: (data) =>
       setState((s) => ({
