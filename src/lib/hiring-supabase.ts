@@ -72,7 +72,10 @@ export type TeamMember = {
   email: string | null;
   phone: string | null;
   title: string | null;
+  canManageHiring: boolean;
+  authUserId: string | null;
 };
+
 
 export function teamMemberDisplayName(m: Pick<TeamMember, "firstName" | "lastName" | "name">): string {
   const combined = [m.firstName, m.lastName].filter(Boolean).join(" ").trim();
@@ -454,7 +457,7 @@ export async function claimHireInvite(applicationId: string, employeeProfileId: 
 export async function fetchTeamMembers(ownerId: string): Promise<TeamMember[]> {
   const { data, error } = await supabase
     .from("restaurant_team_members")
-    .select("id, name, first_name, last_name, email, phone, title")
+    .select("id, name, first_name, last_name, email, phone, title, can_manage_hiring, auth_user_id")
     .eq("owner_id", ownerId)
     .order("created_at", { ascending: true });
   if (error) throw error;
@@ -466,6 +469,8 @@ export async function fetchTeamMembers(ownerId: string): Promise<TeamMember[]> {
     email: r.email,
     phone: r.phone,
     title: r.title,
+    canManageHiring: (r as { can_manage_hiring: boolean }).can_manage_hiring ?? false,
+    authUserId: (r as { auth_user_id: string | null }).auth_user_id ?? null,
   }));
 }
 
@@ -495,11 +500,11 @@ export async function insertTeamMember(
       phone: data.phone ?? null,
       title: data.title ?? null,
     })
-    .select("id, name, first_name, last_name, email, phone, title")
+    .select("id, name, first_name, last_name, email, phone, title, can_manage_hiring, auth_user_id")
     .single();
   if (error) throw error;
-  const r = row as { id: string; name: string; first_name: string | null; last_name: string | null; email: string | null; phone: string | null; title: string | null };
-  return { id: r.id, name: r.name, firstName: r.first_name, lastName: r.last_name, email: r.email, phone: r.phone, title: r.title };
+  const r = row as { id: string; name: string; first_name: string | null; last_name: string | null; email: string | null; phone: string | null; title: string | null; can_manage_hiring: boolean; auth_user_id: string | null };
+  return { id: r.id, name: r.name, firstName: r.first_name, lastName: r.last_name, email: r.email, phone: r.phone, title: r.title, canManageHiring: r.can_manage_hiring, authUserId: r.auth_user_id };
 }
 
 export async function updateTeamMember(
@@ -526,3 +531,44 @@ export async function deleteTeamMember(id: string): Promise<void> {
   const { error } = await supabase.from("restaurant_team_members").delete().eq("id", id);
   if (error) throw error;
 }
+
+export async function setTeamMemberHiringPermission(id: string, canManageHiring: boolean): Promise<void> {
+  const { error } = await supabase
+    .from("restaurant_team_members")
+    .update({ can_manage_hiring: canManageHiring })
+    .eq("id", id);
+  if (error) throw error;
+}
+
+export type PublicTeamInvite = {
+  id: string;
+  name: string;
+  firstName: string | null;
+  restaurantName: string | null;
+  canManageHiring: boolean;
+  claimed: boolean;
+};
+
+export async function fetchPublicTeamInvite(teamMemberId: string): Promise<PublicTeamInvite | null> {
+  const { data, error } = await supabase.rpc("get_public_team_invite", { p_team_member_id: teamMemberId });
+  if (error) throw error;
+  const row = (data ?? [])[0] as { id: string; name: string; first_name: string | null; restaurant_name: string | null; can_manage_hiring: boolean; claimed: boolean } | undefined;
+  if (!row) return null;
+  return {
+    id: row.id,
+    name: row.name,
+    firstName: row.first_name,
+    restaurantName: row.restaurant_name,
+    canManageHiring: row.can_manage_hiring,
+    claimed: row.claimed,
+  };
+}
+
+export async function claimTeamInvite(teamMemberId: string, authUserId: string): Promise<void> {
+  const { error } = await supabase.rpc("claim_team_invite", {
+    p_team_member_id: teamMemberId,
+    p_auth_user_id: authUserId,
+  });
+  if (error) throw error;
+}
+

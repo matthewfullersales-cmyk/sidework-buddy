@@ -232,6 +232,8 @@ export type Database = {
       }
       restaurant_team_members: {
         Row: {
+          auth_user_id: string | null
+          can_manage_hiring: boolean
           created_at: string
           email: string | null
           first_name: string | null
@@ -244,6 +246,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          auth_user_id?: string | null
+          can_manage_hiring?: boolean
           created_at?: string
           email?: string | null
           first_name?: string | null
@@ -256,6 +260,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          auth_user_id?: string | null
+          can_manage_hiring?: boolean
           created_at?: string
           email?: string | null
           first_name?: string | null
@@ -286,9 +292,22 @@ export type Database = {
         Args: { p_application_id: string; p_note: string }
         Returns: undefined
       }
+      can_manage_hiring_for: { Args: { p_owner_id: string }; Returns: boolean }
       claim_hire_invite: {
         Args: { p_application_id: string; p_employee_profile_id: string }
         Returns: undefined
+      }
+      claim_team_invite: {
+        Args: { p_auth_user_id: string; p_team_member_id: string }
+        Returns: undefined
+      }
+      get_effective_owner: {
+        Args: never
+        Returns: {
+          acting: string
+          owner_id: string
+          restaurant_name: string
+        }[]
       }
       get_public_hire_invite: {
         Args: { p_application_id: string }
@@ -339,6 +358,17 @@ export type Database = {
           shadow_response_note: string
           shadow_shift: Json
           stage: string
+        }[]
+      }
+      get_public_team_invite: {
+        Args: { p_team_member_id: string }
+        Returns: {
+          can_manage_hiring: boolean
+          claimed: boolean
+          first_name: string
+          id: string
+          name: string
+          restaurant_name: string
         }[]
       }
       host_complete_interview: {
