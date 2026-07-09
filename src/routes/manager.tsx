@@ -2197,3 +2197,106 @@ function IconHome() { return <svg viewBox="0 0 24 24" className="h-4 w-4" fill="
 function IconUsers() { return <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>; }
 function IconCal() { return <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>; }
 function IconSwap() { return <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l-4-4m4 4l4-4"/></svg>; }
+
+function TeamRosterCard({ team }: { team: ReturnType<typeof useTeamMembers> }) {
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<TeamMember | null>(null);
+  const [form, setForm] = useState({ name: "", email: "", phone: "", title: "" });
+
+  const openAdd = () => {
+    setEditing(null);
+    setForm({ name: "", email: "", phone: "", title: "" });
+    setOpen(true);
+  };
+  const openEdit = (m: TeamMember) => {
+    setEditing(m);
+    setForm({ name: m.name, email: m.email ?? "", phone: m.phone ?? "", title: m.title ?? "" });
+    setOpen(true);
+  };
+
+  const submit = async () => {
+    if (!form.name.trim()) return toast.error("Name is required");
+    try {
+      if (editing) {
+        await team.update(editing.id, {
+          name: form.name.trim(),
+          email: form.email.trim() || null,
+          phone: form.phone.trim() || null,
+          title: form.title.trim() || null,
+        });
+        toast.success("Team member updated");
+      } else {
+        await team.add({
+          name: form.name.trim(),
+          email: form.email.trim() || undefined,
+          phone: form.phone.trim() || undefined,
+          title: form.title.trim() || undefined,
+        });
+        toast.success("Team member added");
+      }
+      setOpen(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not save team member");
+    }
+  };
+
+  const remove = async (m: TeamMember) => {
+    if (!window.confirm(`Remove ${m.name} from your hiring team?`)) return;
+    try { await team.remove(m.id); toast.message("Team member removed"); }
+    catch (e) { toast.error(e instanceof Error ? e.message : "Could not remove"); }
+  };
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between gap-3">
+        <div>
+          <CardTitle className="text-base">Hiring team</CardTitle>
+          <p className="mt-1 text-xs text-muted-foreground">People you can hand off interviews to. They don't need an account.</p>
+        </div>
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild><Button size="sm" onClick={openAdd}>+ Add member</Button></DialogTrigger>
+          <DialogContent>
+            <DialogHeader><DialogTitle>{editing ? "Edit team member" : "Add team member"}</DialogTitle></DialogHeader>
+            <div className="grid gap-3 py-2">
+              <div className="grid gap-2"><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Alex Rivera" /></div>
+              <div className="grid gap-2"><Label>Title (optional)</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="e.g. Assistant Manager" /></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="grid gap-2"><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
+                <div className="grid gap-2"><Label>Phone</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+              <Button onClick={submit}>{editing ? "Save" : "Add"}</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {team.loading && team.members.length === 0 && (
+          <p className="text-sm text-muted-foreground">Loading team…</p>
+        )}
+        {!team.loading && team.members.length === 0 && (
+          <p className="text-sm text-muted-foreground">No team members yet. Add someone you'd like to hand off interviews to.</p>
+        )}
+        {team.members.map((m) => (
+          <div key={m.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-background p-3">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="font-semibold">{m.name}</p>
+                {m.title && <Badge variant="outline">{m.title}</Badge>}
+              </div>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {m.email ?? "—"} · {m.phone ?? "—"}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" onClick={() => openEdit(m)}>Edit</Button>
+              <Button size="sm" variant="ghost" onClick={() => remove(m)}>Remove</Button>
+            </div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
