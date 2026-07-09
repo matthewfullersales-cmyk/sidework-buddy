@@ -353,7 +353,7 @@ interface Store {
   applicantSelectSlot: (id: string, slot: string) => void;
   completeInterview: (id: string, notes?: string) => void;
   inviteShadowShift: (id: string, details: ShadowShiftDetails) => void;
-  reassignApplication: (id: string, teamMemberId: string | null) => void;
+  reassignApplication: (id: string, teamMemberId: string | null) => Promise<void>;
   requestTimeOff: (data: Omit<TimeOffRequest, "id" | "createdAt" | "status">) => void;
   resolveTimeOff: (id: string, approved: boolean, note?: string) => void;
 }
@@ -1219,16 +1219,29 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
       }));
       updateApplication(id, patch).catch((e) => console.error("[inviteShadowShift]", e));
     },
-    reassignApplication: (id, teamMemberId) => {
+    reassignApplication: async (id, teamMemberId) => {
+      let previous: string | null | undefined;
       setState((s) => ({
         ...s,
-        applications: s.applications.map((a) =>
-          a.id === id ? { ...a, assignedTo: teamMemberId } : a,
-        ),
+        applications: s.applications.map((a) => {
+          if (a.id !== id) return a;
+          previous = a.assignedTo ?? null;
+          return { ...a, assignedTo: teamMemberId };
+        }),
       }));
-      updateApplication(id, { assignedTo: teamMemberId }).catch((e) =>
-        console.error("[reassignApplication]", e),
-      );
+      try {
+        await updateApplication(id, { assignedTo: teamMemberId });
+      } catch (e) {
+        // Revert optimistic update on failure
+        setState((s) => ({
+          ...s,
+          applications: s.applications.map((a) =>
+            a.id === id ? { ...a, assignedTo: previous ?? undefined } : a,
+          ),
+        }));
+        console.error("[reassignApplication]", e);
+        throw e;
+      }
     },
     requestTimeOff: (data) =>
       setState((s) => ({
