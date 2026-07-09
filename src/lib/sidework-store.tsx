@@ -1144,12 +1144,11 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
       }
     },
     resolveTrade: (tradeId, approved) => {
-      type SideInfo = { shiftId: string; claimedBy: string };
-      let side: SideInfo | null = null;
+      const sideBox: { value: { shiftId: string; claimedBy: string } | null } = { value: null };
       setState((s) => {
         const trade = s.trades.find((t) => t.id === tradeId);
         if (!trade || !trade.claimedBy) return s;
-        side = { shiftId: trade.shiftId, claimedBy: trade.claimedBy };
+        sideBox.value = { shiftId: trade.shiftId, claimedBy: trade.claimedBy };
         return {
           ...s,
           trades: s.trades.map((t) =>
@@ -1165,6 +1164,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
         approvedBy: "owner",
         resolvedAt: new Date().toISOString(),
       }).catch((e) => console.error("[resolveTrade]", e));
+      const side = sideBox.value;
       if (approved && side && /^[0-9a-f-]{36}$/i.test(side.shiftId)) {
         reassignShiftEmployee(side.shiftId, side.claimedBy).catch((e) => console.error("[resolveTrade:reassign]", e));
       }
