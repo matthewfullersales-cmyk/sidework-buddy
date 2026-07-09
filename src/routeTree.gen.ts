@@ -20,6 +20,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ShadowIdRouteImport } from './routes/shadow.$id'
 import { Route as JoinSlugRouteImport } from './routes/join.$slug'
 import { Route as InterviewIdRouteImport } from './routes/interview.$id'
+import { Route as HiredIdRouteImport } from './routes/hired.$id'
 import { Route as InterviewIdHostRouteImport } from './routes/interview.$id.host'
 
 const SignupRoute = SignupRouteImport.update({
@@ -77,6 +78,11 @@ const InterviewIdRoute = InterviewIdRouteImport.update({
   path: '/interview/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const HiredIdRoute = HiredIdRouteImport.update({
+  id: '/hired/$id',
+  path: '/hired/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const InterviewIdHostRoute = InterviewIdHostRouteImport.update({
   id: '/host',
   path: '/host',
@@ -92,6 +98,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/manager': typeof ManagerRoute
   '/signup': typeof SignupRoute
+  '/hired/$id': typeof HiredIdRoute
   '/interview/$id': typeof InterviewIdRouteWithChildren
   '/join/$slug': typeof JoinSlugRoute
   '/shadow/$id': typeof ShadowIdRoute
@@ -106,6 +113,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/manager': typeof ManagerRoute
   '/signup': typeof SignupRoute
+  '/hired/$id': typeof HiredIdRoute
   '/interview/$id': typeof InterviewIdRouteWithChildren
   '/join/$slug': typeof JoinSlugRoute
   '/shadow/$id': typeof ShadowIdRoute
@@ -121,6 +129,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/manager': typeof ManagerRoute
   '/signup': typeof SignupRoute
+  '/hired/$id': typeof HiredIdRoute
   '/interview/$id': typeof InterviewIdRouteWithChildren
   '/join/$slug': typeof JoinSlugRoute
   '/shadow/$id': typeof ShadowIdRoute
@@ -137,6 +146,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/manager'
     | '/signup'
+    | '/hired/$id'
     | '/interview/$id'
     | '/join/$slug'
     | '/shadow/$id'
@@ -151,6 +161,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/manager'
     | '/signup'
+    | '/hired/$id'
     | '/interview/$id'
     | '/join/$slug'
     | '/shadow/$id'
@@ -165,6 +176,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/manager'
     | '/signup'
+    | '/hired/$id'
     | '/interview/$id'
     | '/join/$slug'
     | '/shadow/$id'
@@ -180,6 +192,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   ManagerRoute: typeof ManagerRoute
   SignupRoute: typeof SignupRoute
+  HiredIdRoute: typeof HiredIdRoute
   InterviewIdRoute: typeof InterviewIdRouteWithChildren
   JoinSlugRoute: typeof JoinSlugRoute
   ShadowIdRoute: typeof ShadowIdRoute
@@ -264,6 +277,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InterviewIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/hired/$id': {
+      id: '/hired/$id'
+      path: '/hired/$id'
+      fullPath: '/hired/$id'
+      preLoaderRoute: typeof HiredIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/interview/$id/host': {
       id: '/interview/$id/host'
       path: '/host'
@@ -295,6 +315,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   ManagerRoute: ManagerRoute,
   SignupRoute: SignupRoute,
+  HiredIdRoute: HiredIdRoute,
   InterviewIdRoute: InterviewIdRouteWithChildren,
   JoinSlugRoute: JoinSlugRoute,
   ShadowIdRoute: ShadowIdRoute,

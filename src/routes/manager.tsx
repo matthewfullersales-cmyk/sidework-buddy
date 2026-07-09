@@ -1152,7 +1152,7 @@ function JobsTab() {
             if (id) {
               const name = (overrides.firstName ?? hireApp.firstName ?? hireApp.name);
               toast.success(`${name} hired!`, {
-                description: `Training automatically assigned to ${name} based on their ${overrides.primaryRole} position.`,
+                description: `Send them their signup link: /hired/${hireApp.id} — they'll finish setting up their account and start training.`,
               });
             }
             setHireFor(null);
