@@ -2417,7 +2417,24 @@ function TeamRosterCard({ team }: { team: ReturnType<typeof useTeamMembers> }) {
           <DialogContent>
             <DialogHeader><DialogTitle>{editing ? "Edit team member" : "Add team member"}</DialogTitle></DialogHeader>
             <div className="grid gap-3 py-2">
-              <div className="grid grid-cols-2 gap-3">
+              {!editing && sortedEmployees.length > 0 && (
+                <div className="grid gap-2">
+                  <Label>Add from current employees</Label>
+                  <Select value={sourceEmployeeId} onValueChange={pickEmployee}>
+                    <SelectTrigger><SelectValue placeholder="Type a new person" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="new">Type a new person</SelectItem>
+                      <SelectSeparator />
+                      {sortedEmployees.map((e) => (
+                        <SelectItem key={e.id} value={e.id}>
+                          {e.name}{e.position ? ` — ${e.position}` : e.primaryRole ? ` — ${e.primaryRole}` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">Pre-fills their name, email, and phone. Title stays blank so you can set their hiring-team role.</p>
+                </div>
+              )}
                 <div className="grid gap-2"><Label>First name</Label><Input value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} placeholder="e.g. Alex" /></div>
                 <div className="grid gap-2"><Label>Last name</Label><Input value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} placeholder="e.g. Rivera" /></div>
               </div>
