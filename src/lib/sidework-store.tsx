@@ -10,6 +10,15 @@ import {
   updateApplication,
   confirmApplicantSlot,
 } from "@/lib/hiring-supabase";
+import {
+  fetchOwnerEmployees,
+  bootstrapLocalEmployees,
+  insertEmployee,
+  updateEmployeeRow,
+  deleteAllOwnerEmployees,
+  fetchRestaurantHours,
+  saveRestaurantHours,
+} from "@/lib/employees-supabase";
 import { useAuth } from "@/lib/auth-context";
 import { toast } from "sonner";
 
