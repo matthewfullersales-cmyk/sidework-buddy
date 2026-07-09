@@ -703,41 +703,34 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
   }, [state.customRoles]);
 
   // Owner-scoped Supabase sync for the hiring pipeline (jobs + applications).
-  // On sign-in / mount, hydrate from Supabase so postings and applications
-  // submitted from anywhere show up for the signed-in owner.
+  // Uses the "effective owner id" from AuthContext so both real owners and
+  // hiring-managers (with can_manage_hiring granted for that owner) hydrate
+  // against the same owner's data.
+  const { effectiveOwner, loading: authLoading } = useAuth();
   const ownerIdRef = useRef<string | null>(null);
+  const effectiveOwnerId = effectiveOwner?.ownerId ?? null;
   useEffect(() => {
+    ownerIdRef.current = effectiveOwnerId;
+    if (authLoading) return;
     let cancelled = false;
-    const loadForOwner = async (ownerId: string) => {
+    if (!effectiveOwnerId) {
+      setState((s) => ({ ...s, jobs: [], applications: [] }));
+      return () => { cancelled = true; };
+    }
+    (async () => {
       try {
         const [postings, apps] = await Promise.all([
-          fetchOwnerPostings(ownerId),
-          fetchOwnerApplications(ownerId),
+          fetchOwnerPostings(effectiveOwnerId),
+          fetchOwnerApplications(effectiveOwnerId),
         ]);
         if (cancelled) return;
         setState((s) => ({ ...s, jobs: postings, applications: apps }));
       } catch (e) {
         console.error("[hiring-sync] failed to load", e);
       }
-    };
-    supabase.auth.getSession().then(({ data }) => {
-      const uid = data.session?.user.id ?? null;
-      ownerIdRef.current = uid;
-      if (uid) loadForOwner(uid);
-    });
-    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
-      const uid = session?.user.id ?? null;
-      ownerIdRef.current = uid;
-      if (event === "SIGNED_IN" && uid) loadForOwner(uid);
-      if (event === "SIGNED_OUT") {
-        setState((s) => ({ ...s, jobs: [], applications: [] }));
-      }
-    });
-    return () => {
-      cancelled = true;
-      sub.subscription.unsubscribe();
-    };
-  }, []);
+    })();
+    return () => { cancelled = true; };
+  }, [authLoading, effectiveOwnerId]);
 
   const uid = (prefix: string) => `${prefix}${Date.now()}${Math.floor(Math.random() * 1000)}`;
 
