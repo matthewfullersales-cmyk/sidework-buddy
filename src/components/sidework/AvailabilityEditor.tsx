@@ -1,6 +1,8 @@
+import { useMemo, useState } from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { Button } from "@/components/ui/button";
 import {
   DAY_KEYS,
   type DayKey,
@@ -10,8 +12,11 @@ import {
   type MealPeriodConfig,
   type WeeklyAvailability,
   type RestaurantHours,
+  type ArrivalOffsets,
+  type Section,
   defaultWeeklyAvailability,
   defaultMealPeriods,
+  defaultArrivalOffsets,
   findMealPeriodOverlaps,
 } from "@/lib/sidework-store";
 
@@ -228,3 +233,110 @@ export function RestaurantHoursEditor({
     </div>
   );
 }
+
+export function ArrivalOffsetsEditor({
+  value,
+  onChange,
+  activePositions,
+}: {
+  value: ArrivalOffsets;
+  onChange: (next: ArrivalOffsets) => void;
+  activePositions: string[]; // positions currently held by any active employee
+}) {
+  const defaults = defaultArrivalOffsets();
+  const [showOverrides, setShowOverrides] = useState(false);
+
+  const positions = useMemo(() => {
+    const set = new Set<string>();
+    activePositions.forEach((p) => { if (p) set.add(p); });
+    // Always surface the pre-seeded overrides so the owner can see/reset them.
+    Object.keys(defaults.byPosition ?? {}).forEach((p) => set.add(p));
+    return Array.from(set).sort();
+  }, [activePositions, defaults.byPosition]);
+
+  const setSection = (sec: Section, min: number) => {
+    const clean = Number.isFinite(min) && min >= 0 ? Math.round(min) : 0;
+    onChange({ ...value, bySection: { ...value.bySection, [sec]: clean } });
+  };
+  const setPositionOverride = (pos: string, raw: string) => {
+    const next = { ...(value.byPosition ?? {}) } as Record<string, number>;
+    if (raw.trim() === "") delete next[pos];
+    else {
+      const n = Number(raw);
+      if (!Number.isFinite(n) || n < 0) return;
+      next[pos] = Math.round(n);
+    }
+    onChange({ ...value, byPosition: next as ArrivalOffsets["byPosition"] });
+  };
+  const resetAll = () => onChange(defaults);
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-muted-foreground">
+        How early should staff clock in before their meal period's service start? Used to suggest shift times when you build the schedule — you can always type a custom time to override.
+      </p>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="rounded-lg border border-border bg-background p-3">
+          <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">FOH default (min)</Label>
+          <Input
+            type="number"
+            min={0}
+            step={5}
+            value={value.bySection.FOH}
+            onChange={(e) => setSection("FOH", Number(e.target.value))}
+            className="mt-1"
+          />
+        </div>
+        <div className="rounded-lg border border-border bg-background p-3">
+          <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">BOH default (min)</Label>
+          <Input
+            type="number"
+            min={0}
+            step={5}
+            value={value.bySection.BOH}
+            onChange={(e) => setSection("BOH", Number(e.target.value))}
+            className="mt-1"
+          />
+        </div>
+      </div>
+      <div className="rounded-lg border border-border bg-background">
+        <button
+          type="button"
+          onClick={() => setShowOverrides((s) => !s)}
+          className="flex w-full items-center justify-between px-3 py-2 text-left text-xs font-semibold hover:bg-muted/40"
+        >
+          <span>Per-position overrides {value.byPosition && Object.keys(value.byPosition).length > 0 ? `(${Object.keys(value.byPosition).length})` : ""}</span>
+          <span className="text-muted-foreground">{showOverrides ? "Hide" : "Show"}</span>
+        </button>
+        {showOverrides && (
+          <div className="space-y-2 border-t border-border p-3">
+            {positions.length === 0 && (
+              <p className="text-xs text-muted-foreground">No active positions yet. Add employees and their positions to configure overrides here.</p>
+            )}
+            {positions.map((pos) => {
+              const cur = value.byPosition?.[pos as keyof NonNullable<ArrivalOffsets["byPosition"]>];
+              return (
+                <div key={pos} className="grid grid-cols-[1fr_120px] items-center gap-2">
+                  <Label className="text-xs">{pos}</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    step={5}
+                    placeholder="Section default"
+                    value={typeof cur === "number" ? cur : ""}
+                    onChange={(e) => setPositionOverride(pos, e.target.value)}
+                    aria-label={`Arrival offset override for ${pos}`}
+                  />
+                </div>
+              );
+            })}
+            <div className="pt-1">
+              <Button type="button" variant="ghost" size="sm" onClick={resetAll}>Reset to defaults</Button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+

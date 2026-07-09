@@ -108,6 +108,21 @@ export type MealPeriodConfig = { enabled: boolean; start: string; end: string };
 export type MealPeriods = { Breakfast: MealPeriodConfig; Lunch: MealPeriodConfig; Dinner: MealPeriodConfig };
 export type RestaurantHoursConfigV2 = { version: 2; days: RestaurantHours; mealPeriods: MealPeriods };
 
+// Minutes an employee is expected to clock in BEFORE their meal period's
+// service start (e.g. FOH bartenders come in 1hr before dinner service to
+// stock the bar; BOH prep needs 2+ hours). Suggestions layer only — never
+// used to enforce or loosen availability conflict checks.
+export type ArrivalOffsets = {
+  bySection: { FOH: number; BOH: number };
+  byPosition?: Partial<Record<Position, number>>;
+};
+export type RestaurantHoursConfigV3 = {
+  version: 3;
+  days: RestaurantHours;
+  mealPeriods: MealPeriods;
+  arrivalOffsets: ArrivalOffsets;
+};
+
 export function defaultWeeklyAvailability(): WeeklyAvailability {
   return DAY_KEYS.reduce((acc, d) => { acc[d] = { kind: "full" }; return acc; }, {} as WeeklyAvailability);
 }
@@ -132,16 +147,69 @@ export function defaultMealPeriods(): MealPeriods {
   };
 }
 
+export function defaultArrivalOffsets(): ArrivalOffsets {
+  return {
+    bySection: { FOH: 60, BOH: 120 },
+    byPosition: {
+      "Prep Cook": 240,
+      Dishwasher: 30,
+      Manager: 90,
+      Hostess: 30,
+    },
+  };
+}
+
+export function arrivalOffsetFor(
+  position: Position | undefined,
+  section: Section | undefined,
+  offsets: ArrivalOffsets,
+): number {
+  if (position && offsets.byPosition && position in offsets.byPosition) {
+    const v = offsets.byPosition[position];
+    if (typeof v === "number") return v;
+  }
+  if (section === "BOH") return offsets.bySection.BOH;
+  return offsets.bySection.FOH;
+}
+
+// Section-level "closeout" tail after the meal period ends (breakdown, tickets,
+// sidework). Kept as a fixed default for now; if owners ask, promote to config.
+function closeoutMinFor(section: Section | undefined): number {
+  return section === "BOH" ? 60 : 30;
+}
+
 // Normalize whatever comes back from the jsonb column. Supports v1 (flat
-// Record<DayKey, DayHours>) and v2 ({version, days, mealPeriods}).
-export function normalizeRestaurantHoursConfig(raw: unknown): { days: RestaurantHours; mealPeriods: MealPeriods; upgradedFromV1: boolean } {
-  const defaults = { days: defaultRestaurantHours(), mealPeriods: defaultMealPeriods(), upgradedFromV1: false };
+// Record<DayKey, DayHours>), v2 ({version, days, mealPeriods}), and v3
+// (v2 + arrivalOffsets).
+export function normalizeRestaurantHoursConfig(raw: unknown): {
+  days: RestaurantHours;
+  mealPeriods: MealPeriods;
+  arrivalOffsets: ArrivalOffsets;
+  upgradedFromV1: boolean;
+} {
+  const defaults = {
+    days: defaultRestaurantHours(),
+    mealPeriods: defaultMealPeriods(),
+    arrivalOffsets: defaultArrivalOffsets(),
+    upgradedFromV1: false,
+  };
   if (!raw || typeof raw !== "object") return defaults;
   const obj = raw as Record<string, unknown>;
-  if (obj.version === 2 && obj.days && obj.mealPeriods) {
+  if ((obj.version === 2 || obj.version === 3) && obj.days && obj.mealPeriods) {
+    const rawOffsets = (obj as { arrivalOffsets?: unknown }).arrivalOffsets;
+    const defOff = defaultArrivalOffsets();
+    let arrivalOffsets = defOff;
+    if (rawOffsets && typeof rawOffsets === "object") {
+      const r = rawOffsets as { bySection?: Partial<ArrivalOffsets["bySection"]>; byPosition?: ArrivalOffsets["byPosition"] };
+      arrivalOffsets = {
+        bySection: { ...defOff.bySection, ...(r.bySection ?? {}) },
+        byPosition: { ...(defOff.byPosition ?? {}), ...(r.byPosition ?? {}) },
+      };
+    }
     return {
       days: { ...defaultRestaurantHours(), ...(obj.days as RestaurantHours) },
       mealPeriods: { ...defaultMealPeriods(), ...(obj.mealPeriods as MealPeriods) },
+      arrivalOffsets,
       upgradedFromV1: false,
     };
   }
@@ -151,15 +219,145 @@ export function normalizeRestaurantHoursConfig(raw: unknown): { days: Restaurant
     return {
       days: { ...defaultRestaurantHours(), ...(obj as RestaurantHours) },
       mealPeriods: defaultMealPeriods(),
+      arrivalOffsets: defaultArrivalOffsets(),
       upgradedFromV1: true,
     };
   }
   return defaults;
 }
 
-export function serializeRestaurantHoursConfig(days: RestaurantHours, mealPeriods: MealPeriods): RestaurantHoursConfigV2 {
-  return { version: 2, days, mealPeriods };
+export function serializeRestaurantHoursConfig(
+  days: RestaurantHours,
+  mealPeriods: MealPeriods,
+  arrivalOffsets?: ArrivalOffsets,
+): RestaurantHoursConfigV3 {
+  return { version: 3, days, mealPeriods, arrivalOffsets: arrivalOffsets ?? defaultArrivalOffsets() };
 }
+
+// Format "HH:MM" (24h) → "3:00pm" for suggestion labels.
+function fmt12(hhmm: string): string {
+  const [hs, ms] = hhmm.split(":");
+  const h = Number(hs);
+  const m = Number(ms);
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return hhmm;
+  const period = h < 12 ? "am" : "pm";
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${String(m).padStart(2, "0")}${period}`;
+}
+
+function subMin(hhmm: string, min: number): string {
+  const [h, m] = hhmm.split(":").map(Number);
+  let total = (h ?? 0) * 60 + (m ?? 0) - min;
+  if (total < 0) total = 0;
+  const hh = String(Math.floor(total / 60)).padStart(2, "0");
+  const mm = String(total % 60).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+function addMin(hhmm: string, min: number): string {
+  const [h, m] = hhmm.split(":").map(Number);
+  let total = (h ?? 0) * 60 + (m ?? 0) + min;
+  if (total > 24 * 60 - 1) total = 24 * 60 - 1;
+  const hh = String(Math.floor(total / 60)).padStart(2, "0");
+  const mm = String(total % 60).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+function maxTime(a: string, b: string): string { return a > b ? a : b; }
+function minTime(a: string, b: string): string { return a < b ? a : b; }
+
+export interface ShiftSuggestion {
+  key: string;
+  label: string;
+  start: string;
+  end: string;
+  meals: Meal[];
+}
+
+// Build ordered shift-time suggestions for an employee on a given weekday.
+// Suggestions come from the restaurant's real hours + enabled meal periods,
+// shifted earlier by that employee's arrival offset. Manual entry always
+// remains available — these are convenience presets only.
+export function suggestedShiftTimes(input: {
+  dayKey: DayKey;
+  position: Position | undefined;
+  section: Section | undefined;
+  restaurantHours: RestaurantHours;
+  mealPeriods: MealPeriods;
+  arrivalOffsets: ArrivalOffsets;
+  preferredMeals?: Meal[]; // used to bubble a matching suggestion to the top
+}): ShiftSuggestion[] {
+  const { dayKey, position, section, restaurantHours, mealPeriods, arrivalOffsets, preferredMeals } = input;
+  const day = restaurantHours[dayKey];
+  const arrival = arrivalOffsetFor(position, section, arrivalOffsets);
+  const closeout = closeoutMinFor(section);
+  const dayOpen = day.closed ? "00:00" : day.open;
+  const dayClose = day.closed ? "23:59" : day.close;
+  const order: Meal[] = ["Breakfast", "Lunch", "Dinner"];
+  const enabled = order.filter((m) => mealPeriods[m].enabled);
+  const suggestions: ShiftSuggestion[] = [];
+
+  for (const m of enabled) {
+    const p = mealPeriods[m];
+    const start = maxTime(dayOpen, subMin(p.start, arrival));
+    const end = minTime(dayClose, addMin(p.end, closeout));
+    if (start >= end) continue;
+    suggestions.push({
+      key: `single-${m}`,
+      label: `${m} — arrive ${fmt12(start)} → out ${fmt12(end)}`,
+      start,
+      end,
+      meals: [m],
+    });
+  }
+
+  // Combined doubles for any two adjacent enabled periods (e.g. Lunch + Dinner).
+  for (let i = 0; i + 1 < enabled.length; i++) {
+    const a = enabled[i]!, b = enabled[i + 1]!;
+    const start = maxTime(dayOpen, subMin(mealPeriods[a].start, arrival));
+    const end = minTime(dayClose, addMin(mealPeriods[b].end, closeout));
+    if (start >= end) continue;
+    suggestions.push({
+      key: `double-${a}-${b}`,
+      label: `${a} + ${b} double — ${fmt12(start)} → ${fmt12(end)}`,
+      start,
+      end,
+      meals: [a, b],
+    });
+  }
+
+  // Open-to-close as a last option, if the day has real hours.
+  if (!day.closed && day.open && day.close && day.open < day.close) {
+    suggestions.push({
+      key: "open-to-close",
+      label: `Open-to-close — ${fmt12(day.open)} → ${fmt12(day.close)}`,
+      start: day.open,
+      end: day.close,
+      meals: enabled,
+    });
+  }
+
+  // De-dupe by (start,end).
+  const seen = new Set<string>();
+  const deduped = suggestions.filter((s) => {
+    const k = `${s.start}-${s.end}`;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+
+  // Bubble the suggestion whose meals best match preferredMeals to the top,
+  // then order the rest by start time ascending.
+  deduped.sort((a, b) => a.start.localeCompare(b.start));
+  if (preferredMeals && preferredMeals.length > 0) {
+    const pref = new Set(preferredMeals);
+    const score = (s: ShiftSuggestion) =>
+      s.meals.length === pref.size && s.meals.every((m) => pref.has(m)) ? 0
+        : s.meals.every((m) => pref.has(m)) ? 1
+        : s.meals.some((m) => pref.has(m)) ? 2 : 3;
+    deduped.sort((a, b) => score(a) - score(b));
+  }
+  return deduped;
+}
+
 
 // Map a shift start "HH:MM" to a meal period using the restaurant's configured
 // windows. If the start falls in a gap between periods, snap to the NEXT
@@ -471,6 +669,8 @@ interface Store {
   updateRestaurantDay: (day: DayKey, patch: Partial<DayHours>) => void;
   setMealPeriods: (p: MealPeriods) => void;
   updateMealPeriod: (meal: Meal, patch: Partial<MealPeriodConfig>) => void;
+  arrivalOffsets: ArrivalOffsets;
+  setArrivalOffsets: (o: ArrivalOffsets) => void;
   activeRoles: Role[];
   setActiveRoles: (roles: Role[]) => void;
   customRoles: CustomRole[];
@@ -835,6 +1035,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     restaurantProfile: null as RestaurantProfile | null,
     restaurantHours: defaultRestaurantHours(),
     mealPeriods: defaultMealPeriods(),
+    arrivalOffsets: defaultArrivalOffsets(),
     activeRoles: [
       "Host","Server Assistant","Busser","Bar Back","Bartender","Server","Manager","Assistant Manager",
       "Chef","Sous Chef","Saute","Grill","Line Cook","Fry Cook","Pizza","Garde Manger","Prep","Dishwasher",
@@ -975,26 +1176,29 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           }
         }
 
-        // Hours: normalize v1/v2 shapes; if nothing remote, seed the current
-        // local defaults up. If we upgraded a v1 payload, write v2 back.
+        // Hours: normalize v1/v2/v3 shapes; if nothing remote, seed the current
+        // local defaults up. If we upgraded from an older version, write v3 back.
         let hoursPatch: Partial<typeof state> = {};
         if (remoteHours != null) {
           const norm = normalizeRestaurantHoursConfig(remoteHours);
-          hoursPatch = { restaurantHours: norm.days, mealPeriods: norm.mealPeriods };
-          if (norm.upgradedFromV1 && acting === "owner") {
-            saveRestaurantHours(effectiveOwnerId, serializeRestaurantHoursConfig(norm.days, norm.mealPeriods))
-              .catch((e) => console.error("[hours-upgrade-v2] failed", e));
+          hoursPatch = { restaurantHours: norm.days, mealPeriods: norm.mealPeriods, arrivalOffsets: norm.arrivalOffsets };
+          const rawObj = (remoteHours && typeof remoteHours === "object") ? (remoteHours as { version?: number; arrivalOffsets?: unknown }) : null;
+          const isV3 = rawObj?.version === 3 && rawObj?.arrivalOffsets != null;
+          if ((norm.upgradedFromV1 || !isV3) && acting === "owner") {
+            saveRestaurantHours(effectiveOwnerId, serializeRestaurantHoursConfig(norm.days, norm.mealPeriods, norm.arrivalOffsets))
+              .catch((e) => console.error("[hours-upgrade-v3] failed", e));
           }
         } else if (acting === "owner") {
           try {
             await saveRestaurantHours(
               effectiveOwnerId,
-              serializeRestaurantHoursConfig(latestStateRef.current.restaurantHours, latestStateRef.current.mealPeriods),
+              serializeRestaurantHoursConfig(latestStateRef.current.restaurantHours, latestStateRef.current.mealPeriods, latestStateRef.current.arrivalOffsets),
             );
           } catch (e) {
             console.error("[hours-bootstrap] failed", e);
           }
         }
+
 
         setState((s) => ({
           ...s,
@@ -1104,27 +1308,32 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     setRestaurantHours: (h) => {
       setState((s) => ({ ...s, restaurantHours: h }));
       const oid = ownerIdRef.current;
-      if (oid) saveRestaurantHours(oid, serializeRestaurantHoursConfig(h, latestStateRef.current.mealPeriods)).catch((e) => console.error("[setRestaurantHours]", e));
+      if (oid) saveRestaurantHours(oid, serializeRestaurantHoursConfig(h, latestStateRef.current.mealPeriods, latestStateRef.current.arrivalOffsets)).catch((e) => console.error("[setRestaurantHours]", e));
     },
     updateRestaurantDay: (day, patch) =>
       setState((s) => {
         const next = { ...s.restaurantHours, [day]: { ...s.restaurantHours[day], ...patch } };
         const oid = ownerIdRef.current;
-        if (oid) saveRestaurantHours(oid, serializeRestaurantHoursConfig(next, s.mealPeriods)).catch((e) => console.error("[updateRestaurantDay]", e));
+        if (oid) saveRestaurantHours(oid, serializeRestaurantHoursConfig(next, s.mealPeriods, s.arrivalOffsets)).catch((e) => console.error("[updateRestaurantDay]", e));
         return { ...s, restaurantHours: next };
       }),
     setMealPeriods: (p) => {
       setState((s) => ({ ...s, mealPeriods: p }));
       const oid = ownerIdRef.current;
-      if (oid) saveRestaurantHours(oid, serializeRestaurantHoursConfig(latestStateRef.current.restaurantHours, p)).catch((e) => console.error("[setMealPeriods]", e));
+      if (oid) saveRestaurantHours(oid, serializeRestaurantHoursConfig(latestStateRef.current.restaurantHours, p, latestStateRef.current.arrivalOffsets)).catch((e) => console.error("[setMealPeriods]", e));
     },
     updateMealPeriod: (meal, patch) =>
       setState((s) => {
         const next = { ...s.mealPeriods, [meal]: { ...s.mealPeriods[meal], ...patch } };
         const oid = ownerIdRef.current;
-        if (oid) saveRestaurantHours(oid, serializeRestaurantHoursConfig(s.restaurantHours, next)).catch((e) => console.error("[updateMealPeriod]", e));
+        if (oid) saveRestaurantHours(oid, serializeRestaurantHoursConfig(s.restaurantHours, next, s.arrivalOffsets)).catch((e) => console.error("[updateMealPeriod]", e));
         return { ...s, mealPeriods: next };
       }),
+    setArrivalOffsets: (o) => {
+      setState((s) => ({ ...s, arrivalOffsets: o }));
+      const oid = ownerIdRef.current;
+      if (oid) saveRestaurantHours(oid, serializeRestaurantHoursConfig(latestStateRef.current.restaurantHours, latestStateRef.current.mealPeriods, o)).catch((e) => console.error("[setArrivalOffsets]", e));
+    },
     setActiveRoles: (roles) => setState((s) => ({ ...s, activeRoles: roles })),
     addCustomRole: (role) =>
       setState((s) => {

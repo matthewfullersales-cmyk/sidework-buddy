@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Copy, Eraser, Settings2 } from "lucide-react";
+import { Copy, Eraser, Settings2, ChevronDown } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,8 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { useStore, type Role, type Shift, type Position, type Section, type WeeklyAvailability, type MealPeriods, DAY_KEYS, isAvailableFor, isAvailableForRange, mealForShiftStart } from "@/lib/sidework-store";
+import { useStore, type Role, type Shift, type Position, type Section, type WeeklyAvailability, type MealPeriods, type Meal, DAY_KEYS, isAvailableFor, isAvailableForRange, mealForShiftStart, suggestedShiftTimes, hoursConfigured } from "@/lib/sidework-store";
 import { toast } from "sonner";
 
 import { ROLE_COLORS, roleStyle, STATUS_COLORS, contrastText, fohRolesWithCustom, bohRolesWithCustom, allRolesWithCustom, nextCustomColor } from "@/lib/role-colors";
@@ -709,14 +710,38 @@ function ShiftDetailsDialog({
   employeeId: string; date: string; existing?: Shift;
   onClose: () => void; onSave: (s: Shift) => void; onDelete: (id: string) => void;
 }) {
-  const { employees, activeRoles, customRoles, timeOff, mealPeriods } = useStore();
+  const { employees, activeRoles, customRoles, timeOff, mealPeriods, restaurantHours, arrivalOffsets } = useStore();
   const emp = employees.find((e) => e.id === employeeId);
-  const [start, setStart] = useState(existing?.start ?? "17:00");
-  const [end, setEnd] = useState(existing?.end ?? "23:00");
+  // Compute suggestions up-front so a brand-new shift is seeded with the
+  // first suggestion (Dinner arrival for the employee's section/position),
+  // replacing the old hardcoded 17:00–23:00 default. Manual entry always
+  // stays open — the inputs remain type="time" below.
+  const [dy0, dm0, dd0] = date.split("-").map(Number);
+  const localDate0 = new Date(dy0, (dm0 ?? 1) - 1, dd0 ?? 1);
+  const dayKey0 = DAY_KEYS[(localDate0.getDay() + 6) % 7]!;
+  const availDay0 = emp?.weeklyAvailability?.[dayKey0];
+  const preferredMeals: Meal[] | undefined = availDay0?.kind === "partial" ? availDay0.meals : undefined;
+  const suggestions = useMemo(
+    () => suggestedShiftTimes({
+      dayKey: dayKey0,
+      position: emp?.position,
+      section: emp?.section,
+      restaurantHours,
+      mealPeriods,
+      arrivalOffsets,
+      preferredMeals,
+    }),
+    [dayKey0, emp?.position, emp?.section, restaurantHours, mealPeriods, arrivalOffsets, preferredMeals],
+  );
+  const seed = existing ? null : suggestions[0];
+  const [start, setStart] = useState(existing?.start ?? seed?.start ?? "17:00");
+  const [end, setEnd] = useState(existing?.end ?? seed?.end ?? "23:00");
   const [role, setRole] = useState<Role>(existing?.role ?? (emp?.primaryRole ?? "Server"));
   const [notes, setNotes] = useState(existing?.notes ?? "");
   const [overrideAvailability, setOverrideAvailability] = useState(false);
+  const [suggestOpen, setSuggestOpen] = useState(false);
   const rolesForPicker = allRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r) || r === role);
+  const showSuggestions = hoursConfigured(restaurantHours, mealPeriods) && suggestions.length > 0;
 
   const timeOffConflict = (() => {
     const rows = timeOff.filter((t) =>
@@ -811,14 +836,55 @@ function ShiftDetailsDialog({
               </label>
             </div>
           )}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-xs">Start</Label>
-              <Input type="time" value={start} onChange={(e) => setStart(e.target.value)} />
-            </div>
-            <div>
-              <Label className="text-xs">End</Label>
-              <Input type="time" value={end} onChange={(e) => setEnd(e.target.value)} />
+          <div className="space-y-2">
+            {showSuggestions ? (
+              <Popover open={suggestOpen} onOpenChange={setSuggestOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-1 text-xs"
+                    aria-label="Show shift-time suggestions from restaurant hours"
+                  >
+                    Suggestions <ChevronDown className="h-3 w-3" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="start" className="w-[320px] p-1">
+                  <p className="px-2 py-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+                    Based on this restaurant's hours + {emp?.section === "BOH" ? "BOH" : "FOH"} arrival lead time
+                  </p>
+                  <div className="max-h-[240px] overflow-y-auto">
+                    {suggestions.map((s, i) => (
+                      <button
+                        key={s.key}
+                        type="button"
+                        onClick={() => { setStart(s.start); setEnd(s.end); setSuggestOpen(false); }}
+                        className={`block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-muted ${i === 0 ? "font-semibold" : ""}`}
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="border-t border-border px-2 py-1.5 text-[10px] text-muted-foreground">
+                    Or type any custom time in the fields below.
+                  </p>
+                </PopoverContent>
+              </Popover>
+            ) : (
+              <p className="text-[11px] text-muted-foreground">
+                Set operating hours + meal periods in Settings to get time suggestions.
+              </p>
+            )}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Start</Label>
+                <Input type="time" value={start} onChange={(e) => setStart(e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-xs">End</Label>
+                <Input type="time" value={end} onChange={(e) => setEnd(e.target.value)} />
+              </div>
             </div>
           </div>
           <div>

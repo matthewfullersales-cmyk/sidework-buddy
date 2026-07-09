@@ -22,7 +22,7 @@ import { onboardingStatus, useStore, type Role, type ApplicationStatus, type Emp
 import { roleStyle, fohRolesWithCustom, bohRolesWithCustom } from "@/lib/role-colors";
 import { formatPhone } from "@/lib/format-phone";
 import { copyLinkWithToast } from "@/lib/copy-to-clipboard";
-import { AvailabilityEditor, RestaurantHoursEditor, MealPeriodsEditor } from "@/components/sidework/AvailabilityEditor";
+import { AvailabilityEditor, RestaurantHoursEditor, MealPeriodsEditor, ArrivalOffsetsEditor } from "@/components/sidework/AvailabilityEditor";
 import { StaffJoinBanner, FullscreenQrDialog, StaffOnboardingCard } from "@/components/sidework/StaffOnboarding";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { slugify } from "@/lib/slug";
@@ -2316,7 +2316,7 @@ function TrainingProgram({ menuName }: { menuName: string }) {
 }
 
 function SettingsTab({ onOpenSetup }: { onOpenSetup: () => void }) {
-  const { setupCompleted, restaurantProfile, resetSetup, restaurantHours, updateRestaurantDay, mealPeriods, updateMealPeriod } = useStore();
+  const { setupCompleted, restaurantProfile, resetSetup, restaurantHours, updateRestaurantDay, mealPeriods, updateMealPeriod, arrivalOffsets, setArrivalOffsets, employees } = useStore();
   const configured = hoursConfigured(restaurantHours, mealPeriods);
   return (
     <div className="space-y-4">
@@ -2349,6 +2349,19 @@ function SettingsTab({ onOpenSetup }: { onOpenSetup: () => void }) {
         </CardHeader>
         <CardContent>
           <MealPeriodsEditor value={mealPeriods} onChange={updateMealPeriod} />
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Arrival lead time</CardTitle>
+          <p className="mt-1 text-xs text-muted-foreground">Front-of-house staff usually arrive an hour before service, kitchen prep more. These offsets seed the shift time suggestions in the schedule builder.</p>
+        </CardHeader>
+        <CardContent>
+          <ArrivalOffsetsEditor
+            value={arrivalOffsets}
+            onChange={setArrivalOffsets}
+            activePositions={Array.from(new Set(employees.map((e) => e.position).filter((p): p is NonNullable<typeof p> => Boolean(p))))}
+          />
         </CardContent>
       </Card>
       <Card>
