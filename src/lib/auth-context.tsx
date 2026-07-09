@@ -3,7 +3,7 @@ import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
 export type ProfileRole = "owner" | "employee";
-export type ActingRole = "owner" | "hiring_manager";
+export type ActingRole = "owner" | "team_member";
 
 export type Profile = {
   id: string;
@@ -17,6 +17,8 @@ export type EffectiveOwner = {
   ownerId: string;
   restaurantName: string | null;
   acting: ActingRole;
+  canManageHiring: boolean;
+  canManageSchedule: boolean;
 } | null;
 
 type AuthContextValue = {
@@ -61,11 +63,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setEffectiveOwner(null);
       return;
     }
-    const row = data[0] as { owner_id: string; restaurant_name: string | null; acting: string };
+    const row = data[0] as {
+      owner_id: string;
+      restaurant_name: string | null;
+      acting: string;
+      can_manage_hiring: boolean;
+      can_manage_schedule: boolean;
+    };
     setEffectiveOwner({
       ownerId: row.owner_id,
       restaurantName: row.restaurant_name,
-      acting: row.acting === "hiring_manager" ? "hiring_manager" : "owner",
+      acting: row.acting === "owner" ? "owner" : "team_member",
+      canManageHiring: !!row.can_manage_hiring,
+      canManageSchedule: !!row.can_manage_schedule,
     });
   };
 

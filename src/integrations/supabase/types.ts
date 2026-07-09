@@ -341,6 +341,7 @@ export type Database = {
         Row: {
           auth_user_id: string | null
           can_manage_hiring: boolean
+          can_manage_schedule: boolean
           created_at: string
           email: string | null
           first_name: string | null
@@ -355,6 +356,7 @@ export type Database = {
         Insert: {
           auth_user_id?: string | null
           can_manage_hiring?: boolean
+          can_manage_schedule?: boolean
           created_at?: string
           email?: string | null
           first_name?: string | null
@@ -369,6 +371,7 @@ export type Database = {
         Update: {
           auth_user_id?: string | null
           can_manage_hiring?: boolean
+          can_manage_schedule?: boolean
           created_at?: string
           email?: string | null
           first_name?: string | null
@@ -381,6 +384,206 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      shift_trades: {
+        Row: {
+          approved_by: string | null
+          auto_approved: boolean
+          claimed_by: string | null
+          created_at: string
+          id: string
+          local_id: string | null
+          note: string | null
+          owner_id: string
+          posted_by: string | null
+          resolved_at: string | null
+          shift_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          approved_by?: string | null
+          auto_approved?: boolean
+          claimed_by?: string | null
+          created_at?: string
+          id?: string
+          local_id?: string | null
+          note?: string | null
+          owner_id: string
+          posted_by?: string | null
+          resolved_at?: string | null
+          shift_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          approved_by?: string | null
+          auto_approved?: boolean
+          claimed_by?: string | null
+          created_at?: string
+          id?: string
+          local_id?: string | null
+          note?: string | null
+          owner_id?: string
+          posted_by?: string | null
+          resolved_at?: string | null
+          shift_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shift_trades_claimed_by_fkey"
+            columns: ["claimed_by"]
+            isOneToOne: false
+            referencedRelation: "restaurant_employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shift_trades_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shift_trades_posted_by_fkey"
+            columns: ["posted_by"]
+            isOneToOne: false
+            referencedRelation: "restaurant_employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shift_trades_shift_id_fkey"
+            columns: ["shift_id"]
+            isOneToOne: false
+            referencedRelation: "shifts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shifts: {
+        Row: {
+          created_at: string
+          date: string
+          employee_id: string | null
+          end_time: string
+          id: string
+          local_id: string | null
+          notes: string | null
+          owner_id: string
+          position: string | null
+          role: string
+          start_time: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          employee_id?: string | null
+          end_time: string
+          id?: string
+          local_id?: string | null
+          notes?: string | null
+          owner_id: string
+          position?: string | null
+          role: string
+          start_time: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          employee_id?: string | null
+          end_time?: string
+          id?: string
+          local_id?: string | null
+          notes?: string | null
+          owner_id?: string
+          position?: string | null
+          role?: string
+          start_time?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shifts_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "restaurant_employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shifts_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      time_off_requests: {
+        Row: {
+          created_at: string
+          decision_note: string | null
+          employee_id: string | null
+          end_date: string
+          id: string
+          local_id: string | null
+          owner_id: string
+          reason: string
+          reason_type: string | null
+          resolved_at: string | null
+          start_date: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          decision_note?: string | null
+          employee_id?: string | null
+          end_date: string
+          id?: string
+          local_id?: string | null
+          owner_id: string
+          reason?: string
+          reason_type?: string | null
+          resolved_at?: string | null
+          start_date: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          decision_note?: string | null
+          employee_id?: string | null
+          end_date?: string
+          id?: string
+          local_id?: string | null
+          owner_id?: string
+          reason?: string
+          reason_type?: string | null
+          resolved_at?: string | null
+          start_date?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "time_off_requests_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "restaurant_employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_off_requests_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
@@ -400,6 +603,10 @@ export type Database = {
         Returns: undefined
       }
       can_manage_hiring_for: { Args: { p_owner_id: string }; Returns: boolean }
+      can_manage_schedule_for: {
+        Args: { p_owner_id: string }
+        Returns: boolean
+      }
       claim_hire_invite: {
         Args: { p_application_id: string; p_employee_profile_id: string }
         Returns: undefined
@@ -412,6 +619,8 @@ export type Database = {
         Args: never
         Returns: {
           acting: string
+          can_manage_hiring: boolean
+          can_manage_schedule: boolean
           owner_id: string
           restaurant_name: string
         }[]
@@ -471,6 +680,7 @@ export type Database = {
         Args: { p_team_member_id: string }
         Returns: {
           can_manage_hiring: boolean
+          can_manage_schedule: boolean
           claimed: boolean
           first_name: string
           id: string
