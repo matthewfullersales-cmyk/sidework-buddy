@@ -1,0 +1,10 @@
+import { mealForShiftStart, isAvailableForRange, findMealPeriodOverlaps, defaultMealPeriods } from './src/lib/sidework-store';
+const p = { Breakfast:{enabled:false,start:'07:00',end:'10:30'}, Lunch:{enabled:true,start:'11:00',end:'15:00'}, Dinner:{enabled:true,start:'15:00',end:'21:00'} };
+console.log('start 14:59 →', mealForShiftStart('14:59', p));
+console.log('start 15:00 →', mealForShiftStart('15:00', p));
+console.log('lunch-only, 14:45-15:15 →', JSON.stringify(isAvailableForRange({kind:'partial',meals:['Lunch']},'14:45','15:15',p)));
+console.log('lunch-only, 11:00-15:00 →', JSON.stringify(isAvailableForRange({kind:'partial',meals:['Lunch']},'11:00','15:00',p)));
+console.log('lunch-only, 15:00-19:00 →', JSON.stringify(isAvailableForRange({kind:'partial',meals:['Lunch']},'15:00','19:00',p)));
+const pOverlap = {...p, Lunch:{enabled:true,start:'11:00',end:'15:30'}};
+console.log('overlaps →', JSON.stringify(findMealPeriodOverlaps(pOverlap)));
+console.log('overlap: dinner-only, 15:15-15:25 →', JSON.stringify(isAvailableForRange({kind:'partial',meals:['Dinner']},'15:15','15:25',pOverlap)));
