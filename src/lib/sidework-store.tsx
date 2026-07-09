@@ -1173,26 +1173,29 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           }
         }
 
-        // Hours: normalize v1/v2 shapes; if nothing remote, seed the current
-        // local defaults up. If we upgraded a v1 payload, write v2 back.
+        // Hours: normalize v1/v2/v3 shapes; if nothing remote, seed the current
+        // local defaults up. If we upgraded from an older version, write v3 back.
         let hoursPatch: Partial<typeof state> = {};
         if (remoteHours != null) {
           const norm = normalizeRestaurantHoursConfig(remoteHours);
-          hoursPatch = { restaurantHours: norm.days, mealPeriods: norm.mealPeriods };
-          if (norm.upgradedFromV1 && acting === "owner") {
-            saveRestaurantHours(effectiveOwnerId, serializeRestaurantHoursConfig(norm.days, norm.mealPeriods))
-              .catch((e) => console.error("[hours-upgrade-v2] failed", e));
+          hoursPatch = { restaurantHours: norm.days, mealPeriods: norm.mealPeriods, arrivalOffsets: norm.arrivalOffsets };
+          const rawObj = (remoteHours && typeof remoteHours === "object") ? (remoteHours as { version?: number; arrivalOffsets?: unknown }) : null;
+          const isV3 = rawObj?.version === 3 && rawObj?.arrivalOffsets != null;
+          if ((norm.upgradedFromV1 || !isV3) && acting === "owner") {
+            saveRestaurantHours(effectiveOwnerId, serializeRestaurantHoursConfig(norm.days, norm.mealPeriods, norm.arrivalOffsets))
+              .catch((e) => console.error("[hours-upgrade-v3] failed", e));
           }
         } else if (acting === "owner") {
           try {
             await saveRestaurantHours(
               effectiveOwnerId,
-              serializeRestaurantHoursConfig(latestStateRef.current.restaurantHours, latestStateRef.current.mealPeriods),
+              serializeRestaurantHoursConfig(latestStateRef.current.restaurantHours, latestStateRef.current.mealPeriods, latestStateRef.current.arrivalOffsets),
             );
           } catch (e) {
             console.error("[hours-bootstrap] failed", e);
           }
         }
+
 
         setState((s) => ({
           ...s,
