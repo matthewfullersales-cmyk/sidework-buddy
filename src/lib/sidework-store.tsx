@@ -1308,27 +1308,32 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     setRestaurantHours: (h) => {
       setState((s) => ({ ...s, restaurantHours: h }));
       const oid = ownerIdRef.current;
-      if (oid) saveRestaurantHours(oid, serializeRestaurantHoursConfig(h, latestStateRef.current.mealPeriods)).catch((e) => console.error("[setRestaurantHours]", e));
+      if (oid) saveRestaurantHours(oid, serializeRestaurantHoursConfig(h, latestStateRef.current.mealPeriods, latestStateRef.current.arrivalOffsets)).catch((e) => console.error("[setRestaurantHours]", e));
     },
     updateRestaurantDay: (day, patch) =>
       setState((s) => {
         const next = { ...s.restaurantHours, [day]: { ...s.restaurantHours[day], ...patch } };
         const oid = ownerIdRef.current;
-        if (oid) saveRestaurantHours(oid, serializeRestaurantHoursConfig(next, s.mealPeriods)).catch((e) => console.error("[updateRestaurantDay]", e));
+        if (oid) saveRestaurantHours(oid, serializeRestaurantHoursConfig(next, s.mealPeriods, s.arrivalOffsets)).catch((e) => console.error("[updateRestaurantDay]", e));
         return { ...s, restaurantHours: next };
       }),
     setMealPeriods: (p) => {
       setState((s) => ({ ...s, mealPeriods: p }));
       const oid = ownerIdRef.current;
-      if (oid) saveRestaurantHours(oid, serializeRestaurantHoursConfig(latestStateRef.current.restaurantHours, p)).catch((e) => console.error("[setMealPeriods]", e));
+      if (oid) saveRestaurantHours(oid, serializeRestaurantHoursConfig(latestStateRef.current.restaurantHours, p, latestStateRef.current.arrivalOffsets)).catch((e) => console.error("[setMealPeriods]", e));
     },
     updateMealPeriod: (meal, patch) =>
       setState((s) => {
         const next = { ...s.mealPeriods, [meal]: { ...s.mealPeriods[meal], ...patch } };
         const oid = ownerIdRef.current;
-        if (oid) saveRestaurantHours(oid, serializeRestaurantHoursConfig(s.restaurantHours, next)).catch((e) => console.error("[updateMealPeriod]", e));
+        if (oid) saveRestaurantHours(oid, serializeRestaurantHoursConfig(s.restaurantHours, next, s.arrivalOffsets)).catch((e) => console.error("[updateMealPeriod]", e));
         return { ...s, mealPeriods: next };
       }),
+    setArrivalOffsets: (o) => {
+      setState((s) => ({ ...s, arrivalOffsets: o }));
+      const oid = ownerIdRef.current;
+      if (oid) saveRestaurantHours(oid, serializeRestaurantHoursConfig(latestStateRef.current.restaurantHours, latestStateRef.current.mealPeriods, o)).catch((e) => console.error("[setArrivalOffsets]", e));
+    },
     setActiveRoles: (roles) => setState((s) => ({ ...s, activeRoles: roles })),
     addCustomRole: (role) =>
       setState((s) => {
