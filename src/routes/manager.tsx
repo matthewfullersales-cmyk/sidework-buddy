@@ -863,6 +863,8 @@ function JobsTab() {
 
   return (
     <div className="grid gap-6">
+      <TeamRosterCard team={team} />
+
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-3">
           <div>
