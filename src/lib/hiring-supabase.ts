@@ -269,6 +269,7 @@ export async function updateApplication(
   if (patch.selectedSlot !== undefined) row.selected_slot = patch.selectedSlot;
   if (patch.shadowShift !== undefined) row.shadow_shift = patch.shadowShift as unknown;
   if (patch.hiredEmployeeId !== undefined) row.hired_employee_id = patch.hiredEmployeeId;
+  if (patch.assignedTo !== undefined) row.assigned_to = patch.assignedTo;
   if (Object.keys(row).length === 0) return;
   const { error } = await supabase.from("job_applications").update(row as never).eq("id", id);
   if (error) throw error;
