@@ -351,6 +351,7 @@ interface Store {
   applicantSelectSlot: (id: string, slot: string) => void;
   completeInterview: (id: string, notes?: string) => void;
   inviteShadowShift: (id: string, details: ShadowShiftDetails) => void;
+  reassignApplication: (id: string, teamMemberId: string | null) => void;
   requestTimeOff: (data: Omit<TimeOffRequest, "id" | "createdAt" | "status">) => void;
   resolveTimeOff: (id: string, approved: boolean, note?: string) => void;
 }
