@@ -458,7 +458,7 @@ export async function claimHireInvite(applicationId: string, employeeProfileId: 
 export async function fetchTeamMembers(ownerId: string): Promise<TeamMember[]> {
   const { data, error } = await supabase
     .from("restaurant_team_members")
-    .select("id, name, first_name, last_name, email, phone, title, can_manage_hiring, auth_user_id")
+    .select("id, name, first_name, last_name, email, phone, title, can_manage_hiring, can_manage_schedule, auth_user_id")
     .eq("owner_id", ownerId)
     .order("created_at", { ascending: true });
   if (error) throw error;
@@ -471,6 +471,7 @@ export async function fetchTeamMembers(ownerId: string): Promise<TeamMember[]> {
     phone: r.phone,
     title: r.title,
     canManageHiring: (r as { can_manage_hiring: boolean }).can_manage_hiring ?? false,
+    canManageSchedule: (r as { can_manage_schedule: boolean }).can_manage_schedule ?? false,
     authUserId: (r as { auth_user_id: string | null }).auth_user_id ?? null,
   }));
 }
