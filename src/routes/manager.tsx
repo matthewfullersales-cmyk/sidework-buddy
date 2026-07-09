@@ -2316,7 +2316,8 @@ function TrainingProgram({ menuName }: { menuName: string }) {
 }
 
 function SettingsTab({ onOpenSetup }: { onOpenSetup: () => void }) {
-  const { setupCompleted, restaurantProfile, resetSetup, restaurantHours, updateRestaurantDay } = useStore();
+  const { setupCompleted, restaurantProfile, resetSetup, restaurantHours, updateRestaurantDay, mealPeriods, updateMealPeriod } = useStore();
+  const configured = hoursConfigured(restaurantHours, mealPeriods);
   return (
     <div className="space-y-4">
       <Card>
@@ -2335,10 +2336,25 @@ function SettingsTab({ onOpenSetup }: { onOpenSetup: () => void }) {
           )}
         </CardContent>
       </Card>
+      {!configured && (
+        <div role="status" className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 text-sm text-amber-900 dark:text-amber-200">
+          <p className="font-semibold">Finish setting your operating hours</p>
+          <p className="mt-1 text-xs">Turn on the meal periods you actually serve (Breakfast / Lunch / Dinner) and confirm your daily open hours. Scheduling and employee availability rely on these to match staff to real service windows.</p>
+        </div>
+      )}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Restaurant hours</CardTitle>
-          <p className="mt-1 text-xs text-muted-foreground">AI scheduling only books staff during the hours you're open.</p>
+          <CardTitle className="text-base">Meal periods</CardTitle>
+          <p className="mt-1 text-xs text-muted-foreground">Turn on the services you offer and set their real start/end times. Employees' partial-availability (e.g. "Lunch only") is matched against these windows — not fixed clock cutoffs.</p>
+        </CardHeader>
+        <CardContent>
+          <MealPeriodsEditor value={mealPeriods} onChange={updateMealPeriod} />
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Daily hours</CardTitle>
+          <p className="mt-1 text-xs text-muted-foreground">AI scheduling only books staff during the hours you're open. Mark a day closed if you don't operate that day.</p>
         </CardHeader>
         <CardContent>
           <RestaurantHoursEditor value={restaurantHours} onChange={updateRestaurantDay} />
