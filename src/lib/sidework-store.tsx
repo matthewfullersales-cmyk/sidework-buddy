@@ -10,6 +10,15 @@ import {
   updateApplication,
   confirmApplicantSlot,
 } from "@/lib/hiring-supabase";
+import {
+  fetchOwnerEmployees,
+  bootstrapLocalEmployees,
+  insertEmployee,
+  updateEmployeeRow,
+  deleteAllOwnerEmployees,
+  fetchRestaurantHours,
+  saveRestaurantHours,
+} from "@/lib/employees-supabase";
 import { useAuth } from "@/lib/auth-context";
 import { toast } from "sonner";
 
@@ -702,16 +711,27 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     }
   }, [state.customRoles]);
 
-  // Owner-scoped Supabase sync for the hiring pipeline (jobs + applications).
+  // Owner-scoped Supabase sync for the hiring pipeline (jobs + applications)
+  // AND the employee roster + restaurant hours (Wave A of scheduling).
   // Uses the "effective owner id" from AuthContext so both real owners and
   // hiring-managers (with can_manage_hiring granted for that owner) hydrate
   // against the same owner's data.
   const { effectiveOwner, loading: authLoading } = useAuth();
   const ownerIdRef = useRef<string | null>(null);
   const effectiveOwnerId = effectiveOwner?.ownerId ?? null;
+  const acting = effectiveOwner?.acting ?? null;
+  // Track owners we've already run the one-time local→cloud bootstrap for,
+  // so re-hydrations (tab focus, auth refresh) can't re-upload. The DB unique
+  // index (owner_id, local_id) is a second line of defense.
+  const bootstrappedOwnersRef = useRef<Set<string>>(new Set());
+  // Mirror of latest state so the hydrate effect can read local employees /
+  // hours without re-firing on every store change.
+  const latestStateRef = useRef(state);
+  useEffect(() => { latestStateRef.current = state; }, [state]);
+
   useEffect(() => {
     ownerIdRef.current = effectiveOwnerId;
-    if (authLoading) return;
+    if (!hydrated || authLoading) return;
     let cancelled = false;
     if (!effectiveOwnerId) {
       setState((s) => ({ ...s, jobs: [], applications: [] }));
@@ -719,26 +739,85 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     }
     (async () => {
       try {
-        const [postings, apps] = await Promise.all([
+        const [postings, apps, remoteEmployeesInitial, remoteHours] = await Promise.all([
           fetchOwnerPostings(effectiveOwnerId),
           fetchOwnerApplications(effectiveOwnerId),
+          fetchOwnerEmployees(effectiveOwnerId),
+          fetchRestaurantHours(effectiveOwnerId),
         ]);
         if (cancelled) return;
-        setState((s) => ({ ...s, jobs: postings, applications: apps }));
+
+        // Employees: cloud is authoritative once anything exists there. Otherwise,
+        // if this signed-in user is the real owner and their local roster has
+        // employees, upload them one time (idempotent via UNIQUE(owner_id, local_id)).
+        let remoteEmployees = remoteEmployeesInitial;
+        const local = latestStateRef.current.employees;
+        const alreadyBootstrapped = bootstrappedOwnersRef.current.has(effectiveOwnerId);
+        if (
+          remoteEmployees.length === 0 &&
+          acting === "owner" &&
+          local.length > 0 &&
+          !alreadyBootstrapped
+        ) {
+          bootstrappedOwnersRef.current.add(effectiveOwnerId);
+          try {
+            remoteEmployees = await bootstrapLocalEmployees(effectiveOwnerId, local);
+            if (cancelled) return;
+          } catch (e) {
+            // Roll back the guard so a transient failure can retry next mount.
+            bootstrappedOwnersRef.current.delete(effectiveOwnerId);
+            console.error("[employees-bootstrap] failed", e);
+            remoteEmployees = [];
+          }
+        }
+
+        // Hours: if cloud has a value use it; otherwise seed from local once.
+        let hoursPatch: Partial<typeof state> = {};
+        if (remoteHours && typeof remoteHours === "object") {
+          hoursPatch = { restaurantHours: remoteHours as typeof state.restaurantHours };
+        } else if (acting === "owner") {
+          try {
+            await saveRestaurantHours(effectiveOwnerId, latestStateRef.current.restaurantHours);
+          } catch (e) {
+            console.error("[hours-bootstrap] failed", e);
+          }
+        }
+
+        setState((s) => ({
+          ...s,
+          jobs: postings,
+          applications: apps,
+          // If nothing remote and no bootstrap happened, keep local (single-device owner).
+          employees: remoteEmployees.length > 0 ? remoteEmployees : s.employees,
+          ...hoursPatch,
+        }));
       } catch (e) {
-        console.error("[hiring-sync] failed to load", e);
+        console.error("[owner-sync] failed to load", e);
       }
     })();
     return () => { cancelled = true; };
-  }, [authLoading, effectiveOwnerId]);
+  }, [authLoading, hydrated, effectiveOwnerId, acting]);
 
   const uid = (prefix: string) => `${prefix}${Date.now()}${Math.floor(Math.random() * 1000)}`;
+  const newUuid = () =>
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
   const store: Store = {
     ...state,
-    setRestaurantHours: (h) => setState((s) => ({ ...s, restaurantHours: h })),
+    setRestaurantHours: (h) => {
+      setState((s) => ({ ...s, restaurantHours: h }));
+      const oid = ownerIdRef.current;
+      if (oid) saveRestaurantHours(oid, h).catch((e) => console.error("[setRestaurantHours]", e));
+    },
     updateRestaurantDay: (day, patch) =>
-      setState((s) => ({ ...s, restaurantHours: { ...s.restaurantHours, [day]: { ...s.restaurantHours[day], ...patch } } })),
+      setState((s) => {
+        const next = { ...s.restaurantHours, [day]: { ...s.restaurantHours[day], ...patch } };
+        const oid = ownerIdRef.current;
+        if (oid) saveRestaurantHours(oid, next).catch((e) => console.error("[updateRestaurantDay]", e));
+        return { ...s, restaurantHours: next };
+      }),
     setActiveRoles: (roles) => setState((s) => ({ ...s, activeRoles: roles })),
     addCustomRole: (role) =>
       setState((s) => {
@@ -758,80 +837,84 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
         activeRoles: s.activeRoles.filter((r) => r !== name),
       })),
     setCurrentUser: (u) => setState((s) => ({ ...s, currentUser: u })),
-    clearAllEmployees: () =>
+    clearAllEmployees: () => {
+      setState((s) => ({ ...s, employees: [], shifts: [], trades: [], timeOff: [] }));
+      const oid = ownerIdRef.current;
+      if (oid) deleteAllOwnerEmployees(oid).catch((e) => console.error("[clearAllEmployees]", e));
+    },
+    inviteEmployee: ({ name, email, role }) => {
+      const newId = newUuid();
+      const employee: Employee = {
+        id: newId, name, email, primaryRole: role,
+        approvedRoles: [role], autoApproveRoles: [], availability: "",
+        invitedAt: new Date().toISOString().slice(0, 10),
+        onboardingStarted: false, personalInfoComplete: false, progress: [],
+      };
       setState((s) => ({
         ...s,
-        employees: [],
-        shifts: [],
-        trades: [],
-        timeOff: [],
-      })),
-    inviteEmployee: ({ name, email, role }) =>
-      setState((s) => {
-        const newId = uid("e");
-        return {
-          ...s,
-          employees: [
-            ...s.employees,
-            {
-              id: newId, name, email, primaryRole: role,
-              approvedRoles: [role], autoApproveRoles: [], availability: "",
-              invitedAt: new Date().toISOString().slice(0, 10),
-              onboardingStarted: false, personalInfoComplete: false, progress: [],
-            },
-          ],
-          notifications: [
-            {
-              id: uid("n"),
-              type: "training_passed",
-              message: `Training automatically assigned to ${name} based on their ${role} position.`,
-              employeeId: newId,
-              createdAt: new Date().toISOString(),
-              read: false,
-            },
-            ...s.notifications,
-          ],
-        };
-      }),
+        employees: [...s.employees, employee],
+        notifications: [
+          {
+            id: uid("n"),
+            type: "training_passed",
+            message: `Training automatically assigned to ${name} based on their ${role} position.`,
+            employeeId: newId,
+            createdAt: new Date().toISOString(),
+            read: false,
+          },
+          ...s.notifications,
+        ],
+      }));
+      const oid = ownerIdRef.current;
+      if (oid) {
+        insertEmployee(oid, employee, { localId: newId }).catch((e) =>
+          console.error("[inviteEmployee]", e),
+        );
+      }
+    },
     joinStaff: (data) => {
-      const empId = uid("e");
+      const empId = newUuid();
       const fullName = `${data.firstName} ${data.lastName}`.trim();
-      setState((s) => {
-        const employee: Employee = {
-          id: empId,
-          name: fullName,
-          firstName: data.firstName,
-          lastName: data.lastName,
-          email: data.email,
-          phone: data.phone,
-          primaryRole: data.role,
-          approvedRoles: [data.role],
-          autoApproveRoles: [],
-          availability: "",
-          weeklyAvailability: data.weeklyAvailability,
-          emergencyContact: data.emergencyContact,
-          invitedAt: new Date().toISOString().slice(0, 10),
-          onboardingStarted: true,
-          personalInfoComplete: true,
-          progress: [],
-          seniority: 1,
-        };
-        return {
-          ...s,
-          employees: [...s.employees, employee],
-          notifications: [
-            {
-              id: uid("n"),
-              type: "training_passed",
-              message: `${fullName} just joined 86Paper!`,
-              employeeId: empId,
-              createdAt: new Date().toISOString(),
-              read: false,
-            },
-            ...s.notifications,
-          ],
-        };
-      });
+      const employee: Employee = {
+        id: empId,
+        name: fullName,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email,
+        phone: data.phone,
+        primaryRole: data.role,
+        approvedRoles: [data.role],
+        autoApproveRoles: [],
+        availability: "",
+        weeklyAvailability: data.weeklyAvailability,
+        emergencyContact: data.emergencyContact,
+        invitedAt: new Date().toISOString().slice(0, 10),
+        onboardingStarted: true,
+        personalInfoComplete: true,
+        progress: [],
+        seniority: 1,
+      };
+      setState((s) => ({
+        ...s,
+        employees: [...s.employees, employee],
+        notifications: [
+          {
+            id: uid("n"),
+            type: "training_passed",
+            message: `${fullName} just joined 86Paper!`,
+            employeeId: empId,
+            createdAt: new Date().toISOString(),
+            read: false,
+          },
+          ...s.notifications,
+        ],
+      }));
+      const oid = ownerIdRef.current;
+      if (oid) {
+        insertEmployee(oid, employee, { localId: empId }).catch((e) =>
+          console.error("[joinStaff]", e),
+        );
+      }
       return empId;
     },
     updateRestaurantSlug: (slug) =>
@@ -839,7 +922,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
         ...s,
         restaurantProfile: s.restaurantProfile ? { ...s.restaurantProfile, slug } : s.restaurantProfile,
       })),
-    updateEmployee: (id, patch) =>
+    updateEmployee: (id, patch) => {
       setState((s) => {
         const before = s.employees.find((e) => e.id === id);
         const employees = s.employees.map((e) => (e.id === id ? { ...e, ...patch } : e));
@@ -864,7 +947,10 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           }
         }
         return { ...s, employees, notifications };
-      }),
+      });
+      const oid = ownerIdRef.current;
+      if (oid) updateEmployeeRow(id, patch).catch((e) => console.error("[updateEmployee]", e));
+    },
     recordVideoProgress: (employeeId, videoId, patch) =>
       setState((s) => ({
         ...s,
@@ -1074,10 +1160,11 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     },
     hireApplication: (id, overrides) => {
       let createdId: string | null = null;
+      let createdEmployee: Employee | null = null;
       setState((s) => {
         const a = s.applications.find((x) => x.id === id);
         if (!a) return s;
-        const empId = uid("e");
+        const empId = newUuid();
         createdId = empId;
         const first = overrides?.firstName ?? a.firstName ?? a.name.split(" ")[0] ?? "";
         const last = overrides?.lastName ?? a.lastName ?? a.name.split(" ").slice(1).join(" ") ?? "";
@@ -1107,14 +1194,8 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           appliedAt: a.appliedAt,
           workExperience: a.workExperience,
         };
+        createdEmployee = employee;
         const restaurantName = s.restaurantProfile?.name ?? "86Paper";
-        // Persist application status → hired
-        updateApplication(id, {
-          status: "hired",
-          stage: "hired",
-          archived: true,
-          hiredEmployeeId: empId,
-        }).catch((e) => console.error("[hireApplication]", e));
         return {
           ...s,
           employees: [...s.employees, employee],
@@ -1142,6 +1223,22 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           ],
         };
       });
+      if (createdId) {
+        // Persist application → hired
+        updateApplication(id, {
+          status: "hired",
+          stage: "hired",
+          archived: true,
+          hiredEmployeeId: createdId,
+        }).catch((e) => console.error("[hireApplication:updateApp]", e));
+        // Persist the new employee row
+        const oid = ownerIdRef.current;
+        if (oid && createdEmployee) {
+          insertEmployee(oid, createdEmployee, { localId: createdId }).catch((e) =>
+            console.error("[hireApplication:insertEmployee]", e),
+          );
+        }
+      }
       return createdId;
     },
     approveForInterview: (id, type, slots) => {
