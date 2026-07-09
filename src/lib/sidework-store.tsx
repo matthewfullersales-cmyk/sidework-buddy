@@ -800,11 +800,26 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
 
   const uid = (prefix: string) => `${prefix}${Date.now()}${Math.floor(Math.random() * 1000)}`;
 
+  const uid = (prefix: string) => `${prefix}${Date.now()}${Math.floor(Math.random() * 1000)}`;
+  const newUuid = () =>
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
   const store: Store = {
     ...state,
-    setRestaurantHours: (h) => setState((s) => ({ ...s, restaurantHours: h })),
+    setRestaurantHours: (h) => {
+      setState((s) => ({ ...s, restaurantHours: h }));
+      const oid = ownerIdRef.current;
+      if (oid) saveRestaurantHours(oid, h).catch((e) => console.error("[setRestaurantHours]", e));
+    },
     updateRestaurantDay: (day, patch) =>
-      setState((s) => ({ ...s, restaurantHours: { ...s.restaurantHours, [day]: { ...s.restaurantHours[day], ...patch } } })),
+      setState((s) => {
+        const next = { ...s.restaurantHours, [day]: { ...s.restaurantHours[day], ...patch } };
+        const oid = ownerIdRef.current;
+        if (oid) saveRestaurantHours(oid, next).catch((e) => console.error("[updateRestaurantDay]", e));
+        return { ...s, restaurantHours: next };
+      }),
     setActiveRoles: (roles) => setState((s) => ({ ...s, activeRoles: roles })),
     addCustomRole: (role) =>
       setState((s) => {
