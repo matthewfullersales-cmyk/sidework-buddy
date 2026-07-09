@@ -2435,6 +2435,7 @@ function TeamRosterCard({ team }: { team: ReturnType<typeof useTeamMembers> }) {
                   <p className="text-xs text-muted-foreground">Pre-fills their name, email, and phone. Title stays blank so you can set their hiring-team role.</p>
                 </div>
               )}
+              <div className="grid grid-cols-2 gap-3">
                 <div className="grid gap-2"><Label>First name</Label><Input value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} placeholder="e.g. Alex" /></div>
                 <div className="grid gap-2"><Label>Last name</Label><Input value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} placeholder="e.g. Rivera" /></div>
               </div>
