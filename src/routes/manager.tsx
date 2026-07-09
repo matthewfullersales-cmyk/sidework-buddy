@@ -1231,7 +1231,7 @@ function InterviewStageDetails({
   const meta = INTERVIEW_TYPE_META[type];
   const assignedTo = app.assignedTo ?? null;
   const assignee = assignedTo ? teamMembers.find((m) => m.id === assignedTo) : null;
-  const assigneeLabel = assignee ? assignee.name : "You (owner)";
+  const assigneeLabel = assignee ? teamMemberDisplayName(assignee) : "You (owner)";
 
   const reassignRow = (
     <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/30 p-2 text-xs">
