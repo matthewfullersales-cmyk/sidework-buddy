@@ -99,7 +99,7 @@ function EmployeePage() {
 }
 
 function OnboardingTab({ employeeId }: { employeeId: string }) {
-  const { employees, updateEmployee, videos } = useStore();
+  const { employees, updateEmployee, videos, mealPeriods } = useStore();
   const me = employees.find((e) => e.id === employeeId)!;
   const [firstName, setFirstName] = useState(me.firstName ?? me.name.split(" ")[0] ?? "");
   const [lastName, setLastName] = useState(me.lastName ?? me.name.split(" ").slice(1).join(" ") ?? "");
@@ -203,7 +203,7 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
           <p className="mt-1 text-xs text-muted-foreground">Set which days you can work. Your manager schedules around this.</p>
         </CardHeader>
         <CardContent>
-          <AvailabilityEditor value={weekly} onChange={setWeekly} />
+          <AvailabilityEditor value={weekly} onChange={setWeekly} mealPeriods={mealPeriods} />
         </CardContent>
       </Card>
 

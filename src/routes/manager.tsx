@@ -18,11 +18,11 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
-import { onboardingStatus, useStore, type Role, type ApplicationStatus, type Employee, type Relationship, DAY_KEYS, type JobApplication, type HiringStage, type ShadowShiftDetails, type InterviewType, getHiringStage } from "@/lib/sidework-store";
+import { onboardingStatus, useStore, type Role, type ApplicationStatus, type Employee, type Relationship, DAY_KEYS, hoursConfigured, type JobApplication, type HiringStage, type ShadowShiftDetails, type InterviewType, getHiringStage } from "@/lib/sidework-store";
 import { roleStyle, fohRolesWithCustom, bohRolesWithCustom } from "@/lib/role-colors";
 import { formatPhone } from "@/lib/format-phone";
 import { copyLinkWithToast } from "@/lib/copy-to-clipboard";
-import { AvailabilityEditor, RestaurantHoursEditor } from "@/components/sidework/AvailabilityEditor";
+import { AvailabilityEditor, RestaurantHoursEditor, MealPeriodsEditor } from "@/components/sidework/AvailabilityEditor";
 import { StaffJoinBanner, FullscreenQrDialog, StaffOnboardingCard } from "@/components/sidework/StaffOnboarding";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { slugify } from "@/lib/slug";
@@ -661,7 +661,7 @@ function TeamTab() {
 }
 
 function EmployeeProfileDialog({ employee, onClose }: { employee: Employee; onClose: () => void }) {
-  const { updateEmployee, activeRoles, customRoles } = useStore();
+  const { updateEmployee, activeRoles, customRoles, mealPeriods } = useStore();
   const fohActive = fohRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r) || employee.approvedRoles.includes(r));
   const bohActive = bohRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r) || employee.approvedRoles.includes(r));
   const [firstName, setFirstName] = useState(employee.firstName ?? employee.name.split(" ")[0] ?? "");
@@ -765,7 +765,7 @@ function EmployeeProfileDialog({ employee, onClose }: { employee: Employee; onCl
 
           <div>
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Weekly availability</p>
-            <AvailabilityEditor value={weekly} onChange={setWeekly} />
+            <AvailabilityEditor value={weekly} onChange={setWeekly} mealPeriods={mealPeriods} />
           </div>
 
           <div className="rounded-lg border border-border p-3">
@@ -2316,7 +2316,8 @@ function TrainingProgram({ menuName }: { menuName: string }) {
 }
 
 function SettingsTab({ onOpenSetup }: { onOpenSetup: () => void }) {
-  const { setupCompleted, restaurantProfile, resetSetup, restaurantHours, updateRestaurantDay } = useStore();
+  const { setupCompleted, restaurantProfile, resetSetup, restaurantHours, updateRestaurantDay, mealPeriods, updateMealPeriod } = useStore();
+  const configured = hoursConfigured(restaurantHours, mealPeriods);
   return (
     <div className="space-y-4">
       <Card>
@@ -2335,10 +2336,25 @@ function SettingsTab({ onOpenSetup }: { onOpenSetup: () => void }) {
           )}
         </CardContent>
       </Card>
+      {!configured && (
+        <div role="status" className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 text-sm text-amber-900 dark:text-amber-200">
+          <p className="font-semibold">Finish setting your operating hours</p>
+          <p className="mt-1 text-xs">Turn on the meal periods you actually serve (Breakfast / Lunch / Dinner) and confirm your daily open hours. Scheduling and employee availability rely on these to match staff to real service windows.</p>
+        </div>
+      )}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Restaurant hours</CardTitle>
-          <p className="mt-1 text-xs text-muted-foreground">AI scheduling only books staff during the hours you're open.</p>
+          <CardTitle className="text-base">Meal periods</CardTitle>
+          <p className="mt-1 text-xs text-muted-foreground">Turn on the services you offer and set their real start/end times. Employees' partial-availability (e.g. "Lunch only") is matched against these windows — not fixed clock cutoffs.</p>
+        </CardHeader>
+        <CardContent>
+          <MealPeriodsEditor value={mealPeriods} onChange={updateMealPeriod} />
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Daily hours</CardTitle>
+          <p className="mt-1 text-xs text-muted-foreground">AI scheduling only books staff during the hours you're open. Mark a day closed if you don't operate that day.</p>
         </CardHeader>
         <CardContent>
           <RestaurantHoursEditor value={restaurantHours} onChange={updateRestaurantDay} />

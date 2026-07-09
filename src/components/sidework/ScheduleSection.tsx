@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { useStore, type Role, type Shift, type Position, type Section, type WeeklyAvailability, DAY_KEYS, isAvailableFor } from "@/lib/sidework-store";
+import { useStore, type Role, type Shift, type Position, type Section, type WeeklyAvailability, type MealPeriods, DAY_KEYS, isAvailableFor, mealForShiftStart } from "@/lib/sidework-store";
 import { toast } from "sonner";
 
 import { ROLE_COLORS, roleStyle, STATUS_COLORS, contrastText, fohRolesWithCustom, bohRolesWithCustom, allRolesWithCustom, nextCustomColor } from "@/lib/role-colors";
@@ -110,7 +110,7 @@ function staffingFor(dayIdx: number): Partial<Record<Position, number>> {
 }
 
 export function ScheduleSection() {
-  const { shifts, employees, timeOff, restaurantHours, upsertShift, deleteShift } = useStore();
+  const { shifts, employees, timeOff, restaurantHours, mealPeriods, upsertShift, deleteShift } = useStore();
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date()));
   const [editing, setEditing] = useState<{ employeeId: string; date: string; existing?: Shift } | null>(null);
   const [generating, setGenerating] = useState(false);
@@ -190,7 +190,7 @@ export function ScheduleSection() {
           if (booked.has(emp.id)) return false;
           if (isOff(emp.id, date)) return false;
           const av = emp.weeklyAvailability?.[dayKey];
-          if (!isAvailableFor(av, desiredStart)) {
+          if (!isAvailableFor(av, desiredStart, mealPeriods)) {
             return false;
           }
           const clamped = clampToHours(dayIdx, desiredStart, desiredEnd);
@@ -222,7 +222,27 @@ export function ScheduleSection() {
             if (!def) continue;
             const ds = emp.position === "Bartender" && emp.availability === "Swing 4hr"
               ? { start: "19:00", end: "23:00" } : def;
-            if (trySchedule(emp, ds.start, ds.end)) filled += 1;
+            if (trySchedule(emp, ds.start, ds.end)) { filled += 1; continue; }
+            // Fallback: try each enabled meal-period start so lunch-only or
+            // breakfast-only employees still land in an appropriate slot.
+            const av = emp.weeklyAvailability?.[dayKey];
+            if (av?.kind === "partial") {
+              const durationMin = (() => {
+                const [sh, sm] = ds.start.split(":").map(Number);
+                const [eh, em] = ds.end.split(":").map(Number);
+                return ((eh ?? 0) * 60 + (em ?? 0)) - ((sh ?? 0) * 60 + (sm ?? 0));
+              })();
+              for (const meal of av.meals) {
+                const period = mealPeriods[meal];
+                if (!period.enabled) continue;
+                const [ph, pm] = period.start.split(":").map(Number);
+                const startMin = (ph ?? 0) * 60 + (pm ?? 0);
+                const endMin = Math.min(startMin + Math.max(durationMin, 240), 24 * 60 - 1);
+                const eh = String(Math.floor(endMin / 60)).padStart(2, "0");
+                const em = String(endMin % 60).padStart(2, "0");
+                if (trySchedule(emp, period.start, `${eh}:${em}`)) { filled += 1; break; }
+              }
+            }
           }
           if (filled < target) {
             conflicts.push(`${dayKey}: needed ${target} ${pos}${target === 1 ? "" : "s"}, filled ${filled}`);
@@ -274,7 +294,7 @@ export function ScheduleSection() {
       const dayKey = DAY_KEYS[(local.getDay() + 6) % 7];
       const emp = employees.find((e) => e.id === s.employeeId);
       const av = emp?.weeklyAvailability?.[dayKey];
-      if (av && !isAvailableFor(av, s.start)) {
+      if (av && !isAvailableFor(av, s.start, mealPeriods)) {
         skippedAvail += 1;
         return;
       }
@@ -689,7 +709,7 @@ function ShiftDetailsDialog({
   employeeId: string; date: string; existing?: Shift;
   onClose: () => void; onSave: (s: Shift) => void; onDelete: (id: string) => void;
 }) {
-  const { employees, activeRoles, customRoles, timeOff } = useStore();
+  const { employees, activeRoles, customRoles, timeOff, mealPeriods } = useStore();
   const emp = employees.find((e) => e.id === employeeId);
   const [start, setStart] = useState(existing?.start ?? "17:00");
   const [end, setEnd] = useState(existing?.end ?? "23:00");
@@ -725,7 +745,7 @@ function ShiftDetailsDialog({
   const availConflict: null | { kind: "none" } | { kind: "partial"; meals: string[] } = (() => {
     if (!availDay || availDay.kind === "full") return null;
     if (availDay.kind === "none") return { kind: "none" };
-    if (!isAvailableFor(availDay, start)) return { kind: "partial", meals: availDay.meals };
+    if (!isAvailableFor(availDay, start, mealPeriods)) return { kind: "partial", meals: availDay.meals };
     return null;
   })();
   const needsOverride = !!availConflict && !overrideAvailability;
