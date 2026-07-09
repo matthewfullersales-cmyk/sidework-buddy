@@ -6,6 +6,7 @@ import {
   updateTeamMember,
   deleteTeamMember,
   type TeamMember,
+  type TeamMemberInput,
 } from "@/lib/hiring-supabase";
 
 export function useTeamMembers() {
@@ -45,15 +46,26 @@ export function useTeamMembers() {
     members,
     loading,
     ownerId,
-    add: async (data: { name: string; email?: string; phone?: string; title?: string }) => {
+    add: async (data: TeamMemberInput) => {
       if (!ownerId) throw new Error("Not signed in");
       const row = await insertTeamMember(ownerId, data);
       setMembers((m) => [...m, row]);
       return row;
     },
-    update: async (id: string, patch: { name?: string; email?: string | null; phone?: string | null; title?: string | null }) => {
+    update: async (id: string, patch: { firstName?: string; lastName?: string | null; email?: string | null; phone?: string | null; title?: string | null }) => {
       await updateTeamMember(id, patch);
-      setMembers((m) => m.map((r) => (r.id === id ? { ...r, ...patch } as TeamMember : r)));
+      setMembers((m) => m.map((r) => {
+        if (r.id !== id) return r;
+        const next: TeamMember = { ...r };
+        if (patch.firstName !== undefined) next.firstName = patch.firstName.trim() || null;
+        if (patch.lastName !== undefined) next.lastName = patch.lastName == null ? null : patch.lastName.trim() || null;
+        if (patch.email !== undefined) next.email = patch.email;
+        if (patch.phone !== undefined) next.phone = patch.phone;
+        if (patch.title !== undefined) next.title = patch.title;
+        const combined = [next.firstName, next.lastName].filter(Boolean).join(" ").trim();
+        if (combined) next.name = combined;
+        return next;
+      }));
     },
     remove: async (id: string) => {
       await deleteTeamMember(id);

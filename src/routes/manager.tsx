@@ -27,7 +27,7 @@ import { StaffJoinBanner, FullscreenQrDialog, StaffOnboardingCard } from "@/comp
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { slugify } from "@/lib/slug";
 import { useTeamMembers } from "@/lib/use-team-members";
-import type { TeamMember } from "@/lib/hiring-supabase";
+import { teamMemberDisplayName, type TeamMember } from "@/lib/hiring-supabase";
 import { toast } from "sonner";
 import { ChevronDown, Check, CalendarIcon } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
@@ -973,7 +973,8 @@ function JobsTab() {
             teamMembers={team.members}
             onReassign={(tid) => {
               reassignApplication(a.id, tid);
-              const label = tid ? team.members.find((m) => m.id === tid)?.name ?? "team member" : "you";
+              const m = tid ? team.members.find((x) => x.id === tid) : null;
+              const label = m ? teamMemberDisplayName(m) : tid ? "team member" : "you";
               toast.success(`Interview reassigned to ${label}`);
             }}
           />
@@ -1230,7 +1231,7 @@ function InterviewStageDetails({
   const meta = INTERVIEW_TYPE_META[type];
   const assignedTo = app.assignedTo ?? null;
   const assignee = assignedTo ? teamMembers.find((m) => m.id === assignedTo) : null;
-  const assigneeLabel = assignee ? assignee.name : "You (owner)";
+  const assigneeLabel = assignee ? teamMemberDisplayName(assignee) : "You (owner)";
 
   const reassignRow = (
     <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/30 p-2 text-xs">
@@ -1243,7 +1244,7 @@ function InterviewStageDetails({
         <SelectContent>
           <SelectItem value="__owner__">You (owner)</SelectItem>
           {teamMembers.map((m) => (
-            <SelectItem key={m.id} value={m.id}>{m.name}{m.title ? ` — ${m.title}` : ""}</SelectItem>
+            <SelectItem key={m.id} value={m.id}>{teamMemberDisplayName(m)}{m.title ? ` — ${m.title}` : ""}</SelectItem>
           ))}
         </SelectContent>
       </Select>
@@ -2308,25 +2309,32 @@ function IconSwap() { return <svg viewBox="0 0 24 24" className="h-4 w-4" fill="
 function TeamRosterCard({ team }: { team: ReturnType<typeof useTeamMembers> }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<TeamMember | null>(null);
-  const [form, setForm] = useState({ name: "", email: "", phone: "", title: "" });
+  const [form, setForm] = useState({ firstName: "", lastName: "", email: "", phone: "", title: "" });
 
   const openAdd = () => {
     setEditing(null);
-    setForm({ name: "", email: "", phone: "", title: "" });
+    setForm({ firstName: "", lastName: "", email: "", phone: "", title: "" });
     setOpen(true);
   };
   const openEdit = (m: TeamMember) => {
     setEditing(m);
-    setForm({ name: m.name, email: m.email ?? "", phone: m.phone ?? "", title: m.title ?? "" });
+    setForm({
+      firstName: m.firstName ?? m.name.split(" ")[0] ?? "",
+      lastName: m.lastName ?? m.name.split(" ").slice(1).join(" ") ?? "",
+      email: m.email ?? "",
+      phone: m.phone ?? "",
+      title: m.title ?? "",
+    });
     setOpen(true);
   };
 
   const submit = async () => {
-    if (!form.name.trim()) return toast.error("Name is required");
+    if (!form.firstName.trim()) return toast.error("First name is required");
     try {
       if (editing) {
         await team.update(editing.id, {
-          name: form.name.trim(),
+          firstName: form.firstName.trim(),
+          lastName: form.lastName.trim() || null,
           email: form.email.trim() || null,
           phone: form.phone.trim() || null,
           title: form.title.trim() || null,
@@ -2334,10 +2342,11 @@ function TeamRosterCard({ team }: { team: ReturnType<typeof useTeamMembers> }) {
         toast.success("Team member updated");
       } else {
         await team.add({
-          name: form.name.trim(),
-          email: form.email.trim() || undefined,
-          phone: form.phone.trim() || undefined,
-          title: form.title.trim() || undefined,
+          firstName: form.firstName.trim(),
+          lastName: form.lastName.trim() || null,
+          email: form.email.trim() || null,
+          phone: form.phone.trim() || null,
+          title: form.title.trim() || null,
         });
         toast.success("Team member added");
       }
@@ -2348,7 +2357,7 @@ function TeamRosterCard({ team }: { team: ReturnType<typeof useTeamMembers> }) {
   };
 
   const remove = async (m: TeamMember) => {
-    if (!window.confirm(`Remove ${m.name} from your hiring team?`)) return;
+    if (!window.confirm(`Remove ${teamMemberDisplayName(m)} from your hiring team?`)) return;
     try { await team.remove(m.id); toast.message("Team member removed"); }
     catch (e) { toast.error(e instanceof Error ? e.message : "Could not remove"); }
   };
@@ -2365,7 +2374,10 @@ function TeamRosterCard({ team }: { team: ReturnType<typeof useTeamMembers> }) {
           <DialogContent>
             <DialogHeader><DialogTitle>{editing ? "Edit team member" : "Add team member"}</DialogTitle></DialogHeader>
             <div className="grid gap-3 py-2">
-              <div className="grid gap-2"><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Alex Rivera" /></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="grid gap-2"><Label>First name</Label><Input value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} placeholder="e.g. Alex" /></div>
+                <div className="grid gap-2"><Label>Last name</Label><Input value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} placeholder="e.g. Rivera" /></div>
+              </div>
               <div className="grid gap-2"><Label>Title (optional)</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="e.g. Assistant Manager" /></div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="grid gap-2"><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
@@ -2390,7 +2402,7 @@ function TeamRosterCard({ team }: { team: ReturnType<typeof useTeamMembers> }) {
           <div key={m.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-background p-3">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <p className="font-semibold">{m.name}</p>
+                <p className="font-semibold">{teamMemberDisplayName(m)}</p>
                 {m.title && <Badge variant="outline">{m.title}</Badge>}
               </div>
               <p className="mt-0.5 text-xs text-muted-foreground">

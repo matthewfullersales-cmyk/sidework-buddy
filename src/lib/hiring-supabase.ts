@@ -67,10 +67,17 @@ type ApplicationRow = {
 export type TeamMember = {
   id: string;
   name: string;
+  firstName: string | null;
+  lastName: string | null;
   email: string | null;
   phone: string | null;
   title: string | null;
 };
+
+export function teamMemberDisplayName(m: Pick<TeamMember, "firstName" | "lastName" | "name">): string {
+  const combined = [m.firstName, m.lastName].filter(Boolean).join(" ").trim();
+  return combined || m.name;
+}
 
 export type PublicInterviewInfo = {
   id: string;
@@ -447,37 +454,71 @@ export async function claimHireInvite(applicationId: string, employeeProfileId: 
 export async function fetchTeamMembers(ownerId: string): Promise<TeamMember[]> {
   const { data, error } = await supabase
     .from("restaurant_team_members")
-    .select("id, name, email, phone, title")
+    .select("id, name, first_name, last_name, email, phone, title")
     .eq("owner_id", ownerId)
     .order("created_at", { ascending: true });
   if (error) throw error;
-  return (data ?? []) as TeamMember[];
+  return (data ?? []).map((r) => ({
+    id: r.id,
+    name: r.name,
+    firstName: (r as { first_name: string | null }).first_name ?? null,
+    lastName: (r as { last_name: string | null }).last_name ?? null,
+    email: r.email,
+    phone: r.phone,
+    title: r.title,
+  }));
 }
+
+export type TeamMemberInput = {
+  firstName: string;
+  lastName?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  title?: string | null;
+};
 
 export async function insertTeamMember(
   ownerId: string,
-  data: { name: string; email?: string | null; phone?: string | null; title?: string | null },
+  data: TeamMemberInput,
 ): Promise<TeamMember> {
+  const first = data.firstName.trim();
+  const last = (data.lastName ?? "").trim();
+  const name = [first, last].filter(Boolean).join(" ");
   const { data: row, error } = await supabase
     .from("restaurant_team_members")
     .insert({
       owner_id: ownerId,
-      name: data.name,
+      name,
+      first_name: first,
+      last_name: last || null,
       email: data.email ?? null,
       phone: data.phone ?? null,
       title: data.title ?? null,
     })
-    .select("id, name, email, phone, title")
+    .select("id, name, first_name, last_name, email, phone, title")
     .single();
   if (error) throw error;
-  return row as TeamMember;
+  const r = row as { id: string; name: string; first_name: string | null; last_name: string | null; email: string | null; phone: string | null; title: string | null };
+  return { id: r.id, name: r.name, firstName: r.first_name, lastName: r.last_name, email: r.email, phone: r.phone, title: r.title };
 }
 
 export async function updateTeamMember(
   id: string,
-  patch: { name?: string; email?: string | null; phone?: string | null; title?: string | null },
+  patch: { firstName?: string; lastName?: string | null; email?: string | null; phone?: string | null; title?: string | null },
 ): Promise<void> {
-  const { error } = await supabase.from("restaurant_team_members").update(patch).eq("id", id);
+  const row: {
+    first_name?: string;
+    last_name?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    title?: string | null;
+  } = {};
+  if (patch.firstName !== undefined) row.first_name = patch.firstName.trim();
+  if (patch.lastName !== undefined) row.last_name = patch.lastName == null ? null : patch.lastName.trim() || null;
+  if (patch.email !== undefined) row.email = patch.email;
+  if (patch.phone !== undefined) row.phone = patch.phone;
+  if (patch.title !== undefined) row.title = patch.title;
+  const { error } = await supabase.from("restaurant_team_members").update(row).eq("id", id);
   if (error) throw error;
 }
 
