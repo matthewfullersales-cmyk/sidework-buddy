@@ -2373,7 +2373,10 @@ function TeamRosterCard({ team }: { team: ReturnType<typeof useTeamMembers> }) {
           <DialogContent>
             <DialogHeader><DialogTitle>{editing ? "Edit team member" : "Add team member"}</DialogTitle></DialogHeader>
             <div className="grid gap-3 py-2">
-              <div className="grid gap-2"><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Alex Rivera" /></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="grid gap-2"><Label>First name</Label><Input value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} placeholder="e.g. Alex" /></div>
+                <div className="grid gap-2"><Label>Last name</Label><Input value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} placeholder="e.g. Rivera" /></div>
+              </div>
               <div className="grid gap-2"><Label>Title (optional)</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="e.g. Assistant Manager" /></div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="grid gap-2"><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
