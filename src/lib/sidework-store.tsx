@@ -1055,29 +1055,55 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           notifications: [newNotif, ...s.notifications],
         };
       }),
-    upsertShift: (shift) =>
+    upsertShift: (shift) => {
+      // Optimistic local update first.
       setState((s) => {
         const exists = s.shifts.some((x) => x.id === shift.id);
         return {
           ...s,
           shifts: exists ? s.shifts.map((x) => (x.id === shift.id ? shift : x)) : [...s.shifts, shift],
         };
-      }),
-    deleteShift: (id) =>
-      setState((s) => ({ ...s, shifts: s.shifts.filter((x) => x.id !== id) })),
-    postTrade: (shiftId, note) =>
-      setState((s) => {
-        const shift = s.shifts.find((x) => x.id === shiftId);
-        if (!shift) return s;
-        return {
-          ...s,
-          trades: [
-            ...s.trades,
-            { id: uid("t"), shiftId, postedBy: shift.employeeId, status: "open", createdAt: new Date().toISOString(), note },
-          ],
-        };
-      }),
-    claimTrade: (tradeId, employeeId) =>
+      });
+      const oid = ownerIdRef.current;
+      if (!oid) return;
+      upsertShiftRow(oid, shift)
+        .then((saved) => {
+          // If a fresh insert produced a new uuid, replace the optimistic row.
+          if (saved.id !== shift.id) {
+            setState((s) => ({
+              ...s,
+              shifts: s.shifts.map((x) => (x.id === shift.id ? saved : x)),
+            }));
+          }
+        })
+        .catch((e) => console.error("[upsertShift]", e));
+    },
+    deleteShift: (id) => {
+      setState((s) => ({ ...s, shifts: s.shifts.filter((x) => x.id !== id) }));
+      // Only bother deleting from cloud if id looks like a uuid (already persisted).
+      if (/^[0-9a-f-]{36}$/i.test(id)) {
+        deleteShiftRow(id).catch((e) => console.error("[deleteShift]", e));
+      }
+    },
+    postTrade: (shiftId, note) => {
+      const oid = ownerIdRef.current;
+      const shift = state.shifts.find((x) => x.id === shiftId);
+      if (!shift) return;
+      const tempId = uid("t");
+      const optimistic: Trade = {
+        id: tempId, shiftId, postedBy: shift.employeeId, status: "open",
+        createdAt: new Date().toISOString(), note,
+      };
+      setState((s) => ({ ...s, trades: [...s.trades, optimistic] }));
+      if (!oid) return;
+      insertTradeRow(oid, shiftId, shift.employeeId, note)
+        .then((row) => {
+          setState((s) => ({ ...s, trades: s.trades.map((t) => (t.id === tempId ? row : t)) }));
+        })
+        .catch((e) => console.error("[postTrade]", e));
+    },
+    claimTrade: (tradeId, employeeId) => {
+      let sideEffects: { tradeId: string; approved: boolean; auto: boolean; shiftId: string } | null = null;
       setState((s) => {
         const trade = s.trades.find((t) => t.id === tradeId);
         if (!trade) return s;
@@ -1086,6 +1112,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
         const claimer = s.employees.find((e) => e.id === employeeId);
         if (!claimer) return s;
         const auto = claimer.autoApproveRoles.includes(shift.role);
+        sideEffects = { tradeId, approved: auto, auto, shiftId: shift.id };
         return {
           ...s,
           trades: s.trades.map((t) =>
@@ -1101,11 +1128,27 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           ),
           shifts: auto ? s.shifts.map((x) => (x.id === shift.id ? { ...x, employeeId } : x)) : s.shifts,
         };
-      }),
-    resolveTrade: (tradeId, approved) =>
+      });
+      if (sideEffects) {
+        const { tradeId: tid, auto, shiftId } = sideEffects;
+        updateTradeRow(tid, {
+          claimedBy: employeeId,
+          status: auto ? "approved" : "pending_approval",
+          autoApproved: auto,
+          approvedBy: auto ? "auto" : undefined,
+          resolvedAt: auto ? new Date().toISOString() : undefined,
+        }).catch((e) => console.error("[claimTrade]", e));
+        if (auto && /^[0-9a-f-]{36}$/i.test(shiftId)) {
+          reassignShiftEmployee(shiftId, employeeId).catch((e) => console.error("[claimTrade:reassign]", e));
+        }
+      }
+    },
+    resolveTrade: (tradeId, approved) => {
+      let side: { shiftId: string; claimedBy: string } | null = null;
       setState((s) => {
         const trade = s.trades.find((t) => t.id === tradeId);
         if (!trade || !trade.claimedBy) return s;
+        side = { shiftId: trade.shiftId, claimedBy: trade.claimedBy };
         return {
           ...s,
           trades: s.trades.map((t) =>
@@ -1115,7 +1158,16 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           ),
           shifts: approved ? s.shifts.map((x) => (x.id === trade.shiftId ? { ...x, employeeId: trade.claimedBy! } : x)) : s.shifts,
         };
-      }),
+      });
+      updateTradeRow(tradeId, {
+        status: approved ? "approved" : "denied",
+        approvedBy: "owner",
+        resolvedAt: new Date().toISOString(),
+      }).catch((e) => console.error("[resolveTrade]", e));
+      if (approved && side && /^[0-9a-f-]{36}$/i.test(side.shiftId)) {
+        reassignShiftEmployee(side.shiftId, side.claimedBy).catch((e) => console.error("[resolveTrade:reassign]", e));
+      }
+    },
     postJob: (data) => {
       const ownerId = ownerIdRef.current;
       if (!ownerId) {
