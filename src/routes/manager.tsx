@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useRequireRole } from "@/lib/use-require-role";
+import { useRequireManagerAccess } from "@/lib/use-require-manager-access";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AppShell, PageHeader } from "@/components/sidework/AppShell";
 import { SetupWizard } from "@/components/sidework/SetupWizard";
