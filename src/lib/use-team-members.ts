@@ -5,6 +5,7 @@ import {
   updateTeamMember,
   deleteTeamMember,
   setTeamMemberHiringPermission,
+  setTeamMemberSchedulePermission,
   type TeamMember,
   type TeamMemberInput,
 } from "@/lib/hiring-supabase";
