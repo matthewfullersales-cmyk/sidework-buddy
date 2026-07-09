@@ -3,21 +3,16 @@ import { useEffect, useMemo, useState } from "react";
 import { Logo } from "@/components/sidework/Logo";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   useStore,
   type Role,
-  type WeeklyAvailability,
-  type WorkExperience,
   type JobPosting,
-  DAY_KEYS,
-  defaultWeeklyAvailability,
 } from "@/lib/sidework-store";
 import { fetchPublicPosting } from "@/lib/hiring-supabase";
+import { formatPhone } from "@/lib/format-phone";
 import { toast } from "sonner";
 import { CheckCircle2, Loader2 } from "lucide-react";
 
@@ -37,14 +32,14 @@ export const Route = createFileRoute("/careers")({
   component: CareersPage,
 });
 
-const FOH_ROLES: Role[] = ["Host", "Busser", "Server Assistant", "Bar Back", "Bartender", "Server", "Manager", "Assistant Manager"];
-const BOH_ROLES: Role[] = ["Chef", "Sous Chef", "Line Cook", "Fry Cook", "Saute", "Grill", "Pizza", "Garde Manger", "Dishwasher", "Prep"];
+function countWords(s: string) {
+  const t = s.trim();
+  return t ? t.split(/\s+/).length : 0;
+}
 
 function CareersPage() {
   const { jobs, submitApplication, restaurantProfile } = useStore();
   const { job: jobIdParam } = Route.useSearch();
-  // Fetch the target job from Supabase so shared /careers?job=<id> links load
-  // for anyone, not just users who happen to have the job in local state.
   const [targetJob, setTargetJob] = useState<JobPosting | null>(null);
   const [loadingJob, setLoadingJob] = useState(!!jobIdParam);
   useEffect(() => {
@@ -53,73 +48,40 @@ function CareersPage() {
       setLoadingJob(false);
       return;
     }
-    // Fallback to local jobs first (owner-preview path) for a snappier render.
     const local = jobs.find((j) => j.id === jobIdParam) ?? null;
     if (local) setTargetJob(local);
     setLoadingJob(true);
     fetchPublicPosting(jobIdParam)
       .then((row) => setTargetJob(row))
-      .catch((e) => {
-        console.error("[careers] failed to load job", e);
-      })
+      .catch((e) => console.error("[careers] failed to load job", e))
       .finally(() => setLoadingJob(false));
   }, [jobIdParam]);
-  const open = jobs.filter((j) => j.open);
+
   const restaurantName = restaurantProfile?.name ?? "Our restaurant";
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [role, setRole] = useState<Role | "">(targetJob?.role ?? "");
-  const [weekly, setWeekly] = useState<WeeklyAvailability>(() => {
-    const empty = defaultWeeklyAvailability();
-    DAY_KEYS.forEach((d) => (empty[d] = { kind: "none" }));
-    return empty;
-  });
-  const [pitch, setPitch] = useState("");
-  const [workExp, setWorkExp] = useState<WorkExperience[]>([
-    { employer: "", position: "", duration: "" },
-    { employer: "", position: "", duration: "" },
-    { employer: "", position: "", duration: "" },
-  ]);
+  const [email, setEmail] = useState("");
+  const [experience, setExperience] = useState("");
+  const [specialTalents, setSpecialTalents] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
 
-  useEffect(() => {
-    if (targetJob) setRole(targetJob.role);
-  }, [targetJob?.id]);
-
-  const pitchWords = useMemo(
-    () => (pitch.trim() ? pitch.trim().split(/\s+/).length : 0),
-    [pitch],
-  );
-
-  const toggleDay = (d: typeof DAY_KEYS[number]) =>
-    setWeekly((prev) => ({
-      ...prev,
-      [d]: prev[d]?.kind === "none" ? { kind: "full" } : { kind: "none" },
-    }));
-
-  const selectedDays = DAY_KEYS.filter((d) => weekly[d]?.kind !== "none");
+  const experienceWords = useMemo(() => countWords(experience), [experience]);
+  const talentsWords = useMemo(() => countWords(specialTalents), [specialTalents]);
 
   const submit = async () => {
     if (!targetJob) return toast.error("Please open a specific job link to apply.");
     if (!firstName.trim() || !lastName.trim()) return toast.error("Please enter your first and last name.");
     if (!/^\S+@\S+\.\S+$/.test(email)) return toast.error("Please enter a valid email address.");
-    if (!/^[0-9()+\-.\s]{7,}$/.test(phone)) return toast.error("Please enter a valid phone number.");
-    if (!role) return toast.error("Please pick a position.");
-    if (selectedDays.length === 0) return toast.error("Pick at least one day you can work.");
-    if (pitchWords < 10) return toast.error("Tell us a bit about yourself (at least 10 words).");
-    if (pitchWords > 200) return toast.error("Please keep your pitch under 200 words.");
-
-    const filledWorkExp = workExp.filter((w) => w.employer.trim() || w.position.trim());
+    if (phone.replace(/\D/g, "").length < 10) return toast.error("Please enter a valid phone number.");
+    if (experienceWords < 5) return toast.error("Tell us a bit about your experience (at least 5 words).");
+    if (experienceWords > 150) return toast.error("Please keep your experience under 150 words.");
+    if (talentsWords > 150) return toast.error("Please keep special talents under 150 words.");
 
     setSubmitting(true);
-
     try {
-      // Direct anon insert — sidework-store's optimistic path only benefits the
-      // signed-in owner; public applicants shouldn't touch the store.
       const { insertApplication } = await import("@/lib/hiring-supabase");
       await insertApplication({
         jobId: targetJob.id,
@@ -128,13 +90,12 @@ function CareersPage() {
         lastName: lastName.trim(),
         email: email.trim(),
         phone: phone.trim(),
-        role: role as Role,
-        pitch: pitch.trim(),
-        weeklyAvailability: weekly,
-        availabilityDays: selectedDays as string[],
+        role: targetJob.role as Role,
+        pitch: experience.trim(),
+        specialTalents: specialTalents.trim() || undefined,
+        availabilityDays: [],
         availabilityHours: "Open availability",
         verified: false,
-        workExperience: filledWorkExp.length > 0 ? filledWorkExp : undefined,
       });
       setDone(true);
     } catch (e) {
@@ -144,9 +105,6 @@ function CareersPage() {
       setSubmitting(false);
     }
   };
-  // submitApplication is exposed by the store for owner-side/manager previews,
-  // but the public careers form always goes through the anon insert path above
-  // so an unauthenticated applicant never depends on store state.
   void submitApplication;
 
   if (done) {
@@ -186,29 +144,11 @@ function CareersPage() {
           </h1>
           <p className="mt-3 max-w-xl text-base text-white/85">
             {targetJob
-              ? `${targetJob.type} · ${targetJob.payRange}. Takes about 2 minutes.`
-              : "Fill out the form below — takes about 2 minutes. We review every application."}
+              ? `${targetJob.type} · ${targetJob.payRange}. Takes about a minute.`
+              : "Open a specific job link to apply."}
           </p>
         </div>
       </section>
-
-      {!targetJob && open.length > 0 && (
-        <section className="mx-auto max-w-3xl px-4 pt-8">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Open positions</p>
-          <div className="flex flex-wrap gap-2">
-            {open.map((j) => (
-              <Badge
-                key={j.id}
-                variant={role === j.role ? "default" : "secondary"}
-                className="cursor-pointer px-3 py-1.5 text-sm"
-                onClick={() => setRole(j.role)}
-              >
-                {j.title} · {j.payRange}
-              </Badge>
-            ))}
-          </div>
-        </section>
-      )}
 
       <section className="mx-auto max-w-3xl px-4 py-8 md:py-10">
         <Card className="border-2">
@@ -221,110 +161,43 @@ function CareersPage() {
                 <Field label="Last name">
                   <Input autoComplete="family-name" value={lastName} onChange={(e) => setLastName(e.target.value)} />
                 </Field>
+                <Field label="Phone">
+                  <Input
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="tel"
+                    placeholder="(555) 123-4567"
+                    value={phone}
+                    onChange={(e) => setPhone(formatPhone(e.target.value))}
+                  />
+                </Field>
                 <Field label="Email">
                   <Input type="email" inputMode="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
                 </Field>
-                <Field label="Phone">
-                  <Input type="tel" inputMode="tel" autoComplete="tel" placeholder="(555) 123-4567" value={phone} onChange={(e) => setPhone(e.target.value)} />
-                </Field>
               </div>
 
-              <Field label="Position applying for">
-                <Select value={role} onValueChange={(v) => setRole(v as Role)} disabled={!!targetJob}>
-                  <SelectTrigger><SelectValue placeholder="Select a position" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectLabel>Front of House</SelectLabel>
-                      {FOH_ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-                    </SelectGroup>
-                    <SelectSeparator />
-                    <SelectGroup>
-                      <SelectLabel>Back of House</SelectLabel>
-                      {BOH_ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
+              <Field label="Desired position">
+                <Input value={targetJob ? `${targetJob.title} — ${targetJob.role}` : ""} disabled placeholder="Open a job link to apply" />
                 {targetJob && (
                   <p className="text-xs text-muted-foreground">Pre-filled from job posting.</p>
                 )}
               </Field>
 
-              <div className="grid gap-3">
-                <div>
-                  <Label className="text-sm font-semibold">Relevant work experience</Label>
-                  <p className="text-xs text-muted-foreground">List your most recent restaurant or hospitality experience</p>
-                </div>
-                {workExp.map((w, i) => (
-                  <div key={i} className="grid gap-2 rounded-lg border border-border bg-muted/20 p-3">
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      <Input
-                        placeholder="Restaurant or employer name"
-                        value={w.employer}
-                        onChange={(e) =>
-                          setWorkExp((prev) =>
-                            prev.map((item, idx) => (idx === i ? { ...item, employer: e.target.value } : item)),
-                          )
-                        }
-                      />
-                      <Input
-                        placeholder="Position held"
-                        value={w.position}
-                        onChange={(e) =>
-                          setWorkExp((prev) =>
-                            prev.map((item, idx) => (idx === i ? { ...item, position: e.target.value } : item)),
-                          )
-                        }
-                      />
-                    </div>
-                    <Select
-                      value={w.duration}
-                      onValueChange={(v) =>
-                        setWorkExp((prev) =>
-                          prev.map((item, idx) =>
-                            idx === i ? { ...item, duration: v as WorkExperience["duration"] } : item,
-                          ),
-                        )
-                      }
-                    >
-                      <SelectTrigger className="text-sm">
-                        <SelectValue placeholder="How long did you work there?" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Less than 6 months">Less than 6 months</SelectItem>
-                        <SelectItem value="6 months - 1 year">6 months - 1 year</SelectItem>
-                        <SelectItem value="1 - 2 years">1 - 2 years</SelectItem>
-                        <SelectItem value="2 - 5 years">2 - 5 years</SelectItem>
-                        <SelectItem value="5+ years">5+ years</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                ))}
-              </div>
-
-              <Field label="Days you can work">
-                <div className="flex flex-wrap gap-2">
-                  {DAY_KEYS.map((d) => {
-                    const on = weekly[d]?.kind !== "none";
-                    return (
-                      <button
-                        key={d}
-                        type="button"
-                        onClick={() => toggleDay(d)}
-                        className={`min-h-11 rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${on ? "border-primary bg-primary text-primary-foreground" : "border-input bg-background"}`}
-                      >
-                        {d}
-                      </button>
-                    );
-                  })}
-                </div>
-              </Field>
-
-              <Field label={`Tell us why you'd be great here (${pitchWords}/150 words)`}>
+              <Field label={`Experience (${experienceWords}/150 words)`}>
                 <Textarea
                   rows={5}
-                  value={pitch}
-                  onChange={(e) => setPitch(e.target.value)}
-                  placeholder="Share your experience, why you want to work here, and what makes you a great fit."
+                  value={experience}
+                  onChange={(e) => setExperience(e.target.value)}
+                  placeholder="Briefly describe your relevant restaurant or hospitality experience — where, what role, how long."
+                />
+              </Field>
+
+              <Field label={`Special talents (optional, ${talentsWords}/150 words)`}>
+                <Textarea
+                  rows={4}
+                  value={specialTalents}
+                  onChange={(e) => setSpecialTalents(e.target.value)}
+                  placeholder="Anything else that makes you stand out — languages spoken, wine knowledge, latte art, etc."
                 />
               </Field>
 

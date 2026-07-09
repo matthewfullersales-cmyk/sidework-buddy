@@ -41,6 +41,7 @@ export type Database = {
           selected_slot: string | null
           shadow_shift: Json | null
           source: string | null
+          special_talents: string | null
           stage: string | null
           status: string
           updated_at: string
@@ -74,6 +75,7 @@ export type Database = {
           selected_slot?: string | null
           shadow_shift?: Json | null
           source?: string | null
+          special_talents?: string | null
           stage?: string | null
           status?: string
           updated_at?: string
@@ -107,6 +109,7 @@ export type Database = {
           selected_slot?: string | null
           shadow_shift?: Json | null
           source?: string | null
+          special_talents?: string | null
           stage?: string | null
           status?: string
           updated_at?: string
