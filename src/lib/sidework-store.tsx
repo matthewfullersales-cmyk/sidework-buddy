@@ -192,6 +192,71 @@ export function isAvailableFor(av: DayAvailability | undefined, start: string, p
   return av.meals.includes(meal);
 }
 
+// Minutes-since-midnight; end<=start is treated as crossing midnight (24:00).
+function toMin(t: string): number {
+  const [h, m] = t.split(":").map(Number);
+  return (h ?? 0) * 60 + (m ?? 0);
+}
+
+// All enabled meal periods whose window [p.start, p.end) overlaps the shift
+// range [start, end). Overnight shifts (end<=start) are clipped to end-of-day
+// for period math.
+export function mealsInShiftRange(start: string, end: string, periods?: MealPeriods): Meal[] {
+  const p = periods ?? defaultMealPeriods();
+  const order: Meal[] = ["Breakfast", "Lunch", "Dinner"];
+  const enabled = order.filter((m) => p[m].enabled);
+  if (enabled.length === 0) return [];
+  const s = toMin(start);
+  let e = toMin(end);
+  if (e <= s) e = 24 * 60;
+  const touched = enabled.filter((m) => {
+    const ps = toMin(p[m].start);
+    const pe = toMin(p[m].end);
+    return ps < e && pe > s;
+  });
+  if (touched.length > 0) return touched;
+  const single = mealForShiftStart(start, p);
+  return single ? [single] : [];
+}
+
+// Range-aware availability: every meal period the shift touches must be one
+// the employee is available for. Catches shifts that start inside an approved
+// period but end inside a disallowed one (e.g. Lunch-only, 14:45–15:15 crosses
+// into Dinner at 15:00).
+export function isAvailableForRange(
+  av: DayAvailability | undefined,
+  start: string,
+  end: string,
+  periods?: MealPeriods,
+): { ok: boolean; touched: Meal[]; violating: Meal[] } {
+  if (!av || av.kind === "full") return { ok: true, touched: [], violating: [] };
+  if (av.kind === "none") return { ok: false, touched: [], violating: [] };
+  const touched = mealsInShiftRange(start, end, periods);
+  if (touched.length === 0) return { ok: true, touched, violating: [] };
+  const violating = touched.filter((m) => !av.meals.includes(m));
+  return { ok: violating.length === 0, touched, violating };
+}
+
+// Two enabled meal periods TRULY overlap when the later's start < earlier's
+// end. Touching at a single instant (Lunch ends 15:00 / Dinner starts 15:00)
+// is NOT an overlap — the half-open intervals in mealForShiftStart handle it.
+export function findMealPeriodOverlaps(periods: MealPeriods): Array<{ winner: Meal; loser: Meal }> {
+  const order: Meal[] = ["Breakfast", "Lunch", "Dinner"];
+  const enabled = order.filter((m) => periods[m].enabled);
+  const out: Array<{ winner: Meal; loser: Meal }> = [];
+  for (let i = 0; i < enabled.length; i++) {
+    for (let j = i + 1; j < enabled.length; j++) {
+      const a = enabled[i]!, b = enabled[j]!;
+      if (toMin(periods[b].start) < toMin(periods[a].end)) {
+        // mealForShiftStart iterates Breakfast→Lunch→Dinner and returns the
+        // first match, so the earlier meal (a) wins the overlap.
+        out.push({ winner: a, loser: b });
+      }
+    }
+  }
+  return out;
+}
+
 export function hoursConfigured(days: RestaurantHours, mealPeriods: MealPeriods): boolean {
   const anyOpen = DAY_KEYS.some((d) => !days[d].closed);
   const anyMeal = (["Breakfast", "Lunch", "Dinner"] as Meal[]).some((m) => mealPeriods[m].enabled);
