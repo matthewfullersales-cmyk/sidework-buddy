@@ -322,6 +322,7 @@ export interface Notification {
 interface Store {
   currentUser: { type: "manager"; id: "owner" } | { type: "employee"; id: string };
   setCurrentUser: (u: Store["currentUser"]) => void;
+  employeeHydrating: boolean;
   employees: Employee[];
   videos: TrainingVideo[];
   shifts: Shift[];
