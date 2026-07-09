@@ -328,8 +328,11 @@ function CareersPage() {
                 />
               </Field>
 
-              <Button size="lg" className="w-full shadow-elegant" onClick={submit} disabled={submitting}>
-                {submitting ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting…</>) : "Submit application"}
+              {jobIdParam && !loadingJob && !targetJob && (
+                <p className="text-sm text-destructive">This job link is no longer active. Please ask for an updated link.</p>
+              )}
+              <Button size="lg" className="w-full shadow-elegant" onClick={submit} disabled={submitting || loadingJob || !targetJob}>
+                {submitting ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting…</>) : loadingJob ? "Loading job…" : !targetJob ? "Open a job link to apply" : "Submit application"}
               </Button>
             </div>
           </CardContent>
