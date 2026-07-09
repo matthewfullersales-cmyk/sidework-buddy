@@ -38,6 +38,7 @@ import {
   fetchOwnerOpenTrades,
   fetchShiftsByIds,
   fetchMyTimeOff,
+  fetchCoworkerNames,
 } from "@/lib/employee-supabase";
 import { useAuth } from "@/lib/auth-context";
 import { toast } from "sonner";
