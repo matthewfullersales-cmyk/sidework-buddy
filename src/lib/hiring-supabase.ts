@@ -55,6 +55,8 @@ type ApplicationRow = {
   offered_slots: string[] | null;
   selected_slot: string | null;
   shadow_shift: unknown;
+  shadow_confirmed_at: string | null;
+  shadow_response_note: string | null;
   archived: boolean;
   hired_employee_id: string | null;
   work_experience: unknown;
