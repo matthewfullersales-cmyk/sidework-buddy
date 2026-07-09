@@ -26,6 +26,8 @@ import { AvailabilityEditor, RestaurantHoursEditor } from "@/components/sidework
 import { StaffJoinBanner, FullscreenQrDialog, StaffOnboardingCard } from "@/components/sidework/StaffOnboarding";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { slugify } from "@/lib/slug";
+import { useTeamMembers } from "@/lib/use-team-members";
+import type { TeamMember } from "@/lib/hiring-supabase";
 import { toast } from "sonner";
 import { ChevronDown, Check } from "lucide-react";
 
