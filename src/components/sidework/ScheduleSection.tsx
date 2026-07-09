@@ -796,7 +796,7 @@ function ShiftDetailsDialog({
               <p className="font-semibold">
                 {availConflict.kind === "none"
                   ? `⚠️ ${emp?.name ?? "This employee"} has ${dayKey}s marked unavailable in their profile`
-                  : `⚠️ ${emp?.name ?? "This employee"} is only available for ${availConflict.meals.join(" & ")} on ${dayKey}s`}
+                  : `⚠️ ${emp?.name ?? "This employee"} is only available for ${availConflict.meals.join(" & ")} on ${dayKey}s — this shift extends into ${availConflict.violating.join(" & ")} service`}
               </p>
               <p className="mt-1 text-xs">
                 Recurring weekly availability — not a one-off time-off request. Confirm below to schedule anyway.
