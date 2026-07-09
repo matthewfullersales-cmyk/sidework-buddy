@@ -130,6 +130,8 @@ export function applicationFromRow(r: ApplicationRow): JobApplication {
     offeredSlots: r.offered_slots ?? undefined,
     selectedSlot: r.selected_slot ?? undefined,
     shadowShift: (r.shadow_shift as ShadowShiftDetails | null) ?? undefined,
+    shadowConfirmedAt: r.shadow_confirmed_at ?? null,
+    shadowResponseNote: r.shadow_response_note ?? null,
     archived: r.archived,
     hiredEmployeeId: r.hired_employee_id ?? undefined,
     workExperience: (r.work_experience as WorkExperience[] | null) ?? undefined,
