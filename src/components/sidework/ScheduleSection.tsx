@@ -652,13 +652,29 @@ function ShiftDetailsDialog({
   employeeId: string; date: string; existing?: Shift;
   onClose: () => void; onSave: (s: Shift) => void; onDelete: (id: string) => void;
 }) {
-  const { employees, activeRoles, customRoles } = useStore();
+  const { employees, activeRoles, customRoles, timeOff } = useStore();
   const emp = employees.find((e) => e.id === employeeId);
   const [start, setStart] = useState(existing?.start ?? "17:00");
   const [end, setEnd] = useState(existing?.end ?? "23:00");
   const [role, setRole] = useState<Role>(existing?.role ?? (emp?.primaryRole ?? "Server"));
   const [notes, setNotes] = useState(existing?.notes ?? "");
   const rolesForPicker = allRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r) || r === role);
+
+  const timeOffConflict = (() => {
+    const rows = timeOff.filter((t) =>
+      t.employeeId === employeeId &&
+      date >= t.startDate &&
+      date <= t.endDate &&
+      (t.status === "approved" || t.status === "pending")
+    );
+    const approved = rows.find((r) => r.status === "approved");
+    if (approved) return { status: "approved" as const, row: approved };
+    if (rows.length > 0) return { status: "pending" as const, row: rows[0] };
+    return null;
+  })();
+
+  const blocked = timeOffConflict?.status === "approved";
+  const dateLabel = new Date(date + "T00:00").toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" });
 
   return (
     <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
@@ -670,9 +686,33 @@ function ShiftDetailsDialog({
           <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm">
             <p className="font-semibold">{emp?.name}</p>
             <p className="text-xs text-muted-foreground">
-              {emp?.position} · {new Date(date + "T00:00").toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}
+              {emp?.position} · {dateLabel}
             </p>
           </div>
+          {timeOffConflict && (
+            <div
+              role="alert"
+              className={`rounded-lg border p-3 text-sm ${
+                blocked
+                  ? "border-destructive/60 bg-destructive/10 text-destructive"
+                  : "border-amber-500/60 bg-amber-500/10 text-amber-900 dark:text-amber-200"
+              }`}
+            >
+              <p className="font-semibold">
+                {blocked
+                  ? `⚠️ ${emp?.name ?? "This employee"} has approved time off on ${dateLabel}`
+                  : `⚠️ ${emp?.name ?? "This employee"} has a pending time-off request for ${dateLabel}`}
+              </p>
+              {timeOffConflict.row.reason && (
+                <p className="mt-1 text-xs opacity-90">Reason: {timeOffConflict.row.reason}</p>
+              )}
+              <p className="mt-1 text-xs">
+                {blocked
+                  ? "Saving is blocked. If this shift really needs to happen, deny or cancel the time-off request first in the Time Off tab."
+                  : "The request hasn't been approved yet — you can still save this shift, but consider resolving the request first."}
+              </p>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label className="text-xs">Start</Label>
@@ -704,12 +744,19 @@ function ShiftDetailsDialog({
           <div className="flex gap-2">
             <Button variant="ghost" onClick={onClose}>Cancel</Button>
             <Button
-              onClick={() => onSave({
-                id: existing?.id ?? `s_${employeeId}_${date}`,
-                employeeId, role, date, start, end,
-                notes: notes || undefined,
-                position: emp?.position,
-              })}
+              disabled={blocked}
+              onClick={() => {
+                if (blocked) {
+                  toast.error(`${emp?.name ?? "Employee"} has approved time off on this date`);
+                  return;
+                }
+                onSave({
+                  id: existing?.id ?? `s_${employeeId}_${date}`,
+                  employeeId, role, date, start, end,
+                  notes: notes || undefined,
+                  position: emp?.position,
+                });
+              }}
             >
               Save
             </Button>
@@ -718,4 +765,5 @@ function ShiftDetailsDialog({
       </DialogContent>
     </Dialog>
   );
+
 }
