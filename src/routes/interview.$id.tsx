@@ -1,10 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Logo } from "@/components/sidework/Logo";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useStore, type InterviewType } from "@/lib/sidework-store";
-import { CheckCircle2, Video, Phone, MapPin } from "lucide-react";
+import type { InterviewType } from "@/lib/sidework-store";
+import { CheckCircle2, Video, Phone, MapPin, Loader2 } from "lucide-react";
+import { fetchPublicInterview, confirmApplicantSlot, type PublicInterviewInfo } from "@/lib/hiring-supabase";
 
 export const Route = createFileRoute("/interview/$id")({
   ssr: false,
@@ -46,12 +47,43 @@ const TYPE_COPY: Record<InterviewType, {
 
 function InterviewConfirmPage() {
   const { id } = Route.useParams();
-  const { applications, applicantSelectSlot, restaurantProfile } = useStore();
-  const app = useMemo(() => applications.find((a) => a.id === id), [applications, id]);
-  const restaurantName = restaurantProfile?.name ?? "the team";
+  const [app, setApp] = useState<PublicInterviewInfo | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
   const [picking, setPicking] = useState<string | null>(null);
+  const [pickError, setPickError] = useState<string | null>(null);
 
-  if (!app) {
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    fetchPublicInterview(id)
+      .then((res) => {
+        if (cancelled) return;
+        if (!res) setNotFound(true);
+        else setApp(res);
+      })
+      .catch((e) => {
+        console.error("[interview page]", e);
+        if (!cancelled) setNotFound(true);
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [id]);
+
+  const restaurantName = app?.restaurantName ?? "the team";
+  const type: InterviewType = (app?.interviewType as InterviewType) ?? "video";
+  const firstName = useMemo(() => app?.firstName ?? app?.name?.split(" ")[0] ?? "there", [app]);
+
+  if (loading) {
+    return (
+      <Centered>
+        <Loader2 className="mx-auto h-8 w-8 animate-spin text-muted-foreground" />
+        <p className="mt-4 text-sm text-muted-foreground">Loading your interview…</p>
+      </Centered>
+    );
+  }
+
+  if (notFound || !app) {
     return (
       <Centered>
         <h1 className="text-2xl font-bold">Interview link not found</h1>
@@ -61,8 +93,6 @@ function InterviewConfirmPage() {
     );
   }
 
-  const firstName = app.firstName ?? app.name.split(" ")[0];
-  const type: InterviewType = app.interviewType ?? "video";
   const copy = TYPE_COPY[type];
 
   if (app.stage === "video_scheduled" && app.selectedSlot) {
@@ -96,7 +126,6 @@ function InterviewConfirmPage() {
       </Centered>
     );
   }
-
 
   if (!app.offeredSlots || app.offeredSlots.length === 0) {
     return (
@@ -134,17 +163,26 @@ function InterviewConfirmPage() {
                 disabled={picking !== null}
                 onClick={async () => {
                   setPicking(slot);
-                  await new Promise((r) => setTimeout(r, 600));
-                  applicantSelectSlot(app.id, slot);
+                  setPickError(null);
+                  try {
+                    await confirmApplicantSlot(app.id, slot);
+                    const fresh = await fetchPublicInterview(app.id);
+                    if (fresh) setApp(fresh);
+                  } catch (e) {
+                    console.error("[confirm slot]", e);
+                    setPickError(e instanceof Error ? e.message : "Could not confirm slot");
+                    setPicking(null);
+                  }
                 }}
                 className="h-auto min-h-14 justify-start py-4 text-base"
               >
                 {picking === slot ? "Confirming…" : formatSlot(slot)}
               </Button>
             ))}
+            {pickError && <p className="text-sm text-destructive">{pickError}</p>}
             <p className="mt-2 text-xs text-muted-foreground">
               Both you and {restaurantName} will get a confirmation, plus a reminder{" "}
-              {type === "in_person" ? "24 hours and 1 hour" : type === "phone" ? "30 minutes" : "30 minutes"} before.
+              {type === "in_person" ? "24 hours and 1 hour" : "30 minutes"} before.
             </p>
           </CardContent>
         </Card>
