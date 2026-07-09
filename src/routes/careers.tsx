@@ -13,9 +13,11 @@ import {
   type Role,
   type WeeklyAvailability,
   type WorkExperience,
+  type JobPosting,
   DAY_KEYS,
   defaultWeeklyAvailability,
 } from "@/lib/sidework-store";
+import { fetchPublicPosting } from "@/lib/hiring-supabase";
 import { toast } from "sonner";
 import { CheckCircle2, Loader2 } from "lucide-react";
 
@@ -41,7 +43,27 @@ const BOH_ROLES: Role[] = ["Chef", "Sous Chef", "Line Cook", "Fry Cook", "Saute"
 function CareersPage() {
   const { jobs, submitApplication, restaurantProfile } = useStore();
   const { job: jobIdParam } = Route.useSearch();
-  const targetJob = jobIdParam ? jobs.find((j) => j.id === jobIdParam) : null;
+  // Fetch the target job from Supabase so shared /careers?job=<id> links load
+  // for anyone, not just users who happen to have the job in local state.
+  const [targetJob, setTargetJob] = useState<JobPosting | null>(null);
+  const [loadingJob, setLoadingJob] = useState(!!jobIdParam);
+  useEffect(() => {
+    if (!jobIdParam) {
+      setTargetJob(null);
+      setLoadingJob(false);
+      return;
+    }
+    // Fallback to local jobs first (owner-preview path) for a snappier render.
+    const local = jobs.find((j) => j.id === jobIdParam) ?? null;
+    if (local) setTargetJob(local);
+    setLoadingJob(true);
+    fetchPublicPosting(jobIdParam)
+      .then((row) => setTargetJob(row))
+      .catch((e) => {
+        console.error("[careers] failed to load job", e);
+      })
+      .finally(() => setLoadingJob(false));
+  }, [jobIdParam]);
   const open = jobs.filter((j) => j.open);
   const restaurantName = restaurantProfile?.name ?? "Our restaurant";
 
@@ -82,6 +104,7 @@ function CareersPage() {
   const selectedDays = DAY_KEYS.filter((d) => weekly[d]?.kind !== "none");
 
   const submit = async () => {
+    if (!targetJob) return toast.error("Please open a specific job link to apply.");
     if (!firstName.trim() || !lastName.trim()) return toast.error("Please enter your first and last name.");
     if (!/^\S+@\S+\.\S+$/.test(email)) return toast.error("Please enter a valid email address.");
     if (!/^[0-9()+\-.\s]{7,}$/.test(phone)) return toast.error("Please enter a valid phone number.");
@@ -93,27 +116,38 @@ function CareersPage() {
     const filledWorkExp = workExp.filter((w) => w.employer.trim() || w.position.trim());
 
     setSubmitting(true);
-    await new Promise((r) => setTimeout(r, 700));
 
-    submitApplication({
-      jobId: targetJob?.id,
-      name: `${firstName.trim()} ${lastName.trim()}`,
-      firstName: firstName.trim(),
-      lastName: lastName.trim(),
-      email: email.trim(),
-      phone: phone.trim(),
-      role: role as Role,
-      pitch: pitch.trim(),
-      weeklyAvailability: weekly,
-      availabilityDays: selectedDays as string[],
-      availabilityHours: "Open availability",
-      verified: false,
-      workExperience: filledWorkExp.length > 0 ? filledWorkExp : undefined,
-    });
-
-    setSubmitting(false);
-    setDone(true);
+    try {
+      // Direct anon insert — sidework-store's optimistic path only benefits the
+      // signed-in owner; public applicants shouldn't touch the store.
+      const { insertApplication } = await import("@/lib/hiring-supabase");
+      await insertApplication({
+        jobId: targetJob.id,
+        name: `${firstName.trim()} ${lastName.trim()}`,
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        email: email.trim(),
+        phone: phone.trim(),
+        role: role as Role,
+        pitch: pitch.trim(),
+        weeklyAvailability: weekly,
+        availabilityDays: selectedDays as string[],
+        availabilityHours: "Open availability",
+        verified: false,
+        workExperience: filledWorkExp.length > 0 ? filledWorkExp : undefined,
+      });
+      setDone(true);
+    } catch (e) {
+      console.error("[careers] submit failed", e);
+      toast.error("We couldn't submit your application. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
+  // submitApplication is exposed by the store for owner-side/manager previews,
+  // but the public careers form always goes through the anon insert path above
+  // so an unauthenticated applicant never depends on store state.
+  void submitApplication;
 
   if (done) {
     return (
@@ -294,8 +328,11 @@ function CareersPage() {
                 />
               </Field>
 
-              <Button size="lg" className="w-full shadow-elegant" onClick={submit} disabled={submitting}>
-                {submitting ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting…</>) : "Submit application"}
+              {jobIdParam && !loadingJob && !targetJob && (
+                <p className="text-sm text-destructive">This job link is no longer active. Please ask for an updated link.</p>
+              )}
+              <Button size="lg" className="w-full shadow-elegant" onClick={submit} disabled={submitting || loadingJob || !targetJob}>
+                {submitting ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting…</>) : loadingJob ? "Loading job…" : !targetJob ? "Open a job link to apply" : "Submit application"}
               </Button>
             </div>
           </CardContent>
