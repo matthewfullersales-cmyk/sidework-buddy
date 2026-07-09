@@ -1144,7 +1144,8 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
       }
     },
     resolveTrade: (tradeId, approved) => {
-      let side: { shiftId: string; claimedBy: string } | null = null;
+      type SideInfo = { shiftId: string; claimedBy: string };
+      let side: SideInfo | null = null;
       setState((s) => {
         const trade = s.trades.find((t) => t.id === tradeId);
         if (!trade || !trade.claimedBy) return s;
