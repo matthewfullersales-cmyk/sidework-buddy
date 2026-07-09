@@ -206,6 +206,7 @@ export type Database = {
           employee_id: string | null
           full_name: string
           id: string
+          restaurant_hours: Json | null
           restaurant_name: string | null
           role: Database["public"]["Enums"]["user_role"]
           updated_at: string
@@ -215,6 +216,7 @@ export type Database = {
           employee_id?: string | null
           full_name?: string
           id: string
+          restaurant_hours?: Json | null
           restaurant_name?: string | null
           role: Database["public"]["Enums"]["user_role"]
           updated_at?: string
@@ -224,11 +226,116 @@ export type Database = {
           employee_id?: string | null
           full_name?: string
           id?: string
+          restaurant_hours?: Json | null
           restaurant_name?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
         }
         Relationships: []
+      }
+      restaurant_employees: {
+        Row: {
+          application_pitch: string | null
+          applied_at: string | null
+          approved_roles: string[]
+          auth_user_id: string | null
+          auto_approve_roles: string[]
+          availability: string
+          created_at: string
+          email: string | null
+          emergency_contact: Json | null
+          first_name: string | null
+          hired_from_application_id: string | null
+          id: string
+          invited_at: string
+          last_name: string | null
+          local_id: string | null
+          name: string
+          onboarding_started: boolean
+          owner_id: string
+          personal_info_complete: boolean
+          phone: string | null
+          photo_url: string | null
+          position: string | null
+          primary_role: string
+          section: string | null
+          seniority: number | null
+          special_talents: string | null
+          updated_at: string
+          weekly_availability: Json | null
+          work_experience: Json | null
+        }
+        Insert: {
+          application_pitch?: string | null
+          applied_at?: string | null
+          approved_roles?: string[]
+          auth_user_id?: string | null
+          auto_approve_roles?: string[]
+          availability?: string
+          created_at?: string
+          email?: string | null
+          emergency_contact?: Json | null
+          first_name?: string | null
+          hired_from_application_id?: string | null
+          id?: string
+          invited_at?: string
+          last_name?: string | null
+          local_id?: string | null
+          name?: string
+          onboarding_started?: boolean
+          owner_id: string
+          personal_info_complete?: boolean
+          phone?: string | null
+          photo_url?: string | null
+          position?: string | null
+          primary_role?: string
+          section?: string | null
+          seniority?: number | null
+          special_talents?: string | null
+          updated_at?: string
+          weekly_availability?: Json | null
+          work_experience?: Json | null
+        }
+        Update: {
+          application_pitch?: string | null
+          applied_at?: string | null
+          approved_roles?: string[]
+          auth_user_id?: string | null
+          auto_approve_roles?: string[]
+          availability?: string
+          created_at?: string
+          email?: string | null
+          emergency_contact?: Json | null
+          first_name?: string | null
+          hired_from_application_id?: string | null
+          id?: string
+          invited_at?: string
+          last_name?: string | null
+          local_id?: string | null
+          name?: string
+          onboarding_started?: boolean
+          owner_id?: string
+          personal_info_complete?: boolean
+          phone?: string | null
+          photo_url?: string | null
+          position?: string | null
+          primary_role?: string
+          section?: string | null
+          seniority?: number | null
+          special_talents?: string | null
+          updated_at?: string
+          weekly_availability?: Json | null
+          work_experience?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "restaurant_employees_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       restaurant_team_members: {
         Row: {
