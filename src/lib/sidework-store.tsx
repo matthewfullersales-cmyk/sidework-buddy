@@ -19,6 +19,19 @@ import {
   fetchRestaurantHours,
   saveRestaurantHours,
 } from "@/lib/employees-supabase";
+import {
+  fetchOwnerShifts,
+  upsertShiftRow,
+  deleteShiftRow,
+  reassignShiftEmployee,
+  fetchOwnerTimeOff,
+  insertTimeOffRow,
+  updateTimeOffRow,
+  fetchOwnerTrades,
+  insertTradeRow,
+  updateTradeRow,
+  bootstrapLocalSchedule,
+} from "@/lib/schedule-supabase";
 import { useAuth } from "@/lib/auth-context";
 import { toast } from "sonner";
 
