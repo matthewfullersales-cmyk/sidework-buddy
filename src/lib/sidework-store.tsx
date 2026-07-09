@@ -1160,6 +1160,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     },
     hireApplication: (id, overrides) => {
       let createdId: string | null = null;
+      let createdEmployee: Employee | null = null;
       setState((s) => {
         const a = s.applications.find((x) => x.id === id);
         if (!a) return s;
@@ -1193,14 +1194,8 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           appliedAt: a.appliedAt,
           workExperience: a.workExperience,
         };
+        createdEmployee = employee;
         const restaurantName = s.restaurantProfile?.name ?? "86Paper";
-        // Persist application status → hired
-        updateApplication(id, {
-          status: "hired",
-          stage: "hired",
-          archived: true,
-          hiredEmployeeId: empId,
-        }).catch((e) => console.error("[hireApplication]", e));
         return {
           ...s,
           employees: [...s.employees, employee],
@@ -1228,6 +1223,22 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           ],
         };
       });
+      if (createdId) {
+        // Persist application → hired
+        updateApplication(id, {
+          status: "hired",
+          stage: "hired",
+          archived: true,
+          hiredEmployeeId: createdId,
+        }).catch((e) => console.error("[hireApplication:updateApp]", e));
+        // Persist the new employee row
+        const oid = ownerIdRef.current;
+        if (oid && createdEmployee) {
+          insertEmployee(oid, createdEmployee, { localId: createdId }).catch((e) =>
+            console.error("[hireApplication:insertEmployee]", e),
+          );
+        }
+      }
       return createdId;
     },
     approveForInterview: (id, type, slots) => {
