@@ -281,11 +281,13 @@ export function ScheduleSection() {
     let copied = 0;
     let skipped = 0;
     let skippedAvail = 0;
+    let pendingTO = 0;
     const sourceShifts = shifts.filter((s) => dayISOs.includes(s.date));
     sourceShifts.forEach((s) => {
       const srcIdx = dayISOs.indexOf(s.date);
       const newDate = nextDayISOs[srcIdx];
-      if (timeOffStatusFor(s.employeeId, newDate) === "approved") {
+      const toStatus = timeOffStatusFor(s.employeeId, newDate);
+      if (toStatus === "approved") {
         skipped += 1;
         return;
       }
@@ -295,10 +297,11 @@ export function ScheduleSection() {
       const dayKey = DAY_KEYS[(local.getDay() + 6) % 7];
       const emp = employees.find((e) => e.id === s.employeeId);
       const av = emp?.weeklyAvailability?.[dayKey];
-      if (av && !isAvailableFor(av, s.start, mealPeriods)) {
+      if (av && !isAvailableForRange(av, s.start, s.end, mealPeriods).ok) {
         skippedAvail += 1;
         return;
       }
+      if (toStatus === "pending") pendingTO += 1;
       upsertShift({
         id: `s_${s.employeeId}_${newDate}_${Math.random().toString(36).slice(2, 8)}`,
         employeeId: s.employeeId,
@@ -315,6 +318,7 @@ export function ScheduleSection() {
     const skipParts: string[] = [];
     if (skipped > 0) skipParts.push(`${skipped} skipped — approved time off`);
     if (skippedAvail > 0) skipParts.push(`${skippedAvail} skipped — recurring unavailability`);
+    if (pendingTO > 0) skipParts.push(`${pendingTO} copied — has pending time-off request`);
     const skipMsg = skipParts.length ? ` (${skipParts.join("; ")})` : "";
     toast.success(`Copied ${copied} shift${copied === 1 ? "" : "s"} to next week${skipMsg}`);
   }
