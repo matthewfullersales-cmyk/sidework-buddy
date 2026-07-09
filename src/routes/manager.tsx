@@ -21,6 +21,7 @@ import { Progress } from "@/components/ui/progress";
 import { onboardingStatus, useStore, type Role, type ApplicationStatus, type Employee, type Relationship, DAY_KEYS, type JobApplication, type HiringStage, type ShadowShiftDetails, type InterviewType, getHiringStage } from "@/lib/sidework-store";
 import { roleStyle, fohRolesWithCustom, bohRolesWithCustom } from "@/lib/role-colors";
 import { formatPhone } from "@/lib/format-phone";
+import { copyLinkWithToast } from "@/lib/copy-to-clipboard";
 import { AvailabilityEditor, RestaurantHoursEditor } from "@/components/sidework/AvailabilityEditor";
 import { StaffJoinBanner, FullscreenQrDialog, StaffOnboardingCard } from "@/components/sidework/StaffOnboarding";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -319,15 +320,10 @@ function TeamTab() {
   }, [employees, videos, filters, sortKey]);
 
   const joinSlug = restaurantProfile?.slug ?? (restaurantProfile?.name ? slugify(restaurantProfile.name) : "team");
-  const copyJoinLink = async () => {
-    const url = `${window.location.origin}/join/${joinSlug}`;
-    try {
-      await navigator.clipboard.writeText(url);
-      toast.success("Join link copied", { description: url });
-    } catch {
-      toast.message("Copy this link", { description: url });
-    }
+  const copyJoinLink = () => {
+    copyLinkWithToast(`${window.location.origin}/join/${joinSlug}`, "Join link copied");
   };
+
 
 
   return (
@@ -857,14 +853,8 @@ function JobsTab() {
   const shadowApp = applications.find((a) => a.id === shadowFor) ?? null;
   const declineApp = declineConfirmFor ? applications.find((a) => a.id === declineConfirmFor.id) ?? null : null;
 
-  const copyApplicationLink = async (jobId: string) => {
-    const url = `${window.location.origin}/careers?job=${jobId}`;
-    try {
-      await navigator.clipboard.writeText(url);
-      toast.success("Application link copied", { description: url });
-    } catch {
-      toast.message("Copy this link", { description: url });
-    }
+  const copyApplicationLink = (jobId: string) => {
+    copyLinkWithToast(`${window.location.origin}/careers?job=${jobId}`, "Application link copied");
   };
 
   return (
