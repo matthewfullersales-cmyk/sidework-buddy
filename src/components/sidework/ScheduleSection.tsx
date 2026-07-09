@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { useStore, type Role, type Shift, type Position, type Section, type WeeklyAvailability, DAY_KEYS, isAvailableFor } from "@/lib/sidework-store";
+import { useStore, type Role, type Shift, type Position, type Section, type WeeklyAvailability, type MealPeriods, DAY_KEYS, isAvailableFor, mealForShiftStart } from "@/lib/sidework-store";
 import { toast } from "sonner";
 
 import { ROLE_COLORS, roleStyle, STATUS_COLORS, contrastText, fohRolesWithCustom, bohRolesWithCustom, allRolesWithCustom, nextCustomColor } from "@/lib/role-colors";
