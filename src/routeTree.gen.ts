@@ -12,8 +12,6 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as ManagerRouteImport } from './routes/manager'
 import { Route as LoginRouteImport } from './routes/login'
-import { Route as GetAppRouteImport } from './routes/get-app'
-import { Route as EmployeeStartRouteImport } from './routes/employee-start'
 import { Route as EmployeeLoginRouteImport } from './routes/employee-login'
 import { Route as EmployeeRouteImport } from './routes/employee'
 import { Route as CareersRouteImport } from './routes/careers'
@@ -38,16 +36,6 @@ const ManagerRoute = ManagerRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const GetAppRoute = GetAppRouteImport.update({
-  id: '/get-app',
-  path: '/get-app',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const EmployeeStartRoute = EmployeeStartRouteImport.update({
-  id: '/employee-start',
-  path: '/employee-start',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EmployeeLoginRoute = EmployeeLoginRouteImport.update({
@@ -107,8 +95,6 @@ export interface FileRoutesByFullPath {
   '/careers': typeof CareersRoute
   '/employee': typeof EmployeeRoute
   '/employee-login': typeof EmployeeLoginRoute
-  '/employee-start': typeof EmployeeStartRoute
-  '/get-app': typeof GetAppRoute
   '/login': typeof LoginRoute
   '/manager': typeof ManagerRoute
   '/signup': typeof SignupRoute
@@ -124,8 +110,6 @@ export interface FileRoutesByTo {
   '/careers': typeof CareersRoute
   '/employee': typeof EmployeeRoute
   '/employee-login': typeof EmployeeLoginRoute
-  '/employee-start': typeof EmployeeStartRoute
-  '/get-app': typeof GetAppRoute
   '/login': typeof LoginRoute
   '/manager': typeof ManagerRoute
   '/signup': typeof SignupRoute
@@ -142,8 +126,6 @@ export interface FileRoutesById {
   '/careers': typeof CareersRoute
   '/employee': typeof EmployeeRoute
   '/employee-login': typeof EmployeeLoginRoute
-  '/employee-start': typeof EmployeeStartRoute
-  '/get-app': typeof GetAppRoute
   '/login': typeof LoginRoute
   '/manager': typeof ManagerRoute
   '/signup': typeof SignupRoute
@@ -161,8 +143,6 @@ export interface FileRouteTypes {
     | '/careers'
     | '/employee'
     | '/employee-login'
-    | '/employee-start'
-    | '/get-app'
     | '/login'
     | '/manager'
     | '/signup'
@@ -178,8 +158,6 @@ export interface FileRouteTypes {
     | '/careers'
     | '/employee'
     | '/employee-login'
-    | '/employee-start'
-    | '/get-app'
     | '/login'
     | '/manager'
     | '/signup'
@@ -195,8 +173,6 @@ export interface FileRouteTypes {
     | '/careers'
     | '/employee'
     | '/employee-login'
-    | '/employee-start'
-    | '/get-app'
     | '/login'
     | '/manager'
     | '/signup'
@@ -213,8 +189,6 @@ export interface RootRouteChildren {
   CareersRoute: typeof CareersRoute
   EmployeeRoute: typeof EmployeeRoute
   EmployeeLoginRoute: typeof EmployeeLoginRoute
-  EmployeeStartRoute: typeof EmployeeStartRoute
-  GetAppRoute: typeof GetAppRoute
   LoginRoute: typeof LoginRoute
   ManagerRoute: typeof ManagerRoute
   SignupRoute: typeof SignupRoute
@@ -245,20 +219,6 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/get-app': {
-      id: '/get-app'
-      path: '/get-app'
-      fullPath: '/get-app'
-      preLoaderRoute: typeof GetAppRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/employee-start': {
-      id: '/employee-start'
-      path: '/employee-start'
-      fullPath: '/employee-start'
-      preLoaderRoute: typeof EmployeeStartRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/employee-login': {
@@ -352,8 +312,6 @@ const rootRouteChildren: RootRouteChildren = {
   CareersRoute: CareersRoute,
   EmployeeRoute: EmployeeRoute,
   EmployeeLoginRoute: EmployeeLoginRoute,
-  EmployeeStartRoute: EmployeeStartRoute,
-  GetAppRoute: GetAppRoute,
   LoginRoute: LoginRoute,
   ManagerRoute: ManagerRoute,
   SignupRoute: SignupRoute,

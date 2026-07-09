@@ -52,8 +52,7 @@ function EmployeeLoginPage() {
         <Button type="submit" size="lg" className="h-12" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</Button>
       </form>
       <p className="mt-6 text-center text-sm text-muted-foreground">
-        Don't have an account yet?{" "}
-        <Link to="/employee-start" className="font-semibold text-primary hover:underline">Find your restaurant</Link>
+        Don't have an account yet? Ask your manager for the join link.
       </p>
       <p className="mt-2 text-center text-sm text-muted-foreground">
         Manager? <Link to="/login" className="font-semibold text-primary hover:underline">Manager sign-in</Link>
