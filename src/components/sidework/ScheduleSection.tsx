@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { useStore, type Role, type Shift, type Position, type Section, type WeeklyAvailability, type MealPeriods, DAY_KEYS, isAvailableFor, mealForShiftStart } from "@/lib/sidework-store";
+import { useStore, type Role, type Shift, type Position, type Section, type WeeklyAvailability, type MealPeriods, DAY_KEYS, isAvailableFor, isAvailableForRange, mealForShiftStart } from "@/lib/sidework-store";
 import { toast } from "sonner";
 
 import { ROLE_COLORS, roleStyle, STATUS_COLORS, contrastText, fohRolesWithCustom, bohRolesWithCustom, allRolesWithCustom, nextCustomColor } from "@/lib/role-colors";
@@ -742,10 +742,11 @@ function ShiftDetailsDialog({
   const dateLabel = localDate.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" });
 
   const availDay = emp?.weeklyAvailability?.[dayKey];
-  const availConflict: null | { kind: "none" } | { kind: "partial"; meals: string[] } = (() => {
+  const availConflict: null | { kind: "none" } | { kind: "partial"; meals: string[]; violating: string[]; touched: string[] } = (() => {
     if (!availDay || availDay.kind === "full") return null;
     if (availDay.kind === "none") return { kind: "none" };
-    if (!isAvailableFor(availDay, start, mealPeriods)) return { kind: "partial", meals: availDay.meals };
+    const r = isAvailableForRange(availDay, start, end, mealPeriods);
+    if (!r.ok) return { kind: "partial", meals: availDay.meals, violating: r.violating, touched: r.touched };
     return null;
   })();
   const needsOverride = !!availConflict && !overrideAvailability;
@@ -795,7 +796,7 @@ function ShiftDetailsDialog({
               <p className="font-semibold">
                 {availConflict.kind === "none"
                   ? `⚠️ ${emp?.name ?? "This employee"} has ${dayKey}s marked unavailable in their profile`
-                  : `⚠️ ${emp?.name ?? "This employee"} is only available for ${availConflict.meals.join(" & ")} on ${dayKey}s`}
+                  : `⚠️ ${emp?.name ?? "This employee"} is only available for ${availConflict.meals.join(" & ")} on ${dayKey}s — this shift extends into ${availConflict.violating.join(" & ")} service`}
               </p>
               <p className="mt-1 text-xs">
                 Recurring weekly availability — not a one-off time-off request. Confirm below to schedule anyway.

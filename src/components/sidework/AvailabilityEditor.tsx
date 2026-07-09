@@ -12,6 +12,7 @@ import {
   type RestaurantHours,
   defaultWeeklyAvailability,
   defaultMealPeriods,
+  findMealPeriodOverlaps,
 } from "@/lib/sidework-store";
 
 const DAY_FULL: Record<DayKey, string> = {
@@ -144,8 +145,21 @@ export function MealPeriodsEditor({
   onChange: (meal: Meal, patch: Partial<MealPeriodConfig>) => void;
 }) {
   const meals: Meal[] = ["Breakfast", "Lunch", "Dinner"];
+  const overlaps = findMealPeriodOverlaps(value);
   return (
     <div className="space-y-2">
+      {overlaps.length > 0 && (
+        <div role="alert" className="rounded-lg border border-amber-500/60 bg-amber-500/10 p-3 text-xs text-amber-900 dark:text-amber-200">
+          <p className="font-semibold">Meal periods overlap</p>
+          <ul className="mt-1 list-disc pl-5 space-y-0.5">
+            {overlaps.map((o) => (
+              <li key={`${o.winner}-${o.loser}`}>
+                {o.loser} starts before {o.winner} ends. Shifts inside the overlap will be treated as <strong>{o.winner}</strong> for availability checks, so a {o.loser}-only employee could be scheduled in that window without warning. Adjust the times so periods don't overlap.
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {meals.map((m) => {
         const cfg = value[m];
         return (
