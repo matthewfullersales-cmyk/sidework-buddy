@@ -1,0 +1,4 @@
+INSERT INTO public.job_applications (id, owner_id, job_id, name, phone, stage, offered_slots, availability_hours, verified, status, applied_at)
+VALUES
+  ('11111111-1111-1111-1111-111111111aaa', 'ca259a81-6b46-48e4-9d6f-b6c902f2ca8c', 'f9521339-e5c2-44bb-8316-057145cf0b20', 'Test A', '555-0001', 'video_offered', ARRAY['2099-01-01T15:00:00.000Z'], 'flex', true, 'new', now()),
+  ('22222222-2222-2222-2222-222222222bbb', 'ca259a81-6b46-48e4-9d6f-b6c902f2ca8c', 'f9521339-e5c2-44bb-8316-057145cf0b20', 'Test B', '555-0002', 'video_offered', ARRAY['2099-01-01T15:00:00.000Z'], 'flex', true, 'new', now());
