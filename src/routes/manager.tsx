@@ -2381,7 +2381,7 @@ function TeamRosterCard({ team }: { team: ReturnType<typeof useTeamMembers> }) {
               <div className="grid gap-2"><Label>Title (optional)</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="e.g. Assistant Manager" /></div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="grid gap-2"><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
-                <div className="grid gap-2"><Label>Phone</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
+                <div className="grid gap-2"><Label>Phone</Label><Input type="tel" inputMode="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: formatPhone(e.target.value) })} placeholder="(555) 555-1234" /></div>
               </div>
             </div>
             <DialogFooter>
