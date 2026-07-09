@@ -73,6 +73,7 @@ export type TeamMember = {
   phone: string | null;
   title: string | null;
   canManageHiring: boolean;
+  canManageSchedule: boolean;
   authUserId: string | null;
 };
 
