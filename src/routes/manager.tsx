@@ -2479,23 +2479,47 @@ function TeamRosterCard({ team }: { team: ReturnType<typeof useTeamMembers> }) {
         {!team.loading && team.members.length === 0 && (
           <p className="text-sm text-muted-foreground">No team members yet. Add someone you'd like to hand off interviews to.</p>
         )}
-        {team.members.map((m) => (
-          <div key={m.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-background p-3">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="font-semibold">{teamMemberDisplayName(m)}</p>
-                {m.title && <Badge variant="outline">{m.title}</Badge>}
+        {team.members.map((m) => {
+          const hasAccount = !!m.authUserId;
+          const inviteUrl = typeof window !== "undefined" ? `${window.location.origin}/team-invite/${m.id}` : `/team-invite/${m.id}`;
+          const statusBadge = hasAccount
+            ? { label: "Active login", cls: "bg-success text-success-foreground hover:bg-success" }
+            : m.canManageHiring
+              ? { label: "Invited — not claimed", cls: "bg-warning text-warning-foreground hover:bg-warning" }
+              : { label: "No login", cls: "" };
+          return (
+            <div key={m.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-background p-3">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="font-semibold">{teamMemberDisplayName(m)}</p>
+                  {m.title && <Badge variant="outline">{m.title}</Badge>}
+                  <Badge variant={statusBadge.cls ? "default" : "outline"} className={statusBadge.cls}>{statusBadge.label}</Badge>
+                  {hasAccount && m.canManageHiring && <Badge variant="outline">Hiring access</Badge>}
+                </div>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {m.email ?? "—"} · {m.phone ?? "—"}
+                </p>
+                <label className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                  <Switch
+                    checked={m.canManageHiring}
+                    onCheckedChange={async (v) => {
+                      try { await team.setPermission(m.id, v); toast.success(v ? "Hiring access enabled" : "Hiring access removed"); }
+                      catch (e) { toast.error(e instanceof Error ? e.message : "Could not update"); }
+                    }}
+                  />
+                  <span>Can manage hiring &amp; interviews</span>
+                </label>
               </div>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                {m.email ?? "—"} · {m.phone ?? "—"}
-              </p>
+              <div className="flex flex-wrap gap-2">
+                {!hasAccount && m.canManageHiring && (
+                  <Button size="sm" variant="outline" onClick={() => copyLinkWithToast(inviteUrl, "Invite link copied")}>Copy invite link</Button>
+                )}
+                <Button size="sm" variant="outline" onClick={() => openEdit(m)}>Edit</Button>
+                <Button size="sm" variant="ghost" onClick={() => remove(m)}>Remove</Button>
+              </div>
             </div>
-            <div className="flex gap-2">
-              <Button size="sm" variant="outline" onClick={() => openEdit(m)}>Edit</Button>
-              <Button size="sm" variant="ghost" onClick={() => remove(m)}>Remove</Button>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </CardContent>
     </Card>
   );
