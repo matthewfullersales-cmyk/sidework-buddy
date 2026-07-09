@@ -99,7 +99,7 @@ function EmployeePage() {
 }
 
 function OnboardingTab({ employeeId }: { employeeId: string }) {
-  const { employees, updateEmployee, videos } = useStore();
+  const { employees, updateEmployee, videos, mealPeriods } = useStore();
   const me = employees.find((e) => e.id === employeeId)!;
   const [firstName, setFirstName] = useState(me.firstName ?? me.name.split(" ")[0] ?? "");
   const [lastName, setLastName] = useState(me.lastName ?? me.name.split(" ").slice(1).join(" ") ?? "");
