@@ -22,7 +22,7 @@ import { onboardingStatus, useStore, type Role, type ApplicationStatus, type Emp
 import { roleStyle, fohRolesWithCustom, bohRolesWithCustom } from "@/lib/role-colors";
 import { formatPhone } from "@/lib/format-phone";
 import { copyLinkWithToast } from "@/lib/copy-to-clipboard";
-import { AvailabilityEditor, RestaurantHoursEditor, MealPeriodsEditor } from "@/components/sidework/AvailabilityEditor";
+import { AvailabilityEditor, RestaurantHoursEditor, MealPeriodsEditor, ArrivalOffsetsEditor } from "@/components/sidework/AvailabilityEditor";
 import { StaffJoinBanner, FullscreenQrDialog, StaffOnboardingCard } from "@/components/sidework/StaffOnboarding";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { slugify } from "@/lib/slug";
