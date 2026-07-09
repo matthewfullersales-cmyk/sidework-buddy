@@ -226,6 +226,7 @@ export interface JobApplication {
   archived?: boolean;
   hiredEmployeeId?: string;
   workExperience?: WorkExperience[];
+  specialTalents?: string;
 }
 
 export function getHiringStage(a: Pick<JobApplication, "stage" | "status">): HiringStage {
@@ -1278,13 +1279,16 @@ export function aiScoreFor(a: Partial<JobApplication>): AiScore {
   if (words >= 100) pts += 3;
   else if (words >= 40) pts += 2;
   else if (words >= 15) pts += 1;
+  if ((a.specialTalents ?? "").trim().length > 0) pts += 1;
+  // Legacy applications may still carry weeklyAvailability/availabilityDays;
+  // give them credit but don't require it from new short-form applications.
   const days = a.weeklyAvailability
     ? DAY_KEYS.filter((d) => a.weeklyAvailability![d]?.kind !== "none").length
     : (a.availabilityDays?.length ?? 0);
   if (days >= 5) pts += 2;
   else if (days >= 3) pts += 1;
-  if (pts >= 8) return "Strong";
-  if (pts >= 5) return "Average";
+  if (pts >= 7) return "Strong";
+  if (pts >= 4) return "Average";
   return "Weak";
 }
 

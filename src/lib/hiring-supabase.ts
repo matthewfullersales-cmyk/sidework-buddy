@@ -58,6 +58,7 @@ type ApplicationRow = {
   archived: boolean;
   hired_employee_id: string | null;
   work_experience: unknown;
+  special_talents: string | null;
 };
 
 export function postingFromRow(r: PostingRow): JobPosting {
