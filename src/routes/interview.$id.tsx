@@ -170,7 +170,17 @@ function InterviewConfirmPage() {
                     if (fresh) setApp(fresh);
                   } catch (e) {
                     console.error("[confirm slot]", e);
-                    setPickError(e instanceof Error ? e.message : "Could not confirm slot");
+                    const msg = e instanceof Error ? e.message : "Could not confirm slot";
+                    if (/SLOT_TAKEN/i.test(msg)) {
+                      // Remove the just-taken slot from options so applicant can pick another.
+                      setApp((prev) => prev ? {
+                        ...prev,
+                        offeredSlots: (prev.offeredSlots ?? []).filter((s) => s !== slot),
+                      } : prev);
+                      setPickError("That time was just taken — please pick another.");
+                    } else {
+                      setPickError(msg);
+                    }
                     setPicking(null);
                   }
                 }}

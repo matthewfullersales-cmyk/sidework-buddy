@@ -167,6 +167,24 @@ export function applicationFromRow(r: ApplicationRow): JobApplication {
   };
 }
 
+/** Owner-scoped: fetch already-booked interview slots (with assignee) for conflict-detection. */
+export async function fetchBookedInterviewSlots(
+  ownerId: string,
+): Promise<{ id: string; selectedSlot: string; assignedTo: string | null }[]> {
+  const { data, error } = await supabase
+    .from("job_applications")
+    .select("id, selected_slot, assigned_to")
+    .eq("owner_id", ownerId)
+    .eq("stage", "video_scheduled")
+    .not("selected_slot", "is", null);
+  if (error) throw error;
+  return (data ?? []).map((r) => ({
+    id: (r as { id: string }).id,
+    selectedSlot: (r as { selected_slot: string }).selected_slot,
+    assignedTo: ((r as { assigned_to: string | null }).assigned_to) ?? null,
+  }));
+}
+
 /** Public: fetch a single job posting by id. */
 export async function fetchPublicPosting(id: string): Promise<JobPosting | null> {
   const { data, error } = await supabase

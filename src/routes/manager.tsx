@@ -29,7 +29,12 @@ import { slugify } from "@/lib/slug";
 import { useTeamMembers } from "@/lib/use-team-members";
 import type { TeamMember } from "@/lib/hiring-supabase";
 import { toast } from "sonner";
-import { ChevronDown, Check } from "lucide-react";
+import { ChevronDown, Check, CalendarIcon } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
+import { useAuth } from "@/lib/auth-context";
+import { fetchBookedInterviewSlots } from "@/lib/hiring-supabase";
+import { cn } from "@/lib/utils";
 
 type TeamSortKey =
   | "firstNameAsc" | "firstNameDesc"
@@ -1340,6 +1345,31 @@ function ApproveInterviewDialog({
   onConfirm: (slots: string[]) => void;
 }) {
   const meta = INTERVIEW_TYPE_META[type];
+  const { user } = useAuth();
+  const ownerId = user?.id ?? null;
+  const effectiveAssignee = application.assignedTo ?? null;
+
+  const [bookedSlots, setBookedSlots] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    if (!ownerId) return;
+    let cancelled = false;
+    fetchBookedInterviewSlots(ownerId)
+      .then((rows) => {
+        if (cancelled) return;
+        // Match effective-assignee semantics: same assigned_to (both set to same person)
+        // OR both unassigned (owner is the effective assignee).
+        const conflicts = rows.filter((r) => {
+          if (r.id === application.id) return false;
+          const otherAssignee = r.assignedTo ?? null;
+          if (effectiveAssignee) return otherAssignee === effectiveAssignee;
+          return otherAssignee === null;
+        });
+        setBookedSlots(new Set(conflicts.map((c) => c.selectedSlot)));
+      })
+      .catch((e) => console.error("[booked slots]", e));
+    return () => { cancelled = true; };
+  }, [ownerId, effectiveAssignee, application.id]);
+
   const suggested = useMemo(() => {
     const out: string[] = [];
     const now = new Date();
@@ -1356,9 +1386,30 @@ function ApproveInterviewDialog({
     return out;
   }, [application.id]);
   const [selected, setSelected] = useState<string[]>([]);
-  const [customInput, setCustomInput] = useState("");
+  const [customDate, setCustomDate] = useState<Date | undefined>(undefined);
+  const [customTime, setCustomTime] = useState<string>("");
+  const [dateOpen, setDateOpen] = useState(false);
+
+  // Time options every 15 minutes from 6:00 to 23:00 inclusive.
+  const timeOptions = useMemo(() => {
+    const out: { value: string; label: string }[] = [];
+    for (let h = 6; h <= 23; h++) {
+      for (let m = 0; m < 60; m += 15) {
+        const value = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+        const d = new Date();
+        d.setHours(h, m, 0, 0);
+        const label = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+        out.push({ value, label });
+      }
+    }
+    return out;
+  }, []);
 
   const toggle = (s: string) => {
+    if (bookedSlots.has(s)) {
+      toast.error("That time is already booked for this interviewer.");
+      return;
+    }
     setSelected((prev) => {
       if (prev.includes(s)) return prev.filter((x) => x !== s);
       if (prev.length >= 5) {
@@ -1370,15 +1421,20 @@ function ApproveInterviewDialog({
   };
 
   const addCustom = () => {
-    if (!customInput) return toast.error("Pick a date and time first.");
-    const d = new Date(customInput);
+    if (!customDate) return toast.error("Pick a date first.");
+    if (!customTime) return toast.error("Pick a time first.");
+    const [hh, mm] = customTime.split(":").map(Number);
+    const d = new Date(customDate);
+    d.setHours(hh, mm, 0, 0);
     if (Number.isNaN(d.getTime())) return toast.error("That doesn't look like a valid date/time.");
     if (d.getTime() < Date.now()) return toast.error("Pick a time in the future.");
     const iso = d.toISOString();
+    if (bookedSlots.has(iso)) return toast.error("That time is already booked for this interviewer.");
     if (selected.includes(iso)) return toast.message("That time is already added.");
     if (selected.length >= 5) return toast.error("Max 5 slots. Deselect one to add another.");
     setSelected((prev) => [...prev, iso]);
-    setCustomInput("");
+    setCustomDate(undefined);
+    setCustomTime("");
   };
 
   const submit = () => {
@@ -1400,29 +1456,64 @@ function ApproveInterviewDialog({
         <div className="grid max-h-[40vh] gap-2 overflow-y-auto py-2 sm:grid-cols-2">
           {suggested.map((s) => {
             const on = selected.includes(s);
+            const booked = bookedSlots.has(s);
             const d = new Date(s);
             return (
               <button
                 key={s}
                 type="button"
                 onClick={() => toggle(s)}
-                className={`min-h-12 rounded-lg border px-3 py-2 text-left text-sm font-medium transition-colors ${on ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background hover:bg-muted"}`}
+                disabled={booked}
+                className={`min-h-12 rounded-lg border px-3 py-2 text-left text-sm font-medium transition-colors ${
+                  booked
+                    ? "cursor-not-allowed border-border bg-muted/40 text-muted-foreground opacity-60"
+                    : on
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-background hover:bg-muted"
+                }`}
               >
                 {d.toLocaleString([], { weekday: "long", month: "short", day: "numeric" })}
                 <span className="block text-xs opacity-80">at {d.toLocaleString([], { hour: "numeric", minute: "2-digit" })}</span>
+                {booked && <span className="mt-0.5 block text-[10px] font-semibold uppercase tracking-wide text-destructive">Already booked</span>}
               </button>
             );
           })}
         </div>
         <div className="space-y-2 border-t pt-3">
           <Label className="text-sm font-semibold">Add a custom time</Label>
-          <div className="flex gap-2">
-            <Input
-              type="datetime-local"
-              value={customInput}
-              onChange={(e) => setCustomInput(e.target.value)}
-              className="flex-1"
-            />
+          <div className="flex flex-wrap gap-2">
+            <Popover open={dateOpen} onOpenChange={setDateOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className={cn("min-w-[10rem] flex-1 justify-start text-left font-normal", !customDate && "text-muted-foreground")}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {customDate ? format(customDate, "PPP") : <span>Pick a date</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={customDate}
+                  onSelect={(d) => { setCustomDate(d ?? undefined); setDateOpen(false); }}
+                  disabled={(d) => d < new Date(new Date().setHours(0, 0, 0, 0))}
+                  initialFocus
+                  className={cn("p-3 pointer-events-auto")}
+                />
+              </PopoverContent>
+            </Popover>
+            <Select value={customTime} onValueChange={setCustomTime}>
+              <SelectTrigger className="w-[9rem]">
+                <SelectValue placeholder="Time" />
+              </SelectTrigger>
+              <SelectContent className="max-h-[16rem]">
+                {timeOptions.map((t) => (
+                  <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Button type="button" variant="secondary" onClick={addCustom}>Add</Button>
           </div>
           {customSelected.length > 0 && (
