@@ -79,17 +79,15 @@ function ManagerPage() {
   useRequireManagerAccess("/login");
   const { effectiveOwner } = useAuth();
   const isTeamMember = effectiveOwner?.acting === "team_member";
-  const canHiring = effectiveOwner?.canManageHiring ?? false;
-  const canSchedule = effectiveOwner?.canManageSchedule ?? false;
+  const permissions = effectiveOwner?.permissions ?? new Set<ManagerPermission>();
   // Only scope down for actual team members. Owners always get the full dashboard.
   const scoped = isTeamMember;
-  const scopedTabs = useMemo(() => {
-    if (!scoped) return null;
-    const tabs: string[] = [];
-    if (canSchedule) tabs.push("schedule", "trades", "timeoff");
-    if (canHiring) tabs.push("jobs");
-    return tabs;
-  }, [scoped, canHiring, canSchedule]);
+  const scopedTabs = useMemo(
+    () => (scoped ? scopedTabsFor(permissions) : null),
+    // permissions is derived from effectiveOwner; hash on its identity.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [scoped, effectiveOwner],
+  );
   useEffect(() => {
     if (currentUser.type !== "manager") {
       setCurrentUser({ type: "manager", id: "owner" });
