@@ -69,12 +69,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       can_manage_hiring: boolean;
       can_manage_schedule: boolean;
     };
+    const canManageHiring = !!row.can_manage_hiring;
+    const canManageSchedule = !!row.can_manage_schedule;
     setEffectiveOwner({
       ownerId: row.owner_id,
       restaurantName: row.restaurant_name,
       acting: row.acting === "owner" ? "owner" : "team_member",
-      canManageHiring: !!row.can_manage_hiring,
-      canManageSchedule: !!row.can_manage_schedule,
+      permissions: permissionsFromFlags(canManageHiring, canManageSchedule),
+      canManageHiring,
+      canManageSchedule,
     });
   };
 
