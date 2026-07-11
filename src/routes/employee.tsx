@@ -209,7 +209,7 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
         <CardContent className="grid gap-3 sm:grid-cols-2">
           <div className="grid gap-2"><Label>First name</Label><Input value={ec.firstName} onChange={(e) => setEc({ ...ec, firstName: e.target.value })} /></div>
           <div className="grid gap-2"><Label>Last name</Label><Input value={ec.lastName} onChange={(e) => setEc({ ...ec, lastName: e.target.value })} /></div>
-          <div className="grid gap-2"><Label>Phone</Label><Input type="tel" inputMode="tel" value={ec.phone} onChange={(e) => setEc({ ...ec, phone: formatPhone(e.target.value) })} placeholder="(555) 555-1234" /></div>
+          <div className="grid gap-2"><Label>Phone</Label><PhoneInput value={ec.phone} onChange={(v) => setEc({ ...ec, phone: v })} /></div>
           <div className="grid gap-2">
             <Label>Relationship</Label>
             <Select value={ec.relationship} onValueChange={(v: Relationship) => setEc({ ...ec, relationship: v })}>
