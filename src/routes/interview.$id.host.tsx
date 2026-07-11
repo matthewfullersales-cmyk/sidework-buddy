@@ -70,7 +70,7 @@ function HostInterviewPage() {
   const applicantName = app.firstName ?? app.name;
   const type = app.interviewType ?? "video";
   const restaurantName = app.restaurantName ?? "your restaurant";
-  const assignee = app.assigneeName ? app.assigneeName : "the owner";
+  const hostLabel = restaurantName;
 
   const join = async () => {
     setJoining(true); setJoinError(null);
