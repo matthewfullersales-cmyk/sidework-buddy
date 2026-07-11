@@ -164,15 +164,9 @@ function CareersPage() {
                   <Input autoComplete="family-name" value={lastName} onChange={(e) => setLastName(e.target.value)} />
                 </Field>
                 <Field label="Phone">
-                  <Input
-                    type="tel"
-                    inputMode="tel"
-                    autoComplete="tel"
-                    placeholder="(555) 123-4567"
-                    value={phone}
-                    onChange={(e) => setPhone(formatPhone(e.target.value))}
-                  />
+                  <PhoneInput value={phone} onChange={setPhone} placeholder="(555) 123-4567" />
                 </Field>
+
                 <Field label="Email">
                   <Input type="email" inputMode="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
                 </Field>
