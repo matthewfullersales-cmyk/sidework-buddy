@@ -3,26 +3,17 @@ import type { ReactNode } from "react";
 import { Logo } from "./Logo";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
-import { LogOut, ArrowLeftRight } from "lucide-react";
+import { LogOut } from "lucide-react";
 
 export function AppShell({ children, nav }: { children: ReactNode; nav: { to: string; label: string; icon: ReactNode }[] }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { session, signOut, effectiveOwner, employeeContext } = useAuth();
+  const { session, signOut } = useAuth();
 
   const handleSignOut = async () => {
     await signOut();
     navigate({ to: "/" });
   };
-
-  // Dual-role affordance: users who both have manager permissions AND a
-  // linked employee record see a pill to jump between the two dashboards.
-  const hasManager = (effectiveOwner?.permissions?.size ?? 0) > 0;
-  const hasEmployee = !!employeeContext?.employeeId;
-  const showDualRoleSwitcher = hasManager && hasEmployee;
-  const inManagerArea = location.pathname.startsWith("/manager");
-  const switcherTarget = inManagerArea ? "/employee" : "/manager";
-  const switcherLabel = inManagerArea ? "Switch to My Schedule" : "Switch to Manager";
 
   return (
     <div className="min-h-screen bg-background pb-[max(6rem,calc(5rem+env(safe-area-inset-bottom)))] md:pb-0">
@@ -30,18 +21,6 @@ export function AppShell({ children, nav }: { children: ReactNode; nav: { to: st
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
           <Link to="/" className="shrink-0"><Logo /></Link>
           <div className="flex items-center gap-2">
-            {session && showDualRoleSwitcher && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigate({ to: switcherTarget })}
-                className="h-11 rounded-full md:h-9"
-                title={switcherLabel}
-              >
-                <ArrowLeftRight className="h-4 w-4" />
-                <span className="ml-1.5 hidden sm:inline">{switcherLabel}</span>
-              </Button>
-            )}
             {session && (
               <Button variant="ghost" size="sm" onClick={handleSignOut} title="Sign out" className="h-11 md:h-9">
                 <LogOut className="h-4 w-4" />
