@@ -1258,6 +1258,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           timeOff: remoteTimeOff.length > 0 ? remoteTimeOff : s.timeOff,
           trades: remoteTrades,
           ...hoursPatch,
+          businessInfo: normalizeBusinessInfo(remoteBusinessInfo),
         }));
       } catch (e) {
         console.error("[owner-sync] failed to load", e);
