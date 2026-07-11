@@ -761,7 +761,7 @@ function ShiftDetailsDialog({
   employeeId: string; date: string; existing?: Shift;
   onClose: () => void; onSave: (s: Shift) => void; onDelete: (id: string) => void;
 }) {
-  const { employees, activeRoles, customRoles, timeOff, mealPeriods, restaurantHours, arrivalOffsets } = useStore();
+  const { employees, activeRoles, customRoles, timeOff, mealPeriods, restaurantHours } = useStore();
   const emp = employees.find((e) => e.id === employeeId);
   // Compute suggestions up-front so a brand-new shift is seeded with the
   // first suggestion (Dinner arrival for the employee's section/position),
@@ -779,10 +779,9 @@ function ShiftDetailsDialog({
       section: emp?.section,
       restaurantHours,
       mealPeriods,
-      arrivalOffsets,
       preferredMeals,
     }),
-    [dayKey0, emp?.position, emp?.section, restaurantHours, mealPeriods, arrivalOffsets, preferredMeals],
+    [dayKey0, emp?.position, emp?.section, restaurantHours, mealPeriods, preferredMeals],
   );
   const seed = existing ? null : suggestions[0];
   const [start, setStart] = useState(existing?.start ?? seed?.start ?? "17:00");
