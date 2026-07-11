@@ -22,6 +22,7 @@ import {
 import {
   fetchOwnerShifts,
   upsertShiftRow,
+  ShiftConflictError,
   deleteShiftRow,
   reassignShiftEmployee,
   fetchOwnerTimeOff,
