@@ -115,22 +115,21 @@ function ManagerPage() {
 
   // Scoped view for team members with only some permissions.
   if (scoped && scopedTabs) {
-    const bothPerms = canHiring && canSchedule;
+    const bothPerms = permissions.has("hiring") && permissions.has("schedule");
+    const canHiringOnly = permissions.has("hiring") && !permissions.has("schedule");
+    const shortTitle = permissionsShortTitle(permissions) || "Manage";
     const title = effectiveOwner?.restaurantName
-      ? `${effectiveOwner.restaurantName} — ${bothPerms ? "Hiring & Scheduling" : canHiring ? "Hiring" : "Scheduling"}`
-      : bothPerms ? "Hiring & Scheduling" : canHiring ? "Hiring" : "Scheduling";
+      ? `${effectiveOwner.restaurantName} — ${shortTitle}`
+      : shortTitle;
+    const navLabel = bothPerms ? "Manage" : canHiringOnly ? "Hiring" : "Schedule";
+    const subtitle = bothPerms
+      ? "You have access to this restaurant's schedule and hiring pipeline."
+      : canHiringOnly
+        ? "You have access to review and manage this restaurant's applications and interviews."
+        : "You have access to build and adjust this restaurant's schedule, trades, and time off.";
     return (
-      <AppShell nav={[{ to: "/manager", label: bothPerms ? "Manage" : canHiring ? "Hiring" : "Schedule", icon: <IconHome /> }]}>
-        <PageHeader
-          title={title}
-          subtitle={
-            bothPerms
-              ? "You have access to this restaurant's schedule and hiring pipeline."
-              : canHiring
-                ? "You have access to review and manage this restaurant's applications and interviews."
-                : "You have access to build and adjust this restaurant's schedule, trades, and time off."
-          }
-        />
+      <AppShell nav={[{ to: "/manager", label: navLabel, icon: <IconHome /> }]}>
+        <PageHeader title={title} subtitle={subtitle} />
         <Tabs value={tab} onValueChange={setTab}>
           <TabsList className={`mb-6 grid h-auto w-full gap-1 ${scopedTabs.length === 1 ? "grid-cols-1" : scopedTabs.length === 2 ? "grid-cols-2" : `grid-cols-2 sm:grid-cols-${scopedTabs.length}`}`}>
             {scopedTabs.includes("schedule") && <TabsTrigger value="schedule">Schedule</TabsTrigger>}
