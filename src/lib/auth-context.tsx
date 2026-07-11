@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchEmployeeContext, type EmployeeContext } from "@/lib/employee-supabase";
+import { permissionsFromFlags, type ManagerPermission } from "@/lib/permissions";
 
 export type ProfileRole = "owner" | "employee";
 export type ActingRole = "owner" | "team_member";
@@ -18,7 +19,11 @@ export type EffectiveOwner = {
   ownerId: string;
   restaurantName: string | null;
   acting: ActingRole;
+  /** Registry-driven permission set. Preferred read path. */
+  permissions: Set<ManagerPermission>;
+  /** @deprecated Read `permissions.has("hiring")` — kept for back-compat. */
   canManageHiring: boolean;
+  /** @deprecated Read `permissions.has("schedule")` — kept for back-compat. */
   canManageSchedule: boolean;
 } | null;
 
