@@ -711,6 +711,8 @@ interface Store {
   updateMealPeriod: (meal: Meal, patch: Partial<MealPeriodConfig>) => void;
   arrivalOffsets: ArrivalOffsets;
   setArrivalOffsets: (o: ArrivalOffsets) => void;
+  businessInfo: BusinessInfo;
+  setBusinessInfo: (info: BusinessInfo) => void;
   activeRoles: Role[];
   setActiveRoles: (roles: Role[]) => void;
   customRoles: CustomRole[];
