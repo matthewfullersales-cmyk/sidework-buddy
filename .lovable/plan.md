@@ -1,91 +1,71 @@
+## Scope reminder
+Regular staff roster (`restaurant_employees` / Team section). This does NOT reuse anything from the manager-permissions `restaurant_team_members` system being removed in the parallel revert.
 
-## Goal
+## What I found
 
-Revert to a single-login owner model. Owner = full manager access via `profile.role === "owner"`. Employees keep their separate login untouched. Delete the "grant an employee manager permissions" / invite-as-manager / dual-role-switcher surface added earlier today. **Do not touch** the shifts realtime subscription or the stale-write `ShiftConflictError` toast — they are unrelated to permissions and Matt still wants them.
+**Current "Add manually" flow** (`src/routes/manager.tsx` ~L447–481)
+- Dialog collects `{ name, email, role }` only — no phone, no split names.
+- Calls `inviteEmployee({name,email,role})` in `sidework-store.tsx` (L1417), which builds an `Employee` with just `name` (writes to `restaurant_employees` via `insertEmployee`), and fires a fake "training assigned" notification.
+- No email/link is actually sent to the invitee. Row is created immediately with owner-entered data — the invitee never sees a form. Contradicts Matt's description.
 
-Non-destructive on the DB side: leave `restaurant_team_members`, `claim_team_invite`, `get_public_team_invite`, and the seeded Samantha/Mathew rows in place so we can restore later without a data-loss migration; stop referencing them from the app. `get_effective_owner` stays because `auth-context` still needs an owner-id resolver, but its "team_member" branch becomes dead code we simply ignore in the client.
+**Existing self-fill pipelines already in the app**
+- `join.$slug.tsx` — open shareable join link (from `StaffOnboardingCard`). Anyone with the URL can fill first/last/email/phone/availability/emergency contact and sign up. This calls `joinStaff(...)` which creates a fresh employee row (not tied to any pre-created one).
+- `hired.$id.tsx` — targeted post-hire self-onboarding, tied to a `job_applications` row via `claim_hire_invite` RPC. Pre-fills from `get_public_hire_invite` (name/email/phone from application), lets the hire complete missing details + create their auth account, then links the auth user back.
 
-## Scope-by-scope removal plan
+**Where phone is collected today** (all should share one component)
+- Uses `formatPhone` already: `join.$slug.tsx`, `hired.$id.tsx`, `employee.tsx` (self profile + emergency contact), `careers.tsx`, `manager.tsx` EmployeeEditor (self + emergency contact ~L654, L723), `manager.tsx` BusinessInfoEditor and ManagementTeamComposer (~L2471 — being removed in revert).
+- Raw `<input>` with no mask: `AvailabilityEditor.tsx` L419–422 (emergency contact phone), `manager.tsx` L1945 (applicant-edit dialog phone).
 
-### 1. `src/lib/permissions.ts` — DELETE
-No other feature uses `ManagerPermission`, `PERMISSION_META`, `scopedTabsFor`, `permissionsShortTitle`, `permissionsDescriptor`, `permissionsFromFlags`, or `permissionsFromMember` once the callers below are cleaned up. Verify with a final `rg` before deletion.
+**Name reconciliation**
+- DB has both `name` and `first_name`/`last_name`. `join.$slug` and `hired.$id` write all three (name = trimmed `${first} ${last}`). Old `inviteEmployee` and older seed data write only `name`. UI (`manager.tsx` L492) prefers `firstName + lastName` when present, else falls back to `name`. Rule going forward: first/last are the source of truth for new writes; `name` is a computed convenience mirror kept in sync on every write.
 
-### 2. `src/lib/auth-context.tsx` — SIMPLIFY
-Keep `EffectiveOwner` and `get_effective_owner` (used to resolve `ownerId` / `restaurantName` for the sidework store), but strip permissions-related surface:
-- Remove `ActingRole` export, `acting`, `permissions`, `canManageHiring`, `canManageSchedule` from `EffectiveOwner`.
-- Stop importing `permissionsFromFlags` / `ManagerPermission`.
-- `loadEffectiveOwner` still calls the RPC; only `owner_id` + `restaurant_name` are read from the row. If `data[0].acting === "team_member"`, treat as no effective owner (`setEffectiveOwner(null)`) — team members can no longer masquerade as owners in the client.
-- `employeeContext` stays exactly as-is (employee side depends on it).
+## Plan
 
-Risk: any component currently reading `.acting` / `.permissions` from `effectiveOwner` needs updating — enumerated below.
+### 1. Shared masked phone input component
+Add `src/components/ui/phone-input.tsx`:
+- Thin wrapper around shadcn `Input`.
+- Props: all `Input` props except `onChange`, plus `value: string`, `onChange: (formatted: string) => void`, optional `onDigitsChange?: (digits: string) => void`.
+- Defaults: `type="tel"`, `inputMode="tel"`, `autoComplete="tel"`, `placeholder="(555) 555-1234"`, `maxLength={14}`.
+- Internally applies `formatPhone` on every keystroke. `formatPhone` in `src/lib/format-phone.ts` stays; the component just centralizes the JSX + defaults.
 
-### 3. `src/lib/use-require-manager-access.ts` — REVERT
-Gate purely on `profile?.role === "owner"`. Drop `effectiveOwner`/`permissions` checks. Confirmed safe for employee flow: this hook is only used in `manager.tsx`; employee routes use their own gates on `profile.role === "employee"`.
+Swap every current phone input over to `<PhoneInput>`:
+- `join.$slug.tsx` (main + EC), `hired.$id.tsx` (main + EC), `employee.tsx` (main + EC), `careers.tsx`, `manager.tsx` EmployeeEditor (main + EC), `manager.tsx` applicant-edit dialog (L1945 — currently unmasked, bug fix in passing), `AvailabilityEditor.tsx` EC phone (currently unmasked), `manager.tsx` BusinessInfoEditor (Restaurant Info phone). The `ManagementTeamComposer` phone input is deleted by the parallel revert — no action here.
 
-### 4. `src/routes/manager.tsx` — REMOVE SCOPED VIEW + TEAM CARD PERMISSION SWITCHES
-- Delete the `isTeamMember` / `permissions` / `scopedTabs` block and the entire "scoped view for team members" branch (lines ~80–147). `ManagerPage` renders only the full dashboard.
-- In the Team card (~2540–2578), remove: permission-status badges, hiring/schedule Switch rows, "Copy invite link" button, `team.setPermission` calls. Keep the card itself — it's still useful as a plain roster/contact list for hand-offs, matching how it looked before today.
-- Alternative worth flagging: if Matt would rather see zero remnants, delete the whole Team card + `useTeamMembers` hook + `restaurant_team_members` CRUD from `hiring-supabase.ts`. My default is **keep the card as a read/write roster**, drop only the permission UI. Confirm which he wants.
-- Remove `PERMISSION_META`, `PERMISSION_KEYS`, `permissionsShortTitle`, `scopedTabsFor`, `ManagerPermission` imports.
+### 2. "Add manually" form — split name + add phone (but repurpose it, see §3)
+Replace the current three-field dialog with `First name`, `Last name`, `Email`, `Phone` (via `PhoneInput`), `Primary role`. Phone optional; the invitee will normally fill it themselves.
 
-### 5. `src/lib/use-team-members.ts` — TRIM
-Remove `setPermission`, `setHiringPermission`, `setSchedulePermission`, and the `PERMISSION_META` / `ManagerPermission` imports. Keep `add`/`update`/`remove` — still used by the plain Team card (option A above).
+### 3. Invite-fill workflow (owner sends stub, invitee fills the rest)
+Reuse the existing `restaurant_employees`-based pipeline; do NOT build a parallel one and do NOT hijack `job_applications` / `claim_hire_invite` (that flow is bound to postings).
 
-### 6. `src/lib/hiring-supabase.ts` — TRIM
-- Delete `setTeamMemberPermission`, `setTeamMemberHiringPermission`, `setTeamMemberSchedulePermission`, `fetchPublicTeamInvite`, `claimTeamInvite`, and the `PublicTeamInvite` type.
-- Keep `fetchTeamMembers` / `insertTeamMember` / `updateTeamMember` / `deleteTeamMember` and the `TeamMember` / `TeamMemberInput` types (still used by the roster card). Strip `canManageHiring`/`canManageSchedule` from the returned shape and stop reading `can_manage_*` columns (they simply stay `false` in the DB; RLS is unaffected).
+Server side (one migration):
+- Add column `restaurant_employees.invite_token uuid` (nullable, unique, default `gen_random_uuid()` on insert of stub rows only — set via app code, not a table default, so existing rows stay null).
+- Add SECURITY DEFINER RPC `get_public_employee_invite(p_token uuid)` → returns `{ id, first_name, last_name, email, phone, primary_role, restaurant_name, claimed boolean }`. Read-only; safe for anon.
+- Add SECURITY DEFINER RPC `claim_employee_invite(p_token uuid, p_auth_user_id uuid, p_patch jsonb)` → validates token, verifies row not already claimed (auth_user_id null), applies whitelisted fields from `p_patch` (`first_name`, `last_name`, `phone`, `weekly_availability`, `emergency_contact`), sets `auth_user_id`, `personal_info_complete = true`, `onboarding_started = true`, clears `invite_token`, keeps `name` in sync with first/last. Rejects changes to `owner_id`, `primary_role`, `approved_roles`, `seniority`, etc. (mirrors the existing `enforce_employee_self_edit_scope` intent).
+- No new RLS policies needed for the reads/writes — RPCs are security-definer.
 
-### 7. `src/routes/team-invite.$id.tsx` — DELETE
-Whole route file. Vite router plugin will regenerate `routeTree.gen.ts` without it. No other links reference `/team-invite/*` after step 4.
+Client side:
+- `src/lib/employees-supabase.ts`: add `fetchPublicEmployeeInvite(token)` and `claimEmployeeInvite(token, uid, patch)` wrappers.
+- Rework `inviteEmployee` in `sidework-store.tsx` to accept `{ firstName, lastName, email, phone?, role }`. It creates the stub Employee locally AND writes the DB row with an `invite_token` (uuid) plus `personal_info_complete: false`, `onboarding_started: false`. Removes the fake "training assigned" notification (misleading — nothing has happened yet).
+- The owner-facing success toast returns a copyable invite URL: `${origin}/staff-invite/{token}`. Same UX as the join-link "Copy" button (`navigator.clipboard.writeText`, fallback toast). No email sending added — matches existing join-link behavior (owner texts/emails it themselves).
+- New route `src/routes/staff-invite.$token.tsx`: mirrors `hired.$id.tsx` layout, but backed by the new RPCs and `restaurant_employees` instead of `job_applications`. Fields: first/last (prefilled + editable), email (prefilled read-only — anchors the auth signup), `PhoneInput`, weekly availability, emergency contact (first/last/`PhoneInput`/relationship), password + confirm. On submit: zod-validate → `supabase.auth.signUp` → insert `profiles` row with `role: 'employee'` → `claim_employee_invite(token, uid, patch)` → local `joinStaff` mirror (so the just-signed-in employee sees themselves) → success screen matching `hired.$id`.
+- Team card in `manager.tsx` gains a "Copy invite link" affordance on rows where `auth_user_id` is null and `invite_token` is present, so the owner can re-copy without re-inviting.
 
-### 8. `src/components/sidework/SetupWizard.tsx` — REMOVE STEP 5 + RENUMBER
-- Delete `ManagementTeamComposer` function and its `step === 5` render block.
-- Renumber steps 6→5, 7→6, …, 11→10, and change `TOTAL_STEPS = 11` → `10`.
-- Shift the `prompts` map keys down by one for steps ≥6. Delete the current step-5 prompt string ("Who else on your team should be able to manage hiring or scheduling…").
-- Remove `PERMISSION_KEYS`, `PERMISSION_META`, `ManagerPermission` imports.
-- Verify `advance()` still lands on the finish step correctly (no off-by-one — the increment is `s + 1`, so it only depends on `TOTAL_STEPS` being right and the `prompts` map keys matching).
+Realtime sync (already wired for `restaurant_employees`) will surface the invitee's submitted details in the owner's Team card without action on the owner's part — this is the "populates their row automatically" Matt asked for.
 
-### 9. `src/components/sidework/AppShell.tsx` — REMOVE DUAL-ROLE PILL
-Delete the `hasManager` / `hasEmployee` / `showDualRoleSwitcher` / `switcherTarget` / `switcherLabel` computation and the `<Button>` that renders it. Stop reading `effectiveOwner` and `employeeContext` from `useAuth()`. `ArrowLeftRight` import goes with it.
+### 4. Cleanup / consistency
+- Fix `manager.tsx` L1945 (applicant phone) and `AvailabilityEditor.tsx` EC phone to use the new `PhoneInput` (drive-by mask fixes).
+- Keep `join.$slug.tsx` (open link) untouched aside from the `PhoneInput` swap — it stays as the low-friction share-a-link path. "Add manually" is now the targeted-invite path for a specific hire.
+- Everywhere new code writes to `restaurant_employees`, keep `name = trim(first + ' ' + last)` in sync (mirroring existing `sync_team_member_name` pattern; we do it in the app to avoid a trigger on the employees table).
 
-### 10. `src/routes/login.tsx` — SIMPLIFY POST-SIGN-IN ROUTING
-Drop the `get_effective_owner` round-trip. After a successful password sign-in, read `profiles.role` (or rely on the manager-access gate on `/manager` to bounce non-owners). Simplest: `navigate({ to: "/manager" })` and let `useRequireManagerAccess` redirect non-owners to `/employee` — that's exactly what it already does. Removes the "acting" check and the auto-signout-then-redirect-to-employee-login branch (that branch was there specifically for the team-member case).
+## Verification (after implementation, in build mode)
+- Playwright + service-role seeded owner (same technique as prior turns):
+  1. Open manager Settings → Team → Add Staff → Add manually. Confirm split first/last, live phone mask formatting as digits are typed, invite URL appears in toast after submit.
+  2. DB: seeded row has `invite_token`, `personal_info_complete=false`, `auth_user_id=null`, `name` = "First Last".
+  3. Open the `/staff-invite/{token}` URL in a fresh context. Verify prefill (name/email), phone mask, availability/EC form, complete signup.
+  4. DB: same row now has `auth_user_id`, `phone`, `weekly_availability`, `emergency_contact`, `personal_info_complete=true`, `invite_token=null`.
+  5. Manager Team card: row auto-updates (realtime) with the submitted phone + full details.
+  6. Grep confirms zero remaining raw `<Input type="tel" ...>` outside `<PhoneInput>`.
+- `bun run build` clean. Clean up all seeded data.
 
-### 11. DB — LEAVE IN PLACE (recommended)
-`restaurant_team_members` (with the two seeded rows), `claim_team_invite`, `get_public_team_invite`, and the `can_manage_*` columns stay untouched. Reasoning:
-- Non-destructive; if Matt reverses again we don't need a data-recovery story.
-- These objects are unreachable from the UI after this cleanup, so they don't confuse users.
-- The one wart: the `types.ts` regenerated file still lists these RPCs. Harmless — they're just unused.
-
-Tradeoff (flagged, not silently chosen): the alternative is a migration that drops `restaurant_team_members`, `claim_team_invite`, `get_public_team_invite`, and the `can_manage_*` columns. Cleaner surface, but irreversible without restoring from backup, and the seeded rows go with it. **Default: leave.** Say the word to switch to a drop migration.
-
-`get_effective_owner` also stays: it's the ownerId resolver used by `auth-context`. Its team-member fallback path becomes unreachable client-side after step 2 — acceptable.
-
-## Guarded areas — do not modify
-
-- `src/components/sidework/ScheduleSection.tsx`: `updatedAt` conflict handling and `applyRemoteShiftUpsert` callers. No permissions references live in this file; safe.
-- `src/lib/schedule-supabase.ts`: `shiftFromRow`/`upsertShiftRow` with `updated_at` optimistic concurrency — untouched.
-- `src/lib/sidework-store.tsx`: the realtime `postgres_changes` subscription on `shifts` and the applyRemoteShiftUpsert wiring — untouched. Only touches `effectiveOwner.ownerId` and `effectiveOwner.acting === "owner"` (line 1173, 1235, 1239) — the `acting === "owner"` check needs updating since we're removing `.acting`. Simplest fix: treat any non-null `effectiveOwner` as owner (that's what it means after step 2), i.e. drop the `acting === "owner"` conjunction.
-- Employee routes (`/employee`, `/employee-login`), `useRequireRole`, `employee-supabase.ts`, `EmployeeContext` — untouched.
-
-## Loose ends surfaced
-
-- `src/integrations/supabase/types.ts` will regenerate on next migration; today it still contains `claim_team_invite` / `get_public_team_invite` / team-member `can_manage_*` types. Fine to leave since the DB objects remain.
-- The `restaurant_team_members` RLS policies (5 of them) stay — they reference `can_manage_*` columns which still exist. No changes needed.
-- `login.tsx` currently prints "This is the manager sign-in. Redirecting to employee sign-in…" — after the simplification, this toast disappears; a plain employee who mistypes the URL will now hit `/manager` briefly and get bounced to `/employee` by the gate. Acceptable, matches pre-today behavior.
-- No changes needed to `use-require-role.ts`, `employee.tsx`, `employee-login.tsx`, `signup.tsx` (signup already assigns `role: "owner"` on the owner path).
-
-## Verification after implementation (build mode)
-
-- `bun run build` clean and `tsgo` clean.
-- Playwright (service-role/seeded) as owner: `/manager` loads full dashboard, Team card renders as a plain roster (no permission switches, no invite-link button), Settings unaffected, wizard shows "Step N of 10" and skips cleanly from operations → pain points with no gap.
-- Playwright (service-role/seeded) as employee: `/employee` loads normally; the removed dual-role pill does not appear in the header.
-- Realtime + conflict toast smoke test (same technique as last turn): flip a shift via direct DB write → UI updates; edit a stale shift in the UI → conflict toast fires.
-- `/team-invite/<id>` returns 404 (route deleted).
-
-## Ready for approval
-
-Two open questions worth confirming before I start:
-
-1. **Team card:** keep it as a plain roster (add/edit/remove contacts, no permissions) — or delete it entirely along with `useTeamMembers` and the roster CRUD? I default to keeping it.
-2. **DB objects:** leave `restaurant_team_members` + the two related RPCs + seeded rows dormant (recommended), or ship a drop migration in the same pass?
+## Open assumption (flag)
+Matt said "name + email is probably enough to kick it off." I'm keeping Primary role in the owner-side stub (owner-scoped field per `enforce_employee_self_edit_scope`; invitee can't set it). Phone is optional at the owner stage. If he'd rather the role also be picked by the invitee, we'd need to relax that server-side rule — flagging rather than silently choosing.
