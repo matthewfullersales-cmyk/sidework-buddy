@@ -3,17 +3,26 @@ import type { ReactNode } from "react";
 import { Logo } from "./Logo";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
-import { LogOut } from "lucide-react";
+import { LogOut, ArrowLeftRight } from "lucide-react";
 
 export function AppShell({ children, nav }: { children: ReactNode; nav: { to: string; label: string; icon: ReactNode }[] }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { session, signOut } = useAuth();
+  const { session, signOut, effectiveOwner, employeeContext } = useAuth();
 
   const handleSignOut = async () => {
     await signOut();
     navigate({ to: "/" });
   };
+
+  // Dual-role affordance: users who both have manager permissions AND a
+  // linked employee record see a pill to jump between the two dashboards.
+  const hasManager = (effectiveOwner?.permissions?.size ?? 0) > 0;
+  const hasEmployee = !!employeeContext?.employeeId;
+  const showDualRoleSwitcher = hasManager && hasEmployee;
+  const inManagerArea = location.pathname.startsWith("/manager");
+  const switcherTarget = inManagerArea ? "/employee" : "/manager";
+  const switcherLabel = inManagerArea ? "Switch to My Schedule" : "Switch to Manager";
 
   return (
     <div className="min-h-screen bg-background pb-[max(6rem,calc(5rem+env(safe-area-inset-bottom)))] md:pb-0">
