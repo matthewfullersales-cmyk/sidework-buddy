@@ -124,6 +124,43 @@ export type RestaurantHoursConfigV3 = {
   arrivalOffsets: ArrivalOffsets;
 };
 
+// Owner-editable "Restaurant Info" — physical address, phone, website, and
+// social handles. Persisted as jsonb on profiles.business_info so we can add
+// fields later without a migration. All fields optional; blank = null.
+export type BusinessInfo = {
+  street?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  phone?: string;
+  website?: string;
+  instagram?: string;
+  facebook?: string;
+  tiktok?: string;
+};
+
+export function defaultBusinessInfo(): BusinessInfo {
+  return {};
+}
+
+export function normalizeBusinessInfo(raw: unknown): BusinessInfo {
+  if (!raw || typeof raw !== "object") return {};
+  const o = raw as Record<string, unknown>;
+  const pick = (k: string) => (typeof o[k] === "string" ? (o[k] as string) : undefined);
+  return {
+    street: pick("street"),
+    city: pick("city"),
+    state: pick("state"),
+    zip: pick("zip"),
+    phone: pick("phone"),
+    website: pick("website"),
+    instagram: pick("instagram"),
+    facebook: pick("facebook"),
+    tiktok: pick("tiktok"),
+  };
+}
+
+
 export function defaultWeeklyAvailability(): WeeklyAvailability {
   return DAY_KEYS.reduce((acc, d) => { acc[d] = { kind: "full" }; return acc; }, {} as WeeklyAvailability);
 }
