@@ -2,8 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
 import { Logo } from "@/components/sidework/Logo";
 import { useStore, type MenuUpload, type ServiceStyle } from "@/lib/sidework-store";
+import { useTeamMembers } from "@/lib/use-team-members";
+import { PERMISSION_KEYS, PERMISSION_META, type ManagerPermission } from "@/lib/permissions";
+import { teamMemberDisplayName } from "@/lib/hiring-supabase";
+import { copyLinkWithToast } from "@/lib/copy-to-clipboard";
 import { toast } from "sonner";
 
 /* ----------------------------- Types ----------------------------- */
