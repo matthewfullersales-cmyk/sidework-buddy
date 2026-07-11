@@ -2556,33 +2556,29 @@ function TeamRosterCard({ team }: { team: ReturnType<typeof useTeamMembers> }) {
                   <p className="font-semibold">{teamMemberDisplayName(m)}</p>
                   {m.title && <Badge variant="outline">{m.title}</Badge>}
                   <Badge variant={statusBadge.cls ? "default" : "outline"} className={statusBadge.cls}>{statusBadge.label}</Badge>
-                  {hasAccount && m.canManageHiring && <Badge variant="outline">Hiring access</Badge>}
-                  {hasAccount && m.canManageSchedule && <Badge variant="outline">Scheduling access</Badge>}
+                  {hasAccount && PERMISSION_KEYS.filter((k) => m[PERMISSION_META[k].memberFlag]).map((k) => (
+                    <Badge key={k} variant="outline">{PERMISSION_META[k].badgeLabel}</Badge>
+                  ))}
                 </div>
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   {m.email ?? "—"} · {m.phone ?? "—"}
                 </p>
                 <div className="mt-2 flex flex-col gap-1.5">
-                  <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Switch
-                      checked={m.canManageHiring}
-                      onCheckedChange={async (v) => {
-                        try { await team.setPermission(m.id, v); toast.success(v ? "Hiring access enabled" : "Hiring access removed"); }
-                        catch (e) { toast.error(e instanceof Error ? e.message : "Could not update"); }
-                      }}
-                    />
-                    <span>Can manage hiring &amp; interviews</span>
-                  </label>
-                  <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Switch
-                      checked={m.canManageSchedule}
-                      onCheckedChange={async (v) => {
-                        try { await team.setSchedulePermission(m.id, v); toast.success(v ? "Scheduling access enabled" : "Scheduling access removed"); }
-                        catch (e) { toast.error(e instanceof Error ? e.message : "Could not update"); }
-                      }}
-                    />
-                    <span>Can manage scheduling</span>
-                  </label>
+                  {PERMISSION_KEYS.map((k) => {
+                    const meta = PERMISSION_META[k];
+                    return (
+                      <label key={k} className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Switch
+                          checked={m[meta.memberFlag]}
+                          onCheckedChange={async (v) => {
+                            try { await team.setPermission(m.id, k, v); toast.success(v ? meta.toastOn : meta.toastOff); }
+                            catch (e) { toast.error(e instanceof Error ? e.message : "Could not update"); }
+                          }}
+                        />
+                        <span>{meta.label}</span>
+                      </label>
+                    );
+                  })}
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
