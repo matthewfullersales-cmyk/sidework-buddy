@@ -534,20 +534,29 @@ export async function deleteTeamMember(id: string): Promise<void> {
   if (error) throw error;
 }
 
-export async function setTeamMemberHiringPermission(id: string, canManageHiring: boolean): Promise<void> {
+/** Generic setter — dispatches to the right DB column via the permissions registry. */
+export async function setTeamMemberPermission(
+  id: string,
+  key: import("@/lib/permissions").ManagerPermission,
+  value: boolean,
+): Promise<void> {
+  const { PERMISSION_META } = await import("@/lib/permissions");
+  const column = PERMISSION_META[key].column;
   const { error } = await supabase
     .from("restaurant_team_members")
-    .update({ can_manage_hiring: canManageHiring })
+    .update({ [column]: value } as never)
     .eq("id", id);
   if (error) throw error;
 }
 
+/** @deprecated Use setTeamMemberPermission(id, "hiring", value). */
+export async function setTeamMemberHiringPermission(id: string, canManageHiring: boolean): Promise<void> {
+  return setTeamMemberPermission(id, "hiring", canManageHiring);
+}
+
+/** @deprecated Use setTeamMemberPermission(id, "schedule", value). */
 export async function setTeamMemberSchedulePermission(id: string, canManageSchedule: boolean): Promise<void> {
-  const { error } = await supabase
-    .from("restaurant_team_members")
-    .update({ can_manage_schedule: canManageSchedule })
-    .eq("id", id);
-  if (error) throw error;
+  return setTeamMemberPermission(id, "schedule", canManageSchedule);
 }
 
 export type PublicTeamInvite = {
