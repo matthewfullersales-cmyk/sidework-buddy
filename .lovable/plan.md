@@ -1,141 +1,91 @@
-# Smarter shift-time suggestions from restaurant hours + meal periods
+## Investigation findings
 
-## Goal
+Short version: the whole two-flag permission system Matt is asking for is **already wired end-to-end**. Samantha's and Mathew's flags are `false` simply because nobody has toggled them in the Team card yet, and neither has claimed a login. The real gaps are (a) discoverability during initial owner setup, (b) generalizing beyond exactly two hardcoded booleans, and (c) a couple of production-polish items on the invite-claim flow.
 
-Replace the two blank `<input type="time">` fields in the Add/Edit Shift dialog with a **suggestion-first time picker** whose options are computed from that restaurant's real `restaurant_hours` + `mealPeriods`, offset by a per-section/role "arrival lead time" (BOH prep-in is earlier than FOH floor-in, both are before food service). Manual entry stays fully open — the suggestions are a shortcut, never a gate. No changes to the meal-period conflict-warning logic.
+### 1. Existing UI that reads/writes `can_manage_hiring` / `can_manage_schedule`
 
-## Current state (audit)
+Fully wired, both directions:
 
-- `ShiftDetailsDialog` (ScheduleSection.tsx line 706+) currently uses two raw `<Input type="time">` fields, defaulting to `existing?.start ?? "17:00"` / `"23:00"`. No awareness of the day's open/close or the configured meal periods.
-- `defaultShift(position, isWeekend)` (line 83) has a hardcoded per-position start/end table — the exact thing Matt wants replaced by per-restaurant config.
-- Store already exposes `restaurantHours: RestaurantHours` (per-day `{open, close, closed}`) and `mealPeriods: MealPeriods` (Breakfast/Lunch/Dinner each `{enabled, start, end}`), persisted in `profiles.restaurant_hours` as `RestaurantHoursConfigV2`.
-- Employee has `position: Position` and `section: "FOH" | "BOH"` already — no schema change needed to key offsets by section, and position is available for finer overrides.
-- Meal-period conflict UI (`availConflict` block, lines 745–812) is independent of the time picker and will not be touched. Same for `isAvailableForRange`.
+- **Write UI** — `src/routes/manager.tsx` Team card (~lines 2545–2590): each team member row shows two `<Switch>` controls, "Can manage hiring & interviews" and "Can manage scheduling". They call `team.setPermission` / `team.setSchedulePermission` (`src/lib/use-team-members.ts`), which hit `setTeamMemberHiringPermission` / `setTeamMemberSchedulePermission` in `src/lib/hiring-supabase.ts` (plain `update` on `restaurant_team_members`).
+- **Read UI (owner side)** — same card shows "Hiring access" / "Scheduling access" badges, and gates the "Copy invite link" button on `anyPerm && !hasAccount`.
+- **Read UI (team-member side)** — `src/routes/manager.tsx` (~lines 78–150) reads `effectiveOwner.canManageHiring/canManageSchedule` from `useAuth()`, and when `acting === "team_member"` renders a **scoped dashboard**: only Schedule/Trades/TimeOff tabs if scheduling, only Jobs tab if hiring, both if both. Tab auto-pins to the first permitted one. `useRequireManagerAccess` already lets a permitted team member into `/manager` even without `role === "owner"`.
+- **RLS side** — `can_manage_hiring_for(owner_id)` and `can_manage_schedule_for(owner_id)` SQL security-definer helpers already exist and are the intended predicate for policies on hiring/schedule tables.
 
-### Copy-to-next-week audit (requested)
+**Why Samantha's/Matt's are false**: no owner has flipped the switches in the Team card. It's a discoverability problem, not a wiring problem. (Also — they have no `auth_user_id`, so even flipping the switch today just makes an invite link available; they haven't claimed a login.)
 
-**Already implemented, no gap.** `performCopyToNextWeek` (lines 275–319) does:
-- Skips any shift whose destination date has `timeOffStatusFor === "approved"` (counted as "X skipped — approved time off").
-- Skips any shift where the destination weekday violates the employee's recurring `weeklyAvailability` via `isAvailableFor(av, s.start, mealPeriods)` ("X skipped — recurring unavailability").
-- Toast reports both skip counts. Destination week's existing shifts are cleared first, with a confirm dialog when count > 0.
+### 2. `auth_user_id` linkage + login-role separation
 
-Two minor gaps worth flagging (not fixing this turn):
-1. It skips on `isAvailableFor(av, start)` (start-only), not `isAvailableForRange(av, start, end)` — so a shift that starts in Lunch but extends into a Dinner-unavailable window would copy through silently. Same class as the bug we already fixed in the dialog.
-2. Pending (not approved) time-off on the destination date is not surfaced at all — copies through without a warning.
+- **Flow exists**: owner toggles a permission → "Copy invite link" appears → link is `/team-invite/{team_member_id}` → `src/routes/team-invite.$id.tsx` fetches a public projection via `get_public_team_invite` RPC → invitee enters email+password → tries `signInWithPassword`, else `signUp` → on success calls the `claim_team_invite(team_member_id, auth_user_id)` SQL function, which sets `auth_user_id`, enforces "not already claimed", and rejects if that auth user is already linked to another team member row.
+- After claiming, `get_effective_owner()` returns their owner's id + the two permission flags, and `useAuth().effectiveOwner.acting === "team_member"` drives the scoped dashboard.
+- **Login-role separation status**: the plumbing is there and works, but the sign-up path on the invite page creates the auth user with `data: { role: "employee" }`. That's fine because gating uses `restaurant_team_members.auth_user_id`, not `profiles.role`. The **actual gaps** are:
+  1. The Team card copies the invite link but never surfaces the invitee's email/phone or offers a "send" action — owners have to copy/paste out-of-band.
+  2. There's no email-verified requirement or single-use-token wrapper on the invite id; anyone who gets the URL and picks any email/password can claim it. Fine for the demo, worth flagging.
+  3. If someone already has an owner or employee login and lands on `/team-invite/...`, the current flow tries to sign them in with their existing password inside the invite page — works, but there's no explicit "you're already signed in — claim as this account?" affordance.
 
-## Proposed data model addition — arrival offsets
+### 3. Where "add team + grant permissions" belongs in owner setup
 
-Live it entirely in the existing `profiles.restaurant_hours` JSON blob so no migration is needed. Bump to `V3` with backward-compatible normalization (same pattern used for the V1→V2 upgrade).
+- The owner setup wizard is `src/components/sidework/SetupWizard.tsx`. Step 4 is a `TeamForm` — but today it only asks about **role composition** (FOH/BOH role checkboxes, min staff/shift, "who makes the schedule"). It does **not** collect actual people, and does not touch `restaurant_team_members` at all.
+- Team members are added exclusively later, from the Team card in the manager dashboard, via the "Add team member" dialog (`src/routes/manager.tsx` ~2500). That dialog can pre-fill from existing `restaurant_employees` rows.
+- So there is **no onboarding moment today** where the owner is prompted to add a manager-level teammate and grant them permissions. Adding that is the right hook for Matt's ask.
 
-```ts
-// Minutes an employee is expected to clock in BEFORE food-service start
-// for the meal period they're working. Section defaults cover the common case;
-// per-position map overrides for the exceptions (e.g. Prep Cook needs more lead).
-type ArrivalOffsets = {
-  bySection: { FOH: number; BOH: number };   // default 60 / 120
-  byPosition?: Partial<Record<Position, number>>;
-};
+### 4. What gates the Hiring / Schedule tabs today
 
-type RestaurantHoursConfigV3 = {
-  version: 3;
-  days: RestaurantHours;
-  mealPeriods: MealPeriods;
-  arrivalOffsets: ArrivalOffsets;
-};
-```
+- Route-level: `useRequireManagerAccess("/login")` — allows `profile.role === "owner"` **or** any team member with either flag true. Anyone else → `/employee`.
+- Tab-level: for owners, `ManagerPage` shows the full tab set unconditionally. For `acting === "team_member"`, `scopedTabs` above filters to exactly the two-flag set. There is no per-tab permission read anywhere else — the concept of "permitted-but-not-owner" is already a first-class thing in the UI, just driven by exactly two booleans.
 
-**Defaults:** FOH 60 min, BOH 120 min. Common per-position overrides pre-seeded (adjustable): Prep Cook 240, Dishwasher 30, Manager 90, Hostess 30. Owner sees a small table in Settings under the Meal Periods card to edit any of these — one row per section (always shown) and one row per position that has staff.
+---
 
-**Read path:** helper `arrivalOffsetFor(position, section, offsets)` → returns `byPosition[position] ?? bySection[section] ?? 60`.
+## Proposed plan
 
-`normalizeRestaurantHoursConfig` gains a V2→V3 branch that just injects default `arrivalOffsets` when missing. No SQL migration; existing rows just re-hydrate as V3 next save.
+Three-part plan. Nothing changes the DB shape yet — we generalize inside the app first and only add columns if/when a third permission surfaces.
 
-## Suggested-times generation
+### Part A — surface permissions during owner setup (biggest UX gap)
 
-For the shift's employee + role + date, build an ordered list of `{label, start, end}` suggestions:
+Add a new **"Your management team"** step to `SetupWizard.tsx` immediately after the existing Team (roles) step. It writes real rows to `restaurant_team_members` via the same `useTeamMembers` hook the manager Team card uses, so nothing new server-side.
 
-1. Determine the day's hours from `restaurantHours[dayKey]`. If `closed`, still allow suggestions from meal periods (owner may need a special-day shift) but flag with `(day marked closed)`.
-2. For each **enabled** meal period `m` (Breakfast/Lunch/Dinner):
-   - `serviceStart = m.start`, `serviceEnd = m.end`.
-   - `arrivalMin = arrivalOffsetFor(emp.position, emp.section)`.
-   - `suggestStart = max(dayOpen, serviceStart − arrivalMin)` (never propose earlier than the door opens — owner still overrides manually if needed).
-   - `suggestEnd = min(dayClose, serviceEnd + closeoutMin)` where `closeoutMin` is a symmetric section default (FOH 30, BOH 60) — same offsets table, second field, or a fixed constant with a follow-up if we want it configurable.
-   - Emit `{ label: "Dinner — arrive 3:00pm, out 9:30pm", start: "15:00", end: "21:30" }`.
-3. If two adjacent meal periods are both enabled (Lunch + Dinner) and this employee is typically a double, emit a combined suggestion spanning the earliest arrival to the latest closeout.
-4. Emit an "Open-to-close" suggestion using raw `dayOpen`/`dayClose` when both are set.
-5. De-dupe by `(start,end)` and order by `start` ascending.
+For each row the owner adds during setup, they can:
+- Enter first/last name, title, email, phone (same fields as today's Add-team-member dialog).
+- Toggle the two permission switches inline ("Can manage hiring & interviews", "Can manage scheduling").
+- See an "Invite link" ready to copy the moment either switch is on.
 
-Suggestions are ordered so the picker's first option matches the meal period that best fits `emp.weeklyAvailability` for that day (e.g. Dinner-only employee → Dinner suggestion first), keeping picker + availability warning aligned without the picker enforcing anything.
+Skippable step ("I'll do this later from Settings") — some owners run solo at launch. Existing Team card in the manager dashboard remains the durable edit surface.
 
-## UI: shift dialog time inputs
+### Part B — generalize the permission model in code (don't touch the DB yet)
 
-Replace the two bare time inputs with a compact composite:
+Two hardcoded booleans is not what we want to keep pattern-matching against as we add more manageable areas (menus, training, payroll…). Refactor the **application layer only**, keeping the DB columns as-is:
 
-```text
-┌ Start ────────────┐  ┌ End ──────────────┐
-│ [ 15:00  ▾ ]      │  │ [ 21:30  ▾ ]      │
-└───────────────────┘  └───────────────────┘
-  Suggestions
-  • Dinner  (arrive 3:00pm → 9:30pm)     ← primary suggestion, highlighted
-  • Lunch   (arrive 10:00am → 3:30pm)
-  • Lunch + Dinner double (10:00am → 9:30pm)
-  • Open-to-close (10:00am → 10:00pm)
-  • Custom…                              ← keeps free-form entry
-```
+- Introduce a `ManagerPermission` union type in a new `src/lib/permissions.ts`: initially `"hiring" | "schedule"`.
+- Add a `PERMISSION_META` registry mapping each key to `{ label, description, tabs: string[], column: keyof RestaurantTeamMembersRow }` — this is the single source of truth for labels, descriptions, tab visibility, and which DB column to read/write.
+- `useAuth().effectiveOwner` gains `permissions: Set<ManagerPermission>` (derived from the existing booleans). Existing `canManageHiring`/`canManageSchedule` fields stay for now to avoid breaking callers, but are marked deprecated in a comment and are computed from the set.
+- `ManagerPage` scoping, Team card switches, the invite page copy, and `useRequireManagerAccess` all iterate over the registry instead of hardcoding two flags.
+- `use-team-members.ts` exposes one generic `setPermission(id, key, value)` that dispatches to the right DB column, deprecating the two specific setters.
 
-Behavior:
-- The inputs remain `type="time"`, so typing/keyboard/native picker still works exactly as today. Clicking a suggestion just fills both fields.
-- A small "Suggestions" popover (Command / Popover from shadcn — already in the codebase) hangs off each input, or a single "Suggestions ▾" button above the pair. Prefer the single button so keyboard flow into the two inputs is unchanged.
-- No suggestion is auto-applied for a brand-new shift beyond seeding the *first* suggestion into the fields as the default (replaces today's hardcoded 17:00–23:00). User can immediately clear or overtype.
-- If `hoursConfigured(...)` is false, skip suggestions entirely and show an inline hint "Set operating hours in Settings to get time suggestions" — free-form inputs behave exactly like today so the picker never regresses.
-- Suggestions never *disable* the Save button and never gate the availability warning — those keep firing based purely on the actual entered `start`/`end` against `mealPeriods` + `weeklyAvailability`.
+Effect: adding a third permission later = add one entry to the registry + one column + one RLS helper. No shotgun-edits across the codebase, no "paint us into a corner", and Matt sees no behavior change today.
 
-## Settings UI (adjacent to existing Meal Periods card)
+Explicit non-goal: we do **not** migrate to a `team_member_permissions` join table or a JSONB permissions column right now. Two flags is fine at rest; the cost is a per-column DDL each time we add a permission, which is acceptable for the next 1–2 additions and easy to swap out later behind the same registry.
 
-New "Arrival lead time" card:
-- Two always-visible rows: FOH default (min), BOH default (min).
-- Collapsible "Per-position overrides" list: one row per `Position` currently held by any active employee, blank input meaning "use section default". Small "Reset to defaults" link.
-- Copy above the card: "How early should staff clock in before their meal period's service start? Used to suggest shift times when you build the schedule."
+### Part C — small production-polish items on the invite flow (optional in this pass, flag for Matt)
 
-## Interaction with existing conflict warnings (guardrail)
+Don't build unless approved:
+- Team card: show the invite URL inline (not just a copy button) and a "Send invite" affordance (email/SMS) that pre-fills the invitee's email/phone from the row.
+- Invite page: if the visitor is already signed in as some auth user, offer "Claim as {current email}" as a one-click path instead of re-entering credentials.
+- Consider signing the invite URL (short-lived token per team_member_id) before we ship publicly, so a leaked id can't be claimed by a stranger.
 
-Explicitly reaffirm:
-- `availConflict` / `isAvailableForRange` still runs against the entered `start`/`end`.
-- If an owner picks a suggestion whose start falls inside e.g. Lunch (bartender arriving 3pm for a 4pm dinner service, when meal periods happen to be Lunch 11–15 & Dinner 15–21), the warning behaves exactly as it does today for that shift. That's the correct, documented behavior — the arrival offset is a scheduling convenience, not a bypass. If an owner wants "3pm counts as Dinner prep, not Lunch," the correct answer is to adjust the Lunch end / Dinner start in Meal Periods.
+## Technical work list (Parts A + B only, no code yet)
 
-## Out of scope
+1. `src/lib/permissions.ts` (new) — `ManagerPermission` union, `PERMISSION_META` registry, `permissionsFromRow(row)` / `columnFor(key)` helpers.
+2. `src/lib/auth-context.tsx` — derive `effectiveOwner.permissions: Set<ManagerPermission>` from the RPC row; keep `canManageHiring`/`canManageSchedule` as computed getters over the set for back-compat.
+3. `src/lib/hiring-supabase.ts` — add generic `setTeamMemberPermission(id, key, value)`; keep the two specific setters as thin wrappers marked deprecated.
+4. `src/lib/use-team-members.ts` — expose generic `setPermission(id, key, value)`; keep existing methods as wrappers.
+5. `src/routes/manager.tsx` — `scopedTabs`, header title/subtitle, and the Team-card switches iterate over `PERMISSION_META` instead of the two if-branches. Behavior is byte-for-byte identical today.
+6. `src/routes/team-invite.$id.tsx` — invite copy generated from `PERMISSION_META` labels.
+7. `src/components/sidework/SetupWizard.tsx` — insert a new "Your management team" step after the existing role-composition Team step. Reuses `useTeamMembers` + the new generic `setPermission`. Skippable. Emits the same summary-line style as other steps.
+8. `useRequireManagerAccess` — allow entry when `effectiveOwner.permissions.size > 0` instead of the explicit OR.
 
-- AI-generated first week, preferred-staff learning — deferred.
-- Fixing the two `copy-to-next-week` gaps flagged above — surface only, do not touch in this change.
-- Auto-adjusting meal-period boundaries from arrival offsets — offsets are additive UI only.
+No migrations, no RLS changes, no changes to `get_effective_owner` — the two flag columns keep flowing through.
 
-## Technical work list
+## Open questions before build
 
-1. `src/lib/sidework-store.tsx`
-   - Add `ArrivalOffsets`, `RestaurantHoursConfigV3`, `defaultArrivalOffsets()`.
-   - Extend `normalizeRestaurantHoursConfig` for V2→V3 (inject defaults).
-   - Extend `serializeRestaurantHoursConfig` to persist V3.
-   - Add store fields `arrivalOffsets` + `setArrivalOffsets` (persist via existing `saveRestaurantHours` path).
-   - Export helpers `arrivalOffsetFor(position, section, offsets)` and `suggestedShiftTimes({dayKey, position, section, restaurantHours, mealPeriods, arrivalOffsets})`.
-2. `src/components/sidework/AvailabilityEditor.tsx` (Settings tab already renders Meal Periods here)
-   - New `ArrivalOffsetsEditor` card below Meal Periods, reads/writes via store.
-3. `src/components/sidework/ScheduleSection.tsx`
-   - Replace the two-input block in `ShiftDetailsDialog` with a `TimeWithSuggestions` subcomponent (single Popover trigger, two `type="time"` inputs unchanged).
-   - When opening for a *new* shift (`existing` falsy), seed `start`/`end` from `suggestedShiftTimes(...)`'s first entry instead of the hardcoded `17:00`/`23:00`.
-   - Leave `availConflict` / time-off / override logic untouched.
-4. Live verify with Playwright (America/Los_Angeles) at `/manager`:
-   - Set Dinner 16:00–21:00, FOH arrival 60, BOH arrival 120.
-   - Open Add Shift for a Server → first suggestion reads "Dinner — arrive 3:00pm → …" and clicking it sets 15:00 start.
-   - Open Add Shift for a Line Cook → first suggestion is 14:00 start (120 min).
-   - Manually type 02:30 start → Save still works, no picker interference.
-   - Existing availability warning still fires for a Dinner-only employee scheduled at a Lunch time.
-5. `bun run build` clean.
-
-## Verification checklist before "done"
-
-- [ ] V2 profiles auto-upgrade to V3 on load with default offsets, no crash.
-- [ ] Settings arrival-offset edits round-trip through save/reload.
-- [ ] Suggestions dropdown matches expected list for a known hours/meal-period/offset config.
-- [ ] Manual typing in the time inputs works exactly like today.
-- [ ] Meal-period availability warning still fires unchanged for the same start/end that would have fired before this feature.
-- [ ] `copyToNextWeek` behavior unchanged (still skips approved time off + recurring unavailability with the same toast).
+- **Setup-wizard placement**: right after the existing Team step (roles/scheduler), or as a later optional "finish setting up" step in the manager dashboard after the wizard closes? Either fits; the wizard slot is more likely to actually get filled in.
+- **Skip behavior**: if the owner skips the new setup step, do we nudge them from the dashboard until they've added at least one manager (banner), or fully silent?
+- **Part C**: worth doing in the same pass, or defer until after Matt sees Parts A+B?
