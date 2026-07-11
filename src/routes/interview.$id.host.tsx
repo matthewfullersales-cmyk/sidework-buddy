@@ -110,7 +110,6 @@ function HostInterviewPage() {
         <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
           {app.role && <Badge variant="secondary">{app.role}</Badge>}
           {app.jobTitle && <span>· {app.jobTitle}</span>}
-          <span>· Assigned to <span className="font-medium text-foreground">{assignee}</span></span>
         </div>
         {app.selectedSlot && (
           <p className="mt-2 text-sm">
