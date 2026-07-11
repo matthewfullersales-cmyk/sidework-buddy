@@ -1080,6 +1080,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     restaurantHours: defaultRestaurantHours(),
     mealPeriods: defaultMealPeriods(),
     arrivalOffsets: defaultArrivalOffsets(),
+    businessInfo: defaultBusinessInfo() as BusinessInfo,
     activeRoles: [
       "Host","Server Assistant","Busser","Bar Back","Bartender","Server","Manager","Assistant Manager",
       "Chef","Sous Chef","Saute","Grill","Line Cook","Fry Cook","Pizza","Garde Manger","Prep","Dishwasher",
