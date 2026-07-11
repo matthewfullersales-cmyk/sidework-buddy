@@ -974,6 +974,7 @@ function ShiftDetailsDialog({
                   employeeId, role, date, start, end,
                   notes: notes || undefined,
                   position: emp?.position,
+                  updatedAt: existing?.updatedAt,
                 });
               }}
             >
