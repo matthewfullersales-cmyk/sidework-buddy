@@ -20,7 +20,9 @@ import {
   saveRestaurantHours,
   fetchBusinessInfo,
   saveBusinessInfo,
+  createStaffInviteRow,
 } from "@/lib/employees-supabase";
+
 import {
   fetchOwnerShifts,
   upsertShiftRow,
@@ -728,7 +730,14 @@ interface Store {
   completeSetup: (profile: Omit<RestaurantProfile, "completedAt">, food: MenuUpload | null, drink: MenuUpload | null) => void;
   resetSetup: () => void;
   markNotificationsRead: () => void;
-  inviteEmployee: (data: { name: string; email: string; role: Role }) => void;
+  inviteEmployee: (data: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    role: Role;
+  }) => Promise<{ id: string; inviteUrl: string; inviteToken: string }>;
+
   joinStaff: (data: {
     firstName: string;
     lastName: string;
@@ -1414,14 +1423,45 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
       const oid = ownerIdRef.current;
       if (oid) deleteAllOwnerEmployees(oid).catch((e) => console.error("[clearAllEmployees]", e));
     },
-    inviteEmployee: ({ name, email, role }) => {
-      const newId = newUuid();
+    inviteEmployee: async ({ firstName, lastName, email, phone, role }) => {
+      const localId = newUuid();
+      const fullName = `${firstName} ${lastName}`.trim() || email || "New staff";
+      const oid = ownerIdRef.current;
+
+      // Persist first (need the DB-assigned invite_token). If we're not signed
+      // in yet, fall back to a local stub so nothing crashes in dev.
+      let dbId: string = localId;
+      let inviteToken: string = crypto.randomUUID();
+
+      if (oid) {
+        try {
+          const row = await createStaffInviteRow(oid, {
+            firstName, lastName, email, phone, role, localId,
+          });
+          dbId = row.id;
+          inviteToken = row.inviteToken;
+        } catch (e) {
+          console.error("[inviteEmployee]", e);
+        }
+      }
+
       const employee: Employee = {
-        id: newId, name, email, primaryRole: role,
-        approvedRoles: [role], autoApproveRoles: [], availability: "",
+        id: dbId,
+        name: fullName,
+        firstName: firstName || undefined,
+        lastName: lastName || undefined,
+        email,
+        phone: phone || undefined,
+        primaryRole: role,
+        approvedRoles: [role],
+        autoApproveRoles: [],
+        availability: "",
         invitedAt: new Date().toISOString().slice(0, 10),
-        onboardingStarted: false, personalInfoComplete: false, progress: [],
+        onboardingStarted: false,
+        personalInfoComplete: false,
+        progress: [],
       };
+
       setState((s) => ({
         ...s,
         employees: [...s.employees, employee],
@@ -1429,21 +1469,19 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           {
             id: uid("n"),
             type: "training_passed",
-            message: `Training automatically assigned to ${name} based on their ${role} position.`,
-            employeeId: newId,
+            message: `Invite created for ${fullName}. They'll finish signup themselves.`,
+            employeeId: dbId,
             createdAt: new Date().toISOString(),
             read: false,
           },
           ...s.notifications,
         ],
       }));
-      const oid = ownerIdRef.current;
-      if (oid) {
-        insertEmployee(oid, employee, { localId: newId }).catch((e) =>
-          console.error("[inviteEmployee]", e),
-        );
-      }
+
+      const origin = typeof window !== "undefined" ? window.location.origin : "";
+      return { id: dbId, inviteToken, inviteUrl: `${origin}/staff-invite/${inviteToken}` };
     },
+
     joinStaff: (data) => {
       const empId = newUuid();
       const fullName = `${data.firstName} ${data.lastName}`.trim();
