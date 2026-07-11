@@ -18,7 +18,7 @@ export function useRequireManagerAccess(redirectTo = "/login") {
     const isOwner = profile?.role === "owner";
     const isTeamManager =
       effectiveOwner?.acting === "team_member" &&
-      (effectiveOwner.canManageHiring || effectiveOwner.canManageSchedule);
+      (effectiveOwner.permissions?.size ?? 0) > 0;
     if (!isOwner && !isTeamManager) {
       navigate({ to: "/employee" });
     }
