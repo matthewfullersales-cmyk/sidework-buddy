@@ -4,11 +4,9 @@ import {
   insertTeamMember,
   updateTeamMember,
   deleteTeamMember,
-  setTeamMemberPermission,
   type TeamMember,
   type TeamMemberInput,
 } from "@/lib/hiring-supabase";
-import { PERMISSION_META, type ManagerPermission } from "@/lib/permissions";
 import { useAuth } from "@/lib/auth-context";
 
 export function useTeamMembers() {
@@ -59,22 +57,6 @@ export function useTeamMembers() {
         if (combined) next.name = combined;
         return next;
       }));
-    },
-    /** Generic: set any permission from the registry. */
-    setPermission: async (id: string, key: ManagerPermission, value: boolean) => {
-      await setTeamMemberPermission(id, key, value);
-      const memberFlag = PERMISSION_META[key].memberFlag;
-      setMembers((m) => m.map((r) => (r.id === id ? { ...r, [memberFlag]: value } : r)));
-    },
-    /** @deprecated Use setPermission(id, "hiring", value). */
-    setHiringPermission: async (id: string, canManageHiring: boolean) => {
-      await setTeamMemberPermission(id, "hiring", canManageHiring);
-      setMembers((m) => m.map((r) => (r.id === id ? { ...r, canManageHiring } : r)));
-    },
-    /** @deprecated Use setPermission(id, "schedule", value). */
-    setSchedulePermission: async (id: string, canManageSchedule: boolean) => {
-      await setTeamMemberPermission(id, "schedule", canManageSchedule);
-      setMembers((m) => m.map((r) => (r.id === id ? { ...r, canManageSchedule } : r)));
     },
     remove: async (id: string) => {
       await deleteTeamMember(id);

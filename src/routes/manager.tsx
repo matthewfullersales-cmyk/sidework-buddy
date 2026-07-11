@@ -33,7 +33,7 @@ import { ChevronDown, Check, CalendarIcon } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { useAuth } from "@/lib/auth-context";
-import { PERMISSION_META, PERMISSION_KEYS, permissionsShortTitle, scopedTabsFor, type ManagerPermission } from "@/lib/permissions";
+// (removed) team-permissions registry — single-login owner model.
 import { fetchBookedInterviewSlots } from "@/lib/hiring-supabase";
 import { cn } from "@/lib/utils";
 
@@ -77,30 +77,11 @@ function ManagerPage() {
   const [tab, setTab] = useState("dashboard");
   const [showSetupWizard, setShowSetupWizard] = useState(false);
   useRequireManagerAccess("/login");
-  const { effectiveOwner } = useAuth();
-  const isTeamMember = effectiveOwner?.acting === "team_member";
-  const permissions = effectiveOwner?.permissions ?? new Set<ManagerPermission>();
-  // Only scope down for actual team members. Owners always get the full dashboard.
-  const scoped = isTeamMember;
-  const scopedTabs = useMemo(
-    () => (scoped ? scopedTabsFor(permissions) : null),
-    // permissions is derived from effectiveOwner; hash on its identity.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [scoped, effectiveOwner],
-  );
   useEffect(() => {
     if (currentUser.type !== "manager") {
       setCurrentUser({ type: "manager", id: "owner" });
     }
   }, [currentUser, setCurrentUser]);
-
-  // Pin the tab to a permitted one for scoped team members.
-  useEffect(() => {
-    if (scopedTabs && scopedTabs.length > 0 && !scopedTabs.includes(tab)) {
-      setTab(scopedTabs[0]);
-    }
-  }, [scopedTabs, tab]);
-
 
   if (showSetupWizard) {
     return (
@@ -113,38 +94,6 @@ function ManagerPage() {
     );
   }
 
-  // Scoped view for team members with only some permissions.
-  if (scoped && scopedTabs) {
-    const bothPerms = permissions.has("hiring") && permissions.has("schedule");
-    const canHiringOnly = permissions.has("hiring") && !permissions.has("schedule");
-    const shortTitle = permissionsShortTitle(permissions) || "Manage";
-    const title = effectiveOwner?.restaurantName
-      ? `${effectiveOwner.restaurantName} — ${shortTitle}`
-      : shortTitle;
-    const navLabel = bothPerms ? "Manage" : canHiringOnly ? "Hiring" : "Schedule";
-    const subtitle = bothPerms
-      ? "You have access to this restaurant's schedule and hiring pipeline."
-      : canHiringOnly
-        ? "You have access to review and manage this restaurant's applications and interviews."
-        : "You have access to build and adjust this restaurant's schedule, trades, and time off.";
-    return (
-      <AppShell nav={[{ to: "/manager", label: navLabel, icon: <IconHome /> }]}>
-        <PageHeader title={title} subtitle={subtitle} />
-        <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className={`mb-6 grid h-auto w-full gap-1 ${scopedTabs.length === 1 ? "grid-cols-1" : scopedTabs.length === 2 ? "grid-cols-2" : `grid-cols-2 sm:grid-cols-${scopedTabs.length}`}`}>
-            {scopedTabs.includes("schedule") && <TabsTrigger value="schedule">Schedule</TabsTrigger>}
-            {scopedTabs.includes("trades") && <TabsTrigger value="trades">Trades</TabsTrigger>}
-            {scopedTabs.includes("timeoff") && <TabsTrigger value="timeoff">Time Off</TabsTrigger>}
-            {scopedTabs.includes("jobs") && <TabsTrigger value="jobs">Hiring</TabsTrigger>}
-          </TabsList>
-          {scopedTabs.includes("schedule") && <TabsContent value="schedule"><ScheduleTab /></TabsContent>}
-          {scopedTabs.includes("trades") && <TabsContent value="trades"><TradesTab /></TabsContent>}
-          {scopedTabs.includes("timeoff") && <TabsContent value="timeoff"><TimeOffTab /></TabsContent>}
-          {scopedTabs.includes("jobs") && <TabsContent value="jobs"><JobsTab /></TabsContent>}
-        </Tabs>
-      </AppShell>
-    );
-  }
 
   return (
     <AppShell nav={[{ to: "/manager", label: "Dashboard", icon: <IconHome /> }]}>
@@ -2538,13 +2487,10 @@ function TeamRosterCard({ team }: { team: ReturnType<typeof useTeamMembers> }) {
         )}
         {team.members.map((m) => {
           const hasAccount = !!m.authUserId;
-          const anyPerm = m.canManageHiring || m.canManageSchedule;
-          const inviteUrl = typeof window !== "undefined" ? `${window.location.origin}/team-invite/${m.id}` : `/team-invite/${m.id}`;
           const statusBadge = hasAccount
             ? { label: "Active login", cls: "bg-success text-success-foreground hover:bg-success" }
-            : anyPerm
-              ? { label: "Invited — not claimed", cls: "bg-warning text-warning-foreground hover:bg-warning" }
-              : { label: "No login yet", cls: "" };
+            : { label: "No login yet", cls: "" };
+
           return (
             <div key={m.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-background p-3">
               <div className="min-w-0">
@@ -2552,35 +2498,12 @@ function TeamRosterCard({ team }: { team: ReturnType<typeof useTeamMembers> }) {
                   <p className="font-semibold">{teamMemberDisplayName(m)}</p>
                   {m.title && <Badge variant="outline">{m.title}</Badge>}
                   <Badge variant={statusBadge.cls ? "default" : "outline"} className={statusBadge.cls}>{statusBadge.label}</Badge>
-                  {hasAccount && PERMISSION_KEYS.filter((k) => m[PERMISSION_META[k].memberFlag]).map((k) => (
-                    <Badge key={k} variant="outline">{PERMISSION_META[k].badgeLabel}</Badge>
-                  ))}
                 </div>
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   {m.email ?? "—"} · {m.phone ?? "—"}
                 </p>
-                <div className="mt-2 flex flex-col gap-1.5">
-                  {PERMISSION_KEYS.map((k) => {
-                    const meta = PERMISSION_META[k];
-                    return (
-                      <label key={k} className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Switch
-                          checked={m[meta.memberFlag]}
-                          onCheckedChange={async (v) => {
-                            try { await team.setPermission(m.id, k, v); toast.success(v ? meta.toastOn : meta.toastOff); }
-                            catch (e) { toast.error(e instanceof Error ? e.message : "Could not update"); }
-                          }}
-                        />
-                        <span>{meta.label}</span>
-                      </label>
-                    );
-                  })}
-                </div>
               </div>
               <div className="flex flex-wrap gap-2">
-                {!hasAccount && anyPerm && (
-                  <Button size="sm" variant="outline" onClick={() => copyLinkWithToast(inviteUrl, "Invite link copied")}>Copy invite link</Button>
-                )}
                 <Button size="sm" variant="outline" onClick={() => openEdit(m)}>Edit</Button>
                 <Button size="sm" variant="ghost" onClick={() => remove(m)}>Remove</Button>
               </div>

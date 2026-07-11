@@ -1127,7 +1127,8 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
   const { effectiveOwner, loading: authLoading } = useAuth();
   const ownerIdRef = useRef<string | null>(null);
   const effectiveOwnerId = effectiveOwner?.ownerId ?? null;
-  const acting = effectiveOwner?.acting ?? null;
+  // Single-login owner model: if effectiveOwner is set, the signed-in user IS the owner.
+  const acting: "owner" | null = effectiveOwnerId ? "owner" : null;
   // Track owners we've already run the one-time local→cloud bootstrap for,
   // so re-hydrations (tab focus, auth refresh) can't re-upload. The DB unique
   // index (owner_id, local_id) is a second line of defense.

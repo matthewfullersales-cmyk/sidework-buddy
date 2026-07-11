@@ -2,10 +2,8 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchEmployeeContext, type EmployeeContext } from "@/lib/employee-supabase";
-import { permissionsFromFlags, type ManagerPermission } from "@/lib/permissions";
 
 export type ProfileRole = "owner" | "employee";
-export type ActingRole = "owner" | "team_member";
 
 export type Profile = {
   id: string;
@@ -18,13 +16,6 @@ export type Profile = {
 export type EffectiveOwner = {
   ownerId: string;
   restaurantName: string | null;
-  acting: ActingRole;
-  /** Registry-driven permission set. Preferred read path. */
-  permissions: Set<ManagerPermission>;
-  /** @deprecated Read `permissions.has("hiring")` — kept for back-compat. */
-  canManageHiring: boolean;
-  /** @deprecated Read `permissions.has("schedule")` — kept for back-compat. */
-  canManageSchedule: boolean;
 } | null;
 
 type AuthContextValue = {
@@ -60,24 +51,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loadEffectiveOwner = async (uid: string | undefined) => {
     if (!uid) { setEffectiveOwner(null); return; }
+    // Single-login model: only real owners get an effective-owner context.
+    // The RPC's team-member fallback is ignored — team-permission grants are
+    // no longer part of the product.
     const { data, error } = await supabase.rpc("get_effective_owner");
     if (error || !data || data.length === 0) { setEffectiveOwner(null); return; }
     const row = data[0] as {
       owner_id: string;
       restaurant_name: string | null;
       acting: string;
-      can_manage_hiring: boolean;
-      can_manage_schedule: boolean;
     };
-    const canManageHiring = !!row.can_manage_hiring;
-    const canManageSchedule = !!row.can_manage_schedule;
+    if (row.acting !== "owner") { setEffectiveOwner(null); return; }
     setEffectiveOwner({
       ownerId: row.owner_id,
       restaurantName: row.restaurant_name,
-      acting: row.acting === "owner" ? "owner" : "team_member",
-      permissions: permissionsFromFlags(canManageHiring, canManageSchedule),
-      canManageHiring,
-      canManageSchedule,
     });
   };
 
