@@ -202,6 +202,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          business_info: Json | null
           created_at: string
           employee_id: string | null
           full_name: string
@@ -212,6 +213,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          business_info?: Json | null
           created_at?: string
           employee_id?: string | null
           full_name?: string
@@ -222,6 +224,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          business_info?: Json | null
           created_at?: string
           employee_id?: string | null
           full_name?: string
