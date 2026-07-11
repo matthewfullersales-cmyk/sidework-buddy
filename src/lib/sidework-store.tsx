@@ -705,6 +705,8 @@ interface Store {
   postTrade: (shiftId: string, note?: string) => void;
   upsertShift: (shift: Shift) => void;
   deleteShift: (id: string) => void;
+  applyRemoteShiftUpsert: (shift: Shift) => void;
+  applyRemoteShiftDelete: (id: string) => void;
   claimTrade: (tradeId: string, employeeId: string) => void;
   resolveTrade: (tradeId: string, approved: boolean) => void;
   postJob: (data: Omit<JobPosting, "id" | "postedAt" | "open">) => void;
