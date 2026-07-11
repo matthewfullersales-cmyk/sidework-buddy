@@ -1029,32 +1029,7 @@ function JobsTab() {
         items={videoApps}
         emptyText="No interviews in progress."
         renderExtra={(a) => (
-          <InterviewStageDetails
-            app={a}
-            restaurantName={restaurantName}
-            teamMembers={team.members}
-            onReassign={async (tid) => {
-              const m = tid ? team.members.find((x) => x.id === tid) : null;
-              const label = m ? teamMemberDisplayName(m) : tid ? "team member" : "you";
-              try {
-                await reassignApplication(a.id, tid);
-                toast.success(`Interview reassigned to ${label}`);
-              } catch (e) {
-                const msg = e instanceof Error ? e.message : String(e);
-                if (msg.includes("REASSIGN_CONFLICT")) {
-                  const when = a.selectedSlot
-                    ? new Date(a.selectedSlot).toLocaleString(undefined, {
-                        weekday: "short", month: "short", day: "numeric",
-                        hour: "numeric", minute: "2-digit",
-                      })
-                    : "that time";
-                  toast.error(`Can't reassign — ${label} already has an interview booked at ${when}.`);
-                } else {
-                  toast.error("Couldn't reassign interview. Please try again.");
-                }
-              }
-            }}
-          />
+          <InterviewStageDetails app={a} restaurantName={restaurantName} />
         )}
         renderActions={(a) => {
           const stage = getHiringStage(a);
