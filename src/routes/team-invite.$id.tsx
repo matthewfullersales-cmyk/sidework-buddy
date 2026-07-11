@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchPublicTeamInvite, claimTeamInvite, type PublicTeamInvite } from "@/lib/hiring-supabase";
+import { permissionsFromFlags, permissionsDescriptor, PERMISSION_KEYS, PERMISSION_META } from "@/lib/permissions";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/team-invite/$id")({
@@ -84,15 +85,17 @@ function TeamInvitePage() {
       </header>
       <div className="mx-auto max-w-md px-4 py-6">
         <h1 className="mb-2 text-center text-2xl font-bold tracking-tight">Accept your team invite</h1>
-        {invite?.restaurantName && (
-          <p className="mb-6 text-center text-sm text-muted-foreground">
-            {invite.canManageHiring && invite.canManageSchedule
-              ? <>You've been invited to help manage hiring and scheduling at <span className="font-semibold text-foreground">{invite.restaurantName}</span>.</>
-              : invite.canManageHiring
-                ? <>You've been invited to help manage hiring at <span className="font-semibold text-foreground">{invite.restaurantName}</span>.</>
-                : <>You've been invited to help manage scheduling at <span className="font-semibold text-foreground">{invite.restaurantName}</span>.</>}
-          </p>
-        )}
+        {invite?.restaurantName && (() => {
+          const perms = permissionsFromFlags(invite.canManageHiring, invite.canManageSchedule);
+          const desc = permissionsDescriptor(perms);
+          if (!desc) return null;
+          return (
+            <p className="mb-6 text-center text-sm text-muted-foreground">
+              You've been invited to help manage {desc} at{" "}
+              <span className="font-semibold text-foreground">{invite.restaurantName}</span>.
+            </p>
+          );
+        })()}
         <Card className="border-2">
           <CardContent className="p-6">
             {loading && <p className="text-sm text-muted-foreground">Loading invite…</p>}
@@ -107,7 +110,7 @@ function TeamInvitePage() {
             {!loading && invite && !invite.claimed && !invite.canManageHiring && !invite.canManageSchedule && (
               <div className="space-y-3">
                 <p className="text-sm text-muted-foreground">
-                  Your restaurant owner hasn't turned on manager access for you yet. Ask them to enable "Can manage hiring" or "Can manage scheduling" for your name, then reopen this link.
+                  Your restaurant owner hasn't turned on manager access for you yet. Ask them to enable {PERMISSION_KEYS.map((k) => `"${PERMISSION_META[k].label}"`).join(" or ")} for your name, then reopen this link.
                 </p>
               </div>
             )}
