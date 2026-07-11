@@ -172,7 +172,7 @@ function HostInterviewPage() {
             {saveError && <span className="text-sm text-destructive">{saveError}</span>}
           </div>
           <p className="text-xs text-muted-foreground">
-            Notes are visible to {restaurantName}'s hiring team.
+            Notes are visible to {restaurantName}'s owner.
           </p>
         </CardContent>
       </Card>
