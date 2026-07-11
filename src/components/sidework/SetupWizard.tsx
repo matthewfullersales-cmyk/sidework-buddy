@@ -286,6 +286,12 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
           )}
 
           {step === 5 && (
+            <ManagementTeamComposer
+              onAdvance={(summary) => advance(summary, "")}
+            />
+          )}
+
+          {step === 6 && (
             <MultiSelectComposer
               options={[...PAIN_POINTS]}
               selected={answers.painPoints}
@@ -296,7 +302,7 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
             />
           )}
 
-          {step === 6 && (
+          {step === 7 && (
             <TrainingForm
               value={answers}
               onSubmit={(v) => {
@@ -309,7 +315,7 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
             />
           )}
 
-          {step === 7 && (
+          {step === 8 && (
             <MenuUploadComposer
               food={foodMenu}
               drink={drinkMenu}
@@ -328,7 +334,7 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
             />
           )}
 
-          {step === 8 && (
+          {step === 9 && (
             <SchedulingForm
               value={answers}
               onSubmit={(v) => {
@@ -341,7 +347,7 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
             />
           )}
 
-          {step === 9 && (
+          {step === 10 && (
             <HiringForm
               value={answers}
               onSubmit={(v) => {
@@ -356,7 +362,7 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
             />
           )}
 
-          {step === 10 && (
+          {step === 11 && (
             <SummaryComposer
               answers={answers}
               foodMenu={foodMenu}
