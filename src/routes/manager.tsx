@@ -1378,7 +1378,6 @@ function ApproveInterviewDialog({
   const meta = INTERVIEW_TYPE_META[type];
   const { user } = useAuth();
   const ownerId = user?.id ?? null;
-  const effectiveAssignee = application.assignedTo ?? null;
 
   const [bookedSlots, setBookedSlots] = useState<Set<string>>(new Set());
   useEffect(() => {
@@ -1387,19 +1386,12 @@ function ApproveInterviewDialog({
     fetchBookedInterviewSlots(ownerId)
       .then((rows) => {
         if (cancelled) return;
-        // Match effective-assignee semantics: same assigned_to (both set to same person)
-        // OR both unassigned (owner is the effective assignee).
-        const conflicts = rows.filter((r) => {
-          if (r.id === application.id) return false;
-          const otherAssignee = r.assignedTo ?? null;
-          if (effectiveAssignee) return otherAssignee === effectiveAssignee;
-          return otherAssignee === null;
-        });
+        const conflicts = rows.filter((r) => r.id !== application.id);
         setBookedSlots(new Set(conflicts.map((c) => c.selectedSlot)));
       })
       .catch((e) => console.error("[booked slots]", e));
     return () => { cancelled = true; };
-  }, [ownerId, effectiveAssignee, application.id]);
+  }, [ownerId, application.id]);
 
   const suggested = useMemo(() => {
     const out: string[] = [];
