@@ -116,6 +116,7 @@ export function ScheduleSection() {
   const { shifts, employees, timeOff, restaurantHours, mealPeriods, upsertShift, deleteShift, applyRemoteShiftUpsert, applyRemoteShiftDelete } = useStore();
   const { effectiveOwner } = useAuth();
   const ownerId = effectiveOwner?.ownerId ?? null;
+  const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date()));
 
   // Realtime: mirror INSERT/UPDATE/DELETE on shifts for this owner into the
   // local store so a second manager's edits show up within a couple seconds
