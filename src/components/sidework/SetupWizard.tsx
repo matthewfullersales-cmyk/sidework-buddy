@@ -188,13 +188,12 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
       2: "Awesome — let's start with the basics. What's the name of your restaurant, what city/state are you in, and what type of restaurant is it?",
       3: "Great. Now tell me about operations — how many seats do you have, which days are you open, your hours, your busiest night, and roughly how many covers you do on that busy night?",
       4: "Let's talk team structure. Which front-of-house roles do you staff, which back-of-house roles, what's your minimum staff per shift, and who actually builds the schedule?",
-      5: "Who else on your team should be able to manage hiring or scheduling? Add anyone you'd like to grant access to now — you can also do this later from Settings.",
-      6: "What are your biggest day-to-day pain points? Pick all that apply.",
-      7: "Now training — how do you train staff today, what's your biggest training headache, and how often does your menu change?",
-      8: "Time to make this real. Upload your food menu and your drink menu (PDF or photo) and I'll generate a custom staff knowledge quiz instantly.",
-      9: "Let's set scheduling preferences — how far in advance do you post schedules, what are your shift trade rules, how should staff call in sick, and any other scheduling rules?",
-      10: "Last topic — hiring. Are you currently hiring? Which positions, what's your process, and what matters most to you in a new hire?",
-      11: "All set. Here's everything I've configured for you.",
+      5: "What are your biggest day-to-day pain points? Pick all that apply.",
+      6: "Now training — how do you train staff today, what's your biggest training headache, and how often does your menu change?",
+      7: "Time to make this real. Upload your food menu and your drink menu (PDF or photo) and I'll generate a custom staff knowledge quiz instantly.",
+      8: "Let's set scheduling preferences — how far in advance do you post schedules, what are your shift trade rules, how should staff call in sick, and any other scheduling rules?",
+      9: "Last topic — hiring. Are you currently hiring? Which positions, what's your process, and what matters most to you in a new hire?",
+      10: "All set. Here's everything I've configured for you.",
     };
     if (prompts[step]) {
       const t = setTimeout(() => pushBot(prompts[step]), 200);
@@ -281,12 +280,6 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
           )}
 
           {step === 5 && (
-            <ManagementTeamComposer
-              onAdvance={(summary) => advance(summary, "")}
-            />
-          )}
-
-          {step === 6 && (
             <MultiSelectComposer
               options={[...PAIN_POINTS]}
               selected={answers.painPoints}
@@ -297,7 +290,7 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
             />
           )}
 
-          {step === 7 && (
+          {step === 6 && (
             <TrainingForm
               value={answers}
               onSubmit={(v) => {
@@ -310,7 +303,7 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
             />
           )}
 
-          {step === 8 && (
+          {step === 7 && (
             <MenuUploadComposer
               food={foodMenu}
               drink={drinkMenu}
@@ -329,7 +322,7 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
             />
           )}
 
-          {step === 9 && (
+          {step === 8 && (
             <SchedulingForm
               value={answers}
               onSubmit={(v) => {
@@ -342,7 +335,7 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
             />
           )}
 
-          {step === 10 && (
+          {step === 9 && (
             <HiringForm
               value={answers}
               onSubmit={(v) => {
@@ -357,7 +350,7 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
             />
           )}
 
-          {step === 11 && (
+          {step === 10 && (
             <SummaryComposer
               answers={answers}
               foodMenu={foodMenu}
