@@ -1270,37 +1270,17 @@ const INTERVIEW_TYPE_META: Record<InterviewType, { emoji: string; label: string;
 function InterviewStageDetails({
   app,
   restaurantName,
-  teamMembers,
-  onReassign,
 }: {
   app: JobApplication;
   restaurantName: string;
-  teamMembers: TeamMember[];
-  onReassign: (teamMemberId: string | null) => void | Promise<void>;
 }) {
   const stage = getHiringStage(app);
   const type = app.interviewType ?? "video";
   const meta = INTERVIEW_TYPE_META[type];
-  const assignedTo = app.assignedTo ?? null;
-  const assignee = assignedTo ? teamMembers.find((m) => m.id === assignedTo) : null;
-  const assigneeLabel = assignee ? teamMemberDisplayName(assignee) : "You (owner)";
 
-  const reassignRow = (
+  const hostRow = (
     <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/30 p-2 text-xs">
-      <span className="text-muted-foreground">Assigned to</span>
-      <Select
-        value={assignedTo ?? "__owner__"}
-        onValueChange={(v) => onReassign(v === "__owner__" ? null : v)}
-      >
-        <SelectTrigger className="h-8 w-auto min-w-[10rem] gap-2 text-xs"><SelectValue /></SelectTrigger>
-        <SelectContent>
-          <SelectItem value="__owner__">You (owner)</SelectItem>
-          {teamMembers.map((m) => (
-            <SelectItem key={m.id} value={m.id}>{teamMemberDisplayName(m)}{m.title ? ` — ${m.title}` : ""}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <span className="ml-auto text-muted-foreground">Host link: <code className="rounded bg-background px-1.5 py-0.5">/interview/{app.id}/host</code></span>
+      <span className="text-muted-foreground">Host link: <code className="rounded bg-background px-1.5 py-0.5">/interview/{app.id}/host</code></span>
     </div>
   );
 
@@ -1311,7 +1291,6 @@ function InterviewStageDetails({
         <p className="font-semibold">{meta.emoji} {meta.label} — awaiting applicant time selection</p>
         <p className="mt-1 text-xs text-muted-foreground">Offered {app.offeredSlots.length} slot{app.offeredSlots.length === 1 ? "" : "s"}. They'll get a text + email with the link.</p>
         <p className="mt-2 text-xs">Applicant link: <code className="rounded bg-background px-1.5 py-0.5">/interview/{app.id}</code></p>
-        <p className="mt-1 text-xs text-muted-foreground">Currently assigned to <span className="font-medium text-foreground">{assigneeLabel}</span>.</p>
       </div>
     );
   } else if (stage === "video_scheduled" && app.selectedSlot) {
@@ -1324,7 +1303,6 @@ function InterviewStageDetails({
         <p className="font-semibold text-primary">{meta.emoji} {meta.label} confirmed</p>
         <p className="mt-1">{new Date(app.selectedSlot).toLocaleString([], { weekday: "long", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</p>
         <p className="mt-1 text-xs text-muted-foreground">{reminderCopy}</p>
-        <p className="mt-1 text-xs text-muted-foreground">Host: <span className="font-medium text-foreground">{assigneeLabel}</span>.</p>
       </div>
     );
   } else if (stage === "interviewed") {
@@ -1339,7 +1317,7 @@ function InterviewStageDetails({
   }
 
   if (!block) return null;
-  return (<>{block}{reassignRow}</>);
+  return (<>{block}{hostRow}</>);
 }
 
 
