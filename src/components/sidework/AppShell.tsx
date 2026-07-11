@@ -29,12 +29,26 @@ export function AppShell({ children, nav }: { children: ReactNode; nav: { to: st
       <header className="sticky top-0 z-30 border-b border-border bg-background/85 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
           <Link to="/" className="shrink-0"><Logo /></Link>
-          {session && (
-            <Button variant="ghost" size="sm" onClick={handleSignOut} title="Sign out" className="h-11 md:h-9">
-              <LogOut className="h-4 w-4" />
-              <span className="ml-1.5 hidden sm:inline">Sign out</span>
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {session && showDualRoleSwitcher && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate({ to: switcherTarget })}
+                className="h-11 rounded-full md:h-9"
+                title={switcherLabel}
+              >
+                <ArrowLeftRight className="h-4 w-4" />
+                <span className="ml-1.5 hidden sm:inline">{switcherLabel}</span>
+              </Button>
+            )}
+            {session && (
+              <Button variant="ghost" size="sm" onClick={handleSignOut} title="Sign out" className="h-11 md:h-9">
+                <LogOut className="h-4 w-4" />
+                <span className="ml-1.5 hidden sm:inline">Sign out</span>
+              </Button>
+            )}
+          </div>
         </div>
         <nav className="mx-auto hidden max-w-6xl gap-1 px-4 pb-2 md:flex">
           {nav.map((n) => {
