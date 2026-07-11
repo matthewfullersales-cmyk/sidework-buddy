@@ -90,7 +90,7 @@ const SERVICE_MAP: Record<RestaurantType, ServiceStyle> = {
   Other: "Casual Dining",
 };
 
-const TOTAL_STEPS = 10;
+const TOTAL_STEPS = 11;
 
 const EMPTY: Answers = {
   name: "", cityState: "", type: "",
