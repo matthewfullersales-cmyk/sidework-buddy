@@ -969,7 +969,6 @@ function ShiftDetailsDialog({
                   toast.error(`Confirm scheduling despite ${emp?.name ?? "employee"}'s marked unavailability`);
                   return;
                 }
-                console.log("[SAVE_DEBUG] existing.updatedAt=", existing?.updatedAt);
                 onSave({
                   id: existing?.id ?? `s_${employeeId}_${date}`,
                   employeeId, role, date, start, end,
