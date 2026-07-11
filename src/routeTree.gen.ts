@@ -17,7 +17,6 @@ import { Route as EmployeeRouteImport } from './routes/employee'
 import { Route as CareersRouteImport } from './routes/careers'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as TeamInviteIdRouteImport } from './routes/team-invite.$id'
 import { Route as ShadowIdRouteImport } from './routes/shadow.$id'
 import { Route as JoinSlugRouteImport } from './routes/join.$slug'
 import { Route as InterviewIdRouteImport } from './routes/interview.$id'
@@ -64,11 +63,6 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const TeamInviteIdRoute = TeamInviteIdRouteImport.update({
-  id: '/team-invite/$id',
-  path: '/team-invite/$id',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ShadowIdRoute = ShadowIdRouteImport.update({
   id: '/shadow/$id',
   path: '/shadow/$id',
@@ -108,7 +102,6 @@ export interface FileRoutesByFullPath {
   '/interview/$id': typeof InterviewIdRouteWithChildren
   '/join/$slug': typeof JoinSlugRoute
   '/shadow/$id': typeof ShadowIdRoute
-  '/team-invite/$id': typeof TeamInviteIdRoute
   '/interview/$id/host': typeof InterviewIdHostRoute
 }
 export interface FileRoutesByTo {
@@ -124,7 +117,6 @@ export interface FileRoutesByTo {
   '/interview/$id': typeof InterviewIdRouteWithChildren
   '/join/$slug': typeof JoinSlugRoute
   '/shadow/$id': typeof ShadowIdRoute
-  '/team-invite/$id': typeof TeamInviteIdRoute
   '/interview/$id/host': typeof InterviewIdHostRoute
 }
 export interface FileRoutesById {
@@ -141,7 +133,6 @@ export interface FileRoutesById {
   '/interview/$id': typeof InterviewIdRouteWithChildren
   '/join/$slug': typeof JoinSlugRoute
   '/shadow/$id': typeof ShadowIdRoute
-  '/team-invite/$id': typeof TeamInviteIdRoute
   '/interview/$id/host': typeof InterviewIdHostRoute
 }
 export interface FileRouteTypes {
@@ -159,7 +150,6 @@ export interface FileRouteTypes {
     | '/interview/$id'
     | '/join/$slug'
     | '/shadow/$id'
-    | '/team-invite/$id'
     | '/interview/$id/host'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -175,7 +165,6 @@ export interface FileRouteTypes {
     | '/interview/$id'
     | '/join/$slug'
     | '/shadow/$id'
-    | '/team-invite/$id'
     | '/interview/$id/host'
   id:
     | '__root__'
@@ -191,7 +180,6 @@ export interface FileRouteTypes {
     | '/interview/$id'
     | '/join/$slug'
     | '/shadow/$id'
-    | '/team-invite/$id'
     | '/interview/$id/host'
   fileRoutesById: FileRoutesById
 }
@@ -208,7 +196,6 @@ export interface RootRouteChildren {
   InterviewIdRoute: typeof InterviewIdRouteWithChildren
   JoinSlugRoute: typeof JoinSlugRoute
   ShadowIdRoute: typeof ShadowIdRoute
-  TeamInviteIdRoute: typeof TeamInviteIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -267,13 +254,6 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/team-invite/$id': {
-      id: '/team-invite/$id'
-      path: '/team-invite/$id'
-      fullPath: '/team-invite/$id'
-      preLoaderRoute: typeof TeamInviteIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/shadow/$id': {
@@ -339,18 +319,7 @@ const rootRouteChildren: RootRouteChildren = {
   InterviewIdRoute: InterviewIdRouteWithChildren,
   JoinSlugRoute: JoinSlugRoute,
   ShadowIdRoute: ShadowIdRoute,
-  TeamInviteIdRoute: TeamInviteIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
