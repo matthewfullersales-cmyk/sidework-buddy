@@ -885,12 +885,10 @@ function JobsTab() {
     applicantSelectSlot,
     completeInterview,
     inviteShadowShift,
-    reassignApplication,
     restaurantProfile,
     activeRoles,
     customRoles,
   } = useStore();
-  const team = useTeamMembers();
   const fohActive = fohRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r));
   const bohActive = bohRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r));
   const [open, setOpen] = useState(false);
