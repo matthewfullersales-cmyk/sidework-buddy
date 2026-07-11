@@ -22,7 +22,7 @@ import { onboardingStatus, useStore, type Role, type ApplicationStatus, type Emp
 import { roleStyle, fohRolesWithCustom, bohRolesWithCustom } from "@/lib/role-colors";
 import { formatPhone } from "@/lib/format-phone";
 import { copyLinkWithToast } from "@/lib/copy-to-clipboard";
-import { AvailabilityEditor, RestaurantHoursEditor, MealPeriodsEditor, ArrivalOffsetsEditor } from "@/components/sidework/AvailabilityEditor";
+import { AvailabilityEditor, RestaurantHoursEditor, MealPeriodsEditor, BusinessInfoEditor } from "@/components/sidework/AvailabilityEditor";
 import { StaffJoinBanner, FullscreenQrDialog, StaffOnboardingCard } from "@/components/sidework/StaffOnboarding";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { slugify } from "@/lib/slug";
@@ -2314,7 +2314,7 @@ function TrainingProgram({ menuName }: { menuName: string }) {
 }
 
 function SettingsTab({ onOpenSetup }: { onOpenSetup: () => void }) {
-  const { setupCompleted, restaurantProfile, resetSetup, restaurantHours, updateRestaurantDay, mealPeriods, updateMealPeriod, arrivalOffsets, setArrivalOffsets, employees } = useStore();
+  const { setupCompleted, restaurantProfile, resetSetup, restaurantHours, updateRestaurantDay, mealPeriods, updateMealPeriod, businessInfo, setBusinessInfo } = useStore();
   const configured = hoursConfigured(restaurantHours, mealPeriods);
   return (
     <div className="space-y-4">
@@ -2351,15 +2351,20 @@ function SettingsTab({ onOpenSetup }: { onOpenSetup: () => void }) {
       </Card>
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Arrival lead time</CardTitle>
-          <p className="mt-1 text-xs text-muted-foreground">Front-of-house staff usually arrive an hour before service, kitchen prep more. These offsets seed the shift time suggestions in the schedule builder.</p>
+          <CardTitle className="text-base">Daily hours</CardTitle>
+          <p className="mt-1 text-xs text-muted-foreground">AI scheduling only books staff during the hours you're open. Mark a day closed if you don't operate that day.</p>
         </CardHeader>
         <CardContent>
-          <ArrivalOffsetsEditor
-            value={arrivalOffsets}
-            onChange={setArrivalOffsets}
-            activePositions={Array.from(new Set(employees.map((e) => e.position).filter((p): p is NonNullable<typeof p> => Boolean(p))))}
-          />
+          <RestaurantHoursEditor value={restaurantHours} onChange={updateRestaurantDay} />
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Restaurant info</CardTitle>
+          <p className="mt-1 text-xs text-muted-foreground">Business address, phone, website, and social handles. Shown on public-facing surfaces (careers page, hire invites) so applicants and new hires know how to reach you.</p>
+        </CardHeader>
+        <CardContent>
+          <BusinessInfoEditor value={businessInfo} onChange={setBusinessInfo} />
         </CardContent>
       </Card>
       <Card>

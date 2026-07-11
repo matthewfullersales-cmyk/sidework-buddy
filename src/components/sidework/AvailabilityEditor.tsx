@@ -14,6 +14,7 @@ import {
   type RestaurantHours,
   type ArrivalOffsets,
   type Section,
+  type BusinessInfo,
   defaultWeeklyAvailability,
   defaultMealPeriods,
   defaultArrivalOffsets,
@@ -340,3 +341,128 @@ export function ArrivalOffsetsEditor({
   );
 }
 
+
+export function BusinessInfoEditor({
+  value,
+  onChange,
+}: {
+  value: BusinessInfo;
+  onChange: (next: BusinessInfo) => void;
+}) {
+  const [draft, setDraft] = useState<BusinessInfo>(value);
+  // Sync draft when server-reloaded value changes (e.g. after hydrate).
+  const [lastSyncedKey, setLastSyncedKey] = useState<string>(JSON.stringify(value));
+  const currentKey = JSON.stringify(value);
+  if (currentKey !== lastSyncedKey) {
+    setDraft(value);
+    setLastSyncedKey(currentKey);
+  }
+  const dirty = JSON.stringify(draft) !== JSON.stringify(value);
+
+  const set = (patch: Partial<BusinessInfo>) => setDraft((d) => ({ ...d, ...patch }));
+  const clean = (v: string | undefined) => {
+    const t = (v ?? "").trim();
+    return t === "" ? undefined : t;
+  };
+  const save = () => {
+    onChange({
+      street: clean(draft.street),
+      city: clean(draft.city),
+      state: clean(draft.state),
+      zip: clean(draft.zip),
+      phone: clean(draft.phone),
+      website: clean(draft.website),
+      instagram: clean(draft.instagram),
+      facebook: clean(draft.facebook),
+      tiktok: clean(draft.tiktok),
+    });
+  };
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Address</p>
+        <div className="mt-2 space-y-2">
+          <Input
+            placeholder="Street address"
+            value={draft.street ?? ""}
+            onChange={(e) => set({ street: e.target.value })}
+            aria-label="Street address"
+          />
+          <div className="grid grid-cols-3 gap-2">
+            <Input
+              placeholder="City"
+              value={draft.city ?? ""}
+              onChange={(e) => set({ city: e.target.value })}
+              aria-label="City"
+            />
+            <Input
+              placeholder="State"
+              value={draft.state ?? ""}
+              onChange={(e) => set({ state: e.target.value })}
+              aria-label="State"
+            />
+            <Input
+              placeholder="ZIP"
+              value={draft.zip ?? ""}
+              onChange={(e) => set({ zip: e.target.value })}
+              aria-label="ZIP"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Phone</Label>
+          <Input
+            type="tel"
+            placeholder="(555) 555-5555"
+            value={draft.phone ?? ""}
+            onChange={(e) => set({ phone: e.target.value })}
+            className="mt-1"
+          />
+        </div>
+        <div>
+          <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Website</Label>
+          <Input
+            type="url"
+            placeholder="https://your-restaurant.com"
+            value={draft.website ?? ""}
+            onChange={(e) => set({ website: e.target.value })}
+            className="mt-1"
+          />
+        </div>
+      </div>
+
+      <div>
+        <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Social</p>
+        <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-3">
+          <Input
+            placeholder="Instagram (e.g. @your_spot)"
+            value={draft.instagram ?? ""}
+            onChange={(e) => set({ instagram: e.target.value })}
+            aria-label="Instagram"
+          />
+          <Input
+            placeholder="Facebook (page URL or handle)"
+            value={draft.facebook ?? ""}
+            onChange={(e) => set({ facebook: e.target.value })}
+            aria-label="Facebook"
+          />
+          <Input
+            placeholder="TikTok (e.g. @your_spot)"
+            value={draft.tiktok ?? ""}
+            onChange={(e) => set({ tiktok: e.target.value })}
+            aria-label="TikTok"
+          />
+        </div>
+      </div>
+
+      <div className="flex items-center justify-end gap-2">
+        {dirty && <span className="text-xs text-muted-foreground">Unsaved changes</span>}
+        <Button type="button" onClick={save} disabled={!dirty}>Save restaurant info</Button>
+      </div>
+    </div>
+  );
+}

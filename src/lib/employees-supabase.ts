@@ -208,3 +208,23 @@ export async function saveRestaurantHours(ownerId: string, hours: unknown): Prom
     .eq("id", ownerId);
   if (error) throw error;
 }
+
+/* ---------------- Business info (jsonb on profiles) ---------------- */
+
+export async function fetchBusinessInfo(ownerId: string): Promise<unknown | null> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("business_info" as never)
+    .eq("id", ownerId)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as { business_info: unknown } | null)?.business_info ?? null;
+}
+
+export async function saveBusinessInfo(ownerId: string, info: unknown): Promise<void> {
+  const { error } = await supabase
+    .from("profiles")
+    .update({ business_info: info as never } as never)
+    .eq("id", ownerId);
+  if (error) throw error;
+}

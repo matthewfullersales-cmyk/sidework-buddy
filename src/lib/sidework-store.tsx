@@ -18,6 +18,8 @@ import {
   deleteAllOwnerEmployees,
   fetchRestaurantHours,
   saveRestaurantHours,
+  fetchBusinessInfo,
+  saveBusinessInfo,
 } from "@/lib/employees-supabase";
 import {
   fetchOwnerShifts,
@@ -123,6 +125,43 @@ export type RestaurantHoursConfigV3 = {
   mealPeriods: MealPeriods;
   arrivalOffsets: ArrivalOffsets;
 };
+
+// Owner-editable "Restaurant Info" — physical address, phone, website, and
+// social handles. Persisted as jsonb on profiles.business_info so we can add
+// fields later without a migration. All fields optional; blank = null.
+export type BusinessInfo = {
+  street?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  phone?: string;
+  website?: string;
+  instagram?: string;
+  facebook?: string;
+  tiktok?: string;
+};
+
+export function defaultBusinessInfo(): BusinessInfo {
+  return {};
+}
+
+export function normalizeBusinessInfo(raw: unknown): BusinessInfo {
+  if (!raw || typeof raw !== "object") return {};
+  const o = raw as Record<string, unknown>;
+  const pick = (k: string) => (typeof o[k] === "string" ? (o[k] as string) : undefined);
+  return {
+    street: pick("street"),
+    city: pick("city"),
+    state: pick("state"),
+    zip: pick("zip"),
+    phone: pick("phone"),
+    website: pick("website"),
+    instagram: pick("instagram"),
+    facebook: pick("facebook"),
+    tiktok: pick("tiktok"),
+  };
+}
+
 
 export function defaultWeeklyAvailability(): WeeklyAvailability {
   return DAY_KEYS.reduce((acc, d) => { acc[d] = { kind: "full" }; return acc; }, {} as WeeklyAvailability);
@@ -283,12 +322,12 @@ export function suggestedShiftTimes(input: {
   section: Section | undefined;
   restaurantHours: RestaurantHours;
   mealPeriods: MealPeriods;
-  arrivalOffsets: ArrivalOffsets;
   preferredMeals?: Meal[]; // used to bubble a matching suggestion to the top
 }): ShiftSuggestion[] {
-  const { dayKey, position, section, restaurantHours, mealPeriods, arrivalOffsets, preferredMeals } = input;
+  const { dayKey, section, restaurantHours, mealPeriods, preferredMeals } = input;
   const day = restaurantHours[dayKey];
-  const arrival = arrivalOffsetFor(position, section, arrivalOffsets);
+  // Arrival lead time was removed — suggestions now use each enabled meal
+  // period's raw start/end so what the owner configures is what they see.
   const closeout = closeoutMinFor(section);
   const dayOpen = day.closed ? "00:00" : day.open;
   const dayClose = day.closed ? "23:59" : day.close;
@@ -298,12 +337,12 @@ export function suggestedShiftTimes(input: {
 
   for (const m of enabled) {
     const p = mealPeriods[m];
-    const start = maxTime(dayOpen, subMin(p.start, arrival));
+    const start = maxTime(dayOpen, p.start);
     const end = minTime(dayClose, addMin(p.end, closeout));
     if (start >= end) continue;
     suggestions.push({
       key: `single-${m}`,
-      label: `${m} — arrive ${fmt12(start)} → out ${fmt12(end)}`,
+      label: `${m} — ${fmt12(start)} → ${fmt12(end)}`,
       start,
       end,
       meals: [m],
@@ -313,7 +352,7 @@ export function suggestedShiftTimes(input: {
   // Combined doubles for any two adjacent enabled periods (e.g. Lunch + Dinner).
   for (let i = 0; i + 1 < enabled.length; i++) {
     const a = enabled[i]!, b = enabled[i + 1]!;
-    const start = maxTime(dayOpen, subMin(mealPeriods[a].start, arrival));
+    const start = maxTime(dayOpen, mealPeriods[a].start);
     const end = minTime(dayClose, addMin(mealPeriods[b].end, closeout));
     if (start >= end) continue;
     suggestions.push({
@@ -674,6 +713,8 @@ interface Store {
   updateMealPeriod: (meal: Meal, patch: Partial<MealPeriodConfig>) => void;
   arrivalOffsets: ArrivalOffsets;
   setArrivalOffsets: (o: ArrivalOffsets) => void;
+  businessInfo: BusinessInfo;
+  setBusinessInfo: (info: BusinessInfo) => void;
   activeRoles: Role[];
   setActiveRoles: (roles: Role[]) => void;
   customRoles: CustomRole[];
@@ -1041,6 +1082,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     restaurantHours: defaultRestaurantHours(),
     mealPeriods: defaultMealPeriods(),
     arrivalOffsets: defaultArrivalOffsets(),
+    businessInfo: defaultBusinessInfo() as BusinessInfo,
     activeRoles: [
       "Host","Server Assistant","Busser","Bar Back","Bartender","Server","Manager","Assistant Manager",
       "Chef","Sous Chef","Saute","Grill","Line Cook","Fry Cook","Pizza","Garde Manger","Prep","Dishwasher",
@@ -1105,7 +1147,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     }
     (async () => {
       try {
-        const [postings, apps, remoteEmployeesInitial, remoteHours, remoteShiftsInitial, remoteTimeOffInitial, remoteTradesInitial] = await Promise.all([
+        const [postings, apps, remoteEmployeesInitial, remoteHours, remoteShiftsInitial, remoteTimeOffInitial, remoteTradesInitial, remoteBusinessInfo] = await Promise.all([
           fetchOwnerPostings(effectiveOwnerId),
           fetchOwnerApplications(effectiveOwnerId),
           fetchOwnerEmployees(effectiveOwnerId),
@@ -1113,6 +1155,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           fetchOwnerShifts(effectiveOwnerId),
           fetchOwnerTimeOff(effectiveOwnerId),
           fetchOwnerTrades(effectiveOwnerId),
+          fetchBusinessInfo(effectiveOwnerId),
         ]);
         if (cancelled) return;
 
@@ -1215,6 +1258,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           timeOff: remoteTimeOff.length > 0 ? remoteTimeOff : s.timeOff,
           trades: remoteTrades,
           ...hoursPatch,
+          businessInfo: normalizeBusinessInfo(remoteBusinessInfo),
         }));
       } catch (e) {
         console.error("[owner-sync] failed to load", e);
@@ -1338,6 +1382,12 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
       setState((s) => ({ ...s, arrivalOffsets: o }));
       const oid = ownerIdRef.current;
       if (oid) saveRestaurantHours(oid, serializeRestaurantHoursConfig(latestStateRef.current.restaurantHours, latestStateRef.current.mealPeriods, o)).catch((e) => console.error("[setArrivalOffsets]", e));
+    },
+    setBusinessInfo: (info) => {
+      const clean = normalizeBusinessInfo(info);
+      setState((s) => ({ ...s, businessInfo: clean }));
+      const oid = ownerIdRef.current;
+      if (oid) saveBusinessInfo(oid, clean).catch((e: unknown) => console.error("[setBusinessInfo]", e));
     },
     setActiveRoles: (roles) => setState((s) => ({ ...s, activeRoles: roles })),
     addCustomRole: (role) =>
