@@ -61,25 +61,7 @@ type ApplicationRow = {
   hired_employee_id: string | null;
   work_experience: unknown;
   special_talents: string | null;
-  assigned_to: string | null;
 };
-
-export type TeamMember = {
-  id: string;
-  name: string;
-  firstName: string | null;
-  lastName: string | null;
-  email: string | null;
-  phone: string | null;
-  title: string | null;
-  authUserId: string | null;
-};
-
-
-export function teamMemberDisplayName(m: Pick<TeamMember, "firstName" | "lastName" | "name">): string {
-  const combined = [m.firstName, m.lastName].filter(Boolean).join(" ").trim();
-  return combined || m.name;
-}
 
 export type PublicInterviewInfo = {
   id: string;
@@ -94,9 +76,6 @@ export type PublicInterviewInfo = {
   interviewNotes: string | null;
   restaurantName: string | null;
   jobTitle: string | null;
-  assigneeName: string | null;
-  assigneeEmail: string | null;
-  assigneePhone: string | null;
 };
 
 export type PublicShadowShiftInfo = {
@@ -172,17 +151,16 @@ export function applicationFromRow(r: ApplicationRow): JobApplication {
     hiredEmployeeId: r.hired_employee_id ?? undefined,
     workExperience: (r.work_experience as WorkExperience[] | null) ?? undefined,
     specialTalents: r.special_talents ?? undefined,
-    assignedTo: r.assigned_to ?? undefined,
   };
 }
 
-/** Owner-scoped: fetch already-booked interview slots (with assignee) for conflict-detection. */
+/** Owner-scoped: fetch already-booked interview slots for conflict-detection. */
 export async function fetchBookedInterviewSlots(
   ownerId: string,
-): Promise<{ id: string; selectedSlot: string; assignedTo: string | null }[]> {
+): Promise<{ id: string; selectedSlot: string }[]> {
   const { data, error } = await supabase
     .from("job_applications")
-    .select("id, selected_slot, assigned_to")
+    .select("id, selected_slot")
     .eq("owner_id", ownerId)
     .eq("stage", "video_scheduled")
     .not("selected_slot", "is", null);
@@ -190,7 +168,6 @@ export async function fetchBookedInterviewSlots(
   return (data ?? []).map((r) => ({
     id: (r as { id: string }).id,
     selectedSlot: (r as { selected_slot: string }).selected_slot,
-    assignedTo: ((r as { assigned_to: string | null }).assigned_to) ?? null,
   }));
 }
 
@@ -224,7 +201,7 @@ export async function fetchOwnerApplications(ownerId: string): Promise<JobApplic
     .eq("owner_id", ownerId)
     .order("applied_at", { ascending: false });
   if (error) throw error;
-  return (data ?? []).map((r) => applicationFromRow(r as ApplicationRow));
+  return (data ?? []).map((r) => applicationFromRow(r as unknown as ApplicationRow));
 }
 
 export async function insertPosting(
@@ -265,10 +242,6 @@ export async function insertApplication(
   },
 ): Promise<JobApplication> {
   if (!data.jobId) throw new Error("jobId is required to submit an application");
-  // Anonymous submitters can INSERT but have no SELECT policy on job_applications,
-  // so we cannot use `.select().single()` to read the row back — PostgREST would
-  // report "new row violates row-level security policy" from the post-insert read.
-  // Generate the id client-side and build the returned JobApplication locally.
   const id =
     typeof crypto !== "undefined" && "randomUUID" in crypto
       ? crypto.randomUUID()
@@ -276,7 +249,6 @@ export async function insertApplication(
   const appliedAt = new Date().toISOString();
   const { error } = await supabase.from("job_applications").insert({
     id,
-    // owner_id is required by the type but the trigger overrides it.
     owner_id: "00000000-0000-0000-0000-000000000000",
     job_id: data.jobId,
     name: data.name,
@@ -327,7 +299,6 @@ export async function updateApplication(
   if (patch.selectedSlot !== undefined) row.selected_slot = patch.selectedSlot;
   if (patch.shadowShift !== undefined) row.shadow_shift = patch.shadowShift as unknown;
   if (patch.hiredEmployeeId !== undefined) row.hired_employee_id = patch.hiredEmployeeId;
-  if (patch.assignedTo !== undefined) row.assigned_to = patch.assignedTo;
   if (Object.keys(row).length === 0) return;
   const { error } = await supabase.from("job_applications").update(row as never).eq("id", id);
   if (error) throw error;
@@ -335,9 +306,6 @@ export async function updateApplication(
 
 /**
  * Public: applicant confirms their chosen interview slot.
- * Anonymous visitors have no direct UPDATE on job_applications; this RPC
- * validates the transition (video_offered -> video_scheduled) and slot
- * membership server-side (SECURITY DEFINER).
  */
 export async function confirmApplicantSlot(
   applicationId: string,
@@ -369,9 +337,6 @@ export async function fetchPublicInterview(id: string): Promise<PublicInterviewI
     interviewNotes: row.interview_notes ?? null,
     restaurantName: row.restaurant_name ?? null,
     jobTitle: row.job_title ?? null,
-    assigneeName: row.assignee_name ?? null,
-    assigneeEmail: row.assignee_email ?? null,
-    assigneePhone: row.assignee_phone ?? null,
   };
 }
 
@@ -448,87 +413,3 @@ export async function claimHireInvite(applicationId: string, employeeProfileId: 
   });
   if (error) throw error;
 }
-
-
-
-/* ---------------- Team roster ---------------- */
-
-export async function fetchTeamMembers(ownerId: string): Promise<TeamMember[]> {
-  const { data, error } = await supabase
-    .from("restaurant_team_members")
-    .select("id, name, first_name, last_name, email, phone, title, auth_user_id")
-    .eq("owner_id", ownerId)
-    .order("created_at", { ascending: true });
-  if (error) throw error;
-  return (data ?? []).map((r) => ({
-    id: r.id,
-    name: r.name,
-    firstName: (r as { first_name: string | null }).first_name ?? null,
-    lastName: (r as { last_name: string | null }).last_name ?? null,
-    email: r.email,
-    phone: r.phone,
-    title: r.title,
-    authUserId: (r as { auth_user_id: string | null }).auth_user_id ?? null,
-  }));
-}
-
-export type TeamMemberInput = {
-  firstName: string;
-  lastName?: string | null;
-  email?: string | null;
-  phone?: string | null;
-  title?: string | null;
-};
-
-export async function insertTeamMember(
-  ownerId: string,
-  data: TeamMemberInput,
-): Promise<TeamMember> {
-  const first = data.firstName.trim();
-  const last = (data.lastName ?? "").trim();
-  const name = [first, last].filter(Boolean).join(" ");
-  const { data: row, error } = await supabase
-    .from("restaurant_team_members")
-    .insert({
-      owner_id: ownerId,
-      name,
-      first_name: first,
-      last_name: last || null,
-      email: data.email ?? null,
-      phone: data.phone ?? null,
-      title: data.title ?? null,
-    })
-    .select("id, name, first_name, last_name, email, phone, title, auth_user_id")
-    .single();
-  if (error) throw error;
-  const r = row as { id: string; name: string; first_name: string | null; last_name: string | null; email: string | null; phone: string | null; title: string | null; auth_user_id: string | null };
-  return { id: r.id, name: r.name, firstName: r.first_name, lastName: r.last_name, email: r.email, phone: r.phone, title: r.title, authUserId: r.auth_user_id };
-}
-
-export async function updateTeamMember(
-  id: string,
-  patch: { firstName?: string; lastName?: string | null; email?: string | null; phone?: string | null; title?: string | null },
-): Promise<void> {
-  const row: {
-    first_name?: string;
-    last_name?: string | null;
-    email?: string | null;
-    phone?: string | null;
-    title?: string | null;
-  } = {};
-  if (patch.firstName !== undefined) row.first_name = patch.firstName.trim();
-  if (patch.lastName !== undefined) row.last_name = patch.lastName == null ? null : patch.lastName.trim() || null;
-  if (patch.email !== undefined) row.email = patch.email;
-  if (patch.phone !== undefined) row.phone = patch.phone;
-  if (patch.title !== undefined) row.title = patch.title;
-  const { error } = await supabase.from("restaurant_team_members").update(row).eq("id", id);
-  if (error) throw error;
-}
-
-export async function deleteTeamMember(id: string): Promise<void> {
-  const { error } = await supabase.from("restaurant_team_members").delete().eq("id", id);
-  if (error) throw error;
-}
-
-
-

@@ -20,7 +20,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { onboardingStatus, useStore, type Role, type ApplicationStatus, type Employee, type Relationship, DAY_KEYS, hoursConfigured, type JobApplication, type HiringStage, type ShadowShiftDetails, type InterviewType, getHiringStage } from "@/lib/sidework-store";
 import { roleStyle, fohRolesWithCustom, bohRolesWithCustom } from "@/lib/role-colors";
-import { formatPhone } from "@/lib/format-phone";
+
 import { PhoneInput } from "@/components/ui/phone-input";
 import { copyLinkWithToast } from "@/lib/copy-to-clipboard";
 import { sendStaffInvite } from "@/lib/staff-invite.functions";
@@ -29,8 +29,6 @@ import { AvailabilityEditor, RestaurantHoursEditor, MealPeriodsEditor, BusinessI
 import { StaffJoinBanner, FullscreenQrDialog, StaffOnboardingCard } from "@/components/sidework/StaffOnboarding";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { slugify } from "@/lib/slug";
-import { useTeamMembers } from "@/lib/use-team-members";
-import { teamMemberDisplayName, type TeamMember } from "@/lib/hiring-supabase";
 import { toast } from "sonner";
 import { ChevronDown, Check, CalendarIcon } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
@@ -887,12 +885,10 @@ function JobsTab() {
     applicantSelectSlot,
     completeInterview,
     inviteShadowShift,
-    reassignApplication,
     restaurantProfile,
     activeRoles,
     customRoles,
   } = useStore();
-  const team = useTeamMembers();
   const fohActive = fohRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r));
   const bohActive = bohRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r));
   const [open, setOpen] = useState(false);
@@ -936,8 +932,6 @@ function JobsTab() {
 
   return (
     <div className="grid gap-6">
-      <TeamRosterCard team={team} />
-
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-3">
           <div>
@@ -1035,32 +1029,7 @@ function JobsTab() {
         items={videoApps}
         emptyText="No interviews in progress."
         renderExtra={(a) => (
-          <InterviewStageDetails
-            app={a}
-            restaurantName={restaurantName}
-            teamMembers={team.members}
-            onReassign={async (tid) => {
-              const m = tid ? team.members.find((x) => x.id === tid) : null;
-              const label = m ? teamMemberDisplayName(m) : tid ? "team member" : "you";
-              try {
-                await reassignApplication(a.id, tid);
-                toast.success(`Interview reassigned to ${label}`);
-              } catch (e) {
-                const msg = e instanceof Error ? e.message : String(e);
-                if (msg.includes("REASSIGN_CONFLICT")) {
-                  const when = a.selectedSlot
-                    ? new Date(a.selectedSlot).toLocaleString(undefined, {
-                        weekday: "short", month: "short", day: "numeric",
-                        hour: "numeric", minute: "2-digit",
-                      })
-                    : "that time";
-                  toast.error(`Can't reassign — ${label} already has an interview booked at ${when}.`);
-                } else {
-                  toast.error("Couldn't reassign interview. Please try again.");
-                }
-              }
-            }}
-          />
+          <InterviewStageDetails app={a} restaurantName={restaurantName} />
         )}
         renderActions={(a) => {
           const stage = getHiringStage(a);
@@ -1301,37 +1270,17 @@ const INTERVIEW_TYPE_META: Record<InterviewType, { emoji: string; label: string;
 function InterviewStageDetails({
   app,
   restaurantName,
-  teamMembers,
-  onReassign,
 }: {
   app: JobApplication;
   restaurantName: string;
-  teamMembers: TeamMember[];
-  onReassign: (teamMemberId: string | null) => void | Promise<void>;
 }) {
   const stage = getHiringStage(app);
   const type = app.interviewType ?? "video";
   const meta = INTERVIEW_TYPE_META[type];
-  const assignedTo = app.assignedTo ?? null;
-  const assignee = assignedTo ? teamMembers.find((m) => m.id === assignedTo) : null;
-  const assigneeLabel = assignee ? teamMemberDisplayName(assignee) : "You (owner)";
 
-  const reassignRow = (
+  const hostRow = (
     <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/30 p-2 text-xs">
-      <span className="text-muted-foreground">Assigned to</span>
-      <Select
-        value={assignedTo ?? "__owner__"}
-        onValueChange={(v) => onReassign(v === "__owner__" ? null : v)}
-      >
-        <SelectTrigger className="h-8 w-auto min-w-[10rem] gap-2 text-xs"><SelectValue /></SelectTrigger>
-        <SelectContent>
-          <SelectItem value="__owner__">You (owner)</SelectItem>
-          {teamMembers.map((m) => (
-            <SelectItem key={m.id} value={m.id}>{teamMemberDisplayName(m)}{m.title ? ` — ${m.title}` : ""}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <span className="ml-auto text-muted-foreground">Host link: <code className="rounded bg-background px-1.5 py-0.5">/interview/{app.id}/host</code></span>
+      <span className="text-muted-foreground">Host link: <code className="rounded bg-background px-1.5 py-0.5">/interview/{app.id}/host</code></span>
     </div>
   );
 
@@ -1342,7 +1291,6 @@ function InterviewStageDetails({
         <p className="font-semibold">{meta.emoji} {meta.label} — awaiting applicant time selection</p>
         <p className="mt-1 text-xs text-muted-foreground">Offered {app.offeredSlots.length} slot{app.offeredSlots.length === 1 ? "" : "s"}. They'll get a text + email with the link.</p>
         <p className="mt-2 text-xs">Applicant link: <code className="rounded bg-background px-1.5 py-0.5">/interview/{app.id}</code></p>
-        <p className="mt-1 text-xs text-muted-foreground">Currently assigned to <span className="font-medium text-foreground">{assigneeLabel}</span>.</p>
       </div>
     );
   } else if (stage === "video_scheduled" && app.selectedSlot) {
@@ -1355,7 +1303,6 @@ function InterviewStageDetails({
         <p className="font-semibold text-primary">{meta.emoji} {meta.label} confirmed</p>
         <p className="mt-1">{new Date(app.selectedSlot).toLocaleString([], { weekday: "long", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</p>
         <p className="mt-1 text-xs text-muted-foreground">{reminderCopy}</p>
-        <p className="mt-1 text-xs text-muted-foreground">Host: <span className="font-medium text-foreground">{assigneeLabel}</span>.</p>
       </div>
     );
   } else if (stage === "interviewed") {
@@ -1370,7 +1317,7 @@ function InterviewStageDetails({
   }
 
   if (!block) return null;
-  return (<>{block}{reassignRow}</>);
+  return (<>{block}{hostRow}</>);
 }
 
 
@@ -1431,7 +1378,6 @@ function ApproveInterviewDialog({
   const meta = INTERVIEW_TYPE_META[type];
   const { user } = useAuth();
   const ownerId = user?.id ?? null;
-  const effectiveAssignee = application.assignedTo ?? null;
 
   const [bookedSlots, setBookedSlots] = useState<Set<string>>(new Set());
   useEffect(() => {
@@ -1440,19 +1386,12 @@ function ApproveInterviewDialog({
     fetchBookedInterviewSlots(ownerId)
       .then((rows) => {
         if (cancelled) return;
-        // Match effective-assignee semantics: same assigned_to (both set to same person)
-        // OR both unassigned (owner is the effective assignee).
-        const conflicts = rows.filter((r) => {
-          if (r.id === application.id) return false;
-          const otherAssignee = r.assignedTo ?? null;
-          if (effectiveAssignee) return otherAssignee === effectiveAssignee;
-          return otherAssignee === null;
-        });
+        const conflicts = rows.filter((r) => r.id !== application.id);
         setBookedSlots(new Set(conflicts.map((c) => c.selectedSlot)));
       })
       .catch((e) => console.error("[booked slots]", e));
     return () => { cancelled = true; };
-  }, [ownerId, effectiveAssignee, application.id]);
+  }, [ownerId, application.id]);
 
   const suggested = useMemo(() => {
     const out: string[] = [];
@@ -2414,170 +2353,3 @@ function IconUsers() { return <svg viewBox="0 0 24 24" className="h-4 w-4" fill=
 function IconCal() { return <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>; }
 function IconSwap() { return <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l-4-4m4 4l4-4"/></svg>; }
 
-function TeamRosterCard({ team }: { team: ReturnType<typeof useTeamMembers> }) {
-  const { employees } = useStore();
-  const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState<TeamMember | null>(null);
-  const [form, setForm] = useState({ firstName: "", lastName: "", email: "", phone: "", title: "" });
-  const [sourceEmployeeId, setSourceEmployeeId] = useState<string>("new");
-
-  const sortedEmployees = useMemo(
-    () => [...employees].sort((a, b) => (a.name ?? "").localeCompare(b.name ?? "")),
-    [employees],
-  );
-
-  const openAdd = () => {
-    setEditing(null);
-    setSourceEmployeeId("new");
-    setForm({ firstName: "", lastName: "", email: "", phone: "", title: "" });
-    setOpen(true);
-  };
-  const openEdit = (m: TeamMember) => {
-    setEditing(m);
-    setSourceEmployeeId("new");
-    setForm({
-      firstName: m.firstName ?? m.name.split(" ")[0] ?? "",
-      lastName: m.lastName ?? m.name.split(" ").slice(1).join(" ") ?? "",
-      email: m.email ?? "",
-      phone: m.phone ?? "",
-      title: m.title ?? "",
-    });
-    setOpen(true);
-  };
-
-  const pickEmployee = (id: string) => {
-    setSourceEmployeeId(id);
-    if (id === "new") {
-      setForm({ firstName: "", lastName: "", email: "", phone: "", title: "" });
-      return;
-    }
-    const emp = employees.find((e) => e.id === id);
-    if (!emp) return;
-    const first = emp.firstName ?? emp.name.split(" ")[0] ?? "";
-    const last = emp.lastName ?? emp.name.split(" ").slice(1).join(" ") ?? "";
-    setForm({
-      firstName: first,
-      lastName: last,
-      email: emp.email ?? "",
-      phone: emp.phone ? formatPhone(emp.phone) : "",
-      title: "",
-    });
-  };
-
-  const submit = async () => {
-    if (!form.firstName.trim()) return toast.error("First name is required");
-    try {
-      if (editing) {
-        await team.update(editing.id, {
-          firstName: form.firstName.trim(),
-          lastName: form.lastName.trim() || null,
-          email: form.email.trim() || null,
-          phone: form.phone.trim() || null,
-          title: form.title.trim() || null,
-        });
-        toast.success("Team member updated");
-      } else {
-        await team.add({
-          firstName: form.firstName.trim(),
-          lastName: form.lastName.trim() || null,
-          email: form.email.trim() || null,
-          phone: form.phone.trim() || null,
-          title: form.title.trim() || null,
-        });
-        toast.success("Team member added");
-      }
-      setOpen(false);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not save team member");
-    }
-  };
-
-  const remove = async (m: TeamMember) => {
-    if (!window.confirm(`Remove ${teamMemberDisplayName(m)} from your hiring team?`)) return;
-    try { await team.remove(m.id); toast.message("Team member removed"); }
-    catch (e) { toast.error(e instanceof Error ? e.message : "Could not remove"); }
-  };
-
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between gap-3">
-        <div>
-          <CardTitle className="text-base">Hiring team</CardTitle>
-          <p className="mt-1 text-xs text-muted-foreground">People you can hand off interviews to. They don't need an account.</p>
-        </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild><Button size="sm" onClick={openAdd}>+ Add member</Button></DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>{editing ? "Edit team member" : "Add team member"}</DialogTitle></DialogHeader>
-            <div className="grid gap-3 py-2">
-              {!editing && sortedEmployees.length > 0 && (
-                <div className="grid gap-2">
-                  <Label>Add from current employees</Label>
-                  <Select value={sourceEmployeeId} onValueChange={pickEmployee}>
-                    <SelectTrigger><SelectValue placeholder="Type a new person" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="new">Type a new person</SelectItem>
-                      <SelectSeparator />
-                      {sortedEmployees.map((e) => (
-                        <SelectItem key={e.id} value={e.id}>
-                          {e.name}{e.position ? ` — ${e.position}` : e.primaryRole ? ` — ${e.primaryRole}` : ""}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">Pre-fills their name, email, and phone. Title stays blank so you can set their hiring-team role.</p>
-                </div>
-              )}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="grid gap-2"><Label>First name</Label><Input value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} placeholder="e.g. Alex" /></div>
-                <div className="grid gap-2"><Label>Last name</Label><Input value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} placeholder="e.g. Rivera" /></div>
-              </div>
-              <div className="grid gap-2"><Label>Title (optional)</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="e.g. Assistant Manager" /></div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="grid gap-2"><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
-                <div className="grid gap-2"><Label>Phone</Label><PhoneInput value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} /></div>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button onClick={submit}>{editing ? "Save" : "Add"}</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </CardHeader>
-      <CardContent className="space-y-2">
-        {team.loading && team.members.length === 0 && (
-          <p className="text-sm text-muted-foreground">Loading team…</p>
-        )}
-        {!team.loading && team.members.length === 0 && (
-          <p className="text-sm text-muted-foreground">No team members yet. Add someone you'd like to hand off interviews to.</p>
-        )}
-        {team.members.map((m) => {
-          const hasAccount = !!m.authUserId;
-          const statusBadge = hasAccount
-            ? { label: "Active login", cls: "bg-success text-success-foreground hover:bg-success" }
-            : { label: "No login yet", cls: "" };
-
-          return (
-            <div key={m.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-background p-3">
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="font-semibold">{teamMemberDisplayName(m)}</p>
-                  {m.title && <Badge variant="outline">{m.title}</Badge>}
-                  <Badge variant={statusBadge.cls ? "default" : "outline"} className={statusBadge.cls}>{statusBadge.label}</Badge>
-                </div>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  {m.email ?? "—"} · {m.phone ?? "—"}
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button size="sm" variant="outline" onClick={() => openEdit(m)}>Edit</Button>
-                <Button size="sm" variant="ghost" onClick={() => remove(m)}>Remove</Button>
-              </div>
-            </div>
-          );
-        })}
-      </CardContent>
-    </Card>
-  );
-}

@@ -70,7 +70,7 @@ function HostInterviewPage() {
   const applicantName = app.firstName ?? app.name;
   const type = app.interviewType ?? "video";
   const restaurantName = app.restaurantName ?? "your restaurant";
-  const assignee = app.assigneeName ? app.assigneeName : "the owner";
+  const hostLabel = restaurantName;
 
   const join = async () => {
     setJoining(true); setJoinError(null);
@@ -110,7 +110,6 @@ function HostInterviewPage() {
         <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
           {app.role && <Badge variant="secondary">{app.role}</Badge>}
           {app.jobTitle && <span>· {app.jobTitle}</span>}
-          <span>· Assigned to <span className="font-medium text-foreground">{assignee}</span></span>
         </div>
         {app.selectedSlot && (
           <p className="mt-2 text-sm">
@@ -131,7 +130,7 @@ function HostInterviewPage() {
                 <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-black">
                   <iframe
                     title="Video interview"
-                    src={`${roomUrl}?userName=${encodeURIComponent(assignee)}`}
+                    src={`${roomUrl}?userName=${encodeURIComponent(hostLabel)}`}
                     allow="camera; microphone; fullscreen; speaker; display-capture; autoplay"
                     className="h-full w-full border-0"
                   />
@@ -173,7 +172,7 @@ function HostInterviewPage() {
             {saveError && <span className="text-sm text-destructive">{saveError}</span>}
           </div>
           <p className="text-xs text-muted-foreground">
-            Notes are visible to {restaurantName}'s hiring team.
+            Notes are visible to {restaurantName}'s owner.
           </p>
         </CardContent>
       </Card>
