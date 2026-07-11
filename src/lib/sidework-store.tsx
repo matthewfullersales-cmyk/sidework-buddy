@@ -283,12 +283,12 @@ export function suggestedShiftTimes(input: {
   section: Section | undefined;
   restaurantHours: RestaurantHours;
   mealPeriods: MealPeriods;
-  arrivalOffsets: ArrivalOffsets;
   preferredMeals?: Meal[]; // used to bubble a matching suggestion to the top
 }): ShiftSuggestion[] {
-  const { dayKey, position, section, restaurantHours, mealPeriods, arrivalOffsets, preferredMeals } = input;
+  const { dayKey, section, restaurantHours, mealPeriods, preferredMeals } = input;
   const day = restaurantHours[dayKey];
-  const arrival = arrivalOffsetFor(position, section, arrivalOffsets);
+  // Arrival lead time was removed — suggestions now use each enabled meal
+  // period's raw start/end so what the owner configures is what they see.
   const closeout = closeoutMinFor(section);
   const dayOpen = day.closed ? "00:00" : day.open;
   const dayClose = day.closed ? "23:59" : day.close;
@@ -298,12 +298,12 @@ export function suggestedShiftTimes(input: {
 
   for (const m of enabled) {
     const p = mealPeriods[m];
-    const start = maxTime(dayOpen, subMin(p.start, arrival));
+    const start = maxTime(dayOpen, p.start);
     const end = minTime(dayClose, addMin(p.end, closeout));
     if (start >= end) continue;
     suggestions.push({
       key: `single-${m}`,
-      label: `${m} — arrive ${fmt12(start)} → out ${fmt12(end)}`,
+      label: `${m} — ${fmt12(start)} → ${fmt12(end)}`,
       start,
       end,
       meals: [m],
@@ -313,7 +313,7 @@ export function suggestedShiftTimes(input: {
   // Combined doubles for any two adjacent enabled periods (e.g. Lunch + Dinner).
   for (let i = 0; i + 1 < enabled.length; i++) {
     const a = enabled[i]!, b = enabled[i + 1]!;
-    const start = maxTime(dayOpen, subMin(mealPeriods[a].start, arrival));
+    const start = maxTime(dayOpen, mealPeriods[a].start);
     const end = minTime(dayClose, addMin(mealPeriods[b].end, closeout));
     if (start >= end) continue;
     suggestions.push({
