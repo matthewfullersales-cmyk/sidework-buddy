@@ -1379,6 +1379,12 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
       const oid = ownerIdRef.current;
       if (oid) saveRestaurantHours(oid, serializeRestaurantHoursConfig(latestStateRef.current.restaurantHours, latestStateRef.current.mealPeriods, o)).catch((e) => console.error("[setArrivalOffsets]", e));
     },
+    setBusinessInfo: (info) => {
+      const clean = normalizeBusinessInfo(info);
+      setState((s) => ({ ...s, businessInfo: clean }));
+      const oid = ownerIdRef.current;
+      if (oid) saveBusinessInfo(oid, clean).catch((e) => console.error("[setBusinessInfo]", e));
+    },
     setActiveRoles: (roles) => setState((s) => ({ ...s, activeRoles: roles })),
     addCustomRole: (role) =>
       setState((s) => {
