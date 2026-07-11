@@ -19,7 +19,6 @@ export type Database = {
           ai_score: string | null
           applied_at: string
           archived: boolean
-          assigned_to: string | null
           availability_days: string[]
           availability_hours: string
           created_at: string
@@ -56,7 +55,6 @@ export type Database = {
           ai_score?: string | null
           applied_at?: string
           archived?: boolean
-          assigned_to?: string | null
           availability_days?: string[]
           availability_hours?: string
           created_at?: string
@@ -93,7 +91,6 @@ export type Database = {
           ai_score?: string | null
           applied_at?: string
           archived?: boolean
-          assigned_to?: string | null
           availability_days?: string[]
           availability_hours?: string
           created_at?: string
@@ -127,13 +124,6 @@ export type Database = {
           work_experience?: Json | null
         }
         Relationships: [
-          {
-            foreignKeyName: "job_applications_assigned_to_fkey"
-            columns: ["assigned_to"]
-            isOneToOne: false
-            referencedRelation: "restaurant_team_members"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "job_applications_job_id_fkey"
             columns: ["job_id"]
@@ -342,54 +332,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      restaurant_team_members: {
-        Row: {
-          auth_user_id: string | null
-          can_manage_hiring: boolean
-          can_manage_schedule: boolean
-          created_at: string
-          email: string | null
-          first_name: string | null
-          id: string
-          last_name: string | null
-          name: string
-          owner_id: string
-          phone: string | null
-          title: string | null
-          updated_at: string
-        }
-        Insert: {
-          auth_user_id?: string | null
-          can_manage_hiring?: boolean
-          can_manage_schedule?: boolean
-          created_at?: string
-          email?: string | null
-          first_name?: string | null
-          id?: string
-          last_name?: string | null
-          name: string
-          owner_id: string
-          phone?: string | null
-          title?: string | null
-          updated_at?: string
-        }
-        Update: {
-          auth_user_id?: string | null
-          can_manage_hiring?: boolean
-          can_manage_schedule?: boolean
-          created_at?: string
-          email?: string | null
-          first_name?: string | null
-          id?: string
-          last_name?: string | null
-          name?: string
-          owner_id?: string
-          phone?: string | null
-          title?: string | null
-          updated_at?: string
-        }
-        Relationships: []
       }
       shift_trades: {
         Row: {
@@ -621,10 +563,6 @@ export type Database = {
         Args: { p_application_id: string; p_employee_profile_id: string }
         Returns: undefined
       }
-      claim_team_invite: {
-        Args: { p_auth_user_id: string; p_team_member_id: string }
-        Returns: undefined
-      }
       employee_can_claim_role: {
         Args: { p_owner_id: string; p_role: string }
         Returns: boolean
@@ -680,9 +618,6 @@ export type Database = {
       get_public_interview: {
         Args: { p_application_id: string }
         Returns: {
-          assignee_email: string
-          assignee_name: string
-          assignee_phone: string
           first_name: string
           id: string
           interview_notes: string
@@ -710,18 +645,6 @@ export type Database = {
           shadow_response_note: string
           shadow_shift: Json
           stage: string
-        }[]
-      }
-      get_public_team_invite: {
-        Args: { p_team_member_id: string }
-        Returns: {
-          can_manage_hiring: boolean
-          can_manage_schedule: boolean
-          claimed: boolean
-          first_name: string
-          id: string
-          name: string
-          restaurant_name: string
         }[]
       }
       get_restaurant_coworker_names: {
