@@ -727,6 +727,140 @@ function FinalizingScreen({ name }: { name: string }) {
   );
 }
 
+/* --------------------- Management team composer -------------------- */
+
+function ManagementTeamComposer({ onAdvance }: { onAdvance: (summary: string) => void }) {
+  const team = useTeamMembers();
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [title, setTitle] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [perms, setPerms] = useState<Set<ManagerPermission>>(new Set());
+  const [busy, setBusy] = useState(false);
+
+  const togglePerm = (k: ManagerPermission) => {
+    setPerms((prev) => {
+      const next = new Set(prev);
+      if (next.has(k)) next.delete(k); else next.add(k);
+      return next;
+    });
+  };
+
+  const canAdd = firstName.trim().length > 0 && !busy && !!team.ownerId;
+
+  const addMember = async () => {
+    if (!canAdd) return;
+    setBusy(true);
+    try {
+      const row = await team.add({
+        firstName: firstName.trim(),
+        lastName: lastName.trim() || null,
+        email: email.trim() || null,
+        phone: phone.trim() || null,
+        title: title.trim() || null,
+      });
+      // Apply permissions in registry order.
+      for (const key of PERMISSION_KEYS) {
+        if (perms.has(key)) {
+          try { await team.setPermission(row.id, key, true); }
+          catch (e) { toast.error(e instanceof Error ? e.message : "Could not grant access"); }
+        }
+      }
+      toast.success(`Added ${row.name || firstName}`);
+      setFirstName(""); setLastName(""); setTitle(""); setEmail(""); setPhone("");
+      setPerms(new Set());
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not add team member");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const finish = () => {
+    const withPerms = team.members.filter((m) => m.canManageHiring || m.canManageSchedule);
+    const summary = team.members.length === 0
+      ? "Skipped — I'll add my team later"
+      : `${team.members.length} added${withPerms.length > 0 ? ` (${withPerms.length} with manager access)` : ""}`;
+    onAdvance(summary);
+  };
+
+  return (
+    <div className="space-y-3">
+      {team.members.length > 0 && (
+        <div className="max-h-52 overflow-y-auto rounded-xl border border-border bg-card p-2">
+          <ul className="space-y-1.5">
+            {team.members.map((m) => {
+              const inviteUrl = typeof window !== "undefined" ? `${window.location.origin}/team-invite/${m.id}` : `/team-invite/${m.id}`;
+              const anyPerm = m.canManageHiring || m.canManageSchedule;
+              return (
+                <li key={m.id} className="rounded-lg border border-border/50 bg-background p-2.5 text-sm">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium">{teamMemberDisplayName(m)}</span>
+                    {m.title && <Badge variant="outline">{m.title}</Badge>}
+                    {PERMISSION_KEYS.filter((k) => m[PERMISSION_META[k].memberFlag]).map((k) => (
+                      <Badge key={k} variant="outline">{PERMISSION_META[k].badgeLabel}</Badge>
+                    ))}
+                  </div>
+                  {anyPerm && (
+                    <div className="mt-1.5 flex items-center gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => copyLinkWithToast(inviteUrl, "Invite link copied")}
+                      >
+                        Copy invite link
+                      </Button>
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+
+      <div className="grid gap-2 rounded-xl border border-border bg-card p-3">
+        <div className="grid grid-cols-2 gap-2">
+          <Input placeholder="First name" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+          <Input placeholder="Last name" value={lastName} onChange={(e) => setLastName(e.target.value)} />
+        </div>
+        <Input placeholder="Title (e.g. GM, Manager)" value={title} onChange={(e) => setTitle(e.target.value)} />
+        <div className="grid grid-cols-2 gap-2">
+          <Input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <Input inputMode="tel" placeholder="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
+        </div>
+        <div className="grid gap-1.5 pt-1">
+          {PERMISSION_KEYS.map((k) => {
+            const meta = PERMISSION_META[k];
+            return (
+              <label key={k} className="flex items-start gap-2 text-xs text-muted-foreground">
+                <Switch checked={perms.has(k)} onCheckedChange={() => togglePerm(k)} />
+                <span>
+                  <span className="font-medium text-foreground">{meta.label}</span>
+                  <span className="ml-1">— {meta.description}</span>
+                </span>
+              </label>
+            );
+          })}
+        </div>
+        <Button type="button" variant="secondary" disabled={!canAdd} onClick={addMember}>
+          {busy ? "Adding…" : "Add team member"}
+        </Button>
+        {!team.ownerId && !team.loading && (
+          <p className="text-xs text-muted-foreground">Sign in required to add team members here.</p>
+        )}
+      </div>
+
+      <Button size="lg" className="w-full" onClick={finish}>
+        {team.members.length > 0 ? "Continue →" : "Skip — I'll do this later"}
+      </Button>
+    </div>
+  );
+}
+
+
 function CheckIcon({ className = "" }: { className?: string }) {
   return <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>;
 }
