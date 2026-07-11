@@ -787,7 +787,7 @@ function EmployeeProfileDialog({ employee, onClose }: { employee: Employee; onCl
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="grid gap-1.5"><Label>First name</Label><Input value={ec.firstName} onChange={(e) => setEc({ ...ec, firstName: e.target.value })} /></div>
               <div className="grid gap-1.5"><Label>Last name</Label><Input value={ec.lastName} onChange={(e) => setEc({ ...ec, lastName: e.target.value })} /></div>
-              <div className="grid gap-1.5"><Label>Phone</Label><Input type="tel" inputMode="tel" value={ec.phone} onChange={(e) => setEc({ ...ec, phone: formatPhone(e.target.value) })} placeholder="(555) 555-1234" /></div>
+              <div className="grid gap-1.5"><Label>Phone</Label><PhoneInput value={ec.phone} onChange={(v) => setEc({ ...ec, phone: v })} /></div>
               <div className="grid gap-1.5 sm:col-span-2">
                 <Label>Relationship</Label>
                 <Select value={ec.relationship} onValueChange={(v: Relationship) => setEc({ ...ec, relationship: v })}>
