@@ -499,6 +499,8 @@ export interface Shift {
   end: string;
   notes?: string;
   position?: Position;
+  /** Server-maintained mtime; used for optimistic concurrency on updates. */
+  updatedAt?: string;
 }
 
 export type TradeStatus = "open" | "pending_approval" | "approved" | "denied" | "cancelled";
