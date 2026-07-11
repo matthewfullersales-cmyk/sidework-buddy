@@ -2009,7 +2009,7 @@ function HireReviewDialog({
             <div className="grid gap-1.5"><Label>First name</Label><Input value={firstName} onChange={(e) => setFirstName(e.target.value)} /></div>
             <div className="grid gap-1.5"><Label>Last name</Label><Input value={lastName} onChange={(e) => setLastName(e.target.value)} /></div>
             <div className="grid gap-1.5"><Label>Email</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
-            <div className="grid gap-1.5"><Label>Phone</Label><Input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} /></div>
+            <div className="grid gap-1.5"><Label>Phone</Label><PhoneInput value={phone} onChange={setPhone} /></div>
           </div>
           <div className="grid gap-1.5">
             <Label>Position</Label>
