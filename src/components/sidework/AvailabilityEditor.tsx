@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
+
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import {
@@ -415,13 +417,13 @@ export function BusinessInfoEditor({
       <div className="grid grid-cols-2 gap-3">
         <div>
           <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Phone</Label>
-          <Input
-            type="tel"
+          <PhoneInput
             placeholder="(555) 555-5555"
             value={draft.phone ?? ""}
-            onChange={(e) => set({ phone: e.target.value })}
+            onChange={(v) => set({ phone: v })}
             className="mt-1"
           />
+
         </div>
         <div>
           <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Website</Label>

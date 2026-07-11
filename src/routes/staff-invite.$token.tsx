@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { z } from "zod";
 import { Logo } from "@/components/sidework/Logo";
 import { Card, CardContent } from "@/components/ui/card";
@@ -7,47 +7,57 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PhoneInput } from "@/components/ui/phone-input";
-
-import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useStore, type Role, type Relationship, type WeeklyAvailability, type DayKey, DAY_KEYS, defaultWeeklyAvailability } from "@/lib/sidework-store";
+import {
+  Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import {
+  type Role,
+  type Relationship,
+  type WeeklyAvailability,
+  type DayKey,
+  DAY_KEYS,
+  defaultWeeklyAvailability,
+} from "@/lib/sidework-store";
 import { supabase } from "@/integrations/supabase/client";
-import { slugify } from "@/lib/slug";
+import {
+  fetchPublicStaffInvite,
+  claimStaffInvite,
+  type PublicStaffInviteInfo,
+} from "@/lib/employees-supabase";
 import { formatPhone } from "@/lib/format-phone";
 import { toast } from "sonner";
-import { CheckCircle2, Share, Plus } from "lucide-react";
+import { CheckCircle2, Loader2 } from "lucide-react";
 
 const FOH_ROLES: Role[] = ["Host", "Busser", "Server Assistant", "Bar Back", "Bartender", "Server", "Manager", "Assistant Manager"];
 const BOH_ROLES: Role[] = ["Chef", "Sous Chef", "Line Cook", "Fry Cook", "Saute", "Grill", "Pizza", "Garde Manger", "Dishwasher", "Prep"];
 const RELATIONSHIPS: Relationship[] = ["Spouse", "Parent", "Sibling", "Child", "Friend", "Other"];
 
-const joinSchema = z.object({
+const claimSchema = z.object({
   firstName: z.string().trim().min(1, "First name required").max(60),
   lastName: z.string().trim().min(1, "Last name required").max(60),
-  email: z.string().trim().email("Valid email required").max(255),
   phone: z.string().trim().min(7, "Phone number required").max(30),
   ecFirstName: z.string().trim().min(1, "Emergency contact first name required").max(60),
   ecLastName: z.string().trim().min(1, "Emergency contact last name required").max(60),
   ecPhone: z.string().trim().min(7, "Emergency contact phone required").max(30),
 });
 
-export const Route = createFileRoute("/join/$slug")({
+export const Route = createFileRoute("/staff-invite/$token")({
   ssr: false,
-  head: () => ({ meta: [{ title: "Join the team — 86Paper" }] }),
-  component: JoinPage,
+  head: () => ({ meta: [{ title: "Complete your invite — 86Paper" }] }),
+  component: StaffInvitePage,
 });
 
 type AvKind = "full" | "partial" | "none";
 
-function JoinPage() {
-  const { slug } = Route.useParams();
-  const { restaurantProfile, joinStaff } = useStore();
-  const restaurantName = restaurantProfile?.name ?? "the team";
-  const restaurantSlug = restaurantProfile?.slug ?? (restaurantProfile?.name ? slugify(restaurantProfile.name) : null);
-  const slugMatches = !restaurantSlug || restaurantSlug === slug;
+function StaffInvitePage() {
+  const { token } = Route.useParams();
+
+  const [invite, setInvite] = useState<PublicStaffInviteInfo | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [role, setRole] = useState<Role>("Server");
   const [availability, setAvailability] = useState<WeeklyAvailability>(() => defaultWeeklyAvailability());
@@ -60,80 +70,135 @@ function JoinPage() {
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState<{ firstName: string } | null>(null);
 
+  useEffect(() => {
+    let cancelled = false;
+    fetchPublicStaffInvite(token)
+      .then((res) => {
+        if (cancelled) return;
+        if (!res) { setNotFound(true); return; }
+        setInvite(res);
+        setFirstName(res.firstName ?? res.name.split(" ")[0] ?? "");
+        setLastName(res.lastName ?? res.name.split(" ").slice(1).join(" ") ?? "");
+        setPhone(res.phone ? formatPhone(res.phone) : "");
+        if (res.primaryRole && [...FOH_ROLES, ...BOH_ROLES].includes(res.primaryRole as Role)) {
+          setRole(res.primaryRole as Role);
+        }
+      })
+      .catch((e) => { console.error("[staff-invite]", e); if (!cancelled) setNotFound(true); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [token]);
+
   const setDayKind = (day: DayKey, kind: AvKind) =>
     setAvailability((prev) => ({
       ...prev,
       [day]: kind === "partial" ? { kind: "partial", meals: ["Lunch", "Dinner"] } : { kind },
     }));
 
+  const restaurantName = invite?.restaurantName ?? "the team";
+  const email = invite?.email ?? "";
+
   const submit = async () => {
-    const parsed = joinSchema.safeParse({ firstName, lastName, email, phone, ecFirstName, ecLastName, ecPhone });
+    const parsed = claimSchema.safeParse({ firstName, lastName, phone, ecFirstName, ecLastName, ecPhone });
     if (!parsed.success) {
       const first = parsed.error.issues[0];
       return toast.error(first?.message ?? "Please complete the form");
     }
+    if (!email) return toast.error("Missing email on invite — ask your manager to re-send it");
     if (password.length < 8) return toast.error("Password must be at least 8 characters");
     if (password !== confirmPassword) return toast.error("Passwords don't match");
 
     setSubmitting(true);
-    const empId = joinStaff({
-      firstName: parsed.data.firstName,
-      lastName: parsed.data.lastName,
-      email: parsed.data.email,
-      phone: parsed.data.phone,
-      role,
-      weeklyAvailability: availability,
-      emergencyContact: { firstName: parsed.data.ecFirstName, lastName: parsed.data.ecLastName, phone: parsed.data.ecPhone, relationship: ecRel },
-    });
-
     const redirectTo = typeof window !== "undefined" ? window.location.origin : undefined;
     const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
-      email: parsed.data.email,
+      email,
       password,
-      options: { emailRedirectTo: redirectTo, data: { full_name: `${parsed.data.firstName} ${parsed.data.lastName}`, role: "employee" } },
+      options: {
+        emailRedirectTo: redirectTo,
+        data: { full_name: `${parsed.data.firstName} ${parsed.data.lastName}`, role: "employee" },
+      },
     });
-    if (signUpErr) {
-      setSubmitting(false);
-      return toast.error(signUpErr.message);
-    }
+    if (signUpErr) { setSubmitting(false); return toast.error(signUpErr.message); }
     const uid = signUpData.user?.id;
-    if (uid) {
-      const { error: pErr } = await supabase.from("profiles").insert({
-        id: uid,
-        role: "employee",
-        full_name: `${parsed.data.firstName} ${parsed.data.lastName}`,
-        employee_id: empId,
+    if (!uid) { setSubmitting(false); return toast.error("Signup failed — please try again"); }
+
+    const { error: pErr } = await supabase.from("profiles").insert({
+      id: uid, role: "employee",
+      full_name: `${parsed.data.firstName} ${parsed.data.lastName}`,
+    });
+    if (pErr) { setSubmitting(false); return toast.error(pErr.message); }
+
+    try {
+      await claimStaffInvite(token, uid, {
+        first_name: parsed.data.firstName,
+        last_name: parsed.data.lastName,
+        phone: parsed.data.phone,
+        weekly_availability: availability,
+        emergency_contact: {
+          firstName: parsed.data.ecFirstName,
+          lastName: parsed.data.ecLastName,
+          phone: parsed.data.ecPhone,
+          relationship: ecRel,
+        },
       });
-      if (pErr) {
-        setSubmitting(false);
-        return toast.error(pErr.message);
-      }
+    } catch (e) {
+      console.error("[claimStaffInvite]", e);
+      setSubmitting(false);
+      return toast.error("Couldn't claim invite — it may already be used");
     }
 
     setSubmitting(false);
     setDone({ firstName: parsed.data.firstName });
   };
 
-  if (!slugMatches) {
+  if (loading) {
     return (
-      <Shell>
-        <div className="mx-auto max-w-md px-4 py-16 text-center">
-          <h1 className="text-2xl font-bold">Join link not found</h1>
-          <p className="mt-2 text-muted-foreground">This staff link doesn't match a restaurant on 86Paper.</p>
-          <Button asChild className="mt-6"><Link to="/">Go home</Link></Button>
-        </div>
-      </Shell>
+      <Centered>
+        <Loader2 className="mx-auto h-8 w-8 animate-spin text-muted-foreground" />
+        <p className="mt-4 text-sm text-muted-foreground">Loading your invite…</p>
+      </Centered>
     );
   }
-
-  if (done) return <SuccessScreen firstName={done.firstName} restaurantName={restaurantName} />;
+  if (notFound || !invite) {
+    return (
+      <Centered>
+        <h1 className="text-2xl font-bold">Invite not found</h1>
+        <p className="mt-2 text-muted-foreground">This invite link may have expired or already been used.</p>
+        <Button asChild className="mt-6"><Link to="/">Go home</Link></Button>
+      </Centered>
+    );
+  }
+  if (invite.claimed) {
+    return (
+      <Centered>
+        <h1 className="text-2xl font-bold">Invite already used</h1>
+        <p className="mt-2 text-muted-foreground">This invite has already been claimed. Please sign in instead.</p>
+        <Button asChild className="mt-6"><Link to="/employee-login">Sign in</Link></Button>
+      </Centered>
+    );
+  }
+  if (done) {
+    return (
+      <Centered>
+        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-success/15">
+          <CheckCircle2 className="h-12 w-12 text-success" />
+        </div>
+        <h1 className="mt-6 text-3xl font-bold">Welcome to {restaurantName}, {done.firstName}!</h1>
+        <p className="mt-3 text-muted-foreground">Your account is ready.</p>
+        <Button asChild className="mt-6 w-full"><Link to="/employee">Open my training</Link></Button>
+      </Centered>
+    );
+  }
 
   return (
     <Shell>
       <section className="bg-gradient-hero text-primary-foreground">
         <div className="mx-auto max-w-2xl px-4 py-10">
-          <h1 className="text-3xl font-bold leading-tight">{restaurantName} is hiring you on 86Paper!</h1>
-          <p className="mt-2 text-white/90">Fill out your profile to get started. Takes under 2 minutes.</p>
+          <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider">
+            You're invited
+          </div>
+          <h1 className="mt-4 text-3xl font-bold leading-tight">Join {restaurantName} on 86Paper</h1>
+          <p className="mt-2 text-white/90">Fill in a few details to finish setting up your account.</p>
         </div>
       </section>
 
@@ -144,7 +209,9 @@ function JoinPage() {
               <Field label="First name"><Input value={firstName} onChange={(e) => setFirstName(e.target.value)} maxLength={60} autoComplete="given-name" /></Field>
               <Field label="Last name"><Input value={lastName} onChange={(e) => setLastName(e.target.value)} maxLength={60} autoComplete="family-name" /></Field>
             </div>
-            <Field label="Email"><Input type="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} maxLength={255} autoComplete="email" /></Field>
+            <Field label="Email">
+              <Input type="email" value={email} disabled readOnly />
+            </Field>
             <Field label="Phone"><PhoneInput value={phone} onChange={setPhone} /></Field>
 
             <Field label="Primary role">
@@ -219,9 +286,8 @@ function JoinPage() {
               <Field label="Confirm password"><Input type="password" autoComplete="new-password" minLength={8} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} /></Field>
             </div>
 
-
             <Button size="lg" className="h-14 text-base shadow-elegant" onClick={submit} disabled={submitting}>
-              {submitting ? "Joining…" : `Join ${restaurantName}`}
+              {submitting ? "Setting up…" : `Join ${restaurantName}`}
             </Button>
           </CardContent>
         </Card>
@@ -250,73 +316,13 @@ function Shell({ children }: { children: React.ReactNode }) {
   );
 }
 
-function SuccessScreen({ firstName, restaurantName }: { firstName: string; restaurantName: string }) {
-  const platform = useMemo<"ios" | "android" | "other">(() => {
-    if (typeof navigator === "undefined") return "other";
-    const ua = navigator.userAgent;
-    if (/iPhone|iPad|iPod/i.test(ua)) return "ios";
-    if (/Android/i.test(ua)) return "android";
-    return "other";
-  }, []);
-
+function Centered({ children }: { children: React.ReactNode }) {
   return (
-    <Shell>
-      <div className="mx-auto max-w-md px-4 py-12 text-center">
-        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-success/15">
-          <CheckCircle2 className="h-12 w-12 text-success" />
-        </div>
-        <h1 className="mt-6 text-3xl font-bold">Welcome to {restaurantName}, {firstName}!</h1>
-        <p className="mt-3 text-base text-muted-foreground">You're all set on 86Paper.</p>
-        <p className="mt-1 text-sm text-muted-foreground">Your manager has been notified.</p>
-
-        <Card className="mt-8 border-2 text-left">
-          <CardContent className="space-y-3 p-5">
-            <div className="flex items-center gap-2">
-              <Plus className="h-5 w-5 text-primary" />
-              <p className="font-semibold">Add 86Paper to your home screen</p>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              For easy access to your schedule, training, and more — no app store needed.
-            </p>
-            {platform === "ios" ? (
-              <div className="rounded-lg bg-muted/40 p-3 text-sm">
-                <p className="font-medium">On iPhone:</p>
-                <p className="mt-1 text-muted-foreground">
-                  Tap the share button <span className="inline-flex items-center gap-1 align-middle"><Share className="inline h-4 w-4" /> (box with arrow)</span> at the bottom of your browser, then tap <span className="font-semibold">"Add to Home Screen"</span>.
-                </p>
-              </div>
-            ) : platform === "android" ? (
-              <div className="rounded-lg bg-muted/40 p-3 text-sm">
-                <p className="font-medium">On Android:</p>
-                <p className="mt-1 text-muted-foreground">
-                  Tap your browser's menu and choose <span className="font-semibold">"Add to Home Screen"</span> (or "Install app") when prompted.
-                </p>
-              </div>
-            ) : (
-              <div className="rounded-lg bg-muted/40 p-3 text-sm text-muted-foreground">
-                Open this page on your phone, then add it to your home screen from your browser menu.
-              </div>
-            )}
-            <Button
-              size="lg"
-              className="h-14 w-full text-base shadow-elegant"
-              onClick={() => toast.message("Use your browser menu", { description: "iPhone: Share → Add to Home Screen. Android: Menu → Add to Home Screen." })}
-            >
-              <Plus className="mr-2 h-4 w-4" /> Add to Home Screen
-            </Button>
-          </CardContent>
-        </Card>
-
-        <div className="mt-8 rounded-xl border border-primary/30 bg-primary/5 p-4 text-left">
-          <p className="font-semibold text-primary">Welcome to 86Paper!</p>
-          <p className="mt-1 text-sm text-foreground/90">
-            Your training starts here. Complete your videos and quizzes before your first shift.
-          </p>
-          <Button asChild className="mt-3 w-full">
-            <Link to="/employee">Open my training</Link>
-          </Button>
-        </div>
-      </div>
-    </Shell>
+    <div className="min-h-screen bg-background">
+      <header className="mx-auto flex max-w-2xl items-center justify-between px-4 py-5">
+        <Link to="/"><Logo /></Link>
+      </header>
+      <div className="mx-auto max-w-md px-4 py-16 text-center">{children}</div>
+    </div>
   );
 }

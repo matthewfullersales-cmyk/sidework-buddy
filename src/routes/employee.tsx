@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PhoneInput } from "@/components/ui/phone-input";
+
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -158,7 +160,7 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
             <div className="grid gap-2"><Label>First name</Label><Input value={firstName} onChange={(e) => setFirstName(e.target.value)} /></div>
             <div className="grid gap-2"><Label>Last name</Label><Input value={lastName} onChange={(e) => setLastName(e.target.value)} /></div>
             <div className="grid gap-2"><Label>Email</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
-            <div className="grid gap-2"><Label>Phone number</Label><Input type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(formatPhone(e.target.value))} placeholder="(555) 555-1234" /></div>
+            <div className="grid gap-2"><Label>Phone number</Label><PhoneInput value={phone} onChange={setPhone} /></div>
           </div>
           <div className="grid gap-2"><Label>Role</Label><Input disabled value={me.primaryRole} /></div>
           <div className="grid gap-2">
@@ -207,7 +209,7 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
         <CardContent className="grid gap-3 sm:grid-cols-2">
           <div className="grid gap-2"><Label>First name</Label><Input value={ec.firstName} onChange={(e) => setEc({ ...ec, firstName: e.target.value })} /></div>
           <div className="grid gap-2"><Label>Last name</Label><Input value={ec.lastName} onChange={(e) => setEc({ ...ec, lastName: e.target.value })} /></div>
-          <div className="grid gap-2"><Label>Phone</Label><Input type="tel" inputMode="tel" value={ec.phone} onChange={(e) => setEc({ ...ec, phone: formatPhone(e.target.value) })} placeholder="(555) 555-1234" /></div>
+          <div className="grid gap-2"><Label>Phone</Label><PhoneInput value={ec.phone} onChange={(v) => setEc({ ...ec, phone: v })} /></div>
           <div className="grid gap-2">
             <Label>Relationship</Label>
             <Select value={ec.relationship} onValueChange={(v: Relationship) => setEc({ ...ec, relationship: v })}>

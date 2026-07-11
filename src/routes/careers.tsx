@@ -5,6 +5,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PhoneInput } from "@/components/ui/phone-input";
+
 import { Textarea } from "@/components/ui/textarea";
 import {
   useStore,
@@ -162,15 +164,9 @@ function CareersPage() {
                   <Input autoComplete="family-name" value={lastName} onChange={(e) => setLastName(e.target.value)} />
                 </Field>
                 <Field label="Phone">
-                  <Input
-                    type="tel"
-                    inputMode="tel"
-                    autoComplete="tel"
-                    placeholder="(555) 123-4567"
-                    value={phone}
-                    onChange={(e) => setPhone(formatPhone(e.target.value))}
-                  />
+                  <PhoneInput value={phone} onChange={setPhone} placeholder="(555) 123-4567" />
                 </Field>
+
                 <Field label="Email">
                   <Input type="email" inputMode="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
                 </Field>

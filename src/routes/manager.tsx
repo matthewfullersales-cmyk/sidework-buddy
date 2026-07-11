@@ -21,7 +21,10 @@ import { Progress } from "@/components/ui/progress";
 import { onboardingStatus, useStore, type Role, type ApplicationStatus, type Employee, type Relationship, DAY_KEYS, hoursConfigured, type JobApplication, type HiringStage, type ShadowShiftDetails, type InterviewType, getHiringStage } from "@/lib/sidework-store";
 import { roleStyle, fohRolesWithCustom, bohRolesWithCustom } from "@/lib/role-colors";
 import { formatPhone } from "@/lib/format-phone";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { copyLinkWithToast } from "@/lib/copy-to-clipboard";
+import { sendStaffInvite } from "@/lib/staff-invite.functions";
+
 import { AvailabilityEditor, RestaurantHoursEditor, MealPeriodsEditor, BusinessInfoEditor } from "@/components/sidework/AvailabilityEditor";
 import { StaffJoinBanner, FullscreenQrDialog, StaffOnboardingCard } from "@/components/sidework/StaffOnboarding";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -262,7 +265,9 @@ function TeamTab() {
   const [open, setOpen] = useState(false);
   const [addStaffOpen, setAddStaffOpen] = useState(false);
   const [showQr, setShowQr] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "", role: "Server" as Role });
+  const [form, setForm] = useState({ firstName: "", lastName: "", email: "", phone: "", role: "Server" as Role });
+  const [sending, setSending] = useState(false);
+
   const [editing, setEditing] = useState<Employee | null>(null);
   const [confirmClearAll, setConfirmClearAll] = useState(false);
 
@@ -448,8 +453,14 @@ function TeamTab() {
           <DialogContent>
             <DialogHeader><DialogTitle>Invite a new employee</DialogTitle></DialogHeader>
             <div className="grid gap-4 py-2">
-              <div className="grid gap-2"><Label>Full name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
-              <div className="grid gap-2"><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div className="grid gap-2"><Label>First name</Label><Input value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} autoComplete="given-name" /></div>
+                <div className="grid gap-2"><Label>Last name</Label><Input value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} autoComplete="family-name" /></div>
+              </div>
+              <div className="grid gap-2"><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} autoComplete="email" /></div>
+              <div className="grid gap-2"><Label>Phone <span className="text-xs font-normal text-muted-foreground">(optional — used to text the invite)</span></Label>
+                <PhoneInput value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} />
+              </div>
               <div className="grid gap-2">
                 <Label>Primary role</Label>
                 <Select value={form.role} onValueChange={(v: Role) => setForm({ ...form, role: v })}>
@@ -467,19 +478,75 @@ function TeamTab() {
                   </SelectContent>
                 </Select>
               </div>
+              <p className="text-xs text-muted-foreground">
+                We'll text and email them a personal invite link so they can finish their own profile (availability, emergency contact, password).
+                Twilio A2P carrier review is still in progress, so SMS delivery may be inconsistent — the copy-link fallback always works.
+              </p>
             </div>
             <DialogFooter>
-              <Button onClick={() => {
-                if (!form.name || !form.email) return toast.error("Name and email required");
-                inviteEmployee(form);
-                toast.success(`Invite sent to ${form.email}`);
-                setOpen(false);
-                setForm({ name: "", email: "", role: "Server" });
-              }}>Send invite</Button>
+              <Button
+                disabled={sending}
+                onClick={async () => {
+                  if (!form.firstName.trim() || !form.lastName.trim()) return toast.error("First and last name required");
+                  if (!form.email.trim()) return toast.error("Email required");
+                  setSending(true);
+                  try {
+                    const invite = await inviteEmployee({
+                      firstName: form.firstName.trim(),
+                      lastName: form.lastName.trim(),
+                      email: form.email.trim(),
+                      phone: form.phone.trim(),
+                      role: form.role,
+                    });
+                    // Fire real send (email + optional SMS). Non-blocking beyond await.
+                    const restaurantName = restaurantProfile?.name ?? "your team";
+                    let emailOk = false;
+                    let smsOk = false;
+                    let emailErr: string | undefined;
+                    let smsErr: string | undefined;
+                    try {
+                      const res = await sendStaffInvite({ data: {
+                        inviteUrl: invite.inviteUrl,
+                        firstName: form.firstName.trim(),
+                        restaurantName,
+                        email: form.email.trim(),
+                        phoneDigits: form.phone.replace(/\D/g, ""),
+                        senderName: restaurantName,
+                      }});
+                      emailOk = res.email.ok;
+                      smsOk = res.sms.ok;
+                      emailErr = res.email.error;
+                      smsErr = res.sms.error;
+                    } catch (e) {
+                      console.error("[sendStaffInvite]", e);
+                    }
+                    const parts: string[] = [];
+                    if (emailOk) parts.push("emailed");
+                    if (smsOk) parts.push("texted");
+                    const summary = parts.length > 0
+                      ? `Invite ${parts.join(" & ")} to ${form.firstName.trim()}`
+                      : `Invite created for ${form.firstName.trim()}`;
+                    const problems = [
+                      !emailOk && form.email.trim() ? `email failed${emailErr ? `: ${emailErr}` : ""}` : null,
+                      !smsOk && form.phone.trim()   ? `SMS failed${smsErr ? `: ${smsErr}` : ""}`     : null,
+                    ].filter(Boolean).join(" · ");
+                    toast.success(summary, {
+                      description: `${problems ? problems + " — " : ""}Copy backup link: ${invite.inviteUrl}`,
+                      duration: 10000,
+                    });
+                    copyLinkWithToast(invite.inviteUrl, "Invite link copied");
+                    setOpen(false);
+                    setForm({ firstName: "", lastName: "", email: "", phone: "", role: "Server" });
+                  } finally {
+                    setSending(false);
+                  }
+                }}
+              >{sending ? "Sending…" : "Send invite"}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
+
 
       {showQr && <FullscreenQrDialog onClose={() => setShowQr(false)} />}
 
@@ -651,7 +718,7 @@ function EmployeeProfileDialog({ employee, onClose }: { employee: Employee; onCl
             <div className="grid gap-1.5"><Label>First name</Label><Input value={firstName} onChange={(e) => setFirstName(e.target.value)} /></div>
             <div className="grid gap-1.5"><Label>Last name</Label><Input value={lastName} onChange={(e) => setLastName(e.target.value)} /></div>
             <div className="grid gap-1.5"><Label>Email</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
-            <div className="grid gap-1.5"><Label>Phone</Label><Input type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(formatPhone(e.target.value))} placeholder="(555) 555-1234" /></div>
+            <div className="grid gap-1.5"><Label>Phone</Label><PhoneInput value={phone} onChange={setPhone} /></div>
           </div>
 
           <div>
@@ -720,7 +787,7 @@ function EmployeeProfileDialog({ employee, onClose }: { employee: Employee; onCl
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="grid gap-1.5"><Label>First name</Label><Input value={ec.firstName} onChange={(e) => setEc({ ...ec, firstName: e.target.value })} /></div>
               <div className="grid gap-1.5"><Label>Last name</Label><Input value={ec.lastName} onChange={(e) => setEc({ ...ec, lastName: e.target.value })} /></div>
-              <div className="grid gap-1.5"><Label>Phone</Label><Input type="tel" inputMode="tel" value={ec.phone} onChange={(e) => setEc({ ...ec, phone: formatPhone(e.target.value) })} placeholder="(555) 555-1234" /></div>
+              <div className="grid gap-1.5"><Label>Phone</Label><PhoneInput value={ec.phone} onChange={(v) => setEc({ ...ec, phone: v })} /></div>
               <div className="grid gap-1.5 sm:col-span-2">
                 <Label>Relationship</Label>
                 <Select value={ec.relationship} onValueChange={(v: Relationship) => setEc({ ...ec, relationship: v })}>
@@ -1942,7 +2009,7 @@ function HireReviewDialog({
             <div className="grid gap-1.5"><Label>First name</Label><Input value={firstName} onChange={(e) => setFirstName(e.target.value)} /></div>
             <div className="grid gap-1.5"><Label>Last name</Label><Input value={lastName} onChange={(e) => setLastName(e.target.value)} /></div>
             <div className="grid gap-1.5"><Label>Email</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
-            <div className="grid gap-1.5"><Label>Phone</Label><Input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} /></div>
+            <div className="grid gap-1.5"><Label>Phone</Label><PhoneInput value={phone} onChange={setPhone} /></div>
           </div>
           <div className="grid gap-1.5">
             <Label>Position</Label>
@@ -2468,7 +2535,7 @@ function TeamRosterCard({ team }: { team: ReturnType<typeof useTeamMembers> }) {
               <div className="grid gap-2"><Label>Title (optional)</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="e.g. Assistant Manager" /></div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="grid gap-2"><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
-                <div className="grid gap-2"><Label>Phone</Label><Input type="tel" inputMode="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: formatPhone(e.target.value) })} placeholder="(555) 555-1234" /></div>
+                <div className="grid gap-2"><Label>Phone</Label><PhoneInput value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} /></div>
               </div>
             </div>
             <DialogFooter>

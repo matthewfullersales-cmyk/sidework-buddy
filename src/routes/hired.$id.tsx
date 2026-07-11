@@ -6,6 +6,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PhoneInput } from "@/components/ui/phone-input";
+
 import {
   Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -216,7 +218,7 @@ function HiredPage() {
               <Field label="Last name"><Input value={lastName} onChange={(e) => setLastName(e.target.value)} maxLength={60} autoComplete="family-name" /></Field>
             </div>
             <Field label="Email"><Input type="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} maxLength={255} autoComplete="email" /></Field>
-            <Field label="Phone"><Input type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(formatPhone(e.target.value))} maxLength={30} autoComplete="tel" placeholder="(555) 555-1234" /></Field>
+            <Field label="Phone"><PhoneInput value={phone} onChange={setPhone} /></Field>
 
             <Field label="Primary role">
               <Select value={role} onValueChange={(v: Role) => setRole(v)}>
@@ -272,7 +274,7 @@ function HiredPage() {
                 <Field label="First name"><Input value={ecFirstName} onChange={(e) => setEcFirstName(e.target.value)} maxLength={60} /></Field>
                 <Field label="Last name"><Input value={ecLastName} onChange={(e) => setEcLastName(e.target.value)} maxLength={60} /></Field>
               </div>
-              <Field label="Phone"><Input type="tel" inputMode="tel" value={ecPhone} onChange={(e) => setEcPhone(formatPhone(e.target.value))} maxLength={30} placeholder="(555) 555-1234" /></Field>
+              <Field label="Phone"><PhoneInput value={ecPhone} onChange={setEcPhone} /></Field>
               <Field label="Relationship">
                 <Select value={ecRel} onValueChange={(v: Relationship) => setEcRel(v)}>
                   <SelectTrigger className="h-12"><SelectValue /></SelectTrigger>

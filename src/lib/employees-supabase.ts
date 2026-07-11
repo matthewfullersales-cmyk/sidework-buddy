@@ -228,3 +228,106 @@ export async function saveBusinessInfo(ownerId: string, info: unknown): Promise<
     .eq("id", ownerId);
   if (error) throw error;
 }
+
+/* ---------------- Staff-invite tokens (self-serve profile fill) ---------------- */
+
+/**
+ * Owner creates a stub employee row carrying an invite_token. The invitee then
+ * loads /staff-invite/:token to complete their own details and claim the row.
+ * Returns the new employee id and the invite token.
+ */
+export async function createStaffInviteRow(
+  ownerId: string,
+  seed: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    role: Role;
+    localId: string;
+  },
+): Promise<{ id: string; inviteToken: string }> {
+  const fullName = `${seed.firstName} ${seed.lastName}`.trim();
+  const inviteToken = crypto.randomUUID();
+  const insert = {
+    owner_id: ownerId,
+    local_id: seed.localId,
+    name: fullName || seed.email || "New staff",
+    first_name: seed.firstName || null,
+    last_name: seed.lastName || null,
+    email: seed.email || null,
+    phone: seed.phone || null,
+    primary_role: seed.role,
+    approved_roles: [seed.role],
+    auto_approve_roles: [],
+    availability: "",
+    weekly_availability: null as never,
+    emergency_contact: null as never,
+    invited_at: new Date().toISOString().slice(0, 10),
+    onboarding_started: false,
+    personal_info_complete: false,
+    invite_token: inviteToken,
+  };
+  const { data, error } = await supabase
+    .from("restaurant_employees")
+    .insert(insert as never)
+    .select("id, invite_token")
+    .single();
+  if (error) throw error;
+  const row = data as { id: string; invite_token: string };
+  return { id: row.id, inviteToken: row.invite_token };
+}
+
+export type PublicStaffInviteInfo = {
+  id: string;
+  firstName: string | null;
+  lastName: string | null;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  primaryRole: string;
+  restaurantName: string | null;
+  claimed: boolean;
+};
+
+export async function fetchPublicStaffInvite(
+  token: string,
+): Promise<PublicStaffInviteInfo | null> {
+  const { data, error } = await supabase.rpc("get_public_employee_invite", {
+    p_token: token,
+  });
+  if (error) throw error;
+  const row = Array.isArray(data) ? data[0] : null;
+  if (!row) return null;
+  return {
+    id: row.id,
+    firstName: row.first_name,
+    lastName: row.last_name,
+    name: row.name,
+    email: row.email,
+    phone: row.phone,
+    primaryRole: row.primary_role,
+    restaurantName: row.restaurant_name,
+    claimed: row.claimed,
+  };
+}
+
+export async function claimStaffInvite(
+  token: string,
+  authUserId: string,
+  patch: {
+    first_name?: string;
+    last_name?: string;
+    phone?: string;
+    weekly_availability?: unknown;
+    emergency_contact?: unknown;
+  },
+): Promise<void> {
+  const { error } = await supabase.rpc("claim_employee_invite", {
+    p_token: token,
+    p_auth_user_id: authUserId,
+    p_patch: patch as never,
+  });
+  if (error) throw error;
+}
+
