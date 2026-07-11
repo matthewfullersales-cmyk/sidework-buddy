@@ -130,7 +130,7 @@ function HostInterviewPage() {
                 <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-black">
                   <iframe
                     title="Video interview"
-                    src={`${roomUrl}?userName=${encodeURIComponent(assignee)}`}
+                    src={`${roomUrl}?userName=${encodeURIComponent(hostLabel)}`}
                     allow="camera; microphone; fullscreen; speaker; display-capture; autoplay"
                     className="h-full w-full border-0"
                   />
