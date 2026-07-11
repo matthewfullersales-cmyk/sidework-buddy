@@ -33,6 +33,7 @@ import { ChevronDown, Check, CalendarIcon } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { useAuth } from "@/lib/auth-context";
+import { PERMISSION_META, PERMISSION_KEYS, permissionsShortTitle, scopedTabsFor, type ManagerPermission } from "@/lib/permissions";
 import { fetchBookedInterviewSlots } from "@/lib/hiring-supabase";
 import { cn } from "@/lib/utils";
 
