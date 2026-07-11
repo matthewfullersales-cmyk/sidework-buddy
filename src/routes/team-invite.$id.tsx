@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchPublicTeamInvite, claimTeamInvite, type PublicTeamInvite } from "@/lib/hiring-supabase";
+import { permissionsFromFlags, permissionsDescriptor, PERMISSION_KEYS, PERMISSION_META } from "@/lib/permissions";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/team-invite/$id")({
