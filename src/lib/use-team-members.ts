@@ -4,11 +4,11 @@ import {
   insertTeamMember,
   updateTeamMember,
   deleteTeamMember,
-  setTeamMemberHiringPermission,
-  setTeamMemberSchedulePermission,
+  setTeamMemberPermission,
   type TeamMember,
   type TeamMemberInput,
 } from "@/lib/hiring-supabase";
+import { PERMISSION_META, type ManagerPermission } from "@/lib/permissions";
 import { useAuth } from "@/lib/auth-context";
 
 export function useTeamMembers() {
