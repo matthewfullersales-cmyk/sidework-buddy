@@ -1147,7 +1147,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     }
     (async () => {
       try {
-        const [postings, apps, remoteEmployeesInitial, remoteHours, remoteShiftsInitial, remoteTimeOffInitial, remoteTradesInitial] = await Promise.all([
+        const [postings, apps, remoteEmployeesInitial, remoteHours, remoteShiftsInitial, remoteTimeOffInitial, remoteTradesInitial, remoteBusinessInfo] = await Promise.all([
           fetchOwnerPostings(effectiveOwnerId),
           fetchOwnerApplications(effectiveOwnerId),
           fetchOwnerEmployees(effectiveOwnerId),
@@ -1155,6 +1155,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           fetchOwnerShifts(effectiveOwnerId),
           fetchOwnerTimeOff(effectiveOwnerId),
           fetchOwnerTrades(effectiveOwnerId),
+          fetchBusinessInfo(effectiveOwnerId),
         ]);
         if (cancelled) return;
 
