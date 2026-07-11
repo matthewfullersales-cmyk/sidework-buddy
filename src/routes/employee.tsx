@@ -39,27 +39,12 @@ function EmployeePage() {
       setCurrentUser({ type: "employee", id: targetId });
     }
   }, [targetId, currentUser, setCurrentUser]);
-  if (currentUser.type === "manager") return <Navigate to="/manager" />;
-
-  // Wait for auth + employee-context hydration before deciding to redirect.
-  // Without this gate, a fresh sign-in on a device with an empty local store
-  // Navigate()s away before Supabase has a chance to populate `employees`.
   const stillLoading = authLoading || employeeHydrating || (targetId && employees.length === 0);
-  if (stillLoading) {
-    return (
-      <AppShell nav={nav}>
-        <div className="grid min-h-[40vh] place-items-center text-sm text-muted-foreground">Loading your account…</div>
-      </AppShell>
-    );
-  }
-
-  const me = employees.find((e) => e.id === currentUser.id);
-  if (!me) return <Navigate to="/" />;
-  const status = onboardingStatus(me, videos);
-
+  const me = currentUser.type === "employee" ? employees.find((e) => e.id === currentUser.id) : undefined;
+  const status = useMemo(() => (me ? onboardingStatus(me, videos) : null), [me, videos]);
 
   useEffect(() => {
-    if (!me) return;
+    if (!me || !status) return;
     const key = `sw-welcome-${me.id}`;
     try {
       if (!localStorage.getItem(key) && status.total > 0 && status.passed === 0) {
@@ -71,7 +56,17 @@ function EmployeePage() {
       }
     } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [me?.id]);
+  }, [me?.id, status?.total, status?.passed]);
+
+  if (currentUser.type === "manager") return <Navigate to="/manager" />;
+  if (stillLoading) {
+    return (
+      <AppShell nav={nav}>
+        <div className="grid min-h-[40vh] place-items-center text-sm text-muted-foreground">Loading your account…</div>
+      </AppShell>
+    );
+  }
+  if (!me || !status) return <Navigate to="/" />;
 
 
   return (
