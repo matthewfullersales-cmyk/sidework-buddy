@@ -1,91 +1,80 @@
-## Investigation findings
+# Dual-role logins + concurrent schedule editing — investigation
 
-Short version: the whole two-flag permission system Matt is asking for is **already wired end-to-end**. Samantha's and Mathew's flags are `false` simply because nobody has toggled them in the Team card yet, and neither has claimed a login. The real gaps are (a) discoverability during initial owner setup, (b) generalizing beyond exactly two hardcoded booleans, and (c) a couple of production-polish items on the invite-claim flow.
+Short version for Matt: **he doesn't need two separate accounts.** The plumbing already almost supports one login = both roles; it's a routing/UX gap, not a data-model gap. And on concurrency: today it is **silent last-write-wins with zero realtime**, so his instinct that "something bad could happen" is correct.
 
-### 1. Existing UI that reads/writes `can_manage_hiring` / `can_manage_schedule`
+## Findings
 
-Fully wired, both directions:
+### 1. Employee ↔ team_member identity overlap
 
-- **Write UI** — `src/routes/manager.tsx` Team card (~lines 2545–2590): each team member row shows two `<Switch>` controls, "Can manage hiring & interviews" and "Can manage scheduling". They call `team.setPermission` / `team.setSchedulePermission` (`src/lib/use-team-members.ts`), which hit `setTeamMemberHiringPermission` / `setTeamMemberSchedulePermission` in `src/lib/hiring-supabase.ts` (plain `update` on `restaurant_team_members`).
-- **Read UI (owner side)** — same card shows "Hiring access" / "Scheduling access" badges, and gates the "Copy invite link" button on `anyPerm && !hasAccount`.
-- **Read UI (team-member side)** — `src/routes/manager.tsx` (~lines 78–150) reads `effectiveOwner.canManageHiring/canManageSchedule` from `useAuth()`, and when `acting === "team_member"` renders a **scoped dashboard**: only Schedule/Trades/TimeOff tabs if scheduling, only Jobs tab if hiring, both if both. Tab auto-pins to the first permitted one. `useRequireManagerAccess` already lets a permitted team member into `/manager` even without `role === "owner"`.
-- **RLS side** — `can_manage_hiring_for(owner_id)` and `can_manage_schedule_for(owner_id)` SQL security-definer helpers already exist and are the intended predicate for policies on hiring/schedule tables.
+- `restaurant_employees` and `restaurant_team_members` are structurally independent tables. Each has its own partial-unique index on `auth_user_id` (one employee row per auth user, one team_member row per auth user), but **nothing prevents the same `auth_user_id` from appearing on both** — no FK between them, no cross-table trigger, no RLS check that spans both, and no shared-id concept.
+- `claim_team_invite(...)` (`supabase/migrations/20260709111637_...sql:98-127`) rejects a second team_member claim by the same auth user, but only queries `restaurant_team_members` — it never looks at `restaurant_employees`.
+- The hired-invite path (`claim_hire_invite`) doesn't set `restaurant_employees.auth_user_id` directly at all; that field lives outside the code paths surfaced in this pass and is worth a small follow-up read of `20260709120136_...sql` to confirm the exact write path.
+- Bottom line: today, a single human with one email/password can already be sitting on both an employee row (their scheduled shifts) and a claimed team_member row (their manager permissions). Nothing blocks it.
 
-**Why Samantha's/Matt's are false**: no owner has flipped the switches in the Team card. It's a discoverability problem, not a wiring problem. (Also — they have no `auth_user_id`, so even flipping the switch today just makes an invite link available; they haven't claimed a login.)
+### 2. Dual-role routing today (what actually happens)
 
-### 2. `auth_user_id` linkage + login-role separation
+- `auth-context.tsx` loads `effectiveOwner` (team_member/owner) AND `employeeContext` (employee) as **two independent RPCs on every session** — both can be populated for the same user simultaneously.
+- `useRequireManagerAccess` lets the user into `/manager` whenever `effectiveOwner.acting === "team_member"` with permissions > 0 (independent of any employee row).
+- `/employee` gates only on `employeeContext?.employeeId ?? profile?.employee_id` — independent of `effectiveOwner`.
+- `login.tsx` post-sign-in redirect: if `get_effective_owner()` returns a row → `/manager`; else → `/employee-login`. **There is no branch that offers the user a choice.** A dual-role bartender-manager who signs in at `/login` gets deposited on `/manager` with no visible way to reach `/employee`.
+- `profile.role` is a strict `"owner" | "employee"` union. A claimed team member still has `profile.role = "employee"` — their manager status lives entirely in `get_effective_owner()`. So the "dual-role" identity is already effectively modeled; the app just doesn't expose a switch.
+- No role-switcher UI exists anywhere (`grep`: zero hits for switchRole / "Switch to manager" / mode toggles).
 
-- **Flow exists**: owner toggles a permission → "Copy invite link" appears → link is `/team-invite/{team_member_id}` → `src/routes/team-invite.$id.tsx` fetches a public projection via `get_public_team_invite` RPC → invitee enters email+password → tries `signInWithPassword`, else `signUp` → on success calls the `claim_team_invite(team_member_id, auth_user_id)` SQL function, which sets `auth_user_id`, enforces "not already claimed", and rejects if that auth user is already linked to another team member row.
-- After claiming, `get_effective_owner()` returns their owner's id + the two permission flags, and `useAuth().effectiveOwner.acting === "team_member"` drives the scoped dashboard.
-- **Login-role separation status**: the plumbing is there and works, but the sign-up path on the invite page creates the auth user with `data: { role: "employee" }`. That's fine because gating uses `restaurant_team_members.auth_user_id`, not `profiles.role`. The **actual gaps** are:
-  1. The Team card copies the invite link but never surfaces the invitee's email/phone or offers a "send" action — owners have to copy/paste out-of-band.
-  2. There's no email-verified requirement or single-use-token wrapper on the invite id; anyone who gets the URL and picks any email/password can claim it. Fine for the demo, worth flagging.
-  3. If someone already has an owner or employee login and lands on `/team-invite/...`, the current flow tries to sign them in with their existing password inside the invite page — works, but there's no explicit "you're already signed in — claim as this account?" affordance.
+### 3. Concurrent schedule editing (what actually happens)
 
-### 3. Where "add team + grant permissions" belongs in owner setup
+- All shift writes (single edit, manual add, AI-generate, copy-to-next-week, clear-week) funnel through `sidework-store.tsx#upsertShift` (`:1514-1536`), which does an optimistic local update then calls `upsertShiftRow` in `schedule-supabase.ts:58-78`.
+- The DB write is **a plain `.update()` keyed only by `.eq("id", s.id)`** — no `updated_at`/version predicate, no if-match. Pure last-write-wins with **no warning to either editor**.
+- Bulk paths (`performCopyToNextWeek`, `performClearWeek`) are **not batched**: they loop and fire one delete or one upsert per shift. Copying a full week of ~40 shifts = ~40 round trips.
+- **No realtime subscription on `shifts` anywhere in `src/`** (`rg "channel\(|postgres_changes"` → 0 hits). Two managers editing the same week see each other's changes only on manual refresh.
+- The `shifts` table has 12 columns; `updated_at` is trigger-maintained but never read back into a WHERE. No `version` / lock column.
 
-- The owner setup wizard is `src/components/sidework/SetupWizard.tsx`. Step 4 is a `TeamForm` — but today it only asks about **role composition** (FOH/BOH role checkboxes, min staff/shift, "who makes the schedule"). It does **not** collect actual people, and does not touch `restaurant_team_members` at all.
-- Team members are added exclusively later, from the Team card in the manager dashboard, via the "Add team member" dialog (`src/routes/manager.tsx` ~2500). That dialog can pre-fill from existing `restaurant_employees` rows.
-- So there is **no onboarding moment today** where the owner is prompted to add a manager-level teammate and grant them permissions. Adding that is the right hook for Matt's ask.
+## Proposed fixes (not built yet)
 
-### 4. What gates the Hiring / Schedule tabs today
+### Fix A — One login serves both roles (small, one build session)
 
-- Route-level: `useRequireManagerAccess("/login")` — allows `profile.role === "owner"` **or** any team member with either flag true. Anyone else → `/employee`.
-- Tab-level: for owners, `ManagerPage` shows the full tab set unconditionally. For `acting === "team_member"`, `scopedTabs` above filters to exactly the two-flag set. There is no per-tab permission read anywhere else — the concept of "permitted-but-not-owner" is already a first-class thing in the UI, just driven by exactly two booleans.
+Concept: keep the two tables independent (they model different things — a shift-eligible staff record vs. a permission grant), but let one auth user hold both, and give them a role switcher.
 
----
+Changes:
+1. **Routing / gate logic** (~4 files):
+   - `useRequireManagerAccess`: unchanged — already correctly allows dual-role.
+   - Add a matching helper `useCanAccessEmployeeView()` that returns true when `employeeContext?.employeeId || profile?.employee_id` is present, regardless of manager status.
+   - `login.tsx` post-sign-in redirect: if BOTH `effectiveOwner` (with permissions) AND `employeeContext` are set → route to `/manager` by default AND render a small "You also have a personal schedule → Go to My Schedule" affordance on that page. If only one, keep current behavior.
+   - `AppShell` nav (already has slots): for dual-role users add a persistent "Switch to My Schedule" / "Switch to Manager" link in the header/menu. Drives entirely off `useAuth()` — no new server state.
+2. **Team-invite claim safeguard** (~1 SQL migration):
+   - Extend `claim_team_invite` to be a no-op-and-succeed when `p_auth_user_id` already belongs to a `restaurant_employees` row under the same `owner_id` (this is the "bartender + manager" case — legal). Continue rejecting when it's a *different* owner (cross-restaurant leak).
+   - Symmetric small guard on the employee auth-link path if we find one (the follow-up read of `20260709120136_...sql` will tell us where that write happens).
+3. **No new columns, no data migration.** Existing rows already work — Samantha/Mathew would just gain an employee row later if the owner adds them to the roster.
 
-## Proposed plan
+Scope estimate: ~one focused build session. No DB shape change beyond the RPC tweak. Zero behavior change for single-role users today.
 
-Three-part plan. Nothing changes the DB shape yet — we generalize inside the app first and only add columns if/when a third permission surfaces.
+### Fix B — First-pass concurrent-edit safety
 
-### Part A — surface permissions during owner setup (biggest UX gap)
+Two independent pieces, both small; recommend shipping together but they can split:
 
-Add a new **"Your management team"** step to `SetupWizard.tsx` immediately after the existing Team (roles) step. It writes real rows to `restaurant_team_members` via the same `useTeamMembers` hook the manager Team card uses, so nothing new server-side.
+**B1. Optimistic concurrency check on shift writes** (~30 min of code):
+- `upsertShiftRow`: change the `.eq("id", ...)` to also `.eq("updated_at", lastKnownUpdatedAt)`; if `.single()` returns no row, we have a conflict — surface a toast: *"This shift was just changed by someone else. Reloading…"* and refetch that shift.
+- `shift` type in the store already carries `updatedAt` via `shiftFromRow`; thread it into `upsertShift(shift, { ifUnchangedSince: shift.updatedAt })`.
+- Concretely covers the "two managers save the same shift within seconds of each other" case that Matt is worried about, with no server work and no realtime infra.
 
-For each row the owner adds during setup, they can:
-- Enter first/last name, title, email, phone (same fields as today's Add-team-member dialog).
-- Toggle the two permission switches inline ("Can manage hiring & interviews", "Can manage scheduling").
-- See an "Invite link" ready to copy the moment either switch is on.
+**B2. Realtime "someone else is editing" awareness** (~2–3 hours of code, still one build session):
+- Enable Realtime on `public.shifts` via `ALTER PUBLICATION supabase_realtime ADD TABLE public.shifts` migration.
+- In `ScheduleSection.tsx`, subscribe (inside `useEffect`, tear down on unmount — per the realtime rules) to `postgres_changes` on `shifts` filtered to the current `owner_id`. On any INSERT/UPDATE/DELETE that's not from the local session, patch the store's `shifts` slice and (if the change touched a shift currently open in the edit dialog) flash a subtle "updated by {name}" indicator.
+- RLS on `shifts` already scopes reads to authorized viewers, so subscribers get filtered correctly out of the box.
 
-Skippable step ("I'll do this later from Settings") — some owners run solo at launch. Existing Team card in the manager dashboard remains the durable edit surface.
+**Deferred (bigger, own session):**
+- Server-side presence/locking ("Danny is editing this shift right now, take over?"). Real value but needs presence channels + UI. Not needed for the first pass — B1 + B2 already eliminate silent overwrite.
+- Batching `performCopyToNextWeek` / `performClearWeek` into a single RPC to cut ~40 round trips → 1. Independent perf win, unrelated to correctness; flag for later.
 
-### Part B — generalize the permission model in code (don't touch the DB yet)
+## Sizing summary
 
-Two hardcoded booleans is not what we want to keep pattern-matching against as we add more manageable areas (menus, training, payroll…). Refactor the **application layer only**, keeping the DB columns as-is:
+| Fix | Size | Recommend |
+|---|---|---|
+| A — one-login-dual-role + role switcher + claim guard | small, one session | Yes, next build |
+| B1 — optimistic-concurrency check on shift writes | tiny, ~30 min | Yes, next build (bundle with A or B2) |
+| B2 — realtime schedule sync | small, one session | Yes, its own or bundled with A |
+| Presence/locking, batched copy-week RPC | medium, own session each | Defer, flag for later |
 
-- Introduce a `ManagerPermission` union type in a new `src/lib/permissions.ts`: initially `"hiring" | "schedule"`.
-- Add a `PERMISSION_META` registry mapping each key to `{ label, description, tabs: string[], column: keyof RestaurantTeamMembersRow }` — this is the single source of truth for labels, descriptions, tab visibility, and which DB column to read/write.
-- `useAuth().effectiveOwner` gains `permissions: Set<ManagerPermission>` (derived from the existing booleans). Existing `canManageHiring`/`canManageSchedule` fields stay for now to avoid breaking callers, but are marked deprecated in a comment and are computed from the set.
-- `ManagerPage` scoping, Team card switches, the invite page copy, and `useRequireManagerAccess` all iterate over the registry instead of hardcoding two flags.
-- `use-team-members.ts` exposes one generic `setPermission(id, key, value)` that dispatches to the right DB column, deprecating the two specific setters.
+## Open follow-ups before implementing A
 
-Effect: adding a third permission later = add one entry to the registry + one column + one RLS helper. No shotgun-edits across the codebase, no "paint us into a corner", and Matt sees no behavior change today.
-
-Explicit non-goal: we do **not** migrate to a `team_member_permissions` join table or a JSONB permissions column right now. Two flags is fine at rest; the cost is a per-column DDL each time we add a permission, which is acceptable for the next 1–2 additions and easy to swap out later behind the same registry.
-
-### Part C — small production-polish items on the invite flow (optional in this pass, flag for Matt)
-
-Don't build unless approved:
-- Team card: show the invite URL inline (not just a copy button) and a "Send invite" affordance (email/SMS) that pre-fills the invitee's email/phone from the row.
-- Invite page: if the visitor is already signed in as some auth user, offer "Claim as {current email}" as a one-click path instead of re-entering credentials.
-- Consider signing the invite URL (short-lived token per team_member_id) before we ship publicly, so a leaked id can't be claimed by a stranger.
-
-## Technical work list (Parts A + B only, no code yet)
-
-1. `src/lib/permissions.ts` (new) — `ManagerPermission` union, `PERMISSION_META` registry, `permissionsFromRow(row)` / `columnFor(key)` helpers.
-2. `src/lib/auth-context.tsx` — derive `effectiveOwner.permissions: Set<ManagerPermission>` from the RPC row; keep `canManageHiring`/`canManageSchedule` as computed getters over the set for back-compat.
-3. `src/lib/hiring-supabase.ts` — add generic `setTeamMemberPermission(id, key, value)`; keep the two specific setters as thin wrappers marked deprecated.
-4. `src/lib/use-team-members.ts` — expose generic `setPermission(id, key, value)`; keep existing methods as wrappers.
-5. `src/routes/manager.tsx` — `scopedTabs`, header title/subtitle, and the Team-card switches iterate over `PERMISSION_META` instead of the two if-branches. Behavior is byte-for-byte identical today.
-6. `src/routes/team-invite.$id.tsx` — invite copy generated from `PERMISSION_META` labels.
-7. `src/components/sidework/SetupWizard.tsx` — insert a new "Your management team" step after the existing role-composition Team step. Reuses `useTeamMembers` + the new generic `setPermission`. Skippable. Emits the same summary-line style as other steps.
-8. `useRequireManagerAccess` — allow entry when `effectiveOwner.permissions.size > 0` instead of the explicit OR.
-
-No migrations, no RLS changes, no changes to `get_effective_owner` — the two flag columns keep flowing through.
-
-## Open questions before build
-
-- **Setup-wizard placement**: right after the existing Team step (roles/scheduler), or as a later optional "finish setting up" step in the manager dashboard after the wizard closes? Either fits; the wizard slot is more likely to actually get filled in.
-- **Skip behavior**: if the owner skips the new setup step, do we nudge them from the dashboard until they've added at least one manager (banner), or fully silent?
-- **Part C**: worth doing in the same pass, or defer until after Matt sees Parts A+B?
+- Confirm where `restaurant_employees.auth_user_id` actually gets set (which trigger/RPC in `20260709120136_...sql`) so the symmetric guard in A2 lands in the right place.
+- Decide default landing page for a dual-role user: `/manager` (current behavior, add "My Schedule" link) or a tiny picker page on first login. My default is stay on `/manager` and add the switcher — one fewer click for the majority case.
