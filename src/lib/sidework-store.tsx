@@ -1385,7 +1385,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
       const clean = normalizeBusinessInfo(info);
       setState((s) => ({ ...s, businessInfo: clean }));
       const oid = ownerIdRef.current;
-      if (oid) saveBusinessInfo(oid, clean).catch((e) => console.error("[setBusinessInfo]", e));
+      if (oid) saveBusinessInfo(oid, clean).catch((e: unknown) => console.error("[setBusinessInfo]", e));
     },
     setActiveRoles: (roles) => setState((s) => ({ ...s, activeRoles: roles })),
     addCustomRole: (role) =>
