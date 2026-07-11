@@ -250,6 +250,7 @@ export type Database = {
           first_name: string | null
           hired_from_application_id: string | null
           id: string
+          invite_token: string | null
           invited_at: string
           last_name: string | null
           local_id: string | null
@@ -281,6 +282,7 @@ export type Database = {
           first_name?: string | null
           hired_from_application_id?: string | null
           id?: string
+          invite_token?: string | null
           invited_at?: string
           last_name?: string | null
           local_id?: string | null
@@ -312,6 +314,7 @@ export type Database = {
           first_name?: string | null
           hired_from_application_id?: string | null
           id?: string
+          invite_token?: string | null
           invited_at?: string
           last_name?: string | null
           local_id?: string | null
@@ -610,6 +613,10 @@ export type Database = {
         Args: { p_owner_id: string }
         Returns: boolean
       }
+      claim_employee_invite: {
+        Args: { p_auth_user_id: string; p_patch: Json; p_token: string }
+        Returns: undefined
+      }
       claim_hire_invite: {
         Args: { p_application_id: string; p_employee_profile_id: string }
         Returns: undefined
@@ -637,6 +644,20 @@ export type Database = {
         Returns: {
           employee_id: string
           owner_id: string
+          restaurant_name: string
+        }[]
+      }
+      get_public_employee_invite: {
+        Args: { p_token: string }
+        Returns: {
+          claimed: boolean
+          email: string
+          first_name: string
+          id: string
+          last_name: string
+          name: string
+          phone: string
+          primary_role: string
           restaurant_name: string
         }[]
       }
