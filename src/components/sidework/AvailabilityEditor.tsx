@@ -14,6 +14,7 @@ import {
   type RestaurantHours,
   type ArrivalOffsets,
   type Section,
+  type BusinessInfo,
   defaultWeeklyAvailability,
   defaultMealPeriods,
   defaultArrivalOffsets,
