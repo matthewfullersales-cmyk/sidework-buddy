@@ -2367,15 +2367,6 @@ function SettingsTab({ onOpenSetup }: { onOpenSetup: () => void }) {
           <BusinessInfoEditor value={businessInfo} onChange={setBusinessInfo} />
         </CardContent>
       </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Daily hours</CardTitle>
-          <p className="mt-1 text-xs text-muted-foreground">AI scheduling only books staff during the hours you're open. Mark a day closed if you don't operate that day.</p>
-        </CardHeader>
-        <CardContent>
-          <RestaurantHoursEditor value={restaurantHours} onChange={updateRestaurantDay} />
-        </CardContent>
-      </Card>
       {setupCompleted && <StaffOnboardingCard />}
     </div>
   );
