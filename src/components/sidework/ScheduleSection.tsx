@@ -1,4 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth-context";
 import { Copy, Eraser, Settings2, ChevronDown } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -111,8 +113,53 @@ function staffingFor(dayIdx: number): Partial<Record<Position, number>> {
 }
 
 export function ScheduleSection() {
-  const { shifts, employees, timeOff, restaurantHours, mealPeriods, upsertShift, deleteShift } = useStore();
+  const { shifts, employees, timeOff, restaurantHours, mealPeriods, upsertShift, deleteShift, applyRemoteShiftUpsert, applyRemoteShiftDelete } = useStore();
+  const { effectiveOwner } = useAuth();
+  const ownerId = effectiveOwner?.ownerId ?? null;
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date()));
+
+  // Realtime: mirror INSERT/UPDATE/DELETE on shifts for this owner into the
+  // local store so a second manager's edits show up within a couple seconds
+  // without a manual refresh. Echoes of our own writes are deduped by
+  // updated_at inside the store.
+  useEffect(() => {
+    if (!ownerId) return;
+    const channel = supabase
+      .channel(`shifts:${ownerId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "shifts", filter: `owner_id=eq.${ownerId}` },
+        (payload) => {
+          if (payload.eventType === "DELETE") {
+            const oldRow = payload.old as { id?: string } | null;
+            if (oldRow?.id) applyRemoteShiftDelete(oldRow.id);
+            return;
+          }
+          const r = payload.new as {
+            id: string; employee_id: string | null; role: string;
+            date: string; start_time: string; end_time: string;
+            notes: string | null; position: string | null; updated_at: string | null;
+          } | null;
+          if (!r?.id) return;
+          applyRemoteShiftUpsert({
+            id: r.id,
+            employeeId: r.employee_id ?? "",
+            role: r.role as Role,
+            date: r.date,
+            start: r.start_time,
+            end: r.end_time,
+            notes: r.notes ?? undefined,
+            position: (r.position as Position | null) ?? undefined,
+            updatedAt: r.updated_at ?? undefined,
+          });
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [ownerId, applyRemoteShiftUpsert, applyRemoteShiftDelete]);
+
   const [editing, setEditing] = useState<{ employeeId: string; date: string; existing?: Shift } | null>(null);
   const [generating, setGenerating] = useState(false);
   const [confirmCopy, setConfirmCopy] = useState<{ count: number } | null>(null);

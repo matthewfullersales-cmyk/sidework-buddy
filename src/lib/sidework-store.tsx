@@ -22,6 +22,7 @@ import {
 import {
   fetchOwnerShifts,
   upsertShiftRow,
+  ShiftConflictError,
   deleteShiftRow,
   reassignShiftEmployee,
   fetchOwnerTimeOff,
@@ -499,6 +500,8 @@ export interface Shift {
   end: string;
   notes?: string;
   position?: Position;
+  /** Server-maintained mtime; used for optimistic concurrency on updates. */
+  updatedAt?: string;
 }
 
 export type TradeStatus = "open" | "pending_approval" | "approved" | "denied" | "cancelled";
@@ -702,6 +705,8 @@ interface Store {
   postTrade: (shiftId: string, note?: string) => void;
   upsertShift: (shift: Shift) => void;
   deleteShift: (id: string) => void;
+  applyRemoteShiftUpsert: (shift: Shift) => void;
+  applyRemoteShiftDelete: (id: string) => void;
   claimTrade: (tradeId: string, employeeId: string) => void;
   resolveTrade: (tradeId: string, approved: boolean) => void;
   postJob: (data: Omit<JobPosting, "id" | "postedAt" | "open">) => void;
@@ -1524,15 +1529,46 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
       if (!oid) return;
       upsertShiftRow(oid, shift)
         .then((saved) => {
-          // If a fresh insert produced a new uuid, replace the optimistic row.
-          if (saved.id !== shift.id) {
+          // Always sync back the server truth (esp. updated_at) so the next
+          // edit's optimistic-concurrency guard has a fresh token.
+          setState((s) => ({
+            ...s,
+            shifts: s.shifts.map((x) => (x.id === shift.id ? saved : x)),
+          }));
+        })
+        .catch((e) => {
+          if (e instanceof ShiftConflictError) {
+            // Someone else updated this shift between our read and our write.
+            // Replace the optimistic row with server truth (or drop if deleted).
             setState((s) => ({
               ...s,
-              shifts: s.shifts.map((x) => (x.id === shift.id ? saved : x)),
+              shifts: e.current
+                ? s.shifts.map((x) => (x.id === shift.id ? e.current! : x))
+                : s.shifts.filter((x) => x.id !== shift.id),
             }));
+            toast.warning("This shift was just changed by someone else — reloaded.");
+            return;
           }
-        })
-        .catch((e) => console.error("[upsertShift]", e));
+          console.error("[upsertShift]", e);
+        });
+    },
+    applyRemoteShiftUpsert: (shift) => {
+      setState((s) => {
+        const existing = s.shifts.find((x) => x.id === shift.id);
+        if (existing && existing.updatedAt && shift.updatedAt && existing.updatedAt === shift.updatedAt) {
+          return s; // Echo of our own write — skip.
+        }
+        const next = existing
+          ? s.shifts.map((x) => (x.id === shift.id ? shift : x))
+          : [...s.shifts, shift];
+        return { ...s, shifts: next };
+      });
+    },
+    applyRemoteShiftDelete: (id) => {
+      setState((s) => {
+        if (!s.shifts.some((x) => x.id === id)) return s;
+        return { ...s, shifts: s.shifts.filter((x) => x.id !== id) };
+      });
     },
     deleteShift: (id) => {
       setState((s) => ({ ...s, shifts: s.shifts.filter((x) => x.id !== id) }));

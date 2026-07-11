@@ -18,6 +18,7 @@ type ShiftRow = {
   role: string;
   position: string | null;
   notes: string | null;
+  updated_at: string | null;
 };
 
 function shiftFromRow(r: ShiftRow): Shift {
@@ -30,6 +31,7 @@ function shiftFromRow(r: ShiftRow): Shift {
     end: r.end_time,
     notes: r.notes ?? undefined,
     position: (r.position as Position | null) ?? undefined,
+    updatedAt: r.updated_at ?? undefined,
   };
 }
 
@@ -48,6 +50,20 @@ function shiftToRow(ownerId: string, s: Shift, employeeIdOverride?: string | nul
   };
 }
 
+/**
+ * Thrown when an update loses an optimistic-concurrency race — the row's
+ * updated_at moved between our read and our write. Carries the current
+ * server-truth Shift so the caller can replace the stale local copy.
+ */
+export class ShiftConflictError extends Error {
+  readonly current: Shift | null;
+  constructor(current: Shift | null) {
+    super("Shift was updated by someone else");
+    this.name = "ShiftConflictError";
+    this.current = current;
+  }
+}
+
 export async function fetchOwnerShifts(ownerId: string): Promise<Shift[]> {
   const { data, error } = await supabase
     .from("shifts").select("*").eq("owner_id", ownerId).order("date", { ascending: true });
@@ -55,17 +71,28 @@ export async function fetchOwnerShifts(ownerId: string): Promise<Shift[]> {
   return (data ?? []).map((r) => shiftFromRow(r as ShiftRow));
 }
 
+async function fetchShiftById(id: string): Promise<Shift | null> {
+  const { data } = await supabase.from("shifts").select("*").eq("id", id).maybeSingle();
+  return data ? shiftFromRow(data as ShiftRow) : null;
+}
+
 export async function upsertShiftRow(ownerId: string, s: Shift, employeeIdOverride?: string | null): Promise<Shift> {
   // If s.id is a uuid, update. Otherwise insert (local id becomes cloud id).
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s.id);
   if (isUuid) {
-    const { data, error } = await supabase
+    let q = supabase
       .from("shifts")
       .update(shiftToRow(ownerId, s, employeeIdOverride))
-      .eq("id", s.id)
-      .select("*")
-      .single();
+      .eq("id", s.id);
+    // Optimistic concurrency: only match if the row hasn't moved since we read it.
+    if (s.updatedAt) q = q.eq("updated_at", s.updatedAt);
+    const { data, error } = await q.select("*").maybeSingle();
     if (error) throw error;
+    if (!data) {
+      // Either the row is gone or another writer bumped updated_at. Refetch truth.
+      const current = await fetchShiftById(s.id);
+      throw new ShiftConflictError(current);
+    }
     return shiftFromRow(data as ShiftRow);
   }
   const { data, error } = await supabase
@@ -76,6 +103,7 @@ export async function upsertShiftRow(ownerId: string, s: Shift, employeeIdOverri
   if (error) throw error;
   return shiftFromRow(data as ShiftRow);
 }
+
 
 export async function deleteShiftRow(id: string): Promise<void> {
   const { error } = await supabase.from("shifts").delete().eq("id", id);
