@@ -931,6 +931,58 @@ function JobsTab() {
     copyLinkWithToast(`${window.location.origin}/careers?job=${jobId}`, "Application link copied");
   };
 
+  // Fires email + SMS via Resend/Twilio for applicant-facing links and
+  // surfaces a copy-link fallback in the toast so the manager can share it
+  // manually if either channel fails (e.g. A2P still pending).
+  const notifyApplicant = async (args: {
+    kind: "interview_offer" | "shadow_invite" | "hire_signup";
+    app: JobApplication;
+    link: string;
+    successVerb: string; // e.g. "Interview invite"
+    extra?: { slotCount?: number; shadowDate?: string; shadowTime?: string };
+  }) => {
+    const name = args.app.firstName ?? args.app.name ?? "applicant";
+    let emailOk = false, smsOk = false;
+    let emailErr: string | undefined, smsErr: string | undefined;
+    let emailAttempted = false, smsAttempted = false;
+    try {
+      const res = await sendApplicantNotification({ data: {
+        kind: args.kind,
+        link: args.link,
+        firstName: args.app.firstName ?? args.app.name ?? "",
+        restaurantName,
+        email: args.app.email ?? "",
+        phoneDigits: (args.app.phone ?? "").replace(/\D/g, ""),
+        slotCount: args.extra?.slotCount,
+        shadowDate: args.extra?.shadowDate,
+        shadowTime: args.extra?.shadowTime,
+      }});
+      emailOk = res.email.ok; smsOk = res.sms.ok;
+      emailErr = res.email.error; smsErr = res.sms.error;
+      emailAttempted = res.email.attempted; smsAttempted = res.sms.attempted;
+    } catch (e) {
+      console.error("[notifyApplicant]", e);
+    }
+    const sent: string[] = [];
+    if (emailOk) sent.push("emailed");
+    if (smsOk) sent.push("texted");
+    const problems: string[] = [];
+    if (emailAttempted && !emailOk) problems.push(`email failed${emailErr ? `: ${emailErr}` : ""}`);
+    if (smsAttempted && !smsOk)     problems.push(`text failed${smsErr ? `: ${smsErr}` : ""}`);
+    const title = sent.length > 0
+      ? `${args.successVerb} ${sent.join(" & ")} to ${name}`
+      : `${args.successVerb} ready for ${name} — send link manually`;
+    toast.success(title, {
+      description: `${problems.length ? problems.join(" · ") + " — " : ""}Backup link: ${args.link}`,
+      duration: 10000,
+      action: {
+        label: "Copy link",
+        onClick: () => copyLinkWithToast(args.link, "Link copied"),
+      },
+    });
+  };
+
+
   return (
     <div className="grid gap-6">
       <Card>
