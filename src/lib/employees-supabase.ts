@@ -319,6 +319,7 @@ export async function claimStaffInvite(
     first_name?: string;
     last_name?: string;
     phone?: string;
+    primary_role?: string;
     weekly_availability?: unknown;
     emergency_contact?: unknown;
   },
