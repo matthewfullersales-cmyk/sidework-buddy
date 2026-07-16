@@ -668,7 +668,7 @@ function TeamTab() {
                         </div>
                       );
                     })()}
-
+                  </div>
                 </div>
 
                 <div className="mt-4 grid gap-3 border-t border-border pt-4 sm:grid-cols-2">
