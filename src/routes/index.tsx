@@ -1,264 +1,284 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Brain, MonitorPlay, CalendarClock, Check } from "lucide-react";
+import {
+  QrCode,
+  CalendarClock,
+  GraduationCap,
+  Video,
+  Repeat2,
+  Eye,
+  ArrowRight,
+} from "lucide-react";
 import { Logo } from "@/components/sidework/Logo";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "86Paper — Restaurant Staff Management" },
-      { name: "description", content: "Onboard, train, schedule and hire restaurant staff. Trade shifts, request time off, post jobs — built for restaurant owners." },
-      { property: "og:title", content: "86Paper — Restaurant Staff Management" },
-      { property: "og:description", content: "Onboard, train, schedule and hire restaurant staff in one place." },
+      { title: "86Paper — 20 years of restaurant expertise for $49/month" },
+      {
+        name: "description",
+        content:
+          "The virtual restaurant consultant for independent owners. Self-onboarding, AI scheduling, training, hiring, and shift trades — all in one app.",
+      },
+      {
+        property: "og:title",
+        content: "86Paper — 20 years of restaurant expertise for $49/month",
+      },
+      {
+        property: "og:description",
+        content:
+          "Built for independent restaurant owners. The tools big chains pay six figures for, for $49/month.",
+      },
     ],
   }),
-  component: Landing,
+  component: Marketing,
 });
 
-function Landing() {
-
+function Marketing() {
   return (
-    <div className="min-h-screen bg-background">
-      <header className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-4 sm:py-5">
+    <div className="min-h-screen bg-[#faf7f2] text-stone-900 antialiased">
+      {/* NAV */}
+      <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
         <Logo />
-        <nav className="flex items-center gap-4 text-sm font-semibold sm:gap-5">
-          <a href="#features" className="text-muted-foreground hover:text-foreground">Features</a>
-          
+        <nav className="hidden items-center gap-6 text-sm font-semibold md:flex">
+          <a href="#features" className="text-stone-600 hover:text-stone-900">
+            Features
+          </a>
+          <a href="#why" className="text-stone-600 hover:text-stone-900">
+            Why 86Paper
+          </a>
+          <Link to="/pricing" className="text-stone-600 hover:text-stone-900">
+            Pricing
+          </Link>
         </nav>
+        <div className="flex items-center gap-2">
+          <Link to="/login" className="hidden text-sm font-semibold text-stone-700 hover:text-stone-900 sm:inline">
+            Sign in
+          </Link>
+          <Link to="/pricing">
+            <Button size="sm" className="bg-stone-900 text-white hover:bg-stone-800">
+              Get started
+            </Button>
+          </Link>
+        </div>
       </header>
 
       {/* HERO */}
-      <section className="relative overflow-hidden bg-gradient-hero text-primary-foreground">
-        <div className="pointer-events-none absolute -top-32 -right-32 h-96 w-96 rounded-full bg-white/10 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-32 -left-32 h-96 w-96 rounded-full bg-white/5 blur-3xl" />
-        <div className="relative mx-auto grid max-w-6xl items-center gap-10 px-4 pt-12 pb-16 sm:pt-16 sm:pb-24 md:grid-cols-2 md:gap-12 md:pt-24 md:pb-32">
-          <div>
-            <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider backdrop-blur">
-              <span className="h-1.5 w-1.5 rounded-full bg-white" /> Built for restaurants
+      <section className="relative overflow-hidden">
+        <div className="pointer-events-none absolute inset-x-0 top-0 -z-0 h-[520px] bg-[radial-gradient(ellipse_at_top,_rgba(180,83,9,0.12),_transparent_60%)]" />
+        <div className="relative mx-auto max-w-6xl px-6 pt-16 pb-24 md:pt-24 md:pb-32">
+          <div className="max-w-3xl">
+            <span className="inline-flex items-center gap-2 rounded-full border border-stone-300 bg-white/70 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-stone-700 backdrop-blur">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-700" />
+              For independent restaurants
             </span>
-            <h1 className="mt-5 text-4xl font-bold leading-[1.05] tracking-tight sm:text-5xl md:text-7xl md:leading-[1.02]">
-              Run your <span className="italic text-white/90">whole team</span> in one place.
+            <h1 className="mt-6 text-5xl font-bold leading-[1.02] tracking-tight md:text-7xl">
+              20 years of restaurant
+              <br />
+              expertise. <span className="italic text-amber-800">$49 a month.</span>
             </h1>
-            <p className="mt-5 max-w-xl text-base text-white/80 sm:text-lg md:text-xl">
-              20 years of restaurant expertise, built into software your whole team uses every day. Hire, onboard, train, schedule, swap shifts, and approve time off — without the chaos of group texts and paper binders.
+            <p className="mt-6 max-w-2xl text-lg text-stone-700 md:text-xl">
+              86Paper isn't another scheduling app. It's a virtual restaurant
+              consultant — the systems, standards, and instincts of someone who's
+              run rooms for two decades — built into software your whole staff
+              actually uses.
             </p>
-            <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-              <Button asChild size="lg" className="w-full bg-white text-primary shadow-bold hover:bg-white/90 sm:w-auto">
-                <Link to="/login">I'm a Manager / Owner</Link>
-              </Button>
-              <Button asChild size="lg" variant="outline" className="w-full border-white/30 bg-transparent text-white hover:bg-white/10 hover:text-white sm:w-auto">
-                <Link to="/employee-login">I'm an Employee</Link>
-              </Button>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <Link to="/pricing">
+                <Button
+                  size="lg"
+                  className="w-full bg-stone-900 text-white shadow-[4px_4px_0_0_rgba(180,83,9,1)] transition-transform hover:-translate-y-0.5 hover:bg-stone-800 sm:w-auto"
+                >
+                  See pricing <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+              <a href="#features">
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="w-full border-stone-300 bg-white text-stone-900 hover:bg-stone-100 sm:w-auto"
+                >
+                  What you get
+                </Button>
+              </a>
             </div>
-            <p className="mt-4 text-xs text-white/60">Sign in or create an account to get started.</p>
-          </div>
-
-
-          <div className="relative">
-            <div className="rounded-2xl border border-white/15 bg-white p-5 text-foreground shadow-bold">
-              <div className="flex items-center justify-between border-b border-border pb-3">
-                <div className="flex items-center gap-2">
-                  <div className="h-2 w-2 rounded-full bg-success" />
-                  <span className="text-sm font-semibold">Onboarding overview</span>
-                </div>
-                <span className="text-xs text-muted-foreground">This week</span>
-              </div>
-              <ul className="mt-4 space-y-3">
-                {[
-                  { name: "Maya Chen", role: "Server", pct: 100 },
-                  { name: "Diego Alvarez", role: "Bartender", pct: 50 },
-                  { name: "Priya Patel", role: "Kitchen", pct: 0 },
-                ].map((e) => (
-                  <li key={e.name} className="flex items-center gap-3">
-                    <div className="grid h-9 w-9 place-items-center rounded-full bg-primary-soft text-sm font-semibold text-primary">
-                      {e.name.split(" ").map((p) => p[0]).join("")}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-baseline justify-between">
-                        <p className="text-sm font-semibold">{e.name}</p>
-                        <p className="text-xs text-muted-foreground">{e.role}</p>
-                      </div>
-                      <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted">
-                        <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${e.pct}%` }} />
-                      </div>
-                    </div>
-                    <span className="w-10 text-right text-xs font-semibold text-muted-foreground">{e.pct}%</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+            <p className="mt-4 text-sm text-stone-500">
+              One plan. One price. Cancel anytime.
+            </p>
           </div>
         </div>
       </section>
 
-      {/* KEY FEATURES */}
-      <section className="bg-background">
-        <div className="mx-auto max-w-6xl px-4 py-20">
-          <div className="mb-12 max-w-2xl">
-            <p className="text-xs font-bold uppercase tracking-widest text-primary">Why 86Paper</p>
-            <h2 className="mt-3 text-4xl font-bold tracking-tight md:text-5xl">Built by a restaurant veteran, powered for your team.</h2>
+      {/* WHY */}
+      <section id="why" className="border-y border-stone-200 bg-white">
+        <div className="mx-auto grid max-w-6xl gap-12 px-6 py-20 md:grid-cols-5">
+          <div className="md:col-span-2">
+            <p className="text-xs font-bold uppercase tracking-widest text-amber-700">
+              Why we built it
+            </p>
+            <h2 className="mt-3 text-4xl font-bold tracking-tight md:text-5xl">
+              The tools chains pay six figures for. Priced like you.
+            </h2>
           </div>
-          <div className="grid gap-6 md:grid-cols-3">
-            {[
-              {
-                icon: <Brain className="h-6 w-6" />,
-                t: "AI Menu Quizzes",
-                d: "Upload your menu and AI instantly generates custom staff knowledge tests. Randomized, timed, and anti-cheat protected.",
-              },
-              {
-                icon: <MonitorPlay className="h-6 w-6" />,
-                t: "Expert Training Videos",
-                d: "Scenario-based training from a 20-year restaurant industry veteran. Fine dining, bar, fast casual and more.",
-              },
-              {
-                icon: <CalendarClock className="h-6 w-6" />,
-                t: "Smart Scheduling",
-                d: "Build and manage your whole team's schedule in one place. Handle trades, time off, and sick calls automatically.",
-              },
-            ].map((f) => (
-              <div key={f.t} className="rounded-2xl border-2 border-border bg-card p-7 transition-shadow hover:shadow-elegant">
-                <div className="mb-4 grid h-10 w-10 place-items-center rounded-lg bg-primary text-primary-foreground">
-                  {f.icon}
-                </div>
-                <h3 className="text-lg font-bold">{f.t}</h3>
-                <p className="mt-2 text-sm text-muted-foreground">{f.d}</p>
-              </div>
-            ))}
+          <div className="space-y-6 text-lg text-stone-700 md:col-span-3">
+            <p>
+              Enterprise workforce software wasn't built for the 12-table bistro or
+              the neighborhood taproom. It's built for corporate ops teams with
+              lawyers and IT departments.
+            </p>
+            <p>
+              Independent owners get stuck stitching together group texts,
+              spreadsheets, and paper binders — while the chain down the street
+              runs on real systems.
+            </p>
+            <p className="font-semibold text-stone-900">
+              86Paper is those systems, translated. The playbook of a 20-year
+              operator, in an app your host can use on a Tuesday.
+            </p>
           </div>
         </div>
       </section>
 
       {/* FEATURES */}
-      <section id="features" className="border-y border-border bg-background">
-        <div className="mx-auto max-w-6xl px-4 py-20">
-          <div className="mb-12 max-w-2xl">
-            <p className="text-xs font-bold uppercase tracking-widest text-primary">Everything you need</p>
-            <h2 className="mt-3 text-4xl font-bold tracking-tight md:text-5xl">One app. Whole staff. Zero spreadsheets.</h2>
+      <section id="features" className="bg-[#faf7f2]">
+        <div className="mx-auto max-w-6xl px-6 py-24">
+          <div className="mb-14 max-w-2xl">
+            <p className="text-xs font-bold uppercase tracking-widest text-amber-700">
+              What you get
+            </p>
+            <h2 className="mt-3 text-4xl font-bold tracking-tight md:text-5xl">
+              Every part of running a floor — handled.
+            </h2>
           </div>
-          <div className="grid gap-5 md:grid-cols-3">
-            {[
-              { t: "Role-based training", d: "Assign videos by role. Locked until watched in full — quizzes must pass before moving on." },
-              { t: "Shift trade board", d: "Only role-approved staff can pick up. Manager approval, or auto-approve trusted employees." },
-              { t: "Time off requests", d: "Staff request days off in two taps. You approve, deny, or comment — full history kept." },
-              { t: "Job posting & hiring", d: "Post openings to a public careers page. Applications land in your dashboard, ready to review." },
-              { t: "Weekly schedule", d: "See every shift, every person, every day — without piecing together five tools." },
-              { t: "One clear dashboard", d: "Onboarding, pending trades, applications, and time off — all at a glance." },
-            ].map((f) => (
-              <div key={f.t} className="rounded-2xl border-2 border-border bg-card p-7 transition-shadow hover:shadow-elegant">
-                <div className="mb-4 grid h-10 w-10 place-items-center rounded-lg bg-primary text-primary-foreground">
-                  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
-                </div>
-                <h3 className="text-lg font-bold">{f.t}</h3>
-                <p className="mt-2 text-sm text-muted-foreground">{f.d}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
-      {/* PRICING */}
-      <section className="border-y border-border bg-background">
-        <div className="mx-auto max-w-6xl px-4 py-20">
-          <div className="mb-12 max-w-2xl">
-            <p className="text-xs font-bold uppercase tracking-widest text-primary">Pricing</p>
-            <h2 className="mt-3 text-4xl font-bold tracking-tight md:text-5xl">Simple pricing, no hidden fees.</h2>
-          </div>
-          <div className="grid gap-6 md:grid-cols-3">
-            {/* Starter */}
-            <div className="rounded-2xl border-2 border-border bg-card p-7">
-              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Starter</p>
-              <div className="mt-2 flex items-baseline gap-1">
-                <span className="text-4xl font-bold">$49</span>
-                <span className="text-sm text-muted-foreground">/month</span>
-              </div>
-              <p className="mt-2 text-sm text-muted-foreground">Perfect for small restaurants</p>
-              <ul className="mt-6 space-y-3">
-                {[
-                  "Up to 15 staff members",
-                  "Scheduling & shift trades",
-                  "Time off management",
-                  "Job postings & applications",
-                  "Basic onboarding",
-                ].map((item) => (
-                  <li key={item} className="flex items-start gap-2.5 text-sm">
-                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                    {item}
-                  </li>
-                ))}
-              </ul>
-              <Button className="mt-8 w-full bg-primary text-primary-foreground hover:bg-primary/90">Start Free 30-Day Trial</Button>
-            </div>
-
-            {/* Professional */}
-            <div className="relative rounded-2xl border-2 border-primary bg-card p-7">
-              <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground">Most Popular</span>
-              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Professional</p>
-              <div className="mt-2 flex items-baseline gap-1">
-                <span className="text-4xl font-bold">$99</span>
-                <span className="text-sm text-muted-foreground">/month</span>
-              </div>
-              <p className="mt-2 text-sm text-muted-foreground">Everything you need to run your restaurant</p>
-              <ul className="mt-6 space-y-3">
-                {[
-                  "Unlimited staff",
-                  "Everything in Starter",
-                  "AI menu quiz generator",
-                  "Expert training video library",
-                  "Anti-cheat quiz system",
-                  "Real time staff performance data",
-                ].map((item) => (
-                  <li key={item} className="flex items-start gap-2.5 text-sm">
-                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                    {item}
-                  </li>
-                ))}
-              </ul>
-              <Button className="mt-8 w-full bg-primary text-primary-foreground hover:bg-primary/90">Start Free 30-Day Trial</Button>
-            </div>
-
-            {/* Multi-Location */}
-            <div className="rounded-2xl border-2 border-border bg-card p-7">
-              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Multi-Location</p>
-              <div className="mt-2 flex items-baseline gap-1">
-                <span className="text-4xl font-bold">$149</span>
-                <span className="text-sm text-muted-foreground">/month per location</span>
-              </div>
-              <p className="mt-2 text-sm text-muted-foreground">For growing restaurant groups</p>
-              <ul className="mt-6 space-y-3">
-                {[
-                  "Everything in Professional",
-                  "Multiple locations",
-                  "Priority support",
-                  "Location performance comparison",
-                ].map((item) => (
-                  <li key={item} className="flex items-start gap-2.5 text-sm">
-                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                    {item}
-                  </li>
-                ))}
-              </ul>
-              <Button className="mt-8 w-full bg-primary text-primary-foreground hover:bg-primary/90">Start Free 30-Day Trial</Button>
-            </div>
+          <div className="grid gap-5 md:grid-cols-2">
+            <FeatureCard
+              icon={<QrCode className="h-6 w-6" />}
+              title="40 employees? They onboard themselves."
+              body="Print a QR code. Staff scan it, create their profile, upload their docs, and start training — before their first shift. You never chase a W-4 again."
+              tag="Self-onboarding"
+            />
+            <FeatureCard
+              icon={<CalendarClock className="h-6 w-6" />}
+              title="AI writes your schedule. You approve it."
+              body="Builds a full week in seconds based on availability, role, and minimum staffing. Someone requests off — it suggests the replacement. You never drop below coverage."
+              tag="Scheduling"
+            />
+            <FeatureCard
+              icon={<GraduationCap className="h-6 w-6" />}
+              title="They know the menu before they touch a table."
+              body="Short training videos plus AI-generated quizzes on your actual menu — allergens, preparations, wine pairings. New hires pass before they hit the floor."
+              tag="Training"
+            />
+            <FeatureCard
+              icon={<Video className="h-6 w-6" />}
+              title="Screen applicants in five minutes."
+              body="Send a video interview link before you commit to a shadow shift. Sort the serious from the not-so-serious without burning an evening on no-shows."
+              tag="Hiring"
+            />
+            <FeatureCard
+              icon={<Repeat2 className="h-6 w-6" />}
+              title="Sick call at 3pm? Handled by 3:04."
+              body="One tap posts the shift to eligible, available staff. First qualified pickup gets it. Manager approves — or not. Nobody's texting the group chat."
+              tag="Shift trades"
+            />
+            <FeatureCard
+              icon={<Eye className="h-6 w-6" />}
+              title="We help you see when you're not looking."
+              body="Quiz anti-cheat, training completion, onboarding behavior — the data quietly tells you who's serious and who's not. Long before they cost you a Friday night."
+              tag="Character signals"
+            />
           </div>
         </div>
       </section>
 
-      {/* CAREERS CTA */}
-      <section className="bg-gradient-primary text-primary-foreground">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-6 px-4 py-14">
-          <div>
-            <h3 className="text-2xl font-bold md:text-3xl">Hiring? Your careers page is ready.</h3>
-            <p className="mt-2 text-white/80">Share one link. Applications flow straight into your dashboard.</p>
-          </div>
-          <Link to="/careers">
-            <Button size="lg" className="bg-white text-primary shadow-bold hover:bg-white/90">View careers page →</Button>
-          </Link>
+      {/* PROOF STRIP */}
+      <section className="bg-stone-900 text-stone-100">
+        <div className="mx-auto grid max-w-6xl gap-8 px-6 py-16 text-center md:grid-cols-3">
+          <Stat n="20 yrs" label="of floor experience baked in" />
+          <Stat n="1 app" label="replacing 5 tools + a paper binder" />
+          <Stat n="$49" label="a month. Not per seat." />
         </div>
       </section>
 
-      <footer className="mx-auto max-w-6xl px-4 py-8 text-xs text-muted-foreground">
-        © {new Date().getFullYear()} 86Paper
+      {/* CLOSING CTA */}
+      <section className="bg-[#faf7f2]">
+        <div className="mx-auto max-w-4xl px-6 py-24 text-center">
+          <h2 className="text-4xl font-bold tracking-tight md:text-6xl">
+            You already know how to run the restaurant.
+          </h2>
+          <p className="mx-auto mt-5 max-w-2xl text-lg text-stone-700">
+            Let us handle the paperwork, the training binder, the group texts, and
+            the "hey, can anyone cover tonight?" Focus on the food and the room.
+          </p>
+          <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+            <Link to="/pricing">
+              <Button
+                size="lg"
+                className="w-full bg-stone-900 text-white shadow-[4px_4px_0_0_rgba(180,83,9,1)] transition-transform hover:-translate-y-0.5 hover:bg-stone-800 sm:w-auto"
+              >
+                Get started — $49/mo <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
+            <Link to="/login">
+              <Button
+                size="lg"
+                variant="outline"
+                className="w-full border-stone-300 bg-white text-stone-900 hover:bg-stone-100 sm:w-auto"
+              >
+                I already have an account
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <footer className="border-t border-stone-200 bg-white">
+        <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-4 px-6 py-8 text-sm text-stone-500 sm:flex-row sm:items-center">
+          <div>© {new Date().getFullYear()} 86Paper LLC</div>
+          <div className="flex gap-5">
+            <Link to="/pricing" className="hover:text-stone-900">Pricing</Link>
+            <Link to="/privacy" className="hover:text-stone-900">Privacy</Link>
+            <Link to="/terms" className="hover:text-stone-900">Terms</Link>
+          </div>
+        </div>
       </footer>
+    </div>
+  );
+}
+
+function FeatureCard({
+  icon,
+  title,
+  body,
+  tag,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  body: string;
+  tag: string;
+}) {
+  return (
+    <div className="group rounded-2xl border-2 border-stone-900 bg-white p-7 shadow-[4px_4px_0_0_rgba(23,23,23,1)] transition-transform hover:-translate-y-1 hover:shadow-[6px_6px_0_0_rgba(180,83,9,1)]">
+      <div className="flex items-center justify-between">
+        <div className="grid h-11 w-11 place-items-center rounded-lg bg-stone-900 text-amber-100">
+          {icon}
+        </div>
+        <span className="text-[10px] font-bold uppercase tracking-widest text-amber-700">
+          {tag}
+        </span>
+      </div>
+      <h3 className="mt-5 text-xl font-bold tracking-tight">{title}</h3>
+      <p className="mt-2 text-[15px] leading-relaxed text-stone-600">{body}</p>
+    </div>
+  );
+}
+
+function Stat({ n, label }: { n: string; label: string }) {
+  return (
+    <div>
+      <div className="text-5xl font-bold tracking-tight text-amber-200">{n}</div>
+      <div className="mt-2 text-sm text-stone-400">{label}</div>
     </div>
   );
 }
