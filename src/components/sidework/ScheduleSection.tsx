@@ -874,6 +874,18 @@ function ShiftDetailsDialog({
               </p>
             </div>
           )}
+          {trainingBlocked && !existing && (
+            <div
+              role="alert"
+              className="rounded-lg border border-destructive/60 bg-destructive/10 p-3 text-sm text-destructive"
+            >
+              <p className="font-semibold">⛔ Not schedule-eligible</p>
+              <p className="mt-1 text-xs">{trainingBlockMsg}</p>
+              <p className="mt-1 text-xs opacity-90">
+                Employees become schedule-eligible after passing every required training module (general knowledge + role-specific + menu quiz) at 80% or higher.
+              </p>
+            </div>
+          )}
           {availConflict && (
             <div
               role="alert"
