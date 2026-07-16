@@ -155,7 +155,7 @@ function Marketing() {
             <FeatureCard
               icon={<QrCode className="h-6 w-6" />}
               title="40 employees? They onboard themselves."
-              body="Print a QR code. Staff scan it, add their name, phone, email, emergency contact, experience, and availability — and pick their role — before their first shift. No chasing paperwork."
+              body="Print a QR code. Staff scan it, add their name, phone, email, emergency contact, experience, and availability before their first shift. No chasing paperwork."
               tag="Self-onboarding"
             />
             <FeatureCard
