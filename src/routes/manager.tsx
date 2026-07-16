@@ -584,12 +584,20 @@ function TeamTab() {
                     </div>
                   </div>
                   <div className="text-right">
-                    {s.fullyOnboarded
-                      ? <Badge className="bg-success text-success-foreground hover:bg-success">Fully onboarded</Badge>
-                      : <Badge variant="secondary">Onboarding · {s.pct}%</Badge>}
+                    {isPendingRoleAssignment(e) ? (
+                      <Badge variant="secondary" className="bg-muted text-foreground">Pending role</Badge>
+                    ) : isScheduleEligible(e, videos, customRoles) ? (
+                      <Badge className="bg-success text-success-foreground hover:bg-success">Schedule eligible</Badge>
+                    ) : (
+                      (() => {
+                        const tp = trainingProgressFor(e, videos, customRoles);
+                        return <Badge variant="secondary" className="bg-amber-500/15 text-amber-700 dark:text-amber-300">In training · {tp.passed}/{tp.total}</Badge>;
+                      })()
+                    )}
                     <p className="mt-1 text-xs text-muted-foreground">{s.passed}/{s.total} videos passed</p>
                     <Progress value={s.pct} className="mt-2 h-1.5 w-32" />
                   </div>
+
                 </div>
 
                 <div className="mt-4 grid gap-3 border-t border-border pt-4 sm:grid-cols-2">
