@@ -9,7 +9,9 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as SignupRouteImport } from './routes/signup'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ManagerRouteImport } from './routes/manager'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as EmployeeLoginRouteImport } from './routes/employee-login'
@@ -24,9 +26,19 @@ import { Route as InterviewIdRouteImport } from './routes/interview.$id'
 import { Route as HiredIdRouteImport } from './routes/hired.$id'
 import { Route as InterviewIdHostRouteImport } from './routes/interview.$id.host'
 
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
   path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ManagerRoute = ManagerRouteImport.update({
@@ -103,7 +115,9 @@ export interface FileRoutesByFullPath {
   '/employee-login': typeof EmployeeLoginRoute
   '/login': typeof LoginRoute
   '/manager': typeof ManagerRoute
+  '/privacy': typeof PrivacyRoute
   '/signup': typeof SignupRoute
+  '/terms': typeof TermsRoute
   '/hired/$id': typeof HiredIdRoute
   '/interview/$id': typeof InterviewIdRouteWithChildren
   '/join/$slug': typeof JoinSlugRoute
@@ -119,7 +133,9 @@ export interface FileRoutesByTo {
   '/employee-login': typeof EmployeeLoginRoute
   '/login': typeof LoginRoute
   '/manager': typeof ManagerRoute
+  '/privacy': typeof PrivacyRoute
   '/signup': typeof SignupRoute
+  '/terms': typeof TermsRoute
   '/hired/$id': typeof HiredIdRoute
   '/interview/$id': typeof InterviewIdRouteWithChildren
   '/join/$slug': typeof JoinSlugRoute
@@ -136,7 +152,9 @@ export interface FileRoutesById {
   '/employee-login': typeof EmployeeLoginRoute
   '/login': typeof LoginRoute
   '/manager': typeof ManagerRoute
+  '/privacy': typeof PrivacyRoute
   '/signup': typeof SignupRoute
+  '/terms': typeof TermsRoute
   '/hired/$id': typeof HiredIdRoute
   '/interview/$id': typeof InterviewIdRouteWithChildren
   '/join/$slug': typeof JoinSlugRoute
@@ -154,7 +172,9 @@ export interface FileRouteTypes {
     | '/employee-login'
     | '/login'
     | '/manager'
+    | '/privacy'
     | '/signup'
+    | '/terms'
     | '/hired/$id'
     | '/interview/$id'
     | '/join/$slug'
@@ -170,7 +190,9 @@ export interface FileRouteTypes {
     | '/employee-login'
     | '/login'
     | '/manager'
+    | '/privacy'
     | '/signup'
+    | '/terms'
     | '/hired/$id'
     | '/interview/$id'
     | '/join/$slug'
@@ -186,7 +208,9 @@ export interface FileRouteTypes {
     | '/employee-login'
     | '/login'
     | '/manager'
+    | '/privacy'
     | '/signup'
+    | '/terms'
     | '/hired/$id'
     | '/interview/$id'
     | '/join/$slug'
@@ -203,7 +227,9 @@ export interface RootRouteChildren {
   EmployeeLoginRoute: typeof EmployeeLoginRoute
   LoginRoute: typeof LoginRoute
   ManagerRoute: typeof ManagerRoute
+  PrivacyRoute: typeof PrivacyRoute
   SignupRoute: typeof SignupRoute
+  TermsRoute: typeof TermsRoute
   HiredIdRoute: typeof HiredIdRoute
   InterviewIdRoute: typeof InterviewIdRouteWithChildren
   JoinSlugRoute: typeof JoinSlugRoute
@@ -213,11 +239,25 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/signup': {
       id: '/signup'
       path: '/signup'
       fullPath: '/signup'
       preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/manager': {
@@ -334,7 +374,9 @@ const rootRouteChildren: RootRouteChildren = {
   EmployeeLoginRoute: EmployeeLoginRoute,
   LoginRoute: LoginRoute,
   ManagerRoute: ManagerRoute,
+  PrivacyRoute: PrivacyRoute,
   SignupRoute: SignupRoute,
+  TermsRoute: TermsRoute,
   HiredIdRoute: HiredIdRoute,
   InterviewIdRoute: InterviewIdRouteWithChildren,
   JoinSlugRoute: JoinSlugRoute,
@@ -344,3 +386,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
