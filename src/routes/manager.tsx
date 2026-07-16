@@ -1029,7 +1029,7 @@ function JobsTab() {
         items={videoApps}
         emptyText="No interviews in progress."
         renderExtra={(a) => (
-          <InterviewStageDetails app={a} restaurantName={restaurantName} />
+          <InterviewStageDetails app={a} restaurantName={restaurantName} onSaveNotes={setInterviewNotes} />
         )}
         renderActions={(a) => {
           const stage = getHiringStage(a);
