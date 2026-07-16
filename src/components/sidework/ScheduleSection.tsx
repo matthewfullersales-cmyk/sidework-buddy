@@ -826,6 +826,17 @@ function ShiftDetailsDialog({
   })();
   const needsOverride = !!availConflict && !overrideAvailability;
 
+  // Training-eligibility gate. A pending-role or in-training employee can't
+  // be scheduled — the manager must assign a role and the employee must pass
+  // their required training modules first.
+  const pendingRole = emp ? isPendingRoleAssignment(emp) : false;
+  const eligible = emp ? isScheduleEligible(emp, videos, customRoles) : true;
+  const progress = emp ? trainingProgressFor(emp, videos, customRoles) : { passed: 0, total: 0 };
+  const trainingBlocked = !!emp && !eligible;
+  const trainingBlockMsg = pendingRole
+    ? `${emp?.name ?? "This employee"} doesn't have a role assigned yet — assign one from the Team tab before scheduling.`
+    : `${emp?.name ?? "This employee"} hasn't completed required training yet — ${progress.passed} of ${progress.total} modules complete.`;
+
   return (
     <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent>
