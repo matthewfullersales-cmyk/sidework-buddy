@@ -24,6 +24,7 @@ import { roleStyle, fohRolesWithCustom, bohRolesWithCustom } from "@/lib/role-co
 import { PhoneInput } from "@/components/ui/phone-input";
 import { copyLinkWithToast } from "@/lib/copy-to-clipboard";
 import { sendStaffInvite } from "@/lib/staff-invite.functions";
+import { sendApplicantNotification } from "@/lib/applicant-notifications.functions";
 
 import { AvailabilityEditor, RestaurantHoursEditor, MealPeriodsEditor, BusinessInfoEditor } from "@/components/sidework/AvailabilityEditor";
 import { StaffJoinBanner, FullscreenQrDialog, StaffOnboardingCard } from "@/components/sidework/StaffOnboarding";
@@ -930,6 +931,58 @@ function JobsTab() {
     copyLinkWithToast(`${window.location.origin}/careers?job=${jobId}`, "Application link copied");
   };
 
+  // Fires email + SMS via Resend/Twilio for applicant-facing links and
+  // surfaces a copy-link fallback in the toast so the manager can share it
+  // manually if either channel fails (e.g. A2P still pending).
+  const notifyApplicant = async (args: {
+    kind: "interview_offer" | "shadow_invite" | "hire_signup";
+    app: JobApplication;
+    link: string;
+    successVerb: string; // e.g. "Interview invite"
+    extra?: { slotCount?: number; shadowDate?: string; shadowTime?: string };
+  }) => {
+    const name = args.app.firstName ?? args.app.name ?? "applicant";
+    let emailOk = false, smsOk = false;
+    let emailErr: string | undefined, smsErr: string | undefined;
+    let emailAttempted = false, smsAttempted = false;
+    try {
+      const res = await sendApplicantNotification({ data: {
+        kind: args.kind,
+        link: args.link,
+        firstName: args.app.firstName ?? args.app.name ?? "",
+        restaurantName,
+        email: args.app.email ?? "",
+        phoneDigits: (args.app.phone ?? "").replace(/\D/g, ""),
+        slotCount: args.extra?.slotCount,
+        shadowDate: args.extra?.shadowDate,
+        shadowTime: args.extra?.shadowTime,
+      }});
+      emailOk = res.email.ok; smsOk = res.sms.ok;
+      emailErr = res.email.error; smsErr = res.sms.error;
+      emailAttempted = res.email.attempted; smsAttempted = res.sms.attempted;
+    } catch (e) {
+      console.error("[notifyApplicant]", e);
+    }
+    const sent: string[] = [];
+    if (emailOk) sent.push("emailed");
+    if (smsOk) sent.push("texted");
+    const problems: string[] = [];
+    if (emailAttempted && !emailOk) problems.push(`email failed${emailErr ? `: ${emailErr}` : ""}`);
+    if (smsAttempted && !smsOk)     problems.push(`text failed${smsErr ? `: ${smsErr}` : ""}`);
+    const title = sent.length > 0
+      ? `${args.successVerb} ${sent.join(" & ")} to ${name}`
+      : `${args.successVerb} ready for ${name} — send link manually`;
+    toast.success(title, {
+      description: `${problems.length ? problems.join(" · ") + " — " : ""}Backup link: ${args.link}`,
+      duration: 10000,
+      action: {
+        label: "Copy link",
+        onClick: () => copyLinkWithToast(args.link, "Link copied"),
+      },
+    });
+  };
+
+
   return (
     <div className="grid gap-6">
       <Card>
@@ -1138,10 +1191,13 @@ function JobsTab() {
           onClose={() => setApproveFor(null)}
           onConfirm={(slots) => {
             approveForInterview(approveApp.id, approveFor.type, slots);
-            const name = approveApp.firstName ?? approveApp.name;
-            const label = approveFor.type === "video" ? "Video interview" : approveFor.type === "in_person" ? "In-person interview" : "Phone interview";
-            toast.success(`${label} invite sent to ${name}`, {
-              description: `Text & email with ${slots.length} time slot${slots.length === 1 ? "" : "s"}. Applicant link: /interview/${approveApp.id}`,
+            const label = approveFor.type === "video" ? "Video interview invite" : approveFor.type === "in_person" ? "In-person interview invite" : "Phone interview invite";
+            void notifyApplicant({
+              kind: "interview_offer",
+              app: approveApp,
+              link: `${window.location.origin}/interview/${approveApp.id}`,
+              successVerb: label,
+              extra: { slotCount: slots.length },
             });
             setApproveFor(null);
           }}
@@ -1168,9 +1224,12 @@ function JobsTab() {
           onClose={() => setShadowFor(null)}
           onConfirm={(details) => {
             inviteShadowShift(shadowApp.id, details);
-            const name = shadowApp.firstName ?? shadowApp.name;
-            toast.success(`Shadow shift invite sent to ${name}`, {
-              description: `${details.date} at ${details.time} · Applicant link: /shadow/${shadowApp.id}`,
+            void notifyApplicant({
+              kind: "shadow_invite",
+              app: shadowApp,
+              link: `${window.location.origin}/shadow/${shadowApp.id}`,
+              successVerb: "Shadow shift invite",
+              extra: { shadowDate: details.date, shadowTime: details.time },
             });
             setShadowFor(null);
           }}
@@ -1217,9 +1276,12 @@ function JobsTab() {
           onConfirm={(overrides) => {
             const id = hireApplication(hireApp.id, overrides);
             if (id) {
-              const name = (overrides.firstName ?? hireApp.firstName ?? hireApp.name);
-              toast.success(`${name} hired!`, {
-                description: `Send them their signup link: /hired/${hireApp.id} — they'll finish setting up their account and start training.`,
+              const mergedApp: JobApplication = { ...hireApp, ...overrides } as JobApplication;
+              void notifyApplicant({
+                kind: "hire_signup",
+                app: mergedApp,
+                link: `${window.location.origin}/hired/${hireApp.id}`,
+                successVerb: `${mergedApp.firstName ?? mergedApp.name} hired — signup link`,
               });
             }
             setHireFor(null);
