@@ -341,6 +341,15 @@ function TeamTab() {
   return (
     <div className="space-y-4">
       <StaffJoinBanner onShowQr={() => setShowQr(true)} />
+      <PendingRoleAssignmentQueue
+        employees={employees}
+        activeRoles={activeRoles}
+        customRoles={customRoles}
+        onAssign={(id, role) => {
+          updateEmployee(id, { primaryRole: role, approvedRoles: [role] });
+          toast.success(`Role assigned — training track kicked off`);
+        }}
+      />
 
       <div className="flex flex-wrap justify-end gap-2">
         <Popover open={sfOpen} onOpenChange={setSfOpen}>
