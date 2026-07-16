@@ -27,7 +27,7 @@ function TermsPage() {
       </header>
 
       <main className="mx-auto max-w-3xl px-4 pb-20 pt-4">
-        <article className="prose prose-lg max-w-none text-foreground">
+        <article className="text-foreground">
           <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Terms of Service</h1>
           <p className="text-sm text-muted-foreground">Last updated: July 2026</p>
 
