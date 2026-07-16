@@ -97,7 +97,6 @@ export function TrainingModule({
           video={video}
           unlocked={videoComplete}
           passed={passed}
-          lockedOut={lockedOut}
           attempts={attempts}
           onSubmit={onQuizSubmit}
         />
@@ -107,12 +106,11 @@ export function TrainingModule({
 }
 
 function QuizSection({
-  video, unlocked, passed, lockedOut, attempts, onSubmit,
+  video, unlocked, passed, attempts, onSubmit,
 }: {
   video: TrainingVideo;
   unlocked: boolean;
   passed: boolean;
-  lockedOut: boolean;
   attempts: number;
   onSubmit: (score: number, passed: boolean) => void;
 }) {
