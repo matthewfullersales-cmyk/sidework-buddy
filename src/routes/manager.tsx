@@ -969,12 +969,16 @@ function JobsTab() {
     const problems: string[] = [];
     if (emailAttempted && !emailOk) problems.push(`email failed${emailErr ? `: ${emailErr}` : ""}`);
     if (smsAttempted && !smsOk)     problems.push(`text failed${smsErr ? `: ${smsErr}` : ""}`);
+    if (!emailAttempted) problems.push("no email on file");
+    if (!smsAttempted)   problems.push("no phone on file");
+    const isFailure = sent.length === 0 || problems.length > 0;
     const title = sent.length > 0
       ? `${args.successVerb} ${sent.join(" & ")} to ${name}`
       : `${args.successVerb} ready for ${name} — send link manually`;
-    toast.success(title, {
+    const notify = isFailure ? toast.warning : toast.success;
+    notify(title, {
       description: `${problems.length ? problems.join(" · ") + " — " : ""}Backup link: ${args.link}`,
-      duration: 10000,
+      duration: 12000,
       action: {
         label: "Copy link",
         onClick: () => copyLinkWithToast(args.link, "Link copied"),
