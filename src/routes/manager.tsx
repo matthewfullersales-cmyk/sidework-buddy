@@ -1270,13 +1270,18 @@ const INTERVIEW_TYPE_META: Record<InterviewType, { emoji: string; label: string;
 function InterviewStageDetails({
   app,
   restaurantName,
+  onSaveNotes,
 }: {
   app: JobApplication;
   restaurantName: string;
+  onSaveNotes?: (id: string, notes: string) => void;
 }) {
   const stage = getHiringStage(app);
   const type = app.interviewType ?? "video";
   const meta = INTERVIEW_TYPE_META[type];
+  const [draftNotes, setDraftNotes] = useState(app.interviewNotes ?? "");
+  const [savedFlash, setSavedFlash] = useState(false);
+  useEffect(() => { setDraftNotes(app.interviewNotes ?? ""); }, [app.interviewNotes]);
 
   const hostRow = (
     <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/30 p-2 text-xs">
@@ -1306,12 +1311,45 @@ function InterviewStageDetails({
       </div>
     );
   } else if (stage === "interviewed") {
+    const dirty = (draftNotes ?? "") !== (app.interviewNotes ?? "");
     block = (
-      <div className="mt-3 grid gap-2 rounded-lg border border-border bg-muted/30 p-3">
-        <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Interview notes ({meta.label.toLowerCase()})</Label>
-        {app.interviewNotes
-          ? <p className="text-sm italic text-foreground/90">"{app.interviewNotes}"</p>
-          : <p className="text-xs text-muted-foreground">No notes recorded.</p>}
+      <div className="mt-3 grid gap-3 rounded-lg border border-primary/30 bg-primary/5 p-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-primary">Decision time</p>
+          <p className="mt-1 text-sm text-foreground/90">
+            Interview complete. Bring {app.firstName ?? app.name} in for a <span className="font-semibold">Shadow Shift</span>, or <span className="font-semibold">Pass</span> and send a polite decline.
+          </p>
+        </div>
+        <div className="grid gap-1.5">
+          <Label htmlFor={`notes-${app.id}`} className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Interview notes ({meta.label.toLowerCase()})
+          </Label>
+          <Textarea
+            id={`notes-${app.id}`}
+            rows={3}
+            value={draftNotes}
+            onChange={(e) => { setDraftNotes(e.target.value); setSavedFlash(false); }}
+            placeholder="Strengths, concerns, follow-ups…"
+            className="bg-background"
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={!dirty || !onSaveNotes}
+              onClick={() => {
+                onSaveNotes?.(app.id, draftNotes);
+                setSavedFlash(true);
+                toast.success("Notes saved");
+              }}
+            >
+              {dirty ? "Save notes" : "Saved"}
+            </Button>
+            {savedFlash && !dirty && (
+              <span className="text-xs text-success">✓ Saved</span>
+            )}
+          </div>
+        </div>
       </div>
     );
   }
