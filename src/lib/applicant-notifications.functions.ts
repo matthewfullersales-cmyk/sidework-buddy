@@ -139,7 +139,7 @@ async function sendEmail(to: string, copy: Copy, restaurantName: string): Promis
   }
 }
 
-async function sendSms(toDigits: string, copy: Copy): Promise<{ ok: boolean; error?: string }> {
+async function sendSms(toDigits: string, copy: Copy): Promise<{ ok: boolean; error?: string; sid?: string; status?: string }> {
   const lovableKey = process.env.LOVABLE_API_KEY;
   const twilioKey  = process.env.TWILIO_API_KEY;
   if (!lovableKey) return { ok: false, error: "LOVABLE_API_KEY not configured" };
@@ -157,12 +157,42 @@ async function sendSms(toDigits: string, copy: Copy): Promise<{ ok: boolean; err
       },
       body: new URLSearchParams({ To: to, From: TWILIO_FROM_NUMBER, Body: copy.sms }),
     });
+    const text = await resp.text();
     if (!resp.ok) {
-      const errText = await resp.text();
-      console.error(`[applicant-notify sms] Twilio ${resp.status}: ${errText}`);
-      return { ok: false, error: `Twilio ${resp.status}: ${errText.slice(0, 400)}` };
+      console.error(`[applicant-notify sms] Twilio ${resp.status}: ${text}`);
+      return { ok: false, error: `Twilio ${resp.status}: ${text.slice(0, 400)}` };
     }
-    return { ok: true };
+    // Twilio returns 201 with a Message resource. `status` starts as "queued"
+    // for async delivery; carrier/A2P failures show up later. Detect immediate
+    // failure and — for accepted messages — poll once briefly to catch fast
+    // rejections (e.g. error 30034: US A2P 10DLC unregistered number).
+    let body: { sid?: string; status?: string; error_code?: number | null; error_message?: string | null } = {};
+    try { body = JSON.parse(text); } catch { /* ignore parse */ }
+    if (body.status === "failed" || body.status === "undelivered" || (body.error_code && body.error_code !== 0)) {
+      const errMsg = `Twilio ${body.status ?? "failed"} (code ${body.error_code}): ${body.error_message ?? "carrier rejected"}`;
+      console.error(`[applicant-notify sms] ${errMsg}`);
+      return { ok: false, error: errMsg, sid: body.sid, status: body.status };
+    }
+    if (body.sid) {
+      await new Promise((r) => setTimeout(r, 2500));
+      try {
+        const poll = await fetch(`${GATEWAY_URL}/twilio/Messages/${body.sid}.json`, {
+          headers: { "Authorization": `Bearer ${lovableKey}`, "X-Connection-Api-Key": twilioKey },
+        });
+        if (poll.ok) {
+          const pj = await poll.json() as { status?: string; error_code?: number | null; error_message?: string | null };
+          if (pj.status === "failed" || pj.status === "undelivered" || (pj.error_code && pj.error_code !== 0)) {
+            const errMsg = `Twilio ${pj.status} (code ${pj.error_code}): ${pj.error_message ?? "carrier rejected"}`;
+            console.error(`[applicant-notify sms] ${errMsg} sid=${body.sid}`);
+            return { ok: false, error: errMsg, sid: body.sid, status: pj.status };
+          }
+          return { ok: true, sid: body.sid, status: pj.status };
+        }
+      } catch (e) {
+        console.warn("[applicant-notify sms] poll failed", e);
+      }
+    }
+    return { ok: true, sid: body.sid, status: body.status };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[applicant-notify sms] exception", msg);
