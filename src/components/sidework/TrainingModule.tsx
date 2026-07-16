@@ -7,7 +7,6 @@ import { pickRandomQuestions, type TrainingVideo, type VideoProgress } from "@/l
 
 const QUIZ_SIZE = 5;
 const SECONDS_PER_Q = 30;
-const MAX_ATTEMPTS = 3;
 const PASS_PCT = 80;
 
 export function TrainingModule({
@@ -27,7 +26,6 @@ export function TrainingModule({
   const videoComplete = watched >= video.durationSec;
   const passed = !!progress?.passed;
   const attempts = progress?.attempts ?? 0;
-  const lockedOut = !passed && attempts >= MAX_ATTEMPTS;
 
   useEffect(() => {
     if (!playing) return;
@@ -57,12 +55,12 @@ export function TrainingModule({
           </div>
           {passed ? (
             <Badge className="bg-success text-success-foreground hover:bg-success gap-1.5">
-              <CheckIcon className="h-3.5 w-3.5" /> Complete · {progress?.quizScore}%
+              <CheckIcon className="h-3.5 w-3.5" /> Complete · {progress?.quizScore}% · attempt {attempts}
             </Badge>
-          ) : lockedOut ? (
-            <Badge variant="secondary" className="bg-destructive/10 text-destructive">Locked out</Badge>
+          ) : attempts > 0 ? (
+            <Badge variant="secondary">Attempt {attempts} · unlimited retakes</Badge>
           ) : (
-            <Badge variant="secondary">Attempts {attempts}/{MAX_ATTEMPTS}</Badge>
+            <Badge variant="secondary">Not started</Badge>
           )}
         </div>
 
@@ -99,7 +97,6 @@ export function TrainingModule({
           video={video}
           unlocked={videoComplete}
           passed={passed}
-          lockedOut={lockedOut}
           attempts={attempts}
           onSubmit={onQuizSubmit}
         />
@@ -109,12 +106,11 @@ export function TrainingModule({
 }
 
 function QuizSection({
-  video, unlocked, passed, lockedOut, attempts, onSubmit,
+  video, unlocked, passed, attempts, onSubmit,
 }: {
   video: TrainingVideo;
   unlocked: boolean;
   passed: boolean;
-  lockedOut: boolean;
   attempts: number;
   onSubmit: (score: number, passed: boolean) => void;
 }) {
@@ -192,16 +188,6 @@ function QuizSection({
       </div>
     );
   }
-  if (lockedOut) {
-    return (
-      <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
-        <p className="font-semibold">No attempts remaining.</p>
-        <p className="mt-1 opacity-90">Your manager has been notified to reset this module.</p>
-      </div>
-    );
-  }
-
-  // Idle (not started yet)
   if (!started) {
     return (
       <div className="rounded-xl border border-border bg-background p-4 sm:p-5">
@@ -212,7 +198,7 @@ function QuizSection({
               {QUIZ_SIZE} random questions · {SECONDS_PER_Q}s per question · pass at {PASS_PCT}%.
             </p>
             <p className="mt-2 text-xs text-muted-foreground">
-              Attempts remaining: <span className="font-semibold text-foreground">{MAX_ATTEMPTS - attempts}/{MAX_ATTEMPTS}</span>
+              Unlimited retakes — retry immediately if you don't pass. {attempts > 0 && <>Attempts so far: <span className="font-semibold text-foreground">{attempts}</span></>}
             </p>
             {done && !done.passed && (
               <p className="mt-2 text-xs text-destructive">Last attempt: {done.score}% — try again.</p>

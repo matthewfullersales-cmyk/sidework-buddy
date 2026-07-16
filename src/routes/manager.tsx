@@ -651,8 +651,24 @@ function TeamTab() {
                     )}
                     <p className="mt-1 text-xs text-muted-foreground">{s.passed}/{s.total} videos passed</p>
                     <Progress value={s.pct} className="mt-2 h-1.5 w-32" />
+                    {(() => {
+                      const notable = e.progress.filter((p) => (p.attempts ?? 0) > 1);
+                      if (notable.length === 0) return null;
+                      return (
+                        <div className="mt-2 space-y-0.5 text-right text-[11px] text-muted-foreground">
+                          {notable.slice(0, 3).map((p) => {
+                            const v = videos.find((vv) => vv.id === p.videoId);
+                            if (!v) return null;
+                            return (
+                              <p key={p.videoId}>
+                                {v.title}: {p.passed ? `passed on attempt ${p.attempts}` : `${p.attempts} attempts`}
+                              </p>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
                   </div>
-
                 </div>
 
                 <div className="mt-4 grid gap-3 border-t border-border pt-4 sm:grid-cols-2">

@@ -1663,20 +1663,17 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
         if (!emp || !video) return s;
         const existing = emp.progress.find((p) => p.videoId === videoId);
         const attempts = (existing?.attempts ?? 0) + 1;
-        const lockedOut = !passed && attempts >= 3;
         const nextProgress = existing
           ? emp.progress.map((p) => p.videoId === videoId
-              ? { ...p, attempts, quizScore: score, passed: passed || p.passed, completedAt: passed ? new Date().toISOString() : p.completedAt, lockedOut }
+              ? { ...p, attempts, quizScore: score, passed: passed || p.passed, completedAt: passed ? new Date().toISOString() : p.completedAt, lockedOut: false }
               : p)
-          : [...emp.progress, { videoId, watchedSec: video.durationSec, attempts, quizScore: score, passed, completedAt: passed ? new Date().toISOString() : undefined, lockedOut }];
+          : [...emp.progress, { videoId, watchedSec: video.durationSec, attempts, quizScore: score, passed, completedAt: passed ? new Date().toISOString() : undefined, lockedOut: false }];
         const newNotif: Notification = {
           id: uid("n"),
-          type: passed ? "training_passed" : lockedOut ? "training_locked" : "training_failed",
+          type: passed ? "training_passed" : "training_failed",
           message: passed
-            ? `${emp.name} passed "${video.title}" with ${score}%`
-            : lockedOut
-              ? `${emp.name} is locked out of "${video.title}" after 3 failed attempts`
-              : `${emp.name} failed "${video.title}" (${score}%) — attempt ${attempts}/3`,
+            ? `${emp.name} passed "${video.title}" with ${score}% on attempt ${attempts}`
+            : `${emp.name} failed "${video.title}" (${score}%) — attempt ${attempts}, can retry immediately`,
           employeeId,
           videoId,
           createdAt: new Date().toISOString(),
