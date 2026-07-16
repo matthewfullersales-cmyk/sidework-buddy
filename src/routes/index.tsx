@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "86Paper — 20 years of restaurant expertise for $49/month" },
+      { title: "86Paper — 20 years of restaurant expertise for $99/month" },
       {
         name: "description",
         content:
@@ -22,12 +22,12 @@ export const Route = createFileRoute("/")({
       },
       {
         property: "og:title",
-        content: "86Paper — 20 years of restaurant expertise for $49/month",
+        content: "86Paper — 20 years of restaurant expertise for $99/month",
       },
       {
         property: "og:description",
         content:
-          "Built for independent restaurant owners. The tools big chains pay six figures for, for $49/month.",
+          "Built for independent restaurant owners. The tools big chains pay six figures for, for $99/month.",
       },
     ],
   }),
@@ -75,7 +75,7 @@ function Marketing() {
             <h1 className="mt-6 text-5xl font-bold leading-[1.02] tracking-tight md:text-7xl">
               20 years of restaurant
               <br />
-              expertise. <span className="italic text-amber-800">$49 a month.</span>
+              expertise. <span className="italic text-amber-800">$99 a month.</span>
             </h1>
             <p className="mt-6 max-w-2xl text-lg text-stone-700 md:text-xl">
               86Paper isn't another scheduling app. It's a virtual restaurant
@@ -197,7 +197,7 @@ function Marketing() {
         <div className="mx-auto grid max-w-6xl gap-8 px-6 py-16 text-center md:grid-cols-3">
           <Stat n="20 yrs" label="of floor experience baked in" />
           <Stat n="1 app" label="replacing 5 tools + a paper binder" />
-          <Stat n="$49" label="a month. Not per seat." />
+          <Stat n="$99" label="a month. Not per seat." />
         </div>
       </section>
 
@@ -217,7 +217,7 @@ function Marketing() {
                 size="lg"
                 className="w-full bg-stone-900 text-white shadow-[4px_4px_0_0_rgba(180,83,9,1)] transition-transform hover:-translate-y-0.5 hover:bg-stone-800 sm:w-auto"
               >
-                Get started — $49/mo <ArrowRight className="ml-2 h-4 w-4" />
+                Get started — $99/mo <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </Link>
             <Link to="/login">
