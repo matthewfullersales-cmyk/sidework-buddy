@@ -1057,11 +1057,11 @@ function JobsTab() {
               </>
             );
           }
-          // interviewed
+          // interviewed — decision time
           return (
             <>
-              <Button size="sm" onClick={() => setShadowFor(a.id)}>Invite for Shadow Shift</Button>
-              <Button size="sm" variant="outline" onClick={() => setDeclineConfirmFor({ id: a.id, postInterview: true })}>Decline</Button>
+              <Button size="sm" onClick={() => setShadowFor(a.id)}>Shadow Shift</Button>
+              <Button size="sm" variant="outline" onClick={() => setDeclineConfirmFor({ id: a.id, postInterview: true })}>Pass</Button>
             </>
           );
         }}
