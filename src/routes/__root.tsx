@@ -141,6 +141,7 @@ function RootComponent() {
         <SideworkProvider>
           {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
           <Outlet />
+          <InstallPrompt />
           <Toaster richColors position="top-center" />
         </SideworkProvider>
       </AuthProvider>
