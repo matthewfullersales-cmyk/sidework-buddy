@@ -257,6 +257,61 @@ function NotificationsCard() {
   );
 }
 
+function PendingRoleAssignmentQueue({
+  employees,
+  activeRoles,
+  customRoles,
+  onAssign,
+}: {
+  employees: Employee[];
+  activeRoles: Role[];
+  customRoles: import("@/lib/sidework-store").CustomRole[];
+  onAssign: (id: string, role: Role) => void;
+}) {
+  const pending = employees.filter(isPendingRoleAssignment);
+  const roleChoices = allRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r));
+  const [drafts, setDrafts] = useState<Record<string, Role>>({});
+  if (pending.length === 0) return null;
+  return (
+    <Card className="border-amber-500/40 bg-amber-500/5">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base">
+          Pending role assignment
+          <span className="ml-2 text-xs font-normal text-muted-foreground">{pending.length} waiting</span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-xs text-muted-foreground">
+          These employees finished self-onboarding but need a role assigned before you can schedule them.
+          Assigning a role starts their required training track (general knowledge + role-specific modules + menu quiz).
+        </p>
+        {pending.map((e) => {
+          const draft = drafts[e.id] ?? roleChoices[0] ?? "Server";
+          const fullName = e.firstName && e.lastName ? `${e.firstName} ${e.lastName}` : e.name;
+          return (
+            <div key={e.id} className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-background p-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold">{fullName}</p>
+                <p className="text-xs text-muted-foreground truncate">{e.email}{e.phone ? ` · ${e.phone}` : ""}</p>
+                {e.specialTalents && (
+                  <p className="mt-1 line-clamp-1 text-[11px] text-muted-foreground">Experience: {e.specialTalents}</p>
+                )}
+              </div>
+              <Select value={draft} onValueChange={(v) => setDrafts((d) => ({ ...d, [e.id]: v as Role }))}>
+                <SelectTrigger className="h-9 w-44"><SelectValue placeholder="Pick a role" /></SelectTrigger>
+                <SelectContent>
+                  {roleChoices.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Button size="sm" onClick={() => onAssign(e.id, draft)} disabled={!draft}>Assign role</Button>
+            </div>
+          );
+        })}
+      </CardContent>
+    </Card>
+  );
+}
+
 function TeamTab() {
   const { employees, videos, inviteEmployee, restaurantProfile, activeRoles, customRoles, shifts, trades, timeOff, clearAllEmployees, updateEmployee } = useStore();
   const fohActive = fohRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r));
