@@ -77,28 +77,6 @@ function PricingPage() {
 
         <div className="mt-14 grid gap-6 md:grid-cols-3">
           <PlanCard
-            name="Starter"
-            price="$49"
-            suffix="/month"
-            blurb="Up to 15 staff, single location."
-            features={[
-              "Employee self-onboarding via QR",
-              "AI weekly scheduling",
-              "Training & menu quizzes",
-              "Shift trade & sick-call board",
-            ]}
-            cta={
-              <Button
-                size="lg"
-                onClick={() => startCheckout("starter")}
-                disabled={loading !== null}
-                className="w-full bg-stone-900 text-white hover:bg-stone-800"
-              >
-                {loading === "starter" ? "Loading…" : "Get started"}
-              </Button>
-            }
-          />
-          <PlanCard
             highlighted
             name="Growth"
             price="$99"
@@ -118,6 +96,28 @@ function PricingPage() {
                 className="w-full bg-amber-700 text-white hover:bg-amber-800"
               >
                 {loading === "growth" ? "Loading…" : "Get started"}
+              </Button>
+            }
+          />
+          <PlanCard
+            name="Starter"
+            price="$49"
+            suffix="/month"
+            blurb="Up to 15 staff, single location."
+            features={[
+              "Employee self-onboarding via QR",
+              "AI weekly scheduling",
+              "Training & menu quizzes",
+              "Shift trade & sick-call board",
+            ]}
+            cta={
+              <Button
+                size="lg"
+                onClick={() => startCheckout("starter")}
+                disabled={loading !== null}
+                className="w-full bg-stone-900 text-white hover:bg-stone-800"
+              >
+                {loading === "starter" ? "Loading…" : "Get started"}
               </Button>
             }
           />
