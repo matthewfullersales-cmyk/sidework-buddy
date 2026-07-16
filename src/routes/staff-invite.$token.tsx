@@ -80,7 +80,7 @@ function StaffInvitePage() {
         setFirstName(res.firstName ?? res.name.split(" ")[0] ?? "");
         setLastName(res.lastName ?? res.name.split(" ").slice(1).join(" ") ?? "");
         setPhone(res.phone ? formatPhone(res.phone) : "");
-        if (res.primaryRole && [...FOH_ROLES, ...BOH_ROLES].includes(res.primaryRole as Role)) {
+        if (res.primaryRole && res.primaryRole.trim()) {
           setRole(res.primaryRole as Role);
         }
       })
@@ -219,6 +219,15 @@ function StaffInvitePage() {
               <Select value={role} onValueChange={(v: Role) => setRole(v)}>
                 <SelectTrigger className="h-12"><SelectValue /></SelectTrigger>
                 <SelectContent>
+                  {role && ![...FOH_ROLES, ...BOH_ROLES].includes(role) && (
+                    <>
+                      <SelectGroup>
+                        <SelectLabel>Assigned role</SelectLabel>
+                        <SelectItem value={role}>{role}</SelectItem>
+                      </SelectGroup>
+                      <SelectSeparator />
+                    </>
+                  )}
                   <SelectGroup>
                     <SelectLabel>Front of House</SelectLabel>
                     {FOH_ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
