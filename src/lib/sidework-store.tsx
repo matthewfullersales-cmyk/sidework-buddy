@@ -828,73 +828,107 @@ const QUIZ_POOLS: Record<TrainingCategory, QuizQuestion[]> = {
   ],
 };
 
-// Role-specific module assignments. Each module is auto-assigned to every role
-// listed in `roles`. Manager / Assistant Manager get every module plus their own.
+// Training tracks are built in three explicit layers when a role is assigned:
+//
+//   1. GENERAL restaurant knowledge — one shared module per section (FOH/BOH).
+//      Reused across every restaurant.
+//   2. ROLE-SPECIFIC skill/scenario modules — generic across the system but
+//      keyed to the individual role (wine service for Server, ticket-rail
+//      management for Line Cook, etc.). Reused across every restaurant.
+//   3. MENU QUIZ — the one restaurant-specific module, generated from that
+//      restaurant's uploaded menu via the existing AI menu-quiz feature.
+//
+// Real training video content for the role-specific skill modules doesn't
+// exist yet — those entries are placeholders labeled "— [Placeholder]" so
+// the gating system is fully wired and content can drop in later.
+
+type ModuleLayer = "general" | "role" | "menu";
 type ModuleDef = {
   id: string;
   title: string;
   category: TrainingCategory;
-  roles: Role[];
+  roles: Role[];       // roles this module is required for; [] = all roles
+  layer: ModuleLayer;
+  section?: Section;   // for `layer: "general"`
 };
 
 const LINE_COOK_ROLES: Role[] = ["Line Cook", "Saute", "Grill", "Fry Cook"];
 const CHEF_ROLES: Role[] = ["Chef", "Sous Chef"];
+const MANAGER_ROLES: Role[] = ["Manager", "Assistant Manager"];
 
-const MODULE_DEFS: ModuleDef[] = [
-  // Server
-  { id: "server-menu-knowledge", title: "Menu Knowledge & Storytelling", category: "Server", roles: ["Server"] },
-  { id: "server-wine-pairing", title: "Wine & Beverage Pairing", category: "Server", roles: ["Server"] },
-  { id: "server-service-standards", title: "Service Standards", category: "Server", roles: ["Server"] },
-  // Bartender
-  { id: "bar-signature-cocktails", title: "Signature Cocktails", category: "Bartender", roles: ["Bartender"] },
-  { id: "bar-wine-beer-program", title: "Wine & Beer Program", category: "Bartender", roles: ["Bartender"] },
-  { id: "bar-responsible-service", title: "Responsible Service", category: "Bartender", roles: ["Bartender"] },
-  // Host
-  { id: "host-guest-experience", title: "Guest Experience", category: "Host", roles: ["Host"] },
-  { id: "host-reservation-management", title: "Reservation Management", category: "Host", roles: ["Host"] },
-  { id: "host-first-impressions", title: "First Impressions", category: "Host", roles: ["Host"] },
-  // Busser / Server Assistant
-  { id: "support-table-setup", title: "Table Setup Standards", category: "Server", roles: ["Busser", "Server Assistant"] },
-  { id: "support-guest-interaction", title: "Guest Interaction Basics", category: "Server", roles: ["Busser", "Server Assistant"] },
-  { id: "support-service-flow", title: "Service Flow", category: "Server", roles: ["Busser", "Server Assistant"] },
-  // Bar Back
-  { id: "barback-setup-maintenance", title: "Bar Setup & Maintenance", category: "Bartender", roles: ["Bar Back"] },
-  { id: "barback-inventory", title: "Inventory Basics", category: "Bartender", roles: ["Bar Back"] },
-  { id: "barback-support-standards", title: "Bar Support Standards", category: "Bartender", roles: ["Bar Back"] },
-  // Chef / Sous Chef
-  { id: "chef-leadership", title: "Kitchen Leadership", category: "Kitchen", roles: CHEF_ROLES },
-  { id: "chef-food-safety-compliance", title: "Food Safety & Compliance", category: "Kitchen", roles: CHEF_ROLES },
-  { id: "chef-menu-development", title: "Menu Development", category: "Kitchen", roles: CHEF_ROLES },
-  // Line Cook / Saute / Grill / Fry
-  { id: "line-setup-menu", title: "Line Setup & Menu Items", category: "Kitchen", roles: LINE_COOK_ROLES },
-  { id: "line-allergens", title: "Allergens & Cross-Contamination", category: "Kitchen", roles: LINE_COOK_ROLES },
-  { id: "line-food-safety", title: "Food Safety", category: "Kitchen", roles: LINE_COOK_ROLES },
-  // Garde Manger
-  { id: "garde-cold-station", title: "Cold Station Setup", category: "Kitchen", roles: ["Garde Manger"] },
-  { id: "garde-plating", title: "Plating Standards", category: "Kitchen", roles: ["Garde Manger"] },
-  { id: "garde-food-safety", title: "Food Safety", category: "Kitchen", roles: ["Garde Manger"] },
-  // Pizza
-  { id: "pizza-production", title: "Pizza Production", category: "Kitchen", roles: ["Pizza"] },
-  { id: "pizza-dough-ingredients", title: "Dough & Ingredient Standards", category: "Kitchen", roles: ["Pizza"] },
-  { id: "pizza-food-safety", title: "Food Safety", category: "Kitchen", roles: ["Pizza"] },
-  // Dishwasher
-  { id: "dish-sanitation", title: "Sanitation Standards", category: "Kitchen", roles: ["Dishwasher"] },
-  { id: "dish-equipment-care", title: "Equipment Care", category: "Kitchen", roles: ["Dishwasher"] },
-  { id: "dish-kitchen-safety", title: "Kitchen Safety", category: "Kitchen", roles: ["Dishwasher"] },
-  // Prep
-  { id: "prep-standards", title: "Prep Standards", category: "Kitchen", roles: ["Prep"] },
-  { id: "prep-food-safety-basics", title: "Food Safety Basics", category: "Kitchen", roles: ["Prep"] },
-  { id: "prep-knife-skills", title: "Knife Skills", category: "Kitchen", roles: ["Prep"] },
-  // Manager / Assistant Manager (their own three; they also receive all others)
-  { id: "mgr-leadership", title: "Leadership & Team Management", category: "Server", roles: ["Manager", "Assistant Manager"] },
-  { id: "mgr-scheduling-ops", title: "Scheduling & Operations", category: "Server", roles: ["Manager", "Assistant Manager"] },
-  { id: "mgr-guest-recovery", title: "Guest Recovery", category: "Server", roles: ["Manager", "Assistant Manager"] },
+// Layer 1 — General restaurant knowledge (shared by section)
+const GENERAL_MODULES: ModuleDef[] = [
+  { id: "general-foh", title: "FOH General Restaurant Knowledge — [Placeholder]", category: "Server", roles: [], layer: "general", section: "FOH" },
+  { id: "general-boh", title: "BOH General Restaurant Knowledge — [Placeholder]", category: "Kitchen", roles: [], layer: "general", section: "BOH" },
 ];
+
+// Layer 2 — Role-specific skill/scenario modules (system-generic, placeholders)
+const ROLE_MODULES: ModuleDef[] = [
+  // Host
+  { id: "host-greet-seat", title: "Host: Greeting & Seating Guests — [Placeholder]", category: "Host", roles: ["Host"], layer: "role" },
+  { id: "host-reservations", title: "Host: Reservation Management — [Placeholder]", category: "Host", roles: ["Host"], layer: "role" },
+  { id: "host-waitlist-recovery", title: "Host: Waitlist & Guest Recovery — [Placeholder]", category: "Host", roles: ["Host"], layer: "role" },
+  // Server
+  { id: "server-wine-service", title: "Server: Wine Service (Present, Open, Pour) — [Placeholder]", category: "Server", roles: ["Server"], layer: "role" },
+  { id: "server-table-presentation", title: "Server: Table Presentation & Order Timing — [Placeholder]", category: "Server", roles: ["Server"], layer: "role" },
+  { id: "server-allergens-mods", title: "Server: Allergens & Modifiers — [Placeholder]", category: "Server", roles: ["Server"], layer: "role" },
+  // Busser / Server Assistant
+  { id: "support-table-reset", title: "Busser / SA: Table Reset & Turn Time — [Placeholder]", category: "Server", roles: ["Busser", "Server Assistant"], layer: "role" },
+  { id: "support-service-flow", title: "Busser / SA: Service Flow & Guest Interaction — [Placeholder]", category: "Server", roles: ["Busser", "Server Assistant"], layer: "role" },
+  // Bartender
+  { id: "bar-cocktail-standards", title: "Bartender: Cocktail Standards & Specs — [Placeholder]", category: "Bartender", roles: ["Bartender"], layer: "role" },
+  { id: "bar-responsible-service", title: "Bartender: Responsible Alcohol Service — [Placeholder]", category: "Bartender", roles: ["Bartender"], layer: "role" },
+  { id: "bar-wine-beer", title: "Bartender: Wine & Beer Program — [Placeholder]", category: "Bartender", roles: ["Bartender"], layer: "role" },
+  // Bar Back
+  { id: "barback-setup", title: "Bar Back: Bar Setup & Restock — [Placeholder]", category: "Bartender", roles: ["Bar Back"], layer: "role" },
+  { id: "barback-support", title: "Bar Back: Supporting the Bartender in a Rush — [Placeholder]", category: "Bartender", roles: ["Bar Back"], layer: "role" },
+  // Chef / Sous Chef
+  { id: "chef-leadership", title: "Chef: Kitchen Leadership & Line Communication — [Placeholder]", category: "Kitchen", roles: CHEF_ROLES, layer: "role" },
+  { id: "chef-menu-development", title: "Chef: Menu Development & Costing — [Placeholder]", category: "Kitchen", roles: CHEF_ROLES, layer: "role" },
+  { id: "chef-food-safety", title: "Chef: Food Safety & Compliance — [Placeholder]", category: "Kitchen", roles: CHEF_ROLES, layer: "role" },
+  // Line Cook / Saute / Grill / Fry
+  { id: "line-ticket-rail", title: "Line Cook: Ticket Rail Management in a Rush — [Placeholder]", category: "Kitchen", roles: LINE_COOK_ROLES, layer: "role" },
+  { id: "line-station-setup", title: "Line Cook: Station Setup & Mise en Place — [Placeholder]", category: "Kitchen", roles: LINE_COOK_ROLES, layer: "role" },
+  { id: "line-allergens", title: "Line Cook: Allergens & Cross-Contamination — [Placeholder]", category: "Kitchen", roles: LINE_COOK_ROLES, layer: "role" },
+  // Garde Manger
+  { id: "garde-cold-station", title: "Garde Manger: Cold Station & Plating — [Placeholder]", category: "Kitchen", roles: ["Garde Manger"], layer: "role" },
+  // Pizza
+  { id: "pizza-production", title: "Pizza: Dough & Production Standards — [Placeholder]", category: "Kitchen", roles: ["Pizza"], layer: "role" },
+  // Prep
+  { id: "prep-knife-skills", title: "Prep: Knife Skills & Yield — [Placeholder]", category: "Kitchen", roles: ["Prep"], layer: "role" },
+  // Dishwasher
+  { id: "dish-sanitation", title: "Dishwasher: Sanitation & Equipment Care — [Placeholder]", category: "Kitchen", roles: ["Dishwasher"], layer: "role" },
+  // Manager / Assistant Manager (own modules; they also receive every other module)
+  { id: "mgr-leadership", title: "Manager: Leadership & Team Management — [Placeholder]", category: "Server", roles: MANAGER_ROLES, layer: "role" },
+  { id: "mgr-scheduling-ops", title: "Manager: Scheduling & Operations — [Placeholder]", category: "Server", roles: MANAGER_ROLES, layer: "role" },
+  { id: "mgr-guest-recovery", title: "Manager: Guest Recovery — [Placeholder]", category: "Server", roles: MANAGER_ROLES, layer: "role" },
+];
+
+// Layer 3 — Menu quiz. Restaurant-specific in content (generated from that
+// restaurant's uploaded menu), but a single module id — required for every
+// role, including kitchen staff.
+const MENU_MODULE: ModuleDef = {
+  id: "menu-quiz",
+  title: "This Restaurant's Menu Quiz",
+  category: "Server",
+  roles: [],
+  layer: "menu",
+};
+
+const MODULE_DEFS: ModuleDef[] = [...GENERAL_MODULES, ...ROLE_MODULES, MENU_MODULE];
+
+export function sectionForRole(role: Role, customRoles: CustomRole[] = []): Section {
+  if (BOH_BUILT_IN.includes(role)) return "BOH";
+  const custom = customRoles.find((c) => c.name === role);
+  if (custom) return custom.section;
+  return "FOH";
+}
+const BOH_BUILT_IN: Role[] = ["Chef", "Sous Chef", "Line Cook", "Fry Cook", "Saute", "Grill", "Pizza", "Garde Manger", "Dishwasher", "Prep"];
 
 export function trainingCategoryForRole(role: Role, customRoles: CustomRole[] = []): TrainingCategory {
   if (role === "Host") return "Host";
   if (role === "Bartender" || role === "Bar Back") return "Bartender";
-  if (["Chef", "Sous Chef", "Line Cook", "Fry Cook", "Saute", "Grill", "Pizza", "Garde Manger", "Dishwasher", "Prep"].includes(role)) return "Kitchen";
+  if (BOH_BUILT_IN.includes(role)) return "Kitchen";
   const custom = customRoles.find((c) => c.name === role);
   if (custom) return custom.section === "BOH" ? "Kitchen" : "Server";
   return "Server";
@@ -911,25 +945,75 @@ function seedVideos(): TrainingVideo[] {
   }));
 }
 
-const MANAGER_ROLES: Role[] = ["Manager", "Assistant Manager"];
-
-/** All module ids assigned to a single role. Manager/Asst Manager receive every module. */
+/**
+ * All module ids required for a single role, composed of the three layers:
+ *   general (FOH or BOH) + role-specific placeholders + menu quiz.
+ * Manager / Assistant Manager receive every role-specific module as well.
+ */
 export function moduleIdsForRole(role: Role, customRoles: CustomRole[] = []): string[] {
-  if (MANAGER_ROLES.includes(role)) return MODULE_DEFS.map((m) => m.id);
-  const custom = customRoles.find((c) => c.name === role);
-  if (custom) {
-    const cat: TrainingCategory = custom.section === "BOH" ? "Kitchen" : "Server";
-    return MODULE_DEFS.filter((m) => m.category === cat).map((m) => m.id);
+  const section = sectionForRole(role, customRoles);
+  const ids: string[] = [];
+  // Layer 1: general
+  ids.push(section === "BOH" ? "general-boh" : "general-foh");
+  // Layer 2: role-specific
+  if (MANAGER_ROLES.includes(role)) {
+    ROLE_MODULES.forEach((m) => ids.push(m.id));
+  } else {
+    ROLE_MODULES.filter((m) => m.roles.includes(role)).forEach((m) => ids.push(m.id));
   }
-  return MODULE_DEFS.filter((m) => m.roles.includes(role)).map((m) => m.id);
+  // Layer 3: menu quiz — always required
+  ids.push(MENU_MODULE.id);
+  return ids;
 }
 
 /** Union of module ids across an employee's approved roles (or primary role as fallback). */
 export function moduleIdsForEmployee(emp: { primaryRole: Role; approvedRoles?: Role[] }, customRoles: CustomRole[] = []): string[] {
-  const roles = emp.approvedRoles && emp.approvedRoles.length > 0 ? emp.approvedRoles : [emp.primaryRole];
+  const roles = emp.approvedRoles && emp.approvedRoles.length > 0 ? emp.approvedRoles : (emp.primaryRole ? [emp.primaryRole] : []);
+  if (roles.length === 0) return [];
   const ids = new Set<string>();
   roles.forEach((r) => moduleIdsForRole(r, customRoles).forEach((id) => ids.add(id)));
   return Array.from(ids);
+}
+
+/**
+ * "Pending role assignment" — the employee completed their own personal-info
+ * onboarding (self-serve QR flow) but a manager hasn't picked their role yet.
+ * No approved roles = derived pending state; no migration required.
+ */
+export function isPendingRoleAssignment(emp: Pick<Employee, "personalInfoComplete" | "primaryRole" | "approvedRoles">): boolean {
+  const hasRole = (emp.approvedRoles && emp.approvedRoles.length > 0) || !!emp.primaryRole;
+  return !!emp.personalInfoComplete && !hasRole;
+}
+
+/**
+ * "Schedule eligible" — a role has been assigned AND every required training
+ * module for that role's track has been passed. This is the gate a manager
+ * hits when trying to schedule the employee.
+ */
+export function isScheduleEligible(
+  emp: Pick<Employee, "personalInfoComplete" | "primaryRole" | "approvedRoles" | "progress">,
+  videos: TrainingVideo[],
+  customRoles: CustomRole[] = [],
+): boolean {
+  if (isPendingRoleAssignment(emp)) return false;
+  const required = new Set(moduleIdsForEmployee(emp, customRoles));
+  if (required.size === 0) return false;
+  const passed = new Set(emp.progress.filter((p) => p.passed).map((p) => p.videoId));
+  for (const id of required) {
+    if (!passed.has(id)) return false;
+  }
+  return true;
+}
+
+/** For UI progress pills: how many required modules passed. */
+export function trainingProgressFor(
+  emp: Pick<Employee, "primaryRole" | "approvedRoles" | "progress">,
+  videos: TrainingVideo[],
+  customRoles: CustomRole[] = [],
+): { passed: number; total: number } {
+  const required = moduleIdsForEmployee(emp, customRoles);
+  const passedIds = new Set(emp.progress.filter((p) => p.passed).map((p) => p.videoId));
+  return { passed: required.filter((id) => passedIds.has(id)).length, total: required.length };
 }
 
 function seedEmployees(): Employee[] {

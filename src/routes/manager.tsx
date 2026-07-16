@@ -18,8 +18,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
-import { onboardingStatus, useStore, type Role, type ApplicationStatus, type Employee, type Relationship, DAY_KEYS, hoursConfigured, type JobApplication, type HiringStage, type ShadowShiftDetails, type InterviewType, getHiringStage } from "@/lib/sidework-store";
-import { roleStyle, fohRolesWithCustom, bohRolesWithCustom } from "@/lib/role-colors";
+import { onboardingStatus, useStore, type Role, type ApplicationStatus, type Employee, type Relationship, DAY_KEYS, hoursConfigured, type JobApplication, type HiringStage, type ShadowShiftDetails, type InterviewType, getHiringStage, isPendingRoleAssignment, isScheduleEligible, trainingProgressFor } from "@/lib/sidework-store";
+import { roleStyle, fohRolesWithCustom, bohRolesWithCustom, allRolesWithCustom } from "@/lib/role-colors";
 
 import { PhoneInput } from "@/components/ui/phone-input";
 import { copyLinkWithToast } from "@/lib/copy-to-clipboard";
@@ -257,8 +257,63 @@ function NotificationsCard() {
   );
 }
 
+function PendingRoleAssignmentQueue({
+  employees,
+  activeRoles,
+  customRoles,
+  onAssign,
+}: {
+  employees: Employee[];
+  activeRoles: Role[];
+  customRoles: import("@/lib/sidework-store").CustomRole[];
+  onAssign: (id: string, role: Role) => void;
+}) {
+  const pending = employees.filter(isPendingRoleAssignment);
+  const roleChoices = allRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r));
+  const [drafts, setDrafts] = useState<Record<string, Role>>({});
+  if (pending.length === 0) return null;
+  return (
+    <Card className="border-amber-500/40 bg-amber-500/5">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base">
+          Pending role assignment
+          <span className="ml-2 text-xs font-normal text-muted-foreground">{pending.length} waiting</span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-xs text-muted-foreground">
+          These employees finished self-onboarding but need a role assigned before you can schedule them.
+          Assigning a role starts their required training track (general knowledge + role-specific modules + menu quiz).
+        </p>
+        {pending.map((e) => {
+          const draft = drafts[e.id] ?? roleChoices[0] ?? "Server";
+          const fullName = e.firstName && e.lastName ? `${e.firstName} ${e.lastName}` : e.name;
+          return (
+            <div key={e.id} className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-background p-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold">{fullName}</p>
+                <p className="text-xs text-muted-foreground truncate">{e.email}{e.phone ? ` · ${e.phone}` : ""}</p>
+                {e.specialTalents && (
+                  <p className="mt-1 line-clamp-1 text-[11px] text-muted-foreground">Experience: {e.specialTalents}</p>
+                )}
+              </div>
+              <Select value={draft} onValueChange={(v) => setDrafts((d) => ({ ...d, [e.id]: v as Role }))}>
+                <SelectTrigger className="h-9 w-44"><SelectValue placeholder="Pick a role" /></SelectTrigger>
+                <SelectContent>
+                  {roleChoices.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Button size="sm" onClick={() => onAssign(e.id, draft)} disabled={!draft}>Assign role</Button>
+            </div>
+          );
+        })}
+      </CardContent>
+    </Card>
+  );
+}
+
 function TeamTab() {
-  const { employees, videos, inviteEmployee, restaurantProfile, activeRoles, customRoles, shifts, trades, timeOff, clearAllEmployees } = useStore();
+  const { employees, videos, inviteEmployee, restaurantProfile, activeRoles, customRoles, shifts, trades, timeOff, clearAllEmployees, updateEmployee } = useStore();
   const fohActive = fohRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r));
   const bohActive = bohRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r));
   const [open, setOpen] = useState(false);
@@ -341,6 +396,15 @@ function TeamTab() {
   return (
     <div className="space-y-4">
       <StaffJoinBanner onShowQr={() => setShowQr(true)} />
+      <PendingRoleAssignmentQueue
+        employees={employees}
+        activeRoles={activeRoles}
+        customRoles={customRoles}
+        onAssign={(id, role) => {
+          updateEmployee(id, { primaryRole: role, approvedRoles: [role] });
+          toast.success(`Role assigned — training track kicked off`);
+        }}
+      />
 
       <div className="flex flex-wrap justify-end gap-2">
         <Popover open={sfOpen} onOpenChange={setSfOpen}>
@@ -575,12 +639,20 @@ function TeamTab() {
                     </div>
                   </div>
                   <div className="text-right">
-                    {s.fullyOnboarded
-                      ? <Badge className="bg-success text-success-foreground hover:bg-success">Fully onboarded</Badge>
-                      : <Badge variant="secondary">Onboarding · {s.pct}%</Badge>}
+                    {isPendingRoleAssignment(e) ? (
+                      <Badge variant="secondary" className="bg-muted text-foreground">Pending role</Badge>
+                    ) : isScheduleEligible(e, videos, customRoles) ? (
+                      <Badge className="bg-success text-success-foreground hover:bg-success">Schedule eligible</Badge>
+                    ) : (
+                      (() => {
+                        const tp = trainingProgressFor(e, videos, customRoles);
+                        return <Badge variant="secondary" className="bg-amber-500/15 text-amber-700 dark:text-amber-300">In training · {tp.passed}/{tp.total}</Badge>;
+                      })()
+                    )}
                     <p className="mt-1 text-xs text-muted-foreground">{s.passed}/{s.total} videos passed</p>
                     <Progress value={s.pct} className="mt-2 h-1.5 w-32" />
                   </div>
+
                 </div>
 
                 <div className="mt-4 grid gap-3 border-t border-border pt-4 sm:grid-cols-2">

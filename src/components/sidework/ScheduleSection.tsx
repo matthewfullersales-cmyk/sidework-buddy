@@ -12,7 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { useStore, type Role, type Shift, type Position, type Section, type WeeklyAvailability, type MealPeriods, type Meal, DAY_KEYS, isAvailableFor, isAvailableForRange, mealForShiftStart, suggestedShiftTimes, hoursConfigured } from "@/lib/sidework-store";
+import { useStore, type Role, type Shift, type Position, type Section, type WeeklyAvailability, type MealPeriods, type Meal, DAY_KEYS, isAvailableFor, isAvailableForRange, mealForShiftStart, suggestedShiftTimes, hoursConfigured, isScheduleEligible, isPendingRoleAssignment, trainingProgressFor } from "@/lib/sidework-store";
 import { toast } from "sonner";
 
 import { ROLE_COLORS, roleStyle, STATUS_COLORS, contrastText, fohRolesWithCustom, bohRolesWithCustom, allRolesWithCustom, nextCustomColor } from "@/lib/role-colors";
@@ -761,7 +761,7 @@ function ShiftDetailsDialog({
   employeeId: string; date: string; existing?: Shift;
   onClose: () => void; onSave: (s: Shift) => void; onDelete: (id: string) => void;
 }) {
-  const { employees, activeRoles, customRoles, timeOff, mealPeriods, restaurantHours } = useStore();
+  const { employees, activeRoles, customRoles, timeOff, mealPeriods, restaurantHours, videos } = useStore();
   const emp = employees.find((e) => e.id === employeeId);
   // Compute suggestions up-front so a brand-new shift is seeded with the
   // first suggestion (Dinner arrival for the employee's section/position),
@@ -826,6 +826,17 @@ function ShiftDetailsDialog({
   })();
   const needsOverride = !!availConflict && !overrideAvailability;
 
+  // Training-eligibility gate. A pending-role or in-training employee can't
+  // be scheduled — the manager must assign a role and the employee must pass
+  // their required training modules first.
+  const pendingRole = emp ? isPendingRoleAssignment(emp) : false;
+  const eligible = emp ? isScheduleEligible(emp, videos, customRoles) : true;
+  const progress = emp ? trainingProgressFor(emp, videos, customRoles) : { passed: 0, total: 0 };
+  const trainingBlocked = !!emp && !eligible;
+  const trainingBlockMsg = pendingRole
+    ? `${emp?.name ?? "This employee"} doesn't have a role assigned yet — assign one from the Team tab before scheduling.`
+    : `${emp?.name ?? "This employee"} hasn't completed required training yet — ${progress.passed} of ${progress.total} modules complete.`;
+
   return (
     <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent>
@@ -860,6 +871,18 @@ function ShiftDetailsDialog({
                 {blocked
                   ? "Saving is blocked. If this shift really needs to happen, deny or cancel the time-off request first in the Time Off tab."
                   : "The request hasn't been approved yet — you can still save this shift, but consider resolving the request first."}
+              </p>
+            </div>
+          )}
+          {trainingBlocked && !existing && (
+            <div
+              role="alert"
+              className="rounded-lg border border-destructive/60 bg-destructive/10 p-3 text-sm text-destructive"
+            >
+              <p className="font-semibold">⛔ Not schedule-eligible</p>
+              <p className="mt-1 text-xs">{trainingBlockMsg}</p>
+              <p className="mt-1 text-xs opacity-90">
+                Employees become schedule-eligible after passing every required training module (general knowledge + role-specific + menu quiz) at 80% or higher.
               </p>
             </div>
           )}
@@ -958,7 +981,7 @@ function ShiftDetailsDialog({
           <div className="flex gap-2">
             <Button variant="ghost" onClick={onClose}>Cancel</Button>
             <Button
-              disabled={blocked || needsOverride}
+              disabled={blocked || needsOverride || (trainingBlocked && !existing)}
               onClick={() => {
                 if (blocked) {
                   toast.error(`${emp?.name ?? "Employee"} has approved time off on this date`);
@@ -966,6 +989,10 @@ function ShiftDetailsDialog({
                 }
                 if (needsOverride) {
                   toast.error(`Confirm scheduling despite ${emp?.name ?? "employee"}'s marked unavailability`);
+                  return;
+                }
+                if (trainingBlocked && !existing) {
+                  toast.error(trainingBlockMsg);
                   return;
                 }
                 onSave({
