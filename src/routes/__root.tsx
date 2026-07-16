@@ -124,6 +124,7 @@ import { SideworkProvider } from "@/lib/sidework-store";
 import { AuthProvider } from "@/lib/auth-context";
 import { Toaster } from "@/components/ui/sonner";
 import { registerServiceWorker } from "@/lib/register-sw";
+import { InstallPrompt } from "@/components/InstallPrompt";
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
@@ -132,12 +133,15 @@ function RootComponent() {
     registerServiceWorker();
   }, []);
 
+
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <SideworkProvider>
           {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
           <Outlet />
+          <InstallPrompt />
           <Toaster richColors position="top-center" />
         </SideworkProvider>
       </AuthProvider>
