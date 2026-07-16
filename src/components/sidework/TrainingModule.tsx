@@ -55,12 +55,12 @@ export function TrainingModule({
           </div>
           {passed ? (
             <Badge className="bg-success text-success-foreground hover:bg-success gap-1.5">
-              <CheckIcon className="h-3.5 w-3.5" /> Complete · {progress?.quizScore}%
+              <CheckIcon className="h-3.5 w-3.5" /> Complete · {progress?.quizScore}% · attempt {attempts}
             </Badge>
-          ) : lockedOut ? (
-            <Badge variant="secondary" className="bg-destructive/10 text-destructive">Locked out</Badge>
+          ) : attempts > 0 ? (
+            <Badge variant="secondary">Attempt {attempts} · unlimited retakes</Badge>
           ) : (
-            <Badge variant="secondary">Attempts {attempts}/{MAX_ATTEMPTS}</Badge>
+            <Badge variant="secondary">Not started</Badge>
           )}
         </div>
 
