@@ -13,7 +13,9 @@ export function useRequireManagerAccess(redirectTo = "/login") {
   useEffect(() => {
     if (loading) return;
     if (!session) { navigate({ to: redirectTo }); return; }
-    if (profile?.role !== "owner") {
+    // Wait until the profile has actually loaded before deciding — otherwise
+    // owners flash through /employee for a tick right after sign-in.
+    if (profile && profile.role !== "owner") {
       navigate({ to: "/employee" });
     }
   }, [loading, session, profile, redirectTo, navigate]);
