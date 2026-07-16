@@ -1276,9 +1276,12 @@ function JobsTab() {
           onConfirm={(overrides) => {
             const id = hireApplication(hireApp.id, overrides);
             if (id) {
-              const name = (overrides.firstName ?? hireApp.firstName ?? hireApp.name);
-              toast.success(`${name} hired!`, {
-                description: `Send them their signup link: /hired/${hireApp.id} — they'll finish setting up their account and start training.`,
+              const mergedApp: JobApplication = { ...hireApp, ...overrides } as JobApplication;
+              void notifyApplicant({
+                kind: "hire_signup",
+                app: mergedApp,
+                link: `${window.location.origin}/hired/${hireApp.id}`,
+                successVerb: `${mergedApp.firstName ?? mergedApp.name} hired — signup link`,
               });
             }
             setHireFor(null);
