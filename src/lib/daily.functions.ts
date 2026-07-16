@@ -25,15 +25,36 @@ export const getOrCreateInterviewRoom = createServerFn({ method: "POST" })
     const safeId = data.applicationId.toLowerCase().replace(/[^a-z0-9_-]/g, "");
     const name = `sw-${safeId}`.slice(0, 41);
 
+    // Fresh 2-hour expiry each time this is called; extend or recreate as needed.
+    const expSeconds = Math.floor(Date.now() / 1000) + 60 * 60 * 2;
+
     // Try to fetch existing room first.
     const existing = await dailyFetch(`/rooms/${name}`);
     if (existing.ok) {
-      const json = (await existing.json()) as { url: string; name: string };
+      const json = (await existing.json()) as {
+        url: string;
+        name: string;
+        config?: { exp?: number };
+      };
+      const currentExp = json.config?.exp ?? 0;
+      const nowSec = Math.floor(Date.now() / 1000);
+      // If the room is expired or has < 30 min left, extend it so the
+      // hosted Daily page doesn't show "meeting has expired".
+      if (currentExp - nowSec < 60 * 30) {
+        const patched = await dailyFetch(`/rooms/${name}`, {
+          method: "POST",
+          body: JSON.stringify({ properties: { exp: expSeconds } }),
+        });
+        if (!patched.ok) {
+          const text = await patched.text();
+          throw new Error(
+            `Failed to extend Daily room (${patched.status}): ${text}`,
+          );
+        }
+      }
       return { url: json.url, name: json.name };
     }
 
-    // Create a fresh room that expires in 2 hours.
-    const expSeconds = Math.floor(Date.now() / 1000) + 60 * 60 * 2;
     const res = await dailyFetch(`/rooms`, {
       method: "POST",
       body: JSON.stringify({
