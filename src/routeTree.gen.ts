@@ -13,6 +13,7 @@ import { Route as TermsRouteImport } from './routes/terms'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as PricingRouteImport } from './routes/pricing'
+import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as ManagerRouteImport } from './routes/manager'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as EmployeeLoginRouteImport } from './routes/employee-login'
@@ -45,6 +46,11 @@ const PrivacyRoute = PrivacyRouteImport.update({
 const PricingRoute = PricingRouteImport.update({
   id: '/pricing',
   path: '/pricing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OnboardingRoute = OnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ManagerRoute = ManagerRouteImport.update({
@@ -121,6 +127,7 @@ export interface FileRoutesByFullPath {
   '/employee-login': typeof EmployeeLoginRoute
   '/login': typeof LoginRoute
   '/manager': typeof ManagerRoute
+  '/onboarding': typeof OnboardingRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
   '/signup': typeof SignupRoute
@@ -140,6 +147,7 @@ export interface FileRoutesByTo {
   '/employee-login': typeof EmployeeLoginRoute
   '/login': typeof LoginRoute
   '/manager': typeof ManagerRoute
+  '/onboarding': typeof OnboardingRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
   '/signup': typeof SignupRoute
@@ -160,6 +168,7 @@ export interface FileRoutesById {
   '/employee-login': typeof EmployeeLoginRoute
   '/login': typeof LoginRoute
   '/manager': typeof ManagerRoute
+  '/onboarding': typeof OnboardingRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
   '/signup': typeof SignupRoute
@@ -181,6 +190,7 @@ export interface FileRouteTypes {
     | '/employee-login'
     | '/login'
     | '/manager'
+    | '/onboarding'
     | '/pricing'
     | '/privacy'
     | '/signup'
@@ -200,6 +210,7 @@ export interface FileRouteTypes {
     | '/employee-login'
     | '/login'
     | '/manager'
+    | '/onboarding'
     | '/pricing'
     | '/privacy'
     | '/signup'
@@ -219,6 +230,7 @@ export interface FileRouteTypes {
     | '/employee-login'
     | '/login'
     | '/manager'
+    | '/onboarding'
     | '/pricing'
     | '/privacy'
     | '/signup'
@@ -239,6 +251,7 @@ export interface RootRouteChildren {
   EmployeeLoginRoute: typeof EmployeeLoginRoute
   LoginRoute: typeof LoginRoute
   ManagerRoute: typeof ManagerRoute
+  OnboardingRoute: typeof OnboardingRoute
   PricingRoute: typeof PricingRoute
   PrivacyRoute: typeof PrivacyRoute
   SignupRoute: typeof SignupRoute
@@ -278,6 +291,13 @@ declare module '@tanstack/react-router' {
       path: '/pricing'
       fullPath: '/pricing'
       preLoaderRoute: typeof PricingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/onboarding': {
+      id: '/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof OnboardingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/manager': {
@@ -394,6 +414,7 @@ const rootRouteChildren: RootRouteChildren = {
   EmployeeLoginRoute: EmployeeLoginRoute,
   LoginRoute: LoginRoute,
   ManagerRoute: ManagerRoute,
+  OnboardingRoute: OnboardingRoute,
   PricingRoute: PricingRoute,
   PrivacyRoute: PrivacyRoute,
   SignupRoute: SignupRoute,
@@ -407,13 +428,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
