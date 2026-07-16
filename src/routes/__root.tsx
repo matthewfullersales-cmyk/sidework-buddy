@@ -124,6 +124,7 @@ import { SideworkProvider } from "@/lib/sidework-store";
 import { AuthProvider } from "@/lib/auth-context";
 import { Toaster } from "@/components/ui/sonner";
 import { registerServiceWorker } from "@/lib/register-sw";
+import { InstallPrompt } from "@/components/InstallPrompt";
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
@@ -131,6 +132,8 @@ function RootComponent() {
   useEffect(() => {
     registerServiceWorker();
   }, []);
+
+
 
   return (
     <QueryClientProvider client={queryClient}>
