@@ -1180,11 +1180,11 @@ function JobsTab() {
       {declineApp && declineConfirmFor && (
         <Dialog open onOpenChange={(o) => { if (!o) setDeclineConfirmFor(null); }}>
           <DialogContent className="sm:max-w-md">
-            <DialogHeader><DialogTitle>Decline application?</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>{declineConfirmFor.postInterview ? "Pass on this candidate?" : "Decline application?"}</DialogTitle></DialogHeader>
             <div className="py-2 text-sm text-muted-foreground">
               {declineConfirmFor.postInterview ? (
                 <>
-                  <p>Send the following message to <span className="font-semibold text-foreground">{declineApp.firstName ?? declineApp.name}</span>?</p>
+                  <p>Send the following message to <span className="font-semibold text-foreground">{declineApp.firstName ?? declineApp.name}</span> and archive the application?</p>
                   <p className="mt-2 rounded-md bg-muted p-3 italic">
                     "Hi {declineApp.firstName ?? declineApp.name}, thank you for taking the time to speak with us. We've decided to move forward with other candidates at this time. We wish you the best!"
                   </p>
@@ -1202,9 +1202,9 @@ function JobsTab() {
               <Button variant="ghost" onClick={() => setDeclineConfirmFor(null)}>Cancel</Button>
               <Button onClick={() => {
                 declineApplication(declineApp.id);
-                toast.message(`Decline message sent to ${declineApp.firstName ?? declineApp.name}`);
+                toast.message(declineConfirmFor.postInterview ? `Passed on ${declineApp.firstName ?? declineApp.name}` : `Decline message sent to ${declineApp.firstName ?? declineApp.name}`);
                 setDeclineConfirmFor(null);
-              }}>Send & Decline</Button>
+              }}>{declineConfirmFor.postInterview ? "Send & Pass" : "Send & Decline"}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
