@@ -80,7 +80,7 @@ function StaffInvitePage() {
         setFirstName(res.firstName ?? res.name.split(" ")[0] ?? "");
         setLastName(res.lastName ?? res.name.split(" ").slice(1).join(" ") ?? "");
         setPhone(res.phone ? formatPhone(res.phone) : "");
-        if (res.primaryRole && [...FOH_ROLES, ...BOH_ROLES].includes(res.primaryRole as Role)) {
+        if (res.primaryRole && res.primaryRole.trim()) {
           setRole(res.primaryRole as Role);
         }
       })
