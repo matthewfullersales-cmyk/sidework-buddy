@@ -133,6 +133,7 @@ function StaffInvitePage() {
         first_name: parsed.data.firstName,
         last_name: parsed.data.lastName,
         phone: parsed.data.phone,
+        primary_role: role,
         weekly_availability: availability,
         emergency_contact: {
           firstName: parsed.data.ecFirstName,
