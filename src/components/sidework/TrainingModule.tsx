@@ -188,16 +188,6 @@ function QuizSection({
       </div>
     );
   }
-  if (lockedOut) {
-    return (
-      <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
-        <p className="font-semibold">No attempts remaining.</p>
-        <p className="mt-1 opacity-90">Your manager has been notified to reset this module.</p>
-      </div>
-    );
-  }
-
-  // Idle (not started yet)
   if (!started) {
     return (
       <div className="rounded-xl border border-border bg-background p-4 sm:p-5">
@@ -208,7 +198,7 @@ function QuizSection({
               {QUIZ_SIZE} random questions · {SECONDS_PER_Q}s per question · pass at {PASS_PCT}%.
             </p>
             <p className="mt-2 text-xs text-muted-foreground">
-              Attempts remaining: <span className="font-semibold text-foreground">{MAX_ATTEMPTS - attempts}/{MAX_ATTEMPTS}</span>
+              Unlimited retakes — retry immediately if you don't pass. {attempts > 0 && <>Attempts so far: <span className="font-semibold text-foreground">{attempts}</span></>}
             </p>
             {done && !done.passed && (
               <p className="mt-2 text-xs text-destructive">Last attempt: {done.score}% — try again.</p>
