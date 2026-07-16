@@ -1224,9 +1224,12 @@ function JobsTab() {
           onClose={() => setShadowFor(null)}
           onConfirm={(details) => {
             inviteShadowShift(shadowApp.id, details);
-            const name = shadowApp.firstName ?? shadowApp.name;
-            toast.success(`Shadow shift invite sent to ${name}`, {
-              description: `${details.date} at ${details.time} · Applicant link: /shadow/${shadowApp.id}`,
+            void notifyApplicant({
+              kind: "shadow_invite",
+              app: shadowApp,
+              link: `${window.location.origin}/shadow/${shadowApp.id}`,
+              successVerb: "Shadow shift invite",
+              extra: { shadowDate: details.date, shadowTime: details.time },
             });
             setShadowFor(null);
           }}
