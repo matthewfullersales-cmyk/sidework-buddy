@@ -26,7 +26,6 @@ export function TrainingModule({
   const videoComplete = watched >= video.durationSec;
   const passed = !!progress?.passed;
   const attempts = progress?.attempts ?? 0;
-  const lockedOut = !passed && attempts >= MAX_ATTEMPTS;
 
   useEffect(() => {
     if (!playing) return;
