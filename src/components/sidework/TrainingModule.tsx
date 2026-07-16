@@ -7,7 +7,6 @@ import { pickRandomQuestions, type TrainingVideo, type VideoProgress } from "@/l
 
 const QUIZ_SIZE = 5;
 const SECONDS_PER_Q = 30;
-const MAX_ATTEMPTS = 3;
 const PASS_PCT = 80;
 
 export function TrainingModule({
