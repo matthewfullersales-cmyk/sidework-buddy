@@ -66,7 +66,7 @@ function PrivacyPage() {
 
           <h2 className="mt-10 text-xl font-semibold tracking-tight">Your Choices</h2>
           <p className="mb-4 leading-relaxed">
-            You can opt out of SMS notifications at any time. You can request access to, correction of, or deletion of your personal information by contacting us at hello@86paper.com.
+            You can turn off push notifications at any time from your profile settings or your browser's site permissions. You can request access to, correction of, or deletion of your personal information by contacting us at hello@86paper.com.
           </p>
 
           <h2 className="mt-10 text-xl font-semibold tracking-tight">Contact Us</h2>
