@@ -434,8 +434,31 @@ export function ScheduleSection() {
               <>✨ Generate AI Schedule</>
             )}
           </Button>
+          <Button
+            variant="default"
+            disabled={generating}
+            onClick={() => {
+              const empIds = Array.from(new Set(
+                shifts.filter((s) => dayISOs.includes(s.date)).map((s) => s.employeeId)
+              )).filter((id) => /^[0-9a-f-]{36}$/i.test(id));
+              if (empIds.length === 0) {
+                toast("No shifts to publish this week");
+                return;
+              }
+              const weekLabel = fmtRange(weekStart);
+              notifyScheduleChanged({ data: { employeeIds: empIds, kind: "published", weekLabel } })
+                .then((r) => toast.success(`Schedule published — ${r.notifCount} staff notified`))
+                .catch((err: unknown) => {
+                  console.error("[publish]", err);
+                  toast.error("Failed to publish");
+                });
+            }}
+          >
+            Publish week
+          </Button>
         </div>
       </div>
+
 
       <Dialog open={!!confirmCopy} onOpenChange={(o) => { if (!o) setConfirmCopy(null); }}>
         <DialogContent>
