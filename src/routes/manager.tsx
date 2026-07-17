@@ -2192,7 +2192,7 @@ function TimeOffTab() {
               const dateLabel = t.startDate === t.endDate ? t.startDate : `${t.startDate} → ${t.endDate}`;
               if (/^[0-9a-f-]{36}$/i.test(t.employeeId)) {
                 notifyTimeOffResolved({ data: { employeeId: t.employeeId, approved: false, dateLabel } })
-                  .catch((e) => console.error("[notifyTimeOffResolved]", e));
+                  .catch((err: unknown) => console.error("[notifyTimeOffResolved]", err));
               }
             }}>Deny</Button>
             <Button size="sm" onClick={() => {
