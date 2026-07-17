@@ -542,8 +542,7 @@ function TeamTab() {
                 </Select>
               </div>
               <p className="text-xs text-muted-foreground">
-                We'll text and email them a personal invite link so they can finish their own profile (availability, emergency contact, password).
-                Twilio A2P carrier review is still in progress, so SMS delivery may be inconsistent — the copy-link fallback always works.
+                We'll email them a personal invite link so they can finish their own profile (availability, emergency contact, password). A copy-link fallback is always shown.
               </p>
             </div>
             <DialogFooter>
@@ -561,12 +560,9 @@ function TeamTab() {
                       phone: form.phone.trim(),
                       role: form.role,
                     });
-                    // Fire real send (email + optional SMS). Non-blocking beyond await.
                     const restaurantName = restaurantProfile?.name ?? "your team";
                     let emailOk = false;
-                    let smsOk = false;
                     let emailErr: string | undefined;
-                    let smsErr: string | undefined;
                     try {
                       const res = await sendStaffInvite({ data: {
                         inviteUrl: invite.inviteUrl,
@@ -577,22 +573,16 @@ function TeamTab() {
                         senderName: restaurantName,
                       }});
                       emailOk = res.email.ok;
-                      smsOk = res.sms.ok;
                       emailErr = res.email.error;
-                      smsErr = res.sms.error;
                     } catch (e) {
                       console.error("[sendStaffInvite]", e);
                     }
-                    const parts: string[] = [];
-                    if (emailOk) parts.push("emailed");
-                    if (smsOk) parts.push("texted");
-                    const summary = parts.length > 0
-                      ? `Invite ${parts.join(" & ")} to ${form.firstName.trim()}`
+                    const summary = emailOk
+                      ? `Invite emailed to ${form.firstName.trim()}`
                       : `Invite created for ${form.firstName.trim()}`;
-                    const problems = [
-                      !emailOk && form.email.trim() ? `email failed${emailErr ? `: ${emailErr}` : ""}` : null,
-                      !smsOk && form.phone.trim()   ? `SMS failed${smsErr ? `: ${smsErr}` : ""}`     : null,
-                    ].filter(Boolean).join(" · ");
+                    const problems = !emailOk && form.email.trim()
+                      ? `email failed${emailErr ? `: ${emailErr}` : ""}`
+                      : "";
                     toast.success(summary, {
                       description: `${problems ? problems + " — " : ""}Copy backup link: ${invite.inviteUrl}`,
                       duration: 10000,
@@ -1019,9 +1009,8 @@ function JobsTab() {
     copyLinkWithToast(`${window.location.origin}/careers?job=${jobId}`, "Application link copied");
   };
 
-  // Fires email + SMS via Resend/Twilio for applicant-facing links and
-  // surfaces a copy-link fallback in the toast so the manager can share it
-  // manually if either channel fails (e.g. A2P still pending).
+  // Sends the applicant-facing link via email (Resend). Surfaces a copy-link
+  // fallback in the toast so the manager can share it manually if email fails.
   const notifyApplicant = async (args: {
     kind: "interview_offer" | "shadow_invite" | "hire_signup";
     app: JobApplication;
@@ -1030,9 +1019,9 @@ function JobsTab() {
     extra?: { slotCount?: number; shadowDate?: string; shadowTime?: string };
   }) => {
     const name = args.app.firstName ?? args.app.name ?? "applicant";
-    let emailOk = false, smsOk = false;
-    let emailErr: string | undefined, smsErr: string | undefined;
-    let emailAttempted = false, smsAttempted = false;
+    let emailOk = false;
+    let emailErr: string | undefined;
+    let emailAttempted = false;
     try {
       const res = await sendApplicantNotification({ data: {
         kind: args.kind,
@@ -1045,23 +1034,18 @@ function JobsTab() {
         shadowDate: args.extra?.shadowDate,
         shadowTime: args.extra?.shadowTime,
       }});
-      emailOk = res.email.ok; smsOk = res.sms.ok;
-      emailErr = res.email.error; smsErr = res.sms.error;
-      emailAttempted = res.email.attempted; smsAttempted = res.sms.attempted;
+      emailOk = res.email.ok;
+      emailErr = res.email.error;
+      emailAttempted = res.email.attempted;
     } catch (e) {
       console.error("[notifyApplicant]", e);
     }
-    const sent: string[] = [];
-    if (emailOk) sent.push("emailed");
-    if (smsOk) sent.push("texted");
     const problems: string[] = [];
     if (emailAttempted && !emailOk) problems.push(`email failed${emailErr ? `: ${emailErr}` : ""}`);
-    if (smsAttempted && !smsOk)     problems.push(`text failed${smsErr ? `: ${smsErr}` : ""}`);
     if (!emailAttempted) problems.push("no email on file");
-    if (!smsAttempted)   problems.push("no phone on file");
-    const isFailure = sent.length === 0 || problems.length > 0;
-    const title = sent.length > 0
-      ? `${args.successVerb} ${sent.join(" & ")} to ${name}`
+    const isFailure = !emailOk;
+    const title = emailOk
+      ? `${args.successVerb} emailed to ${name}`
       : `${args.successVerb} ready for ${name} — send link manually`;
     const notify = isFailure ? toast.warning : toast.success;
     notify(title, {
@@ -1073,6 +1057,7 @@ function JobsTab() {
       },
     });
   };
+
 
 
   return (
