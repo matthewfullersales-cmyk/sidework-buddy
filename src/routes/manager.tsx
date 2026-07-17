@@ -2185,8 +2185,24 @@ function TimeOffTab() {
         </div>
         {t.status === "pending" ? (
           <div className="flex gap-2">
-            <Button size="sm" variant="outline" onClick={() => { resolveTimeOff(t.id, false); toast.message("Denied"); }}>Deny</Button>
-            <Button size="sm" onClick={() => { resolveTimeOff(t.id, true); toast.success("Approved"); }}>Approve</Button>
+            <Button size="sm" variant="outline" onClick={() => {
+              resolveTimeOff(t.id, false);
+              toast.message("Denied");
+              const dateLabel = t.startDate === t.endDate ? t.startDate : `${t.startDate} → ${t.endDate}`;
+              if (/^[0-9a-f-]{36}$/i.test(t.employeeId)) {
+                notifyTimeOffResolved({ data: { employeeId: t.employeeId, approved: false, dateLabel } })
+                  .catch((e) => console.error("[notifyTimeOffResolved]", e));
+              }
+            }}>Deny</Button>
+            <Button size="sm" onClick={() => {
+              resolveTimeOff(t.id, true);
+              toast.success("Approved");
+              const dateLabel = t.startDate === t.endDate ? t.startDate : `${t.startDate} → ${t.endDate}`;
+              if (/^[0-9a-f-]{36}$/i.test(t.employeeId)) {
+                notifyTimeOffResolved({ data: { employeeId: t.employeeId, approved: true, dateLabel } })
+                  .catch((e) => console.error("[notifyTimeOffResolved]", e));
+              }
+            }}>Approve</Button>
           </div>
         ) : (
           <Badge className={t.status === "approved" ? "bg-success text-success-foreground hover:bg-success" : "bg-destructive text-destructive-foreground hover:bg-destructive"}>{t.status}</Badge>
