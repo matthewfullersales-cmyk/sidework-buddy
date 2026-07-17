@@ -14,6 +14,53 @@ export type Database = {
   }
   public: {
     Tables: {
+      employee_notifications: {
+        Row: {
+          body: string
+          created_at: string
+          data: Json
+          employee_id: string
+          id: string
+          kind: string
+          owner_id: string
+          read_at: string | null
+          title: string
+          url: string | null
+        }
+        Insert: {
+          body?: string
+          created_at?: string
+          data?: Json
+          employee_id: string
+          id?: string
+          kind: string
+          owner_id: string
+          read_at?: string | null
+          title: string
+          url?: string | null
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          data?: Json
+          employee_id?: string
+          id?: string
+          kind?: string
+          owner_id?: string
+          read_at?: string | null
+          title?: string
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_notifications_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "restaurant_employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_applications: {
         Row: {
           ai_score: string | null
@@ -226,6 +273,50 @@ export type Database = {
         }
         Relationships: []
       }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          employee_id: string
+          endpoint: string
+          id: string
+          last_used_at: string
+          owner_id: string
+          p256dh: string
+          user_agent: string | null
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          employee_id: string
+          endpoint: string
+          id?: string
+          last_used_at?: string
+          owner_id: string
+          p256dh: string
+          user_agent?: string | null
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          employee_id?: string
+          endpoint?: string
+          id?: string
+          last_used_at?: string
+          owner_id?: string
+          p256dh?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_subscriptions_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "restaurant_employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       restaurant_employees: {
         Row: {
           application_pitch: string | null
@@ -252,6 +343,7 @@ export type Database = {
           photo_url: string | null
           position: string | null
           primary_role: string
+          push_opt_in: boolean
           section: string | null
           seniority: number | null
           special_talents: string | null
@@ -284,6 +376,7 @@ export type Database = {
           photo_url?: string | null
           position?: string | null
           primary_role?: string
+          push_opt_in?: boolean
           section?: string | null
           seniority?: number | null
           special_talents?: string | null
@@ -316,6 +409,7 @@ export type Database = {
           photo_url?: string | null
           position?: string | null
           primary_role?: string
+          push_opt_in?: boolean
           section?: string | null
           seniority?: number | null
           special_talents?: string | null
