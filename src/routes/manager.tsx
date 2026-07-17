@@ -1009,9 +1009,8 @@ function JobsTab() {
     copyLinkWithToast(`${window.location.origin}/careers?job=${jobId}`, "Application link copied");
   };
 
-  // Fires email + SMS via Resend/Twilio for applicant-facing links and
-  // surfaces a copy-link fallback in the toast so the manager can share it
-  // manually if either channel fails (e.g. A2P still pending).
+  // Sends the applicant-facing link via email (Resend). Surfaces a copy-link
+  // fallback in the toast so the manager can share it manually if email fails.
   const notifyApplicant = async (args: {
     kind: "interview_offer" | "shadow_invite" | "hire_signup";
     app: JobApplication;
@@ -1020,9 +1019,9 @@ function JobsTab() {
     extra?: { slotCount?: number; shadowDate?: string; shadowTime?: string };
   }) => {
     const name = args.app.firstName ?? args.app.name ?? "applicant";
-    let emailOk = false, smsOk = false;
-    let emailErr: string | undefined, smsErr: string | undefined;
-    let emailAttempted = false, smsAttempted = false;
+    let emailOk = false;
+    let emailErr: string | undefined;
+    let emailAttempted = false;
     try {
       const res = await sendApplicantNotification({ data: {
         kind: args.kind,
@@ -1035,23 +1034,18 @@ function JobsTab() {
         shadowDate: args.extra?.shadowDate,
         shadowTime: args.extra?.shadowTime,
       }});
-      emailOk = res.email.ok; smsOk = res.sms.ok;
-      emailErr = res.email.error; smsErr = res.sms.error;
-      emailAttempted = res.email.attempted; smsAttempted = res.sms.attempted;
+      emailOk = res.email.ok;
+      emailErr = res.email.error;
+      emailAttempted = res.email.attempted;
     } catch (e) {
       console.error("[notifyApplicant]", e);
     }
-    const sent: string[] = [];
-    if (emailOk) sent.push("emailed");
-    if (smsOk) sent.push("texted");
     const problems: string[] = [];
     if (emailAttempted && !emailOk) problems.push(`email failed${emailErr ? `: ${emailErr}` : ""}`);
-    if (smsAttempted && !smsOk)     problems.push(`text failed${smsErr ? `: ${smsErr}` : ""}`);
     if (!emailAttempted) problems.push("no email on file");
-    if (!smsAttempted)   problems.push("no phone on file");
-    const isFailure = sent.length === 0 || problems.length > 0;
-    const title = sent.length > 0
-      ? `${args.successVerb} ${sent.join(" & ")} to ${name}`
+    const isFailure = !emailOk;
+    const title = emailOk
+      ? `${args.successVerb} emailed to ${name}`
       : `${args.successVerb} ready for ${name} — send link manually`;
     const notify = isFailure ? toast.warning : toast.success;
     notify(title, {
@@ -1063,6 +1057,7 @@ function JobsTab() {
       },
     });
   };
+
 
 
   return (
