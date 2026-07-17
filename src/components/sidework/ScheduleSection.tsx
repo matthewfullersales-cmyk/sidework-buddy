@@ -14,6 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { useStore, type Role, type Shift, type Position, type Section, type WeeklyAvailability, type MealPeriods, type Meal, DAY_KEYS, isAvailableFor, isAvailableForRange, mealForShiftStart, suggestedShiftTimes, hoursConfigured, isScheduleEligible, isPendingRoleAssignment, trainingProgressFor } from "@/lib/sidework-store";
 import { toast } from "sonner";
+import { notifyScheduleChanged } from "@/lib/notifications.functions";
 
 import { ROLE_COLORS, roleStyle, STATUS_COLORS, contrastText, fohRolesWithCustom, bohRolesWithCustom, allRolesWithCustom, nextCustomColor } from "@/lib/role-colors";
 
@@ -433,8 +434,31 @@ export function ScheduleSection() {
               <>✨ Generate AI Schedule</>
             )}
           </Button>
+          <Button
+            variant="default"
+            disabled={generating}
+            onClick={() => {
+              const empIds = Array.from(new Set(
+                shifts.filter((s) => dayISOs.includes(s.date)).map((s) => s.employeeId)
+              )).filter((id) => /^[0-9a-f-]{36}$/i.test(id));
+              if (empIds.length === 0) {
+                toast("No shifts to publish this week");
+                return;
+              }
+              const weekLabel = fmtRange(weekStart);
+              notifyScheduleChanged({ data: { employeeIds: empIds, kind: "published", weekLabel } })
+                .then((r) => toast.success(`Schedule published — ${r.notifCount} staff notified`))
+                .catch((err: unknown) => {
+                  console.error("[publish]", err);
+                  toast.error("Failed to publish");
+                });
+            }}
+          >
+            Publish week
+          </Button>
         </div>
       </div>
+
 
       <Dialog open={!!confirmCopy} onOpenChange={(o) => { if (!o) setConfirmCopy(null); }}>
         <DialogContent>
@@ -595,7 +619,17 @@ export function ScheduleSection() {
           date={editing.date}
           existing={editing.existing}
           onClose={() => setEditing(null)}
-          onSave={(shift) => { upsertShift(shift); setEditing(null); toast.success(editing.existing ? "Shift updated" : "Shift added"); }}
+          onSave={(shift) => {
+            upsertShift(shift);
+            setEditing(null);
+            toast.success(editing.existing ? "Shift updated" : "Shift added");
+            // Notify affected employee of a schedule change (only if their id is a real uuid).
+            if (editing.existing && /^[0-9a-f-]{36}$/i.test(shift.employeeId)) {
+              const weekLabel = fmtRange(weekStart);
+              notifyScheduleChanged({ data: { employeeIds: [shift.employeeId], kind: "adjusted", weekLabel } })
+                .catch((err: unknown) => console.error("[notifyScheduleChanged]", err));
+            }
+          }}
           onDelete={(id) => { deleteShift(id); setEditing(null); toast.success("Shift removed"); }}
         />
       )}

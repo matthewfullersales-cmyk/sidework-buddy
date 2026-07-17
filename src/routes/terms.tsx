@@ -40,10 +40,11 @@ function TermsPage() {
             86Paper provides software to help restaurant owners and managers with scheduling, hiring, and team communication. By using the platform, you agree to these terms.
           </p>
 
-          <h2 className="mt-10 text-xl font-semibold tracking-tight">SMS Communications</h2>
+          <h2 className="mt-10 text-xl font-semibold tracking-tight">Push Notifications</h2>
           <p className="mb-4 leading-relaxed">
-            By opting in, you consent to receive text messages from 86Paper related to interview scheduling, work schedules, shift availability, and related account activity. Message frequency varies. Message and data rates may apply. You may opt out at any time by replying STOP, or by adjusting your notification settings within the app. Reply HELP for assistance. Carriers are not liable for delayed or undelivered messages.
+            By enabling notifications, you consent to receive browser push notifications from 86Paper about work schedules, shift-trade availability, and time-off decisions. You may opt out at any time from your profile settings, your browser's site permissions, or by uninstalling the app. Delivery depends on your device, browser, and network; 86Paper is not liable for delayed or undelivered notifications. Interview, shadow-shift, and new-hire invitations are delivered by email; 86Paper does not send SMS/text messages.
           </p>
+
 
           <h2 className="mt-10 text-xl font-semibold tracking-tight">Accounts</h2>
           <p className="mb-4 leading-relaxed">

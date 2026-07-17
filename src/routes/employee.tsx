@@ -20,6 +20,8 @@ import { onboardingStatus, useStore, videosForEmployee, type Relationship, type 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatPhone } from "@/lib/format-phone";
 import { toast } from "sonner";
+import { EnablePushBanner, NotificationInbox, PushSettings } from "@/components/sidework/NotificationsUI";
+import { notifyTradePosted } from "@/lib/notifications.functions";
 
 const nav = [
   { to: "/employee", label: "Home", icon: <IconHome /> },
@@ -77,19 +79,27 @@ function EmployeePage() {
         title={`Hi, ${me.name.split(" ")[0]}`}
         subtitle={status.fullyOnboarded ? "You're fully onboarded. Nice work." : "Finish your training to get on the schedule."}
       />
+      <EnablePushBanner />
       <Tabs defaultValue={!me.personalInfoComplete ? "profile" : "schedule"}>
-        <TabsList className="mb-6 grid h-auto w-full grid-cols-3 md:grid-cols-5">
+        <TabsList className="mb-6 grid h-auto w-full grid-cols-3 md:grid-cols-6">
           <TabsTrigger value="profile">{me.personalInfoComplete ? "Profile" : "Onboarding"}</TabsTrigger>
           <TabsTrigger value="training">Training</TabsTrigger>
           <TabsTrigger value="schedule">Schedule</TabsTrigger>
           <TabsTrigger value="trades">Trades</TabsTrigger>
           <TabsTrigger value="timeoff">Time Off</TabsTrigger>
+          <TabsTrigger value="alerts">Alerts</TabsTrigger>
         </TabsList>
-        <TabsContent value="profile"><OnboardingTab employeeId={me.id} /></TabsContent>
+        <TabsContent value="profile">
+          <div className="grid gap-4">
+            <OnboardingTab employeeId={me.id} />
+            <PushSettings />
+          </div>
+        </TabsContent>
         <TabsContent value="training"><TrainingTab employeeId={me.id} /></TabsContent>
         <TabsContent value="schedule"><MyScheduleTab employeeId={me.id} /></TabsContent>
         <TabsContent value="trades"><TradesTab employeeId={me.id} /></TabsContent>
         <TabsContent value="timeoff"><TimeOffTab employeeId={me.id} /></TabsContent>
+        <TabsContent value="alerts"><NotificationInbox /></TabsContent>
       </Tabs>
     </AppShell>
   );
@@ -305,7 +315,7 @@ function TrainingTab({ employeeId }: { employeeId: string }) {
 }
 
 function MyScheduleTab({ employeeId }: { employeeId: string }) {
-  const { shifts, trades, postTrade } = useStore();
+  const { shifts, trades, employees, postTrade } = useStore();
   const [weekOffset, setWeekOffset] = useState(0);
 
   const myShifts = useMemo(() => shifts.filter((s) => s.employeeId === employeeId), [shifts, employeeId]);
@@ -459,7 +469,21 @@ function MyScheduleTab({ employeeId }: { employeeId: string }) {
                           {onBoard ? (
                             <Badge variant="secondary" className="text-[11px]">On trade board</Badge>
                           ) : canPost ? (
-                            <PostTradeButton onPost={(note) => { postTrade(s.id, note); toast.success("Posted to trade board"); }} />
+                            <PostTradeButton onPost={(note) => {
+                              postTrade(s.id, note);
+                              toast.success("Posted to trade board");
+                              // Fan out push + inbox to eligible role-matched teammates (exclude self).
+                              const targets = employees
+                                .filter((e) => e.id !== employeeId && e.primaryRole === s.role)
+                                .map((e) => e.id)
+                                .filter((id) => /^[0-9a-f-]{36}$/i.test(id));
+                              const dateLabel = new Date(`${s.date}T00:00:00`).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+                              const shiftLabel = `${dateLabel} ${fmtTime(s.start)}–${fmtTime(s.end)}`;
+                              if (targets.length > 0) {
+                                notifyTradePosted({ data: { employeeIds: targets, shiftLabel, role: s.role } })
+                                  .catch((e) => console.error("[notifyTradePosted]", e));
+                              }
+                            }} />
                           ) : null}
                         </div>
                       </div>
