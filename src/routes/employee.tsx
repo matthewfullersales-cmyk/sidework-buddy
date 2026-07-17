@@ -469,7 +469,21 @@ function MyScheduleTab({ employeeId }: { employeeId: string }) {
                           {onBoard ? (
                             <Badge variant="secondary" className="text-[11px]">On trade board</Badge>
                           ) : canPost ? (
-                            <PostTradeButton onPost={(note) => { postTrade(s.id, note); toast.success("Posted to trade board"); }} />
+                            <PostTradeButton onPost={(note) => {
+                              postTrade(s.id, note);
+                              toast.success("Posted to trade board");
+                              // Fan out push + inbox to eligible role-matched teammates (exclude self).
+                              const targets = employees
+                                .filter((e) => e.id !== employeeId && e.primaryRole === s.role)
+                                .map((e) => e.id)
+                                .filter((id) => /^[0-9a-f-]{36}$/i.test(id));
+                              const dateLabel = new Date(`${s.date}T00:00:00`).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+                              const shiftLabel = `${dateLabel} ${fmtTime(s.start)}–${fmtTime(s.end)}`;
+                              if (targets.length > 0) {
+                                notifyTradePosted({ data: { employeeIds: targets, shiftLabel, role: s.role } })
+                                  .catch((e) => console.error("[notifyTradePosted]", e));
+                              }
+                            }} />
                           ) : null}
                         </div>
                       </div>
