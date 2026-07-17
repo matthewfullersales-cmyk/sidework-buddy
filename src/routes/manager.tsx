@@ -542,8 +542,7 @@ function TeamTab() {
                 </Select>
               </div>
               <p className="text-xs text-muted-foreground">
-                We'll text and email them a personal invite link so they can finish their own profile (availability, emergency contact, password).
-                Twilio A2P carrier review is still in progress, so SMS delivery may be inconsistent — the copy-link fallback always works.
+                We'll email them a personal invite link so they can finish their own profile (availability, emergency contact, password). A copy-link fallback is always shown.
               </p>
             </div>
             <DialogFooter>
@@ -561,12 +560,9 @@ function TeamTab() {
                       phone: form.phone.trim(),
                       role: form.role,
                     });
-                    // Fire real send (email + optional SMS). Non-blocking beyond await.
                     const restaurantName = restaurantProfile?.name ?? "your team";
                     let emailOk = false;
-                    let smsOk = false;
                     let emailErr: string | undefined;
-                    let smsErr: string | undefined;
                     try {
                       const res = await sendStaffInvite({ data: {
                         inviteUrl: invite.inviteUrl,
@@ -577,22 +573,16 @@ function TeamTab() {
                         senderName: restaurantName,
                       }});
                       emailOk = res.email.ok;
-                      smsOk = res.sms.ok;
                       emailErr = res.email.error;
-                      smsErr = res.sms.error;
                     } catch (e) {
                       console.error("[sendStaffInvite]", e);
                     }
-                    const parts: string[] = [];
-                    if (emailOk) parts.push("emailed");
-                    if (smsOk) parts.push("texted");
-                    const summary = parts.length > 0
-                      ? `Invite ${parts.join(" & ")} to ${form.firstName.trim()}`
+                    const summary = emailOk
+                      ? `Invite emailed to ${form.firstName.trim()}`
                       : `Invite created for ${form.firstName.trim()}`;
-                    const problems = [
-                      !emailOk && form.email.trim() ? `email failed${emailErr ? `: ${emailErr}` : ""}` : null,
-                      !smsOk && form.phone.trim()   ? `SMS failed${smsErr ? `: ${smsErr}` : ""}`     : null,
-                    ].filter(Boolean).join(" · ");
+                    const problems = !emailOk && form.email.trim()
+                      ? `email failed${emailErr ? `: ${emailErr}` : ""}`
+                      : "";
                     toast.success(summary, {
                       description: `${problems ? problems + " — " : ""}Copy backup link: ${invite.inviteUrl}`,
                       duration: 10000,
