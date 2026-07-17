@@ -315,7 +315,7 @@ function TrainingTab({ employeeId }: { employeeId: string }) {
 }
 
 function MyScheduleTab({ employeeId }: { employeeId: string }) {
-  const { shifts, trades, postTrade } = useStore();
+  const { shifts, trades, employees, postTrade } = useStore();
   const [weekOffset, setWeekOffset] = useState(0);
 
   const myShifts = useMemo(() => shifts.filter((s) => s.employeeId === employeeId), [shifts, employeeId]);
