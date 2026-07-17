@@ -79,9 +79,11 @@ export async function enablePush(): Promise<{ ok: true } | { ok: false; reason: 
   if (!key) return { ok: false, reason: "Server push keys not configured." };
   let sub: PushSubscription;
   try {
+    const raw = urlBase64ToUint8Array(key);
+    const appServerKey = raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength) as ArrayBuffer;
     sub = await reg.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(key),
+      applicationServerKey: appServerKey,
     });
   } catch (e) {
     return { ok: false, reason: (e as Error).message || "Failed to subscribe." };
