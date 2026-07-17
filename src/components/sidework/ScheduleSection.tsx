@@ -595,7 +595,17 @@ export function ScheduleSection() {
           date={editing.date}
           existing={editing.existing}
           onClose={() => setEditing(null)}
-          onSave={(shift) => { upsertShift(shift); setEditing(null); toast.success(editing.existing ? "Shift updated" : "Shift added"); }}
+          onSave={(shift) => {
+            upsertShift(shift);
+            setEditing(null);
+            toast.success(editing.existing ? "Shift updated" : "Shift added");
+            // Notify affected employee of a schedule change (only if their id is a real uuid).
+            if (editing.existing && /^[0-9a-f-]{36}$/i.test(shift.employeeId)) {
+              const weekLabel = fmtRange(weekStart);
+              notifyScheduleChanged({ data: { employeeIds: [shift.employeeId], kind: "adjusted", weekLabel } })
+                .catch((err: unknown) => console.error("[notifyScheduleChanged]", err));
+            }
+          }}
           onDelete={(id) => { deleteShift(id); setEditing(null); toast.success("Shift removed"); }}
         />
       )}
