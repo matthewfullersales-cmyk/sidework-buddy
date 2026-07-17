@@ -40,13 +40,14 @@ function PrivacyPage() {
             We collect information you provide directly, including name, phone number, email address, and employment-related information (schedules, availability, role, and application materials) submitted through the 86Paper platform.
           </p>
 
-          <h2 className="mt-10 text-xl font-semibold tracking-tight">SMS/Text Messaging</h2>
+          <h2 className="mt-10 text-xl font-semibold tracking-tight">Push Notifications</h2>
           <p className="mb-4 leading-relaxed">
-            With your consent, we send text messages to the phone number on file for purposes including: interview scheduling, work schedule notifications, schedule change alerts, and open shift availability alerts. Message frequency varies based on your role and activity. Message and data rates may apply. You may opt out of SMS notifications at any time by replying STOP to any message, or by disabling notifications in your account settings. Reply HELP for assistance.
+            With your consent, we deliver browser push notifications to your device for purposes including: new schedule publications, schedule change alerts, open shift/trade board availability, and time-off request decisions. To deliver push notifications we store your browser's push subscription (endpoint URL and encryption keys) so your device's push service can reach you. You may opt out at any time by turning notifications off in your profile settings, revoking notification permission for this site in your browser, or uninstalling the app from your device. 86Paper does not send marketing push notifications.
           </p>
           <p className="mb-4 leading-relaxed">
-            We do not sell or share your mobile phone number or SMS opt-in status with third parties for their marketing purposes. Your phone number is used solely to deliver the notifications described above.
+            Interview invitations, shadow-shift invitations, and new-hire signup links are delivered by email — 86Paper no longer sends any SMS/text messages.
           </p>
+
 
           <h2 className="mt-10 text-xl font-semibold tracking-tight">How We Use Information</h2>
           <p className="mb-4 leading-relaxed">
