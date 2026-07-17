@@ -20,6 +20,8 @@ import { onboardingStatus, useStore, videosForEmployee, type Relationship, type 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatPhone } from "@/lib/format-phone";
 import { toast } from "sonner";
+import { EnablePushBanner, NotificationInbox, PushSettings } from "@/components/sidework/NotificationsUI";
+import { notifyTradePosted } from "@/lib/notifications.functions";
 
 const nav = [
   { to: "/employee", label: "Home", icon: <IconHome /> },
