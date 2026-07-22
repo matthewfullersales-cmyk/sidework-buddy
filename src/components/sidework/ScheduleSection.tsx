@@ -1024,7 +1024,7 @@ function ShiftDetailsDialog({
           <div className="flex gap-2">
             <Button variant="ghost" onClick={onClose}>Cancel</Button>
             <Button
-              disabled={blocked || needsOverride || (trainingBlocked && !existing)}
+              disabled={blocked || needsOverride || (pendingRole && !existing) || (trainingBlocked && !existing && !overrideTraining)}
               onClick={() => {
                 if (blocked) {
                   toast.error(`${emp?.name ?? "Employee"} has approved time off on this date`);
@@ -1034,8 +1034,12 @@ function ShiftDetailsDialog({
                   toast.error(`Confirm scheduling despite ${emp?.name ?? "employee"}'s marked unavailability`);
                   return;
                 }
-                if (trainingBlocked && !existing) {
+                if (pendingRole && !existing) {
                   toast.error(trainingBlockMsg);
+                  return;
+                }
+                if (trainingBlocked && !existing && !overrideTraining) {
+                  toast.error("Confirm scheduling despite incomplete training");
                   return;
                 }
                 onSave({
