@@ -911,13 +911,21 @@ function ShiftDetailsDialog({
           {trainingBlocked && !existing && (
             <div
               role="alert"
-              className="rounded-lg border border-destructive/60 bg-destructive/10 p-3 text-sm text-destructive"
+              className="rounded-lg border border-amber-500/60 bg-amber-500/10 p-3 text-sm text-amber-900 dark:text-amber-200"
             >
-              <p className="font-semibold">⛔ Not schedule-eligible</p>
+              <p className="font-semibold">⚠️ Training incomplete</p>
               <p className="mt-1 text-xs">{trainingBlockMsg}</p>
               <p className="mt-1 text-xs opacity-90">
-                Employees become schedule-eligible after passing every required training module (general knowledge + role-specific + menu quiz) at 80% or higher.
+                Schedule-eligibility requires passing every required module (general + role-specific + menu quiz) at 80%. You can still schedule this shift — useful for veteran staff onboarded before training was set up.
               </p>
+              <label className="mt-2 flex items-center gap-2 text-xs font-medium">
+                <Checkbox
+                  checked={overrideTraining}
+                  onCheckedChange={(v) => setOverrideTraining(v === true)}
+                  aria-label="Schedule despite incomplete training"
+                />
+                Schedule anyway
+              </label>
             </div>
           )}
           {availConflict && (
