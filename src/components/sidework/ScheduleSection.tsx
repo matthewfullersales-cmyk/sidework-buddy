@@ -909,7 +909,16 @@ function ShiftDetailsDialog({
               </p>
             </div>
           )}
-          {trainingBlocked && !existing && (
+          {pendingRole && !existing && (
+            <div
+              role="alert"
+              className="rounded-lg border border-destructive/60 bg-destructive/10 p-3 text-sm text-destructive"
+            >
+              <p className="font-semibold">⛔ No role assigned</p>
+              <p className="mt-1 text-xs">{trainingBlockMsg}</p>
+            </div>
+          )}
+          {trainingBlocked && !pendingRole && !existing && (
             <div
               role="alert"
               className="rounded-lg border border-amber-500/60 bg-amber-500/10 p-3 text-sm text-amber-900 dark:text-amber-200"
