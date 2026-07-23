@@ -732,6 +732,8 @@ interface Store {
   setMenu: (m: MenuUpload | null) => void;
   setDrinkMenu: (m: MenuUpload | null) => void;
   markMenuGenerated: () => void;
+  /** Replace the menu-quiz training module's questions with an AI-generated set. */
+  setMenuQuiz: (questions: { question: string; options: string[]; answerIndex: number }[]) => void;
   completeSetup: (profile: Omit<RestaurantProfile, "completedAt">, food: MenuUpload | null, drink: MenuUpload | null) => void;
   resetSetup: () => void;
   markNotificationsRead: () => void;
@@ -2176,6 +2178,16 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     setDrinkMenu: (m) => setState((s) => ({ ...s, drinkMenu: m })),
     markMenuGenerated: () =>
       setState((s) => ({ ...s, menu: s.menu ? { ...s.menu, generatedAt: new Date().toISOString() } : s.menu })),
+    setMenuQuiz: (questions) =>
+      setState((s) => ({
+        ...s,
+        videos: s.videos.map((v) =>
+          v.id === "menu-quiz"
+            ? { ...v, quiz: questions.map((q) => ({ ...q, options: [...q.options] })) }
+            : v,
+        ),
+        menu: s.menu ? { ...s.menu, generatedAt: new Date().toISOString() } : s.menu,
+      })),
     completeSetup: (profile, food, drink) =>
       setState((s) => ({
         ...s,
