@@ -639,6 +639,59 @@ export type Database = {
           },
         ]
       }
+      training_progress: {
+        Row: {
+          attempts: number
+          completed_at: string | null
+          created_at: string
+          employee_id: string
+          id: string
+          locked_out: boolean
+          owner_id: string
+          passed: boolean
+          quiz_score: number | null
+          updated_at: string
+          video_id: string
+          watched_sec: number
+        }
+        Insert: {
+          attempts?: number
+          completed_at?: string | null
+          created_at?: string
+          employee_id: string
+          id?: string
+          locked_out?: boolean
+          owner_id: string
+          passed?: boolean
+          quiz_score?: number | null
+          updated_at?: string
+          video_id: string
+          watched_sec?: number
+        }
+        Update: {
+          attempts?: number
+          completed_at?: string | null
+          created_at?: string
+          employee_id?: string
+          id?: string
+          locked_out?: boolean
+          owner_id?: string
+          passed?: boolean
+          quiz_score?: number | null
+          updated_at?: string
+          video_id?: string
+          watched_sec?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_progress_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "restaurant_employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

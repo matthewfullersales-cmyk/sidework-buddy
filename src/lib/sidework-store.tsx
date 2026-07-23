@@ -45,6 +45,11 @@ import {
   fetchMyTimeOff,
   fetchCoworkerNames,
 } from "@/lib/employee-supabase";
+import {
+  fetchOwnerTrainingProgress,
+  fetchEmployeeTrainingProgress,
+  upsertTrainingProgress,
+} from "@/lib/training-progress-supabase";
 import { useAuth } from "@/lib/auth-context";
 import { toast } from "sonner";
 
@@ -1240,7 +1245,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     }
     (async () => {
       try {
-        const [postings, apps, remoteEmployeesInitial, remoteHours, remoteShiftsInitial, remoteTimeOffInitial, remoteTradesInitial, remoteBusinessInfo] = await Promise.all([
+        const [postings, apps, remoteEmployeesInitial, remoteHours, remoteShiftsInitial, remoteTimeOffInitial, remoteTradesInitial, remoteBusinessInfo, remoteTrainingProgress] = await Promise.all([
           fetchOwnerPostings(effectiveOwnerId),
           fetchOwnerApplications(effectiveOwnerId),
           fetchOwnerEmployees(effectiveOwnerId),
@@ -1249,6 +1254,10 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           fetchOwnerTimeOff(effectiveOwnerId),
           fetchOwnerTrades(effectiveOwnerId),
           fetchBusinessInfo(effectiveOwnerId),
+          fetchOwnerTrainingProgress(effectiveOwnerId).catch((e) => {
+            console.error("[owner-sync] training progress load failed", e);
+            return new Map<string, VideoProgress[]>();
+          }),
         ]);
         if (cancelled) return;
 
@@ -1341,12 +1350,25 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
         }
 
 
+        // Merge cloud-stored training progress into each employee. Additive:
+        // if a given employee has no cloud rows, fall back to whatever the
+        // local roster already carries (preserves pre-migration progress on
+        // the device that recorded it).
+        const withProgress = (emps: Employee[]) =>
+          emps.map((e) => {
+            const cloud = remoteTrainingProgress.get(e.id);
+            if (cloud && cloud.length > 0) return { ...e, progress: cloud };
+            return e;
+          });
+
         setState((s) => ({
           ...s,
           jobs: postings,
           applications: apps,
           // If nothing remote and no bootstrap happened, keep local (single-device owner).
-          employees: remoteEmployees.length > 0 ? remoteEmployees : s.employees,
+          employees: remoteEmployees.length > 0
+            ? withProgress(remoteEmployees)
+            : withProgress(s.employees),
           shifts: remoteShifts,
           timeOff: remoteTimeOff.length > 0 ? remoteTimeOff : s.timeOff,
           trades: remoteTrades,
@@ -1380,12 +1402,16 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     ownerIdRef.current = employeeCtxOwnerId;
     (async () => {
       try {
-        const [me, myShifts, openTrades, myTimeOff, coworkers] = await Promise.all([
+        const [me, myShifts, openTrades, myTimeOff, coworkers, myProgress] = await Promise.all([
           fetchMyEmployeeRow(employeeCtxEmployeeId),
           fetchMyShifts(employeeCtxEmployeeId),
           fetchOwnerOpenTrades(employeeCtxOwnerId),
           fetchMyTimeOff(employeeCtxEmployeeId),
           fetchCoworkerNames(employeeCtxOwnerId),
+          fetchEmployeeTrainingProgress(employeeCtxEmployeeId).catch((e) => {
+            console.error("[employee-sync] training progress load failed", e);
+            return [] as VideoProgress[];
+          }),
         ]);
         if (cancelled) return;
         // Also fetch shifts referenced by open trades so the trade board
@@ -1413,9 +1439,12 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
             personalInfoComplete: false,
             progress: [] as VideoProgress[],
           }));
+        const meWithProgress = me
+          ? { ...me, progress: myProgress.length > 0 ? myProgress : me.progress }
+          : null;
         setState((s) => ({
           ...s,
-          employees: me ? [me, ...coworkerStubs] : coworkerStubs,
+          employees: meWithProgress ? [meWithProgress, ...coworkerStubs] : coworkerStubs,
           shifts: [...myShifts, ...boardShifts],
           trades: openTrades,
           timeOff: myTimeOff,
@@ -1644,30 +1673,45 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
       const oid = ownerIdRef.current;
       if (oid) updateEmployeeRow(id, patch).catch((e) => console.error("[updateEmployee]", e));
     },
-    recordVideoProgress: (employeeId, videoId, patch) =>
+    recordVideoProgress: (employeeId, videoId, patch) => {
+      let nextEntry: VideoProgress | null = null;
       setState((s) => ({
         ...s,
         employees: s.employees.map((e) => {
           if (e.id !== employeeId) return e;
           const existing = e.progress.find((p) => p.videoId === videoId);
+          const merged: VideoProgress = existing
+            ? { ...existing, ...patch }
+            : { videoId, watchedSec: 0, attempts: 0, ...patch };
+          nextEntry = merged;
           const next = existing
-            ? e.progress.map((p) => (p.videoId === videoId ? { ...p, ...patch } : p))
-            : [...e.progress, { videoId, watchedSec: 0, attempts: 0, ...patch }];
+            ? e.progress.map((p) => (p.videoId === videoId ? merged : p))
+            : [...e.progress, merged];
           return { ...e, progress: next };
         }),
-      })),
-    recordQuizAttempt: (employeeId, videoId, score, passed) =>
+      }));
+      const oid = ownerIdRef.current;
+      if (oid && nextEntry) {
+        upsertTrainingProgress(oid, employeeId, videoId, nextEntry).catch((e) =>
+          console.error("[recordVideoProgress] cloud sync failed", e),
+        );
+      }
+    },
+    recordQuizAttempt: (employeeId, videoId, score, passed) => {
+      let updatedEntry: VideoProgress | null = null;
       setState((s) => {
         const emp = s.employees.find((e) => e.id === employeeId);
         const video = s.videos.find((v) => v.id === videoId);
         if (!emp || !video) return s;
         const existing = emp.progress.find((p) => p.videoId === videoId);
         const attempts = (existing?.attempts ?? 0) + 1;
+        const merged: VideoProgress = existing
+          ? { ...existing, attempts, quizScore: score, passed: passed || existing.passed, completedAt: passed ? new Date().toISOString() : existing.completedAt, lockedOut: false }
+          : { videoId, watchedSec: video.durationSec, attempts, quizScore: score, passed, completedAt: passed ? new Date().toISOString() : undefined, lockedOut: false };
+        updatedEntry = merged;
         const nextProgress = existing
-          ? emp.progress.map((p) => p.videoId === videoId
-              ? { ...p, attempts, quizScore: score, passed: passed || p.passed, completedAt: passed ? new Date().toISOString() : p.completedAt, lockedOut: false }
-              : p)
-          : [...emp.progress, { videoId, watchedSec: video.durationSec, attempts, quizScore: score, passed, completedAt: passed ? new Date().toISOString() : undefined, lockedOut: false }];
+          ? emp.progress.map((p) => (p.videoId === videoId ? merged : p))
+          : [...emp.progress, merged];
         const newNotif: Notification = {
           id: uid("n"),
           type: passed ? "training_passed" : "training_failed",
@@ -1684,7 +1728,14 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           employees: s.employees.map((e) => e.id === employeeId ? { ...e, progress: nextProgress } : e),
           notifications: [newNotif, ...s.notifications],
         };
-      }),
+      });
+      const oid = ownerIdRef.current;
+      if (oid && updatedEntry) {
+        upsertTrainingProgress(oid, employeeId, videoId, updatedEntry).catch((e) =>
+          console.error("[recordQuizAttempt] cloud sync failed", e),
+        );
+      }
+    },
     upsertShift: (shift) => {
       // Optimistic local update first.
       setState((s) => {
