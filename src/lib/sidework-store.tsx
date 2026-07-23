@@ -716,7 +716,7 @@ interface Store {
   timeOff: TimeOffRequest[];
   menu: MenuUpload | null;
   drinkMenu: MenuUpload | null;
-  menuBankMeta: { version: number; updatedAt: string } | null;
+  menuBankMeta: MenuBankMeta | null;
   restaurantProfile: RestaurantProfile | null;
 
   restaurantHours: RestaurantHours;
