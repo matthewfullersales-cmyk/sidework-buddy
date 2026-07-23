@@ -219,7 +219,7 @@ function OverviewTab() {
         </CardHeader>
         <CardContent className="space-y-4">
           {employees.map((e) => {
-            const s = onboardingStatus(e, videos);
+            const s = onboardingStatus(e, videos, menuBankVersion);
             return (
               <div key={e.id} className="space-y-1.5">
                 <div className="flex items-center justify-between text-sm">
@@ -334,7 +334,8 @@ function PendingRoleAssignmentQueue({
 }
 
 function TeamTab() {
-  const { employees, videos, inviteEmployee, restaurantProfile, activeRoles, customRoles, shifts, trades, timeOff, clearAllEmployees, updateEmployee } = useStore();
+  const { employees, videos, inviteEmployee, restaurantProfile, activeRoles, customRoles, shifts, trades, timeOff, clearAllEmployees, updateEmployee, menuBankMeta } = useStore();
+  const menuBankVersion = menuBankMeta?.version ?? null;
   const fohActive = fohRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r));
   const bohActive = bohRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r));
   const [open, setOpen] = useState(false);
@@ -388,7 +389,7 @@ function TeamTab() {
       if (filters.has("all")) return true;
       const role = e.primaryRole;
       const isFoh = (FOH_ROLES as string[]).includes(role);
-      const status = onboardingStatus(e, videos);
+      const status = onboardingStatus(e, videos, menuBankVersion);
       for (const f of filters) {
         if (f === "foh" && isFoh) return true;
         if (f === "boh" && !isFoh) return true;
@@ -400,7 +401,7 @@ function TeamTab() {
     });
     const firstOf = (e: Employee) => (e.firstName ?? e.name.split(" ")[0] ?? "").toLowerCase();
     const lastOf = (e: Employee) => (e.lastName ?? e.name.split(" ").slice(1).join(" ") ?? "").toLowerCase();
-    const pctOf = (e: Employee) => onboardingStatus(e, videos).pct;
+    const pctOf = (e: Employee) => onboardingStatus(e, videos, menuBankVersion).pct;
     const sorted = [...list];
     sorted.sort((a, b) => {
       switch (sortKey) {
@@ -639,8 +640,9 @@ function TeamTab() {
           <Card><CardContent className="p-8 text-center text-sm text-muted-foreground">No staff match the current filters.</CardContent></Card>
         )}
         {visibleEmployees.map((e) => {
-          const s = onboardingStatus(e, videos);
+          const s = onboardingStatus(e, videos, menuBankVersion);
           const fullName = e.firstName && e.lastName ? `${e.firstName} ${e.lastName}` : e.name;
+          const menuState = menuTestStatus(e, menuBankVersion);
           return (
             <Card key={e.id}>
               <CardContent className="p-5">
@@ -662,16 +664,23 @@ function TeamTab() {
                   <div className="text-right">
                     {isPendingRoleAssignment(e) ? (
                       <Badge variant="secondary" className="bg-muted text-foreground">Pending role</Badge>
-                    ) : isScheduleEligible(e, videos, customRoles) ? (
+                    ) : isScheduleEligible(e, videos, customRoles, menuBankVersion) ? (
                       <Badge className="bg-success text-success-foreground hover:bg-success">Schedule eligible</Badge>
                     ) : (
                       (() => {
-                        const tp = trainingProgressFor(e, videos, customRoles);
+                        const tp = trainingProgressFor(e, videos, customRoles, menuBankVersion);
                         return <Badge variant="secondary" className="bg-amber-500/15 text-amber-700 dark:text-amber-300">In training · {tp.passed}/{tp.total}</Badge>;
                       })()
                     )}
+                    {menuState === "stale" && (
+                      <p className="mt-1 text-[11px] font-semibold text-amber-700 dark:text-amber-300">Menu updated — retake required</p>
+                    )}
+                    {(menuState === "never" || menuState === "in-progress") && (
+                      <p className="mt-1 text-[11px] font-semibold text-amber-700 dark:text-amber-300">Menu test not passed</p>
+                    )}
                     <p className="mt-1 text-xs text-muted-foreground">{s.passed}/{s.total} videos passed</p>
                     <Progress value={s.pct} className="mt-2 h-1.5 w-32" />
+
                     {(() => {
                       const recentAttempts = quizAttempts.filter((attempt) => attempt.employeeId === e.id).slice(0, 5);
                       if (recentAttempts.length === 0) return null;
