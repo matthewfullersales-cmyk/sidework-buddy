@@ -4,6 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/sidework/Logo";
 import { createCheckoutSession } from "@/lib/stripe-checkout.functions";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/pricing")({
