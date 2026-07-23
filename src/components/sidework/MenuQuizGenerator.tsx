@@ -9,9 +9,11 @@ import { useStore } from "@/lib/sidework-store";
 
 const ACCEPT = "application/pdf,image/png,image/jpeg,image/webp";
 const MAX_PDF_MB = 20;
-const MAX_IMAGE_INPUT_MB = 40; // pre-compression; we shrink client-side
+const MAX_IMAGE_INPUT_MB = 40;
 const COMPRESS_MAX_EDGE = 2000;
 const COMPRESS_QUALITY = 0.8;
+
+type MenuKind = "food" | "drink";
 
 function readFileAsBase64(file: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -55,69 +57,66 @@ async function compressImage(file: File): Promise<{ blob: Blob; mimeType: string
   }
 }
 
-export function MenuQuizGenerator({ menuName }: { menuName?: string }) {
-  const { restaurantProfile } = useStore();
+export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }) {
+  const { restaurantProfile, setMenu, setDrinkMenu, refreshMenuBankMeta, menuBankMeta } = useStore();
   const generate = useServerFn(generateMenuQuiz);
 
-  const inputRef = useRef<HTMLInputElement | null>(null);
-  const [file, setFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [food, setFood] = useState<File | null>(null);
+  const [drink, setDrink] = useState<File | null>(null);
+  const [foodPreview, setFoodPreview] = useState<string | null>(null);
+  const [drinkPreview, setDrinkPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [questions, setQuestions] = useState<MenuQuizPreviewQuestion[]>([]);
 
-  const pickFile = () => inputRef.current?.click();
-
-  const onFile = async (f: File | null) => {
+  const onFile = async (kind: MenuKind, f: File | null) => {
     setError(null);
     setQuestions([]);
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    setPreviewUrl(null);
-    if (!f) {
-      setFile(null);
-      return;
-    }
+    const prevUrl = kind === "food" ? foodPreview : drinkPreview;
+    if (prevUrl) URL.revokeObjectURL(prevUrl);
+    if (kind === "food") { setFood(null); setFoodPreview(null); }
+    else { setDrink(null); setDrinkPreview(null); }
+    if (!f) return;
     const isPdf = f.type === "application/pdf";
     if (isPdf && f.size > MAX_PDF_MB * 1024 * 1024) {
-      setError(
-        `This PDF is ${(f.size / 1024 / 1024).toFixed(1)} MB — over the ${MAX_PDF_MB} MB limit. Try re-exporting at "smallest file size", or snap a phone photo of the menu instead (photos are auto-compressed).`,
-      );
-      setFile(null);
+      setError(`This PDF is ${(f.size / 1024 / 1024).toFixed(1)} MB — over the ${MAX_PDF_MB} MB limit.`);
       return;
     }
     if (!isPdf && f.size > MAX_IMAGE_INPUT_MB * 1024 * 1024) {
       setError(`Image is too large (over ${MAX_IMAGE_INPUT_MB} MB). Try a smaller photo.`);
-      setFile(null);
       return;
     }
-    if (isPdf) {
-      setFile(f);
-      return;
+    let finalFile = f;
+    let preview: string | null = null;
+    if (!isPdf) {
+      try {
+        const { blob, mimeType, name } = await compressImage(f);
+        finalFile = new File([blob], name, { type: mimeType });
+        preview = URL.createObjectURL(finalFile);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Couldn't process that image.");
+        return;
+      }
     }
-    // Auto-compress images so a full-res phone photo becomes a small payload.
-    try {
-      const { blob, mimeType, name } = await compressImage(f);
-      const compressed = new File([blob], name, { type: mimeType });
-      setFile(compressed);
-      setPreviewUrl(URL.createObjectURL(compressed));
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "Couldn't process that image.";
-      setError(msg);
-      setFile(null);
-    }
+    if (kind === "food") { setFood(finalFile); setFoodPreview(preview); }
+    else { setDrink(finalFile); setDrinkPreview(preview); }
   };
 
   const runGenerate = async () => {
-    if (!file) return;
+    if (!food && !drink) {
+      toast.error("Upload at least one menu (food or drink) first.");
+      return;
+    }
     setLoading(true);
     setError(null);
     setQuestions([]);
     try {
-      const fileBase64 = await readFileAsBase64(file);
+      const foodPayload = food ? { fileBase64: await readFileAsBase64(food), mimeType: food.type } : undefined;
+      const drinkPayload = drink ? { fileBase64: await readFileAsBase64(drink), mimeType: drink.type } : undefined;
       const result = await generate({
         data: {
-          fileBase64,
-          mimeType: file.type,
+          food: foodPayload,
+          drink: drinkPayload,
           restaurantName: restaurantProfile?.name ?? "",
         },
       });
@@ -127,7 +126,37 @@ export function MenuQuizGenerator({ menuName }: { menuName?: string }) {
         return;
       }
       setQuestions(result.questions);
-      toast.success(`Generated and saved ${result.questions.length} questions from your menu.`);
+      // Persist the menu file references on the restaurant profile so the
+      // Team dashboard shows what was uploaded. Actual quiz answers are
+      // stored server-side only.
+      const now = new Date().toISOString();
+      if (food) {
+        setMenu({
+          name: food.name,
+          type: food.type,
+          sizeKB: Math.max(1, Math.round(food.size / 1024)),
+          uploadedAt: now,
+          generatedAt: now,
+          preview: foodPreview ?? undefined,
+        });
+      }
+      if (drink) {
+        setDrinkMenu({
+          name: drink.name,
+          type: drink.type,
+          sizeKB: Math.max(1, Math.round(drink.size / 1024)),
+          uploadedAt: now,
+          generatedAt: now,
+          preview: drinkPreview ?? undefined,
+        });
+      }
+      await refreshMenuBankMeta();
+      const isRegen = (menuBankMeta?.version ?? 0) > 0;
+      toast.success(
+        isRegen
+          ? `Menu Knowledge Test regenerated (v${result.bankVersion}). All staff will need to retake it before their next shift.`
+          : `Generated ${result.questions.length} menu questions. Staff must pass the Menu Knowledge Test before being scheduled.`,
+      );
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Something went wrong.";
       setError(msg);
@@ -137,15 +166,22 @@ export function MenuQuizGenerator({ menuName }: { menuName?: string }) {
     }
   };
 
+  const canGenerate = !!(food || drink) && !loading;
+
   return (
     <Card className="border-border">
       <CardHeader className="pb-3">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
-            <CardTitle className="text-base sm:text-lg">Menu Quiz Generator</CardTitle>
+            <CardTitle className="text-base sm:text-lg">Menu Knowledge Test</CardTitle>
             <p className="mt-1 text-xs text-muted-foreground">
-              Upload {menuName ? menuName : "your menu"} (PDF or photo) — AI reads it and builds a real quiz for your staff.
+              Upload your food menu, drink menu, or both. AI reads them and builds a real 15-question test. Every employee must pass at 80% before they can be scheduled.
             </p>
+            {menuBankMeta && (
+              <p className="mt-1 text-[11px] font-medium text-primary">
+                Current test: v{menuBankMeta.version} · updated {new Date(menuBankMeta.updatedAt).toLocaleDateString()}
+              </p>
+            )}
           </div>
           {questions.length > 0 && (
             <Badge variant="secondary" className="bg-primary-soft text-primary">
@@ -155,60 +191,31 @@ export function MenuQuizGenerator({ menuName }: { menuName?: string }) {
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Upload area */}
-        <div>
-          <input
-            ref={inputRef}
-            type="file"
+        <div className="grid gap-3 sm:grid-cols-2">
+          <MenuSlot
+            label="Food menu"
             accept={ACCEPT}
-            className="sr-only"
-            onChange={(e) => onFile(e.target.files?.[0] ?? null)}
+            file={food}
+            previewUrl={foodPreview}
+            onPick={(f) => onFile("food", f)}
           />
-          <div
-            onClick={pickFile}
-            onDragOver={(e) => {
-              e.preventDefault();
-              e.dataTransfer.dropEffect = "copy";
-            }}
-            onDrop={(e) => {
-              e.preventDefault();
-              onFile(e.dataTransfer.files?.[0] ?? null);
-            }}
-            className="cursor-pointer rounded-xl border-2 border-dashed border-border bg-muted/30 p-5 text-center transition-colors hover:border-primary/50 hover:bg-primary/5"
-          >
-            {file ? (
-              <div className="space-y-2">
-                {previewUrl ? (
-                  <img
-                    src={previewUrl}
-                    alt="Menu preview"
-                    className="mx-auto max-h-40 rounded-lg border border-border object-contain"
-                  />
-                ) : (
-                  <div className="mx-auto grid h-16 w-16 place-items-center rounded-lg bg-primary-soft text-primary">
-                    <PdfIcon className="h-8 w-8" />
-                  </div>
-                )}
-                <p className="text-sm font-medium">{file.name}</p>
-                <p className="text-xs text-muted-foreground">
-                  {(file.size / 1024 / 1024).toFixed(2)} MB · {file.type || "unknown"}
-                </p>
-                <p className="text-xs text-muted-foreground">Tap to replace</p>
-              </div>
-            ) : (
-              <div className="space-y-1">
-                <p className="text-sm font-medium">Upload your menu</p>
-                <p className="text-xs text-muted-foreground">
-                  PDF up to {MAX_PDF_MB} MB, or a phone photo (auto-compressed) · drag &amp; drop or click
-                </p>
-              </div>
-            )}
-          </div>
+          <MenuSlot
+            label="Drink menu"
+            accept={ACCEPT}
+            file={drink}
+            previewUrl={drinkPreview}
+            onPick={(f) => onFile("drink", f)}
+          />
         </div>
 
-        {/* Actions */}
+        {menuBankMeta && (
+          <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-900 dark:text-amber-200">
+            ⚠ Regenerating replaces the current test. Every employee's previous pass becomes stale and they'll need to retake before their next shift.
+          </div>
+        )}
+
         <div className="flex flex-wrap gap-2">
-          <Button onClick={runGenerate} disabled={!file || loading} className="flex-1 sm:flex-none">
+          <Button onClick={runGenerate} disabled={!canGenerate} className="flex-1 sm:flex-none">
             {loading ? (
               <>
                 <Spinner className="mr-2 h-4 w-4 animate-spin" />
@@ -216,51 +223,43 @@ export function MenuQuizGenerator({ menuName }: { menuName?: string }) {
               </>
             ) : questions.length > 0 ? (
               "Regenerate"
+            ) : menuBankMeta ? (
+              "Regenerate Menu Knowledge Test"
             ) : (
-              "Generate quiz with AI"
+              "Generate Menu Knowledge Test"
             )}
           </Button>
         </div>
 
-        {/* Loading state */}
         {loading && (
           <div className="rounded-xl border border-primary/30 bg-primary-soft p-4 text-sm text-primary">
-            The AI is reading your menu and writing questions. This usually takes 5–15 seconds…
+            The AI is reading your menu(s) and writing questions. This usually takes 5–20 seconds…
           </div>
         )}
-
-        {/* Error state */}
         {error && !loading && (
           <div className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-sm">
             <div className="flex-1 text-destructive">{error}</div>
-            <Button size="sm" variant="outline" onClick={runGenerate} disabled={!file}>
+            <Button size="sm" variant="outline" onClick={runGenerate} disabled={!canGenerate}>
               Retry
             </Button>
           </div>
         )}
 
-        {/* Questions preview */}
         {questions.length > 0 && !loading && (
           <div className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Preview (5 will be drawn per attempt, shuffled)</p>
             {questions.map((q, i) => (
               <div key={i} className="rounded-xl border border-border bg-background p-3 sm:p-4">
                 <p className="text-sm font-medium sm:text-base">
                   <span className="mr-1 text-primary">{i + 1}.</span> {q.question}
                 </p>
                 <div className="mt-2 grid gap-1.5">
-                  {q.options.map((opt, j) => {
-                    return (
-                      <div
-                        key={j}
-                        className="rounded-lg border border-border bg-card px-3 py-2 text-sm"
-                      >
-                        <span className="mr-2 font-mono text-xs text-muted-foreground">
-                          {String.fromCharCode(65 + j)}.
-                        </span>
-                        {opt}
-                      </div>
-                    );
-                  })}
+                  {q.options.map((opt, j) => (
+                    <div key={j} className="rounded-lg border border-border bg-card px-3 py-2 text-sm">
+                      <span className="mr-2 font-mono text-xs text-muted-foreground">{String.fromCharCode(65 + j)}.</span>
+                      {opt}
+                    </div>
+                  ))}
                 </div>
               </div>
             ))}
@@ -268,6 +267,51 @@ export function MenuQuizGenerator({ menuName }: { menuName?: string }) {
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function MenuSlot({
+  label, accept, file, previewUrl, onPick,
+}: {
+  label: string; accept: string; file: File | null; previewUrl: string | null; onPick: (f: File | null) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  return (
+    <div>
+      <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+      <input
+        ref={inputRef}
+        type="file"
+        accept={accept}
+        className="sr-only"
+        onChange={(e) => onPick(e.target.files?.[0] ?? null)}
+      />
+      <div
+        onClick={() => inputRef.current?.click()}
+        onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; }}
+        onDrop={(e) => { e.preventDefault(); onPick(e.dataTransfer.files?.[0] ?? null); }}
+        className="cursor-pointer rounded-xl border-2 border-dashed border-border bg-muted/30 p-4 text-center transition-colors hover:border-primary/50 hover:bg-primary/5"
+      >
+        {file ? (
+          <div className="space-y-2">
+            {previewUrl ? (
+              <img src={previewUrl} alt="" className="mx-auto max-h-32 rounded-lg border border-border object-contain" />
+            ) : (
+              <div className="mx-auto grid h-12 w-12 place-items-center rounded-lg bg-primary-soft text-primary">
+                <PdfIcon className="h-6 w-6" />
+              </div>
+            )}
+            <p className="truncate text-sm font-medium">{file.name}</p>
+            <p className="text-[11px] text-muted-foreground">{(file.size / 1024 / 1024).toFixed(2)} MB — tap to replace</p>
+          </div>
+        ) : (
+          <div className="space-y-1 py-2">
+            <p className="text-sm font-medium">Upload {label.toLowerCase()}</p>
+            <p className="text-[11px] text-muted-foreground">PDF or photo · drag &amp; drop or click</p>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 

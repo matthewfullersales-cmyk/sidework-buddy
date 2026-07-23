@@ -49,7 +49,9 @@ import {
   fetchOwnerTrainingProgress,
   fetchEmployeeTrainingProgress,
   upsertTrainingProgress,
+  fetchMenuBankMeta,
 } from "@/lib/training-progress-supabase";
+
 import { useAuth } from "@/lib/auth-context";
 import { toast } from "sonner";
 
@@ -81,7 +83,15 @@ export interface VideoProgress {
   lockedOut?: boolean;
   /** Set true if the employee switched tabs/apps during their most recent quiz attempt. */
   distractionFlagged?: boolean;
+  /**
+   * Only used for `videoId === "menu-quiz"`. Version of the menu bank the
+   * employee passed against. When the owner regenerates the menu bank the
+   * new bank_version supersedes this, and the pass is treated as stale
+   * (schedule access re-locks until they retake).
+   */
+  bankVersion?: number;
 }
+
 
 export type Section = "FOH" | "BOH";
 export type Position =
@@ -706,7 +716,9 @@ interface Store {
   timeOff: TimeOffRequest[];
   menu: MenuUpload | null;
   drinkMenu: MenuUpload | null;
+  menuBankMeta: { version: number; updatedAt: string } | null;
   restaurantProfile: RestaurantProfile | null;
+
   restaurantHours: RestaurantHours;
   mealPeriods: MealPeriods;
   setRestaurantHours: (h: RestaurantHours) => void;
@@ -727,7 +739,10 @@ interface Store {
   setMenu: (m: MenuUpload | null) => void;
   setDrinkMenu: (m: MenuUpload | null) => void;
   markMenuGenerated: () => void;
+  setMenuBankMeta: (m: { version: number; updatedAt: string } | null) => void;
+  refreshMenuBankMeta: () => Promise<void>;
   completeSetup: (profile: Omit<RestaurantProfile, "completedAt">, food: MenuUpload | null, drink: MenuUpload | null) => void;
+
   resetSetup: () => void;
   markNotificationsRead: () => void;
   inviteEmployee: (data: {
@@ -759,8 +774,9 @@ interface Store {
   applyQuizAttemptResult: (
     employeeId: string,
     videoId: string,
-    result: { score: number; passed: boolean; attempts: number; distractionFlagged: boolean },
+    result: { score: number; passed: boolean; attempts: number; distractionFlagged: boolean; bankVersion?: number },
   ) => void;
+
   postTrade: (shiftId: string, note?: string) => void;
   upsertShift: (shift: Shift) => void;
   deleteShift: (id: string) => void;
@@ -881,6 +897,8 @@ const MENU_MODULE: ModuleDef = {
 };
 
 const MODULE_DEFS: ModuleDef[] = [...GENERAL_MODULES, ...ROLE_MODULES, MENU_MODULE];
+export const MENU_MODULE_ID = MENU_MODULE.id;
+
 
 export function sectionForRole(role: Role, customRoles: CustomRole[] = []): Section {
   if (BOH_BUILT_IN.includes(role)) return "BOH";
@@ -950,20 +968,60 @@ export function isPendingRoleAssignment(emp: Pick<Employee, "personalInfoComplet
 }
 
 /**
+ * True if the employee's stored menu-quiz pass is against the current bank.
+ * Any pass stamped with an older bank_version (or no version at all — the
+ * pre-versioning schema) is treated as stale after a menu regeneration.
+ */
+function hasCurrentMenuPass(
+  progress: VideoProgress[],
+  currentMenuBankVersion: number | null | undefined,
+): boolean {
+  const row = progress.find((p) => p.videoId === MENU_MODULE.id);
+  if (!row || !row.passed) return false;
+  if (currentMenuBankVersion == null) return true; // no bank yet — nothing to compare against
+  return row.bankVersion === currentMenuBankVersion;
+}
+
+export type MenuTestStatus = "not-required" | "never" | "in-progress" | "stale" | "passed";
+
+/**
+ * Menu Knowledge Test status for a single employee, relative to the
+ * restaurant's current menu bank version. "stale" = they previously
+ * passed, but the menu has since been regenerated and they need to retake.
+ */
+export function menuTestStatus(
+  emp: Pick<Employee, "primaryRole" | "approvedRoles" | "progress">,
+  currentMenuBankVersion: number | null | undefined,
+): MenuTestStatus {
+  if (currentMenuBankVersion == null) return "not-required";
+  const row = emp.progress.find((p) => p.videoId === MENU_MODULE.id);
+  if (!row) return "never";
+  if (!row.passed) return "in-progress";
+  if (row.bankVersion !== currentMenuBankVersion) return "stale";
+  return "passed";
+}
+
+/**
  * "Schedule eligible" — a role has been assigned AND every required training
  * module for that role's track has been passed. This is the gate a manager
- * hits when trying to schedule the employee.
+ * hits when trying to schedule the employee. When the menu quiz bank has
+ * been regenerated, an outdated menu-quiz pass no longer counts.
  */
 export function isScheduleEligible(
   emp: Pick<Employee, "personalInfoComplete" | "primaryRole" | "approvedRoles" | "progress">,
   videos: TrainingVideo[],
   customRoles: CustomRole[] = [],
+  currentMenuBankVersion: number | null | undefined = null,
 ): boolean {
   if (isPendingRoleAssignment(emp)) return false;
   const required = new Set(moduleIdsForEmployee(emp, customRoles));
   if (required.size === 0) return false;
   const passed = new Set(emp.progress.filter((p) => p.passed).map((p) => p.videoId));
   for (const id of required) {
+    if (id === MENU_MODULE.id) {
+      if (!hasCurrentMenuPass(emp.progress, currentMenuBankVersion)) return false;
+      continue;
+    }
     if (!passed.has(id)) return false;
   }
   return true;
@@ -974,11 +1032,19 @@ export function trainingProgressFor(
   emp: Pick<Employee, "primaryRole" | "approvedRoles" | "progress">,
   videos: TrainingVideo[],
   customRoles: CustomRole[] = [],
+  currentMenuBankVersion: number | null | undefined = null,
 ): { passed: number; total: number } {
   const required = moduleIdsForEmployee(emp, customRoles);
   const passedIds = new Set(emp.progress.filter((p) => p.passed).map((p) => p.videoId));
-  return { passed: required.filter((id) => passedIds.has(id)).length, total: required.length };
+  const menuStale = passedIds.has(MENU_MODULE.id) && !hasCurrentMenuPass(emp.progress, currentMenuBankVersion);
+  const passed = required.filter((id) => {
+    if (id === MENU_MODULE.id) return hasCurrentMenuPass(emp.progress, currentMenuBankVersion);
+    return passedIds.has(id);
+  }).length;
+  void menuStale;
+  return { passed, total: required.length };
 }
+
 
 function seedEmployees(): Employee[] {
   type Seed = {
@@ -1146,7 +1212,9 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     customRoles: [] as CustomRole[],
     setupCompleted: false,
     notifications: [] as Notification[],
+    menuBankMeta: null as { version: number; updatedAt: string } | null,
   }));
+
 
   useEffect(() => {
     try {
@@ -1204,7 +1272,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     }
     (async () => {
       try {
-        const [postings, apps, remoteEmployeesInitial, remoteHours, remoteShiftsInitial, remoteTimeOffInitial, remoteTradesInitial, remoteBusinessInfo, remoteTrainingProgress] = await Promise.all([
+        const [postings, apps, remoteEmployeesInitial, remoteHours, remoteShiftsInitial, remoteTimeOffInitial, remoteTradesInitial, remoteBusinessInfo, remoteTrainingProgress, menuBankMeta] = await Promise.all([
           fetchOwnerPostings(effectiveOwnerId),
           fetchOwnerApplications(effectiveOwnerId),
           fetchOwnerEmployees(effectiveOwnerId),
@@ -1217,7 +1285,12 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
             console.error("[owner-sync] training progress load failed", e);
             return new Map<string, VideoProgress[]>();
           }),
+          fetchMenuBankMeta(effectiveOwnerId).catch((e) => {
+            console.error("[owner-sync] menu bank meta load failed", e);
+            return null;
+          }),
         ]);
+
         if (cancelled) return;
 
         // Employees: cloud is authoritative once anything exists there. Otherwise,
@@ -1333,7 +1406,9 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           trades: remoteTrades,
           ...hoursPatch,
           businessInfo: normalizeBusinessInfo(remoteBusinessInfo),
+          menuBankMeta,
         }));
+
       } catch (e) {
         console.error("[owner-sync] failed to load", e);
       }
@@ -1361,7 +1436,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     ownerIdRef.current = employeeCtxOwnerId;
     (async () => {
       try {
-        const [me, myShifts, openTrades, myTimeOff, coworkers, myProgress] = await Promise.all([
+        const [me, myShifts, openTrades, myTimeOff, coworkers, myProgress, menuBankMeta] = await Promise.all([
           fetchMyEmployeeRow(employeeCtxEmployeeId),
           fetchMyShifts(employeeCtxEmployeeId),
           fetchOwnerOpenTrades(employeeCtxOwnerId),
@@ -1371,7 +1446,12 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
             console.error("[employee-sync] training progress load failed", e);
             return [] as VideoProgress[];
           }),
+          fetchMenuBankMeta(employeeCtxOwnerId).catch((e) => {
+            console.error("[employee-sync] menu bank meta load failed", e);
+            return null;
+          }),
         ]);
+
         if (cancelled) return;
         // Also fetch shifts referenced by open trades so the trade board
         // can render cards for shifts that aren't the caller's own.
@@ -1410,7 +1490,9 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           // Owner-only surfaces cleared for employee sessions
           jobs: [],
           applications: [],
+          menuBankMeta,
         }));
+
         // Auto-select this employee as currentUser so /employee finds them.
         setState((s) => ({
           ...s,
@@ -1657,7 +1739,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
       }
     },
     applyQuizAttemptResult: (employeeId, videoId, result) => {
-      const { score, passed, attempts, distractionFlagged } = result;
+      const { score, passed, attempts, distractionFlagged, bankVersion } = result;
       setState((s) => {
         const emp = s.employees.find((e) => e.id === employeeId);
         const video = s.videos.find((v) => v.id === videoId);
@@ -1672,6 +1754,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
               completedAt: passed ? new Date().toISOString() : existing.completedAt,
               lockedOut: false,
               distractionFlagged,
+              bankVersion: bankVersion ?? existing.bankVersion,
             }
           : {
               videoId,
@@ -1682,6 +1765,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
               completedAt: passed ? new Date().toISOString() : undefined,
               lockedOut: false,
               distractionFlagged,
+              bankVersion,
             };
         const nextProgress = existing
           ? emp.progress.map((p) => (p.videoId === videoId ? merged : p))
@@ -1704,6 +1788,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
         };
       });
     },
+
     upsertShift: (shift) => {
       // Optimistic local update first.
       setState((s) => {
@@ -2144,6 +2229,18 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     setDrinkMenu: (m) => setState((s) => ({ ...s, drinkMenu: m })),
     markMenuGenerated: () =>
       setState((s) => ({ ...s, menu: s.menu ? { ...s.menu, generatedAt: new Date().toISOString() } : s.menu })),
+    setMenuBankMeta: (m) => setState((s) => ({ ...s, menuBankMeta: m })),
+    refreshMenuBankMeta: async () => {
+      const oid = ownerIdRef.current;
+      if (!oid) return;
+      try {
+        const meta = await fetchMenuBankMeta(oid);
+        setState((s) => ({ ...s, menuBankMeta: meta }));
+      } catch (e) {
+        console.error("[refreshMenuBankMeta]", e);
+      }
+    },
+
     completeSetup: (profile, food, drink) =>
       setState((s) => ({
         ...s,
@@ -2201,11 +2298,19 @@ export function aiScoreFor(a: Partial<JobApplication>): AiScore {
   return "Weak";
 }
 
-export function onboardingStatus(employee: Employee, videos: TrainingVideo[]) {
+export function onboardingStatus(
+  employee: Employee,
+  videos: TrainingVideo[],
+  currentMenuBankVersion: number | null | undefined = null,
+) {
   const assigned = videosForEmployee(videos, employee);
-  const passed = assigned.filter((v) => employee.progress.find((p) => p.videoId === v.id)?.passed).length;
+  const passed = assigned.filter((v) => {
+    if (v.id === MENU_MODULE.id) return hasCurrentMenuPass(employee.progress, currentMenuBankVersion);
+    return employee.progress.find((p) => p.videoId === v.id)?.passed;
+  }).length;
   const total = assigned.length;
   const fullyOnboarded = employee.personalInfoComplete && total > 0 && passed === total;
   return { passed, total, fullyOnboarded, pct: total ? Math.round((passed / total) * 100) : 0 };
 }
+
 

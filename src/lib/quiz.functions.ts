@@ -54,8 +54,10 @@ export type SubmitQuizResult =
       passed: boolean;
       attempts: number;
       distractionFlagged: boolean;
+      bankVersion?: number;
     }
   | { ok: false; error: string };
+
 
 export type QuizAttemptSummary = {
   id: string;
@@ -249,13 +251,25 @@ export const submitQuizAttempt = createServerFn({ method: "POST" })
     if (!submittedAttempt) return { ok: false, error: "Attempt already submitted." };
 
     // Upsert training_progress row. We increment attempts and only flip
-    // `passed`/`completed_at` forward — never regress a prior pass.
+    // `passed`/`completed_at` forward — never regress a prior pass. For the
+    // menu quiz we also stamp the current bank_version so a later menu
+    // regeneration correctly invalidates this pass.
     const { data: existing } = await supabaseAdmin
       .from("training_progress")
       .select("*")
       .eq("employee_id", attempt.employee_id)
       .eq("video_id", attempt.video_id)
       .maybeSingle();
+
+    let bankVersion: number | undefined;
+    if (attempt.video_id === "menu-quiz") {
+      const { data: bankRow } = await supabaseAdmin
+        .from("menu_quiz_banks")
+        .select("bank_version")
+        .eq("owner_id", access.ownerId)
+        .maybeSingle();
+      bankVersion = bankRow?.bank_version ?? undefined;
+    }
 
     const attempts = (existing?.attempts ?? 0) + 1;
     const alreadyPassed = !!existing?.passed;
@@ -266,30 +280,35 @@ export const submitQuizAttempt = createServerFn({ method: "POST" })
         ? new Date().toISOString()
         : (existing?.completed_at ?? null);
 
+    const baseRow = {
+      owner_id: access.ownerId,
+      employee_id: attempt.employee_id,
+      video_id: attempt.video_id,
+      watched_sec: existing?.watched_sec ?? 0,
+      completed_at: completedAt,
+      quiz_score: score,
+      passed: nextPassed,
+      attempts,
+      locked_out: false,
+      distraction_flagged: distractionFlagged,
+    };
+    const upsertRow =
+      attempt.video_id === "menu-quiz" && bankVersion !== undefined
+        ? { ...baseRow, bank_version: bankVersion }
+        : baseRow;
+
     const { error: upsertErr } = await supabaseAdmin
       .from("training_progress")
-      .upsert(
-        {
-          owner_id: access.ownerId,
-          employee_id: attempt.employee_id,
-          video_id: attempt.video_id,
-          watched_sec: existing?.watched_sec ?? 0,
-          completed_at: completedAt,
-          quiz_score: score,
-          passed: nextPassed,
-          attempts,
-          locked_out: false,
-          distraction_flagged: distractionFlagged,
-        },
-        { onConflict: "employee_id,video_id" },
-      );
+      .upsert(upsertRow, { onConflict: "employee_id,video_id" });
+
     if (upsertErr) {
       console.error("[quiz] training_progress upsert failed", upsertErr);
       return { ok: false, error: "Couldn't save training progress. Try again." };
     }
 
-    return { ok: true, score, passed, attempts, distractionFlagged };
+    return { ok: true, score, passed, attempts, distractionFlagged, bankVersion };
   });
+
 
 export const listOwnerQuizAttempts = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])

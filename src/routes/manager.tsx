@@ -18,7 +18,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
-import { onboardingStatus, useStore, type Role, type ApplicationStatus, type Employee, type Relationship, DAY_KEYS, hoursConfigured, type JobApplication, type HiringStage, type ShadowShiftDetails, type InterviewType, getHiringStage, isPendingRoleAssignment, isScheduleEligible, trainingProgressFor } from "@/lib/sidework-store";
+import { onboardingStatus, useStore, type Role, type ApplicationStatus, type Employee, type Relationship, DAY_KEYS, hoursConfigured, type JobApplication, type HiringStage, type ShadowShiftDetails, type InterviewType, getHiringStage, isPendingRoleAssignment, isScheduleEligible, trainingProgressFor, menuTestStatus } from "@/lib/sidework-store";
 import { roleStyle, fohRolesWithCustom, bohRolesWithCustom, allRolesWithCustom } from "@/lib/role-colors";
 
 import { PhoneInput } from "@/components/ui/phone-input";
@@ -177,14 +177,20 @@ function ManagerTabs({ tab, setTab, onOpenSetup }: { tab: string; setTab: (v: st
 
 
 function OverviewTab() {
-  const { employees, videos, trades, shifts, applications, timeOff } = useStore();
+  const { employees, videos, trades, shifts, applications, timeOff, menuBankMeta } = useStore();
+  const menuBankVersion = menuBankMeta?.version ?? null;
   const stats = useMemo(() => {
-    const onboarded = employees.filter((e) => onboardingStatus(e, videos).fullyOnboarded).length;
+    const onboarded = employees.filter((e) => onboardingStatus(e, videos, menuBankVersion).fullyOnboarded).length;
     const pending = trades.filter((t) => t.status === "pending_approval").length;
     const newApps = applications.filter((a) => a.status === "new").length;
     const pendingTO = timeOff.filter((t) => t.status === "pending").length;
-    return { onboarded, total: employees.length, pending, newApps, pendingTO, shifts: shifts.length };
-  }, [employees, videos, trades, shifts, applications, timeOff]);
+    const menuStale = employees.filter((e) => menuTestStatus(e, menuBankVersion) === "stale").length;
+    const menuNever = employees.filter((e) => {
+      const s = menuTestStatus(e, menuBankVersion);
+      return s === "never" || s === "in-progress";
+    }).length;
+    return { onboarded, total: employees.length, pending, newApps, pendingTO, shifts: shifts.length, menuStale, menuNever };
+  }, [employees, videos, trades, shifts, applications, timeOff, menuBankVersion]);
 
   return (
     <div className="grid gap-6">
@@ -194,6 +200,18 @@ function OverviewTab() {
         <Stat label="New applications" value={stats.newApps} hint="Awaiting review" tone={stats.newApps > 0 ? "warn" : undefined} />
         <Stat label="Time off pending" value={stats.pendingTO} hint="Need a decision" tone={stats.pendingTO > 0 ? "warn" : undefined} />
       </div>
+      {(stats.menuStale > 0 || stats.menuNever > 0) && (
+        <Card className="border-amber-500/40 bg-amber-500/10">
+          <CardContent className="p-4 text-sm">
+            <p className="font-semibold text-amber-900 dark:text-amber-200">Menu Knowledge Test — schedule gate</p>
+            <p className="mt-1 text-amber-900/80 dark:text-amber-200/80">
+              {stats.menuStale > 0 && <>{stats.menuStale} of {stats.total} staff need to <b>retake</b> the updated menu test. </>}
+              {stats.menuNever > 0 && <>{stats.menuNever} of {stats.total} staff have <b>never passed</b> the menu test. </>}
+              These employees can't be scheduled until they pass at 80%.
+            </p>
+          </CardContent>
+        </Card>
+      )}
       <NotificationsCard />
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">

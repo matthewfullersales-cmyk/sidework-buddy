@@ -239,18 +239,21 @@ export type Database = {
       }
       menu_quiz_banks: {
         Row: {
+          bank_version: number
           created_at: string
           owner_id: string
           questions: Json
           updated_at: string
         }
         Insert: {
+          bank_version?: number
           created_at?: string
           owner_id: string
           questions: Json
           updated_at?: string
         }
         Update: {
+          bank_version?: number
           created_at?: string
           owner_id?: string
           questions?: Json
@@ -719,6 +722,7 @@ export type Database = {
       training_progress: {
         Row: {
           attempts: number
+          bank_version: number | null
           completed_at: string | null
           created_at: string
           distraction_flagged: boolean
@@ -734,6 +738,7 @@ export type Database = {
         }
         Insert: {
           attempts?: number
+          bank_version?: number | null
           completed_at?: string | null
           created_at?: string
           distraction_flagged?: boolean
@@ -749,6 +754,7 @@ export type Database = {
         }
         Update: {
           attempts?: number
+          bank_version?: number | null
           completed_at?: string | null
           created_at?: string
           distraction_flagged?: boolean
@@ -822,6 +828,13 @@ export type Database = {
           employee_id: string
           owner_id: string
           restaurant_name: string
+        }[]
+      }
+      get_menu_bank_meta: {
+        Args: { p_owner_id: string }
+        Returns: {
+          bank_version: number
+          updated_at: string
         }[]
       }
       get_public_employee_invite: {
