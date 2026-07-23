@@ -15,6 +15,7 @@ type Row = {
   passed: boolean;
   attempts: number;
   locked_out: boolean;
+  distraction_flagged: boolean;
 };
 
 function fromRow(r: Row): VideoProgress {
@@ -26,6 +27,7 @@ function fromRow(r: Row): VideoProgress {
     passed: r.passed,
     attempts: r.attempts ?? 0,
     lockedOut: r.locked_out,
+    distractionFlagged: r.distraction_flagged ?? false,
   };
 }
 
