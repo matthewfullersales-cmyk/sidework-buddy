@@ -1350,12 +1350,25 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
         }
 
 
+        // Merge cloud-stored training progress into each employee. Additive:
+        // if a given employee has no cloud rows, fall back to whatever the
+        // local roster already carries (preserves pre-migration progress on
+        // the device that recorded it).
+        const withProgress = (emps: Employee[]) =>
+          emps.map((e) => {
+            const cloud = remoteTrainingProgress.get(e.id);
+            if (cloud && cloud.length > 0) return { ...e, progress: cloud };
+            return e;
+          });
+
         setState((s) => ({
           ...s,
           jobs: postings,
           applications: apps,
           // If nothing remote and no bootstrap happened, keep local (single-device owner).
-          employees: remoteEmployees.length > 0 ? remoteEmployees : s.employees,
+          employees: remoteEmployees.length > 0
+            ? withProgress(remoteEmployees)
+            : withProgress(s.employees),
           shifts: remoteShifts,
           timeOff: remoteTimeOff.length > 0 ? remoteTimeOff : s.timeOff,
           trades: remoteTrades,
