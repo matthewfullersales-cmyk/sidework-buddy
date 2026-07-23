@@ -41,7 +41,7 @@ const questionSchema = z.object({
   answerIndex: z.number().int().min(0).max(3),
 });
 const modelResponseSchema = z.object({
-  questions: z.array(questionSchema).min(4).max(20),
+  questions: z.array(questionSchema).min(5).max(20),
 });
 
 export type MenuQuizQuestion = z.infer<typeof questionSchema>;

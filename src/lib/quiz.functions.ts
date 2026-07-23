@@ -5,17 +5,24 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import {
-  QUIZ_POOLS,
-  VIDEO_CATEGORY,
-  pickRandom,
-  shuffle,
-  type BankQuestion,
-} from "@/lib/quiz-bank.server";
 
 const QUIZ_SIZE = 5;
 const SECONDS_PER_QUESTION = 30;
 const PASS_PCT = 80;
+type BankQuestion = { question: string; options: string[]; answerIndex: number };
+
+function shuffle<T>(items: T[]): T[] {
+  const copy = [...items];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
+function pickRandom<T>(items: T[], count: number): T[] {
+  return shuffle(items).slice(0, count);
+}
 
 const startSchema = z.object({
   employeeId: z.string().uuid(),
@@ -143,12 +150,16 @@ export const startQuizAttempt = createServerFn({ method: "POST" })
       }
       bank = parsed.data;
     } else {
+      const { QUIZ_POOLS, VIDEO_CATEGORY } = await import("@/lib/quiz-bank.server");
       const category = VIDEO_CATEGORY[data.videoId];
       if (!category) return { ok: false, error: "Unknown training module." };
       bank = QUIZ_POOLS[category];
     }
 
-    const chosen = pickRandom(bank, Math.min(QUIZ_SIZE, bank.length));
+    if (bank.length < QUIZ_SIZE) {
+      return { ok: false, error: "This quiz needs at least 5 questions before it can be assigned." };
+    }
+    const chosen = pickRandom(bank, QUIZ_SIZE);
     const { storedQuestions, publicQuestions } = shuffleAndSplit(chosen);
 
     const { data: inserted, error: insertErr } = await supabaseAdmin

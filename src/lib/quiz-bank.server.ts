@@ -101,23 +101,3 @@ export const VIDEO_CATEGORY: Record<string, TrainingCategory> = {
   "mgr-guest-recovery": "Server",
 };
 
-/** Pick N random items from `pool` (without replacement). */
-export function pickRandom<T>(pool: T[], n: number): T[] {
-  const copy = [...pool];
-  const out: T[] = [];
-  while (out.length < n && copy.length > 0) {
-    const i = Math.floor(Math.random() * copy.length);
-    out.push(copy.splice(i, 1)[0]);
-  }
-  return out;
-}
-
-/** Fisher-Yates shuffle. Returns a NEW array. */
-export function shuffle<T>(arr: T[]): T[] {
-  const copy = [...arr];
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-  return copy;
-}
