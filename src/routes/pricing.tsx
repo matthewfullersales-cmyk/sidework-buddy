@@ -35,8 +35,14 @@ function PricingPage() {
   const startCheckout = async (plan: Plan) => {
     try {
       setLoading(plan);
+      const { data: sess } = await supabase.auth.getSession();
+      const user = sess.session?.user;
       const { url } = await checkout({
-        data: { plan, origin: window.location.origin },
+        data: {
+          origin: window.location.origin,
+          userId: user?.id,
+          email: user?.email ?? undefined,
+        },
       });
       window.location.href = url;
     } catch (e) {
