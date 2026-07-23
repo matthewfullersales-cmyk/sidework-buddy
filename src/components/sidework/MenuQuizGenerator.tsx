@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
-import { generateMenuQuiz, type MenuQuizQuestion } from "@/lib/menu-quiz.functions";
+import { generateMenuQuiz, type MenuQuizPreviewQuestion } from "@/lib/menu-quiz.functions";
 import { useStore } from "@/lib/sidework-store";
 
 const ACCEPT = "application/pdf,image/png,image/jpeg,image/webp";
@@ -56,7 +56,7 @@ async function compressImage(file: File): Promise<{ blob: Blob; mimeType: string
 }
 
 export function MenuQuizGenerator({ menuName }: { menuName?: string }) {
-  const { setMenuQuiz, restaurantProfile } = useStore();
+  const { restaurantProfile } = useStore();
   const generate = useServerFn(generateMenuQuiz);
 
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -64,16 +64,13 @@ export function MenuQuizGenerator({ menuName }: { menuName?: string }) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [questions, setQuestions] = useState<MenuQuizQuestion[]>([]);
-  const [revealed, setRevealed] = useState<Record<number, boolean>>({});
-  const [saved, setSaved] = useState(false);
+  const [questions, setQuestions] = useState<MenuQuizPreviewQuestion[]>([]);
 
   const pickFile = () => inputRef.current?.click();
 
   const onFile = async (f: File | null) => {
     setError(null);
     setQuestions([]);
-    setSaved(false);
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(null);
     if (!f) {
@@ -114,9 +111,7 @@ export function MenuQuizGenerator({ menuName }: { menuName?: string }) {
     if (!file) return;
     setLoading(true);
     setError(null);
-    setSaved(false);
     setQuestions([]);
-    setRevealed({});
     try {
       const fileBase64 = await readFileAsBase64(file);
       const result = await generate({
@@ -132,7 +127,7 @@ export function MenuQuizGenerator({ menuName }: { menuName?: string }) {
         return;
       }
       setQuestions(result.questions);
-      toast.success(`Generated ${result.questions.length} questions from your menu.`);
+      toast.success(`Generated and saved ${result.questions.length} questions from your menu.`);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Something went wrong.";
       setError(msg);
@@ -140,13 +135,6 @@ export function MenuQuizGenerator({ menuName }: { menuName?: string }) {
     } finally {
       setLoading(false);
     }
-  };
-
-  const saveAsTraining = () => {
-    if (questions.length === 0) return;
-    setMenuQuiz(questions);
-    setSaved(true);
-    toast.success("Saved as this restaurant's menu quiz. Staff will see it in training.");
   };
 
   return (
@@ -232,15 +220,6 @@ export function MenuQuizGenerator({ menuName }: { menuName?: string }) {
               "Generate quiz with AI"
             )}
           </Button>
-          {questions.length > 0 && (
-            <Button
-              variant={saved ? "outline" : "default"}
-              onClick={saveAsTraining}
-              disabled={loading}
-            >
-              {saved ? "Saved ✓" : "Save as menu training"}
-            </Button>
-          )}
         </div>
 
         {/* Loading state */}
@@ -270,35 +249,18 @@ export function MenuQuizGenerator({ menuName }: { menuName?: string }) {
                 </p>
                 <div className="mt-2 grid gap-1.5">
                   {q.options.map((opt, j) => {
-                    const show = revealed[i];
-                    const correct = j === q.answerIndex;
                     return (
                       <div
                         key={j}
-                        className={[
-                          "rounded-lg border px-3 py-2 text-sm transition-colors",
-                          show && correct
-                            ? "border-primary/40 bg-primary-soft text-primary"
-                            : "border-border bg-card",
-                        ].join(" ")}
+                        className="rounded-lg border border-border bg-card px-3 py-2 text-sm"
                       >
                         <span className="mr-2 font-mono text-xs text-muted-foreground">
                           {String.fromCharCode(65 + j)}.
                         </span>
                         {opt}
-                        {show && correct && <span className="ml-2 text-xs font-semibold">✓ answer</span>}
                       </div>
                     );
                   })}
-                </div>
-                <div className="mt-2 flex justify-end">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setRevealed((r) => ({ ...r, [i]: !r[i] }))}
-                  >
-                    {revealed[i] ? "Hide answer" : "Reveal answer"}
-                  </Button>
                 </div>
               </div>
             ))}

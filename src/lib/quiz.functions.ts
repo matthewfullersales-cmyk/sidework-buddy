@@ -5,17 +5,24 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import {
-  QUIZ_POOLS,
-  VIDEO_CATEGORY,
-  pickRandom,
-  shuffle,
-  type BankQuestion,
-} from "@/lib/quiz-bank.server";
 
 const QUIZ_SIZE = 5;
 const SECONDS_PER_QUESTION = 30;
 const PASS_PCT = 80;
+type BankQuestion = { question: string; options: string[]; answerIndex: number };
+
+function shuffle<T>(items: T[]): T[] {
+  const copy = [...items];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
+function pickRandom<T>(items: T[], count: number): T[] {
+  return shuffle(items).slice(0, count);
+}
 
 const startSchema = z.object({
   employeeId: z.string().uuid(),
@@ -24,7 +31,7 @@ const startSchema = z.object({
 
 const submitSchema = z.object({
   attemptId: z.string().uuid(),
-  answers: z.array(z.number().int().min(-1).max(10)).max(50),
+  answers: z.array(z.number().int().min(-1).max(10)).max(QUIZ_SIZE),
   distractionFlagged: z.boolean().optional().default(false),
 });
 
@@ -49,6 +56,17 @@ export type SubmitQuizResult =
       distractionFlagged: boolean;
     }
   | { ok: false; error: string };
+
+export type QuizAttemptSummary = {
+  id: string;
+  employeeId: string;
+  videoId: string;
+  score: number | null;
+  passed: boolean | null;
+  distractionFlagged: boolean;
+  submittedAt: string | null;
+  createdAt: string;
+};
 
 // Given raw bank questions, produce (a) the client-visible payload with
 // options shuffled per-question, and (b) the server-only answer key that
@@ -98,11 +116,12 @@ export const startQuizAttempt = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const access = await verifyEmployeeAccess(supabase, data.employeeId, userId);
     if (!access.ok) return access;
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     // Resolve question bank for this video.
     let bank: BankQuestion[] = [];
     if (data.videoId === "menu-quiz") {
-      const { data: row, error } = await supabase
+      const { data: row, error } = await supabaseAdmin
         .from("menu_quiz_banks")
         .select("questions")
         .eq("owner_id", access.ownerId)
@@ -131,15 +150,19 @@ export const startQuizAttempt = createServerFn({ method: "POST" })
       }
       bank = parsed.data;
     } else {
+      const { QUIZ_POOLS, VIDEO_CATEGORY } = await import("@/lib/quiz-bank.server");
       const category = VIDEO_CATEGORY[data.videoId];
       if (!category) return { ok: false, error: "Unknown training module." };
       bank = QUIZ_POOLS[category];
     }
 
-    const chosen = pickRandom(bank, Math.min(QUIZ_SIZE, bank.length));
+    if (bank.length < QUIZ_SIZE) {
+      return { ok: false, error: "This quiz needs at least 5 questions before it can be assigned." };
+    }
+    const chosen = pickRandom(bank, QUIZ_SIZE);
     const { storedQuestions, publicQuestions } = shuffleAndSplit(chosen);
 
-    const { data: inserted, error: insertErr } = await supabase
+    const { data: inserted, error: insertErr } = await supabaseAdmin
       .from("quiz_attempts")
       .insert({
         owner_id: access.ownerId,
@@ -169,13 +192,17 @@ export const submitQuizAttempt = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => submitSchema.parse(data))
   .handler(async ({ data, context }): Promise<SubmitQuizResult> => {
     const { supabase, userId } = context;
-    const { data: attempt, error } = await supabase
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: attempt, error } = await supabaseAdmin
       .from("quiz_attempts")
       .select("*")
       .eq("id", data.attemptId)
       .maybeSingle();
     if (error || !attempt) return { ok: false, error: "Attempt not found." };
     if (attempt.submitted_at) return { ok: false, error: "Attempt already submitted." };
+    if (new Date(attempt.expires_at).getTime() <= Date.now()) {
+      return { ok: false, error: "This attempt expired. Start a new quiz." };
+    }
 
     const access = await verifyEmployeeAccess(supabase, attempt.employee_id, userId);
     if (!access.ok) return access;
@@ -190,6 +217,9 @@ export const submitQuizAttempt = createServerFn({ method: "POST" })
       )
       .safeParse(attempt.questions);
     if (!stored.success) return { ok: false, error: "Stored quiz is malformed." };
+    if (data.answers.length !== stored.data.length) {
+      return { ok: false, error: "The submitted answers don't match this attempt." };
+    }
 
     let correct = 0;
     stored.data.forEach((q, i) => {
@@ -200,7 +230,7 @@ export const submitQuizAttempt = createServerFn({ method: "POST" })
     const passed = score >= PASS_PCT;
     const distractionFlagged = !!data.distractionFlagged;
 
-    await supabase
+    const { data: submittedAttempt, error: attemptUpdateErr } = await supabaseAdmin
       .from("quiz_attempts")
       .update({
         score,
@@ -208,11 +238,19 @@ export const submitQuizAttempt = createServerFn({ method: "POST" })
         distraction_flagged: distractionFlagged,
         submitted_at: new Date().toISOString(),
       })
-      .eq("id", data.attemptId);
+      .eq("id", data.attemptId)
+      .is("submitted_at", null)
+      .select("id")
+      .maybeSingle();
+    if (attemptUpdateErr) {
+      console.error("[quiz] attempt update failed", attemptUpdateErr);
+      return { ok: false, error: "Couldn't save the quiz result. Try again." };
+    }
+    if (!submittedAttempt) return { ok: false, error: "Attempt already submitted." };
 
     // Upsert training_progress row. We increment attempts and only flip
     // `passed`/`completed_at` forward — never regress a prior pass.
-    const { data: existing } = await supabase
+    const { data: existing } = await supabaseAdmin
       .from("training_progress")
       .select("*")
       .eq("employee_id", attempt.employee_id)
@@ -228,7 +266,7 @@ export const submitQuizAttempt = createServerFn({ method: "POST" })
         ? new Date().toISOString()
         : (existing?.completed_at ?? null);
 
-    const { error: upsertErr } = await supabase
+    const { error: upsertErr } = await supabaseAdmin
       .from("training_progress")
       .upsert(
         {
@@ -247,7 +285,34 @@ export const submitQuizAttempt = createServerFn({ method: "POST" })
       );
     if (upsertErr) {
       console.error("[quiz] training_progress upsert failed", upsertErr);
+      return { ok: false, error: "Couldn't save training progress. Try again." };
     }
 
     return { ok: true, score, passed, attempts, distractionFlagged };
+  });
+
+export const listOwnerQuizAttempts = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<QuizAttemptSummary[]> => {
+    const { data, error } = await context.supabase
+      .from("quiz_attempts")
+      .select("id, employee_id, video_id, score, passed, distraction_flagged, submitted_at, created_at")
+      .eq("owner_id", context.userId)
+      .not("submitted_at", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(250);
+    if (error) {
+      console.error("[quiz] owner attempt list failed", error);
+      return [];
+    }
+    return (data ?? []).map((row) => ({
+      id: row.id,
+      employeeId: row.employee_id,
+      videoId: row.video_id,
+      score: row.score,
+      passed: row.passed,
+      distractionFlagged: row.distraction_flagged,
+      submittedAt: row.submitted_at,
+      createdAt: row.created_at,
+    }));
   });

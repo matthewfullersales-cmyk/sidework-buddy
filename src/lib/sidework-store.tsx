@@ -63,18 +63,11 @@ export interface CustomRole { name: string; section: "FOH" | "BOH"; color: strin
 
 export type TrainingCategory = "Server" | "Bartender" | "Host" | "Kitchen";
 
-export interface QuizQuestion {
-  question: string;
-  options: string[];
-  answerIndex: number;
-}
-
 export interface TrainingVideo {
   id: string;
   title: string;
   durationSec: number;
   role: TrainingCategory;
-  quiz: QuizQuestion[];
   passingScore: number;
 }
 
@@ -734,8 +727,6 @@ interface Store {
   setMenu: (m: MenuUpload | null) => void;
   setDrinkMenu: (m: MenuUpload | null) => void;
   markMenuGenerated: () => void;
-  /** Replace the menu-quiz training module's questions with an AI-generated set. */
-  setMenuQuiz: (questions: { question: string; options: string[]; answerIndex: number }[]) => void;
   completeSetup: (profile: Omit<RestaurantProfile, "completedAt">, food: MenuUpload | null, drink: MenuUpload | null) => void;
   resetSetup: () => void;
   markNotificationsRead: () => void;
@@ -915,7 +906,6 @@ function seedVideos(): TrainingVideo[] {
     durationSec: 15,
     role: m.category,
     passingScore: 80,
-    quiz: [], // answers live server-side; see quiz.functions.ts
   }));
 }
 
@@ -2154,16 +2144,6 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     setDrinkMenu: (m) => setState((s) => ({ ...s, drinkMenu: m })),
     markMenuGenerated: () =>
       setState((s) => ({ ...s, menu: s.menu ? { ...s.menu, generatedAt: new Date().toISOString() } : s.menu })),
-    setMenuQuiz: (questions) =>
-      setState((s) => ({
-        ...s,
-        videos: s.videos.map((v) =>
-          v.id === "menu-quiz"
-            ? { ...v, quiz: questions.map((q) => ({ ...q, options: [...q.options] })) }
-            : v,
-        ),
-        menu: s.menu ? { ...s.menu, generatedAt: new Date().toISOString() } : s.menu,
-      })),
     completeSetup: (profile, food, drink) =>
       setState((s) => ({
         ...s,
@@ -2229,13 +2209,3 @@ export function onboardingStatus(employee: Employee, videos: TrainingVideo[]) {
   return { passed, total, fullyOnboarded, pct: total ? Math.round((passed / total) * 100) : 0 };
 }
 
-/** Pick N random questions from a pool (without replacement). */
-export function pickRandomQuestions(pool: QuizQuestion[], n: number): QuizQuestion[] {
-  const copy = [...pool];
-  const out: QuizQuestion[] = [];
-  while (out.length < n && copy.length > 0) {
-    const i = Math.floor(Math.random() * copy.length);
-    out.push(copy.splice(i, 1)[0]);
-  }
-  return out;
-}
