@@ -732,6 +732,8 @@ interface Store {
   setMenu: (m: MenuUpload | null) => void;
   setDrinkMenu: (m: MenuUpload | null) => void;
   markMenuGenerated: () => void;
+  /** Replace the menu-quiz training module's questions with an AI-generated set. */
+  setMenuQuiz: (questions: { question: string; options: string[]; answerIndex: number }[]) => void;
   completeSetup: (profile: Omit<RestaurantProfile, "completedAt">, food: MenuUpload | null, drink: MenuUpload | null) => void;
   resetSetup: () => void;
   markNotificationsRead: () => void;
