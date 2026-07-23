@@ -1673,18 +1673,30 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
       const oid = ownerIdRef.current;
       if (oid) updateEmployeeRow(id, patch).catch((e) => console.error("[updateEmployee]", e));
     },
-    recordVideoProgress: (employeeId, videoId, patch) =>
+    recordVideoProgress: (employeeId, videoId, patch) => {
+      let nextEntry: VideoProgress | null = null;
       setState((s) => ({
         ...s,
         employees: s.employees.map((e) => {
           if (e.id !== employeeId) return e;
           const existing = e.progress.find((p) => p.videoId === videoId);
+          const merged: VideoProgress = existing
+            ? { ...existing, ...patch }
+            : { videoId, watchedSec: 0, attempts: 0, ...patch };
+          nextEntry = merged;
           const next = existing
-            ? e.progress.map((p) => (p.videoId === videoId ? { ...p, ...patch } : p))
-            : [...e.progress, { videoId, watchedSec: 0, attempts: 0, ...patch }];
+            ? e.progress.map((p) => (p.videoId === videoId ? merged : p))
+            : [...e.progress, merged];
           return { ...e, progress: next };
         }),
-      })),
+      }));
+      const oid = ownerIdRef.current;
+      if (oid && nextEntry) {
+        upsertTrainingProgress(oid, employeeId, videoId, nextEntry).catch((e) =>
+          console.error("[recordVideoProgress] cloud sync failed", e),
+        );
+      }
+    },
     recordQuizAttempt: (employeeId, videoId, score, passed) =>
       setState((s) => {
         const emp = s.employees.find((e) => e.id === employeeId);
