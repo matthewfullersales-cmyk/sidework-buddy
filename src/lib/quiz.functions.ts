@@ -9,7 +9,18 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 const QUIZ_SIZE = 5;
 const SECONDS_PER_QUESTION = 30;
 const PASS_PCT = 80;
-type BankQuestion = { question: string; options: string[]; answerIndex: number };
+type BankQuestion = { question: string; options: string[]; answerIndex: number; source?: "food" | "drink" };
+
+// Duplicates the BOH-built-in list from sidework-store so the server can
+// scope the Menu Knowledge Test without importing the client store.
+const BOH_ROLES = new Set([
+  "Chef", "Sous Chef", "Line Cook", "Fry Cook", "Saute", "Grill", "Pizza", "Garde Manger", "Dishwasher", "Prep",
+]);
+function isBohRole(role: string | null | undefined): boolean {
+  if (!role) return false;
+  return BOH_ROLES.has(role.trim());
+}
+
 
 function shuffle<T>(items: T[]): T[] {
   const copy = [...items];
@@ -98,18 +109,28 @@ async function verifyEmployeeAccess(
   supabase: import("@supabase/supabase-js").SupabaseClient,
   employeeId: string,
   userId: string,
-): Promise<{ ok: true; ownerId: string } | { ok: false; error: string }> {
+): Promise<{ ok: true; ownerId: string; primaryRole: string | null } | { ok: false; error: string }> {
   const { data, error } = await supabase
     .from("restaurant_employees")
-    .select("id, owner_id, auth_user_id")
+    .select("id, owner_id, auth_user_id, primary_role")
     .eq("id", employeeId)
     .maybeSingle();
   if (error || !data) return { ok: false, error: "Employee not found." };
   if (data.owner_id !== userId && data.auth_user_id !== userId) {
     return { ok: false, error: "Not authorized for this employee." };
   }
-  return { ok: true, ownerId: data.owner_id };
+  return { ok: true, ownerId: data.owner_id, primaryRole: data.primary_role ?? null };
 }
+
+export const startQuizAttempt = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => startSchema.parse(data))
+  .handler(async ({ data, context }): Promise<StartQuizResult> => {
+    const { supabase, userId } = context;
+    const access = await verifyEmployeeAccess(supabase, data.employeeId, userId);
+    if (!access.ok) return access;
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
 
 export const startQuizAttempt = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
