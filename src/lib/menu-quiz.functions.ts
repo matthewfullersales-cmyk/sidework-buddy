@@ -41,7 +41,7 @@ const questionSchema = z.object({
   answerIndex: z.number().int().min(0).max(3),
 });
 const modelResponseSchema = z.object({
-  questions: z.array(questionSchema).min(5).max(20),
+  questions: z.array(questionSchema).min(5).max(25),
 });
 
 export type MenuQuizQuestion = z.infer<typeof questionSchema>;
@@ -55,7 +55,7 @@ const SYSTEM_PROMPT = `You are a restaurant training coach building a menu quiz 
 Rules:
 - Only use dishes, drinks, and details that ACTUALLY appear on the menu you were given. Never invent items.
 - If the file is blurry, unreadable, or clearly not a restaurant menu, return {"questions": []} with no items.
-- Write 8 to 12 questions. Each must have exactly 4 options and exactly one correct answer.
+- Write exactly 15 questions. Each must have exactly 4 options and exactly one correct answer.
 - Mix question types: "What's in [dish]?", "Which dish contains [ingredient]?", "Which category does [item] belong to?", "What does [dish] come with?".
 - Distractors must be plausible — prefer other items or ingredients from the same menu.
 - Keep questions concise (under 140 chars) and answers under 90 chars.
