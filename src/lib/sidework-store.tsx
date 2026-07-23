@@ -1666,18 +1666,33 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
         );
       }
     },
-    recordQuizAttempt: (employeeId, videoId, score, passed) => {
-      let updatedEntry: VideoProgress | null = null;
+    applyQuizAttemptResult: (employeeId, videoId, result) => {
+      const { score, passed, attempts, distractionFlagged } = result;
       setState((s) => {
         const emp = s.employees.find((e) => e.id === employeeId);
         const video = s.videos.find((v) => v.id === videoId);
         if (!emp || !video) return s;
         const existing = emp.progress.find((p) => p.videoId === videoId);
-        const attempts = (existing?.attempts ?? 0) + 1;
         const merged: VideoProgress = existing
-          ? { ...existing, attempts, quizScore: score, passed: passed || existing.passed, completedAt: passed ? new Date().toISOString() : existing.completedAt, lockedOut: false }
-          : { videoId, watchedSec: video.durationSec, attempts, quizScore: score, passed, completedAt: passed ? new Date().toISOString() : undefined, lockedOut: false };
-        updatedEntry = merged;
+          ? {
+              ...existing,
+              attempts,
+              quizScore: score,
+              passed: passed || existing.passed,
+              completedAt: passed ? new Date().toISOString() : existing.completedAt,
+              lockedOut: false,
+              distractionFlagged,
+            }
+          : {
+              videoId,
+              watchedSec: video.durationSec,
+              attempts,
+              quizScore: score,
+              passed,
+              completedAt: passed ? new Date().toISOString() : undefined,
+              lockedOut: false,
+              distractionFlagged,
+            };
         const nextProgress = existing
           ? emp.progress.map((p) => (p.videoId === videoId ? merged : p))
           : [...emp.progress, merged];
@@ -1685,8 +1700,8 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           id: uid("n"),
           type: passed ? "training_passed" : "training_failed",
           message: passed
-            ? `${emp.name} passed "${video.title}" with ${score}% on attempt ${attempts}`
-            : `${emp.name} failed "${video.title}" (${score}%) — attempt ${attempts}, can retry immediately`,
+            ? `${emp.name} passed "${video.title}" with ${score}% on attempt ${attempts}${distractionFlagged ? " — flagged for possible distraction" : ""}`
+            : `${emp.name} failed "${video.title}" (${score}%) — attempt ${attempts}, can retry immediately${distractionFlagged ? " (flagged for possible distraction)" : ""}`,
           employeeId,
           videoId,
           createdAt: new Date().toISOString(),
@@ -1698,12 +1713,6 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           notifications: [newNotif, ...s.notifications],
         };
       });
-      const oid = ownerIdRef.current;
-      if (oid && updatedEntry) {
-        upsertTrainingProgress(oid, employeeId, videoId, updatedEntry).catch((e) =>
-          console.error("[recordQuizAttempt] cloud sync failed", e),
-        );
-      }
     },
     upsertShift: (shift) => {
       // Optimistic local update first.
