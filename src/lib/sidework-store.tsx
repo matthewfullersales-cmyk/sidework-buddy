@@ -906,7 +906,7 @@ function seedVideos(): TrainingVideo[] {
     durationSec: 15,
     role: m.category,
     passingScore: 80,
-    quiz: pickRandomQuestions(QUIZ_POOLS[m.category], Math.min(6, QUIZ_POOLS[m.category].length)),
+    quiz: [], // answers live server-side; see quiz.functions.ts
   }));
 }
 
