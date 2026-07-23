@@ -203,20 +203,23 @@ export const generateMenuQuiz = createServerFn({ method: "POST" })
       answerIndex: Math.max(0, Math.min(3, q.answerIndex)),
     }));
 
-    // Persist the answer key server-side so employees never receive it in
-    // the client bundle. Quiz attempts pull from menu_quiz_banks via
-    // startQuizAttempt / submitQuizAttempt.
-    try {
-      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-      const { data: profile } = await supabaseAdmin
-        .from("profiles")
-        .select("id")
-        .eq("id", (await import("@tanstack/react-start/server")).getRequest().headers.get("x-user-id") ?? "")
-        .maybeSingle();
-      // Fallback path — we don't reliably have userId here without adding
-      // the auth middleware. Re-fetch from the JWT via a lightweight call.
-      void profile;
-    } catch { /* non-fatal; handled below */ }
+    // Persist the answer key server-side. Employees never receive
+    // answerIndex in their client bundle — startQuizAttempt reads from
+    // menu_quiz_banks and returns shuffled options only.
+    const { error: bankErr } = await context.supabase
+      .from("menu_quiz_banks")
+      .upsert(
+        {
+          owner_id: context.userId,
+          questions,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "owner_id" },
+      );
+    if (bankErr) {
+      console.error("[menu-quiz] failed to persist bank", bankErr);
+      return { ok: false, error: "Generated the quiz but couldn't save it. Try again." };
+    }
 
     return { ok: true, questions };
   });
