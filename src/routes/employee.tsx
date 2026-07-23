@@ -16,7 +16,7 @@ import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { TrainingModule } from "@/components/sidework/TrainingModule";
 import { AvailabilityEditor } from "@/components/sidework/AvailabilityEditor";
-import { onboardingStatus, useStore, videosForEmployee, type Relationship, type WeeklyAvailability } from "@/lib/sidework-store";
+import { onboardingStatus, useStore, videosForEmployee, menuTestStatus, type Relationship, type WeeklyAvailability } from "@/lib/sidework-store";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatPhone } from "@/lib/format-phone";
 import { toast } from "sonner";
