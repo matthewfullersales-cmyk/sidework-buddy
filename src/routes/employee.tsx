@@ -37,7 +37,7 @@ function EmployeePage() {
   useRequireRole("employee", "/employee-login");
   const { profile, employeeContext, loading: authLoading } = useAuth();
   const { currentUser, setCurrentUser, employees, videos, employeeHydrating, menuBankMeta } = useStore();
-  const menuBankVersion = menuBankMeta?.version ?? null;
+  const menuBankVersion = menuBankMeta;
   const targetId = employeeContext?.employeeId ?? profile?.employee_id ?? null;
   useEffect(() => {
     if (targetId && (currentUser.type !== "employee" || currentUser.id !== targetId)) {
@@ -123,7 +123,7 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
   const [specialTalents, setSpecialTalents] = useState(me.specialTalents ?? "");
   const [photoUrl, setPhotoUrl] = useState(me.photoUrl ?? "");
   const { menuBankMeta } = useStore();
-  const s = onboardingStatus(me, videos, menuBankMeta?.version ?? null);
+  const s = onboardingStatus(me, videos, menuBankMeta);
 
   const onPhotoFile = (file: File | null) => {
     if (!file) return;
@@ -263,7 +263,7 @@ function TrainingTab({ employeeId }: { employeeId: string }) {
   const { employees, videos, recordVideoProgress, applyQuizAttemptResult, menuBankMeta } = useStore();
   const me = employees.find((e) => e.id === employeeId)!;
   const assigned = videosForEmployee(videos, me);
-  const menuState = menuTestStatus(me, menuBankMeta?.version ?? null);
+  const menuState = menuTestStatus(me, menuBankMeta);
 
   // sequential: previous module must be passed
   const firstUnlockedIndex = useMemo(() => {

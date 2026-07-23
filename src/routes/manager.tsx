@@ -178,19 +178,19 @@ function ManagerTabs({ tab, setTab, onOpenSetup }: { tab: string; setTab: (v: st
 
 function OverviewTab() {
   const { employees, videos, trades, shifts, applications, timeOff, menuBankMeta } = useStore();
-  const menuBankVersion = menuBankMeta?.version ?? null;
+  const menuBankMetaObj = menuBankMeta;
   const stats = useMemo(() => {
-    const onboarded = employees.filter((e) => onboardingStatus(e, videos, menuBankVersion).fullyOnboarded).length;
+    const onboarded = employees.filter((e) => onboardingStatus(e, videos, menuBankMetaObj).fullyOnboarded).length;
     const pending = trades.filter((t) => t.status === "pending_approval").length;
     const newApps = applications.filter((a) => a.status === "new").length;
     const pendingTO = timeOff.filter((t) => t.status === "pending").length;
-    const menuStale = employees.filter((e) => menuTestStatus(e, menuBankVersion) === "stale").length;
+    const menuStale = employees.filter((e) => menuTestStatus(e, menuBankMetaObj) === "stale").length;
     const menuNever = employees.filter((e) => {
-      const s = menuTestStatus(e, menuBankVersion);
+      const s = menuTestStatus(e, menuBankMetaObj);
       return s === "never" || s === "in-progress";
     }).length;
     return { onboarded, total: employees.length, pending, newApps, pendingTO, shifts: shifts.length, menuStale, menuNever };
-  }, [employees, videos, trades, shifts, applications, timeOff, menuBankVersion]);
+  }, [employees, videos, trades, shifts, applications, timeOff, menuBankMetaObj]);
 
   return (
     <div className="grid gap-6">
@@ -219,7 +219,7 @@ function OverviewTab() {
         </CardHeader>
         <CardContent className="space-y-4">
           {employees.map((e) => {
-            const s = onboardingStatus(e, videos, menuBankVersion);
+            const s = onboardingStatus(e, videos, menuBankMetaObj);
             return (
               <div key={e.id} className="space-y-1.5">
                 <div className="flex items-center justify-between text-sm">
@@ -335,7 +335,7 @@ function PendingRoleAssignmentQueue({
 
 function TeamTab() {
   const { employees, videos, inviteEmployee, restaurantProfile, activeRoles, customRoles, shifts, trades, timeOff, clearAllEmployees, updateEmployee, menuBankMeta } = useStore();
-  const menuBankVersion = menuBankMeta?.version ?? null;
+  const menuBankMetaObj = menuBankMeta;
   const fohActive = fohRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r));
   const bohActive = bohRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r));
   const [open, setOpen] = useState(false);
@@ -389,7 +389,7 @@ function TeamTab() {
       if (filters.has("all")) return true;
       const role = e.primaryRole;
       const isFoh = (FOH_ROLES as string[]).includes(role);
-      const status = onboardingStatus(e, videos, menuBankVersion);
+      const status = onboardingStatus(e, videos, menuBankMetaObj);
       for (const f of filters) {
         if (f === "foh" && isFoh) return true;
         if (f === "boh" && !isFoh) return true;
@@ -401,7 +401,7 @@ function TeamTab() {
     });
     const firstOf = (e: Employee) => (e.firstName ?? e.name.split(" ")[0] ?? "").toLowerCase();
     const lastOf = (e: Employee) => (e.lastName ?? e.name.split(" ").slice(1).join(" ") ?? "").toLowerCase();
-    const pctOf = (e: Employee) => onboardingStatus(e, videos, menuBankVersion).pct;
+    const pctOf = (e: Employee) => onboardingStatus(e, videos, menuBankMetaObj).pct;
     const sorted = [...list];
     sorted.sort((a, b) => {
       switch (sortKey) {
@@ -640,9 +640,9 @@ function TeamTab() {
           <Card><CardContent className="p-8 text-center text-sm text-muted-foreground">No staff match the current filters.</CardContent></Card>
         )}
         {visibleEmployees.map((e) => {
-          const s = onboardingStatus(e, videos, menuBankVersion);
+          const s = onboardingStatus(e, videos, menuBankMetaObj);
           const fullName = e.firstName && e.lastName ? `${e.firstName} ${e.lastName}` : e.name;
-          const menuState = menuTestStatus(e, menuBankVersion);
+          const menuState = menuTestStatus(e, menuBankMetaObj);
           return (
             <Card key={e.id}>
               <CardContent className="p-5">
@@ -664,11 +664,11 @@ function TeamTab() {
                   <div className="text-right">
                     {isPendingRoleAssignment(e) ? (
                       <Badge variant="secondary" className="bg-muted text-foreground">Pending role</Badge>
-                    ) : isScheduleEligible(e, videos, customRoles, menuBankVersion) ? (
+                    ) : isScheduleEligible(e, videos, customRoles, menuBankMetaObj) ? (
                       <Badge className="bg-success text-success-foreground hover:bg-success">Schedule eligible</Badge>
                     ) : (
                       (() => {
-                        const tp = trainingProgressFor(e, videos, customRoles, menuBankVersion);
+                        const tp = trainingProgressFor(e, videos, customRoles, menuBankMetaObj);
                         return <Badge variant="secondary" className="bg-amber-500/15 text-amber-700 dark:text-amber-300">In training · {tp.passed}/{tp.total}</Badge>;
                       })()
                     )}
