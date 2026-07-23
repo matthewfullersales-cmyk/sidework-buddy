@@ -110,7 +110,7 @@ function extractJson(raw: string): unknown {
 export const generateMenuQuiz = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => inputSchema.parse(data))
-  .handler(async ({ data }): Promise<GenerateMenuQuizResult> => {
+  .handler(async ({ data, context }): Promise<GenerateMenuQuizResult> => {
     const lovableKey = process.env.LOVABLE_API_KEY;
     if (!lovableKey) return { ok: false, error: "AI is not configured on this project (missing LOVABLE_API_KEY)." };
 
