@@ -258,7 +258,7 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
 }
 
 function TrainingTab({ employeeId }: { employeeId: string }) {
-  const { employees, videos, recordVideoProgress, recordQuizAttempt } = useStore();
+  const { employees, videos, recordVideoProgress, applyQuizAttemptResult } = useStore();
   const me = employees.find((e) => e.id === employeeId)!;
   const assigned = videosForEmployee(videos, me);
 
