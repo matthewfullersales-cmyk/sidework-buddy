@@ -86,6 +86,8 @@ export interface VideoProgress {
   passed?: boolean;
   attempts: number;
   lockedOut?: boolean;
+  /** Set true if the employee switched tabs/apps during their most recent quiz attempt. */
+  distractionFlagged?: boolean;
 }
 
 export type Section = "FOH" | "BOH";
