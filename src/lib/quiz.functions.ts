@@ -98,11 +98,12 @@ export const startQuizAttempt = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const access = await verifyEmployeeAccess(supabase, data.employeeId, userId);
     if (!access.ok) return access;
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     // Resolve question bank for this video.
     let bank: BankQuestion[] = [];
     if (data.videoId === "menu-quiz") {
-      const { data: row, error } = await supabase
+      const { data: row, error } = await supabaseAdmin
         .from("menu_quiz_banks")
         .select("questions")
         .eq("owner_id", access.ownerId)
@@ -139,7 +140,7 @@ export const startQuizAttempt = createServerFn({ method: "POST" })
     const chosen = pickRandom(bank, Math.min(QUIZ_SIZE, bank.length));
     const { storedQuestions, publicQuestions } = shuffleAndSplit(chosen);
 
-    const { data: inserted, error: insertErr } = await supabase
+    const { data: inserted, error: insertErr } = await supabaseAdmin
       .from("quiz_attempts")
       .insert({
         owner_id: access.ownerId,
@@ -169,7 +170,8 @@ export const submitQuizAttempt = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => submitSchema.parse(data))
   .handler(async ({ data, context }): Promise<SubmitQuizResult> => {
     const { supabase, userId } = context;
-    const { data: attempt, error } = await supabase
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: attempt, error } = await supabaseAdmin
       .from("quiz_attempts")
       .select("*")
       .eq("id", data.attemptId)
@@ -200,7 +202,7 @@ export const submitQuizAttempt = createServerFn({ method: "POST" })
     const passed = score >= PASS_PCT;
     const distractionFlagged = !!data.distractionFlagged;
 
-    await supabase
+    const { error: attemptUpdateErr } = await supabaseAdmin
       .from("quiz_attempts")
       .update({
         score,
@@ -209,10 +211,14 @@ export const submitQuizAttempt = createServerFn({ method: "POST" })
         submitted_at: new Date().toISOString(),
       })
       .eq("id", data.attemptId);
+    if (attemptUpdateErr) {
+      console.error("[quiz] attempt update failed", attemptUpdateErr);
+      return { ok: false, error: "Couldn't save the quiz result. Try again." };
+    }
 
     // Upsert training_progress row. We increment attempts and only flip
     // `passed`/`completed_at` forward — never regress a prior pass.
-    const { data: existing } = await supabase
+    const { data: existing } = await supabaseAdmin
       .from("training_progress")
       .select("*")
       .eq("employee_id", attempt.employee_id)
@@ -228,7 +234,7 @@ export const submitQuizAttempt = createServerFn({ method: "POST" })
         ? new Date().toISOString()
         : (existing?.completed_at ?? null);
 
-    const { error: upsertErr } = await supabase
+    const { error: upsertErr } = await supabaseAdmin
       .from("training_progress")
       .upsert(
         {
@@ -247,6 +253,7 @@ export const submitQuizAttempt = createServerFn({ method: "POST" })
       );
     if (upsertErr) {
       console.error("[quiz] training_progress upsert failed", upsertErr);
+      return { ok: false, error: "Couldn't save training progress. Try again." };
     }
 
     return { ok: true, score, passed, attempts, distractionFlagged };

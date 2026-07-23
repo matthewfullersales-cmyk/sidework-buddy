@@ -45,8 +45,9 @@ const modelResponseSchema = z.object({
 });
 
 export type MenuQuizQuestion = z.infer<typeof questionSchema>;
+export type MenuQuizPreviewQuestion = Pick<MenuQuizQuestion, "question" | "options">;
 export type GenerateMenuQuizResult =
-  | { ok: true; questions: MenuQuizQuestion[] }
+  | { ok: true; questions: MenuQuizPreviewQuestion[] }
   | { ok: false; error: string };
 
 const SYSTEM_PROMPT = `You are a restaurant training coach building a menu quiz for new servers, bartenders, and line cooks. You will be given a photo or PDF of an actual restaurant menu. Read every dish, drink, and description you can see, then write multiple-choice quiz questions that test genuine knowledge of THIS restaurant's menu — ingredients, dish names, categories, and short descriptions.
@@ -221,5 +222,8 @@ export const generateMenuQuiz = createServerFn({ method: "POST" })
       return { ok: false, error: "Generated the quiz but couldn't save it. Try again." };
     }
 
-    return { ok: true, questions };
+    return {
+      ok: true,
+      questions: questions.map(({ question, options }) => ({ question, options })),
+    };
   });
