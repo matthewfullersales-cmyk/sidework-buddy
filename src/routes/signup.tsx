@@ -1,10 +1,12 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { AuthShell } from "./login";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
+import { createCheckoutSession } from "@/lib/stripe-checkout.functions";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/signup")({
@@ -15,6 +17,7 @@ export const Route = createFileRoute("/signup")({
 
 function SignupPage() {
   const navigate = useNavigate();
+  const checkout = useServerFn(createCheckoutSession);
   const [restaurantName, setRestaurantName] = useState("");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -48,13 +51,26 @@ function SignupPage() {
       if (pErr) { setBusy(false); return toast.error(pErr.message); }
     }
 
-    if (data.session) {
-      toast.success("Account created");
-      navigate({ to: "/manager" });
-    } else {
-      toast.success("Check your email to confirm your account, then sign in.");
-      navigate({ to: "/login" });
+    // If Supabase issued a session immediately, send them straight to Stripe
+    // Checkout. Otherwise they must confirm email first, then subscribe on
+    // next sign-in (the manager gate will redirect them to /pricing).
+    if (data.session && uid) {
+      try {
+        const { url } = await checkout({
+          data: { origin: window.location.origin, userId: uid, email: email.trim() },
+        });
+        window.location.href = url;
+        return;
+      } catch (e) {
+        setBusy(false);
+        toast.error(e instanceof Error ? e.message : "Could not start checkout");
+        navigate({ to: "/pricing" });
+        return;
+      }
     }
+
+    toast.success("Check your email to confirm your account, then sign in to subscribe.");
+    navigate({ to: "/login" });
     setBusy(false);
   };
 
@@ -81,7 +97,8 @@ function SignupPage() {
           <Label htmlFor="confirm">Confirm password</Label>
           <Input id="confirm" type="password" autoComplete="new-password" required minLength={8} value={confirm} onChange={(e) => setConfirm(e.target.value)} />
         </div>
-        <Button type="submit" size="lg" className="h-12" disabled={busy}>{busy ? "Creating…" : "Create account"}</Button>
+        <Button type="submit" size="lg" className="h-12" disabled={busy}>{busy ? "Redirecting to checkout…" : "Subscribe — $99/mo"}</Button>
+        <p className="text-center text-xs text-muted-foreground">You'll be redirected to Stripe to enter payment. Cancel anytime.</p>
       </form>
       <p className="mt-6 text-center text-sm text-muted-foreground">
         Already have an account? <Link to="/login" className="font-semibold text-primary hover:underline">Sign in</Link>

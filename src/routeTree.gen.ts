@@ -27,6 +27,7 @@ import { Route as JoinSlugRouteImport } from './routes/join.$slug'
 import { Route as InterviewIdRouteImport } from './routes/interview.$id'
 import { Route as HiredIdRouteImport } from './routes/hired.$id'
 import { Route as InterviewIdHostRouteImport } from './routes/interview.$id.host'
+import { Route as ApiPublicStripeWebhookRouteImport } from './routes/api/public/stripe-webhook'
 
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
@@ -118,6 +119,11 @@ const InterviewIdHostRoute = InterviewIdHostRouteImport.update({
   path: '/host',
   getParentRoute: () => InterviewIdRoute,
 } as any)
+const ApiPublicStripeWebhookRoute = ApiPublicStripeWebhookRouteImport.update({
+  id: '/api/public/stripe-webhook',
+  path: '/api/public/stripe-webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -137,6 +143,7 @@ export interface FileRoutesByFullPath {
   '/join/$slug': typeof JoinSlugRoute
   '/shadow/$id': typeof ShadowIdRoute
   '/staff-invite/$token': typeof StaffInviteTokenRoute
+  '/api/public/stripe-webhook': typeof ApiPublicStripeWebhookRoute
   '/interview/$id/host': typeof InterviewIdHostRoute
 }
 export interface FileRoutesByTo {
@@ -157,6 +164,7 @@ export interface FileRoutesByTo {
   '/join/$slug': typeof JoinSlugRoute
   '/shadow/$id': typeof ShadowIdRoute
   '/staff-invite/$token': typeof StaffInviteTokenRoute
+  '/api/public/stripe-webhook': typeof ApiPublicStripeWebhookRoute
   '/interview/$id/host': typeof InterviewIdHostRoute
 }
 export interface FileRoutesById {
@@ -178,6 +186,7 @@ export interface FileRoutesById {
   '/join/$slug': typeof JoinSlugRoute
   '/shadow/$id': typeof ShadowIdRoute
   '/staff-invite/$token': typeof StaffInviteTokenRoute
+  '/api/public/stripe-webhook': typeof ApiPublicStripeWebhookRoute
   '/interview/$id/host': typeof InterviewIdHostRoute
 }
 export interface FileRouteTypes {
@@ -200,6 +209,7 @@ export interface FileRouteTypes {
     | '/join/$slug'
     | '/shadow/$id'
     | '/staff-invite/$token'
+    | '/api/public/stripe-webhook'
     | '/interview/$id/host'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -220,6 +230,7 @@ export interface FileRouteTypes {
     | '/join/$slug'
     | '/shadow/$id'
     | '/staff-invite/$token'
+    | '/api/public/stripe-webhook'
     | '/interview/$id/host'
   id:
     | '__root__'
@@ -240,6 +251,7 @@ export interface FileRouteTypes {
     | '/join/$slug'
     | '/shadow/$id'
     | '/staff-invite/$token'
+    | '/api/public/stripe-webhook'
     | '/interview/$id/host'
   fileRoutesById: FileRoutesById
 }
@@ -261,6 +273,7 @@ export interface RootRouteChildren {
   JoinSlugRoute: typeof JoinSlugRoute
   ShadowIdRoute: typeof ShadowIdRoute
   StaffInviteTokenRoute: typeof StaffInviteTokenRoute
+  ApiPublicStripeWebhookRoute: typeof ApiPublicStripeWebhookRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -391,6 +404,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InterviewIdHostRouteImport
       parentRoute: typeof InterviewIdRoute
     }
+    '/api/public/stripe-webhook': {
+      id: '/api/public/stripe-webhook'
+      path: '/api/public/stripe-webhook'
+      fullPath: '/api/public/stripe-webhook'
+      preLoaderRoute: typeof ApiPublicStripeWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -424,17 +444,8 @@ const rootRouteChildren: RootRouteChildren = {
   JoinSlugRoute: JoinSlugRoute,
   ShadowIdRoute: ShadowIdRoute,
   StaffInviteTokenRoute: StaffInviteTokenRoute,
+  ApiPublicStripeWebhookRoute: ApiPublicStripeWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

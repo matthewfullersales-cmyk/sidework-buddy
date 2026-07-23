@@ -11,6 +11,7 @@ export type Profile = {
   full_name: string;
   restaurant_name: string | null;
   employee_id: string | null;
+  subscription_status: string | null;
 };
 
 export type EffectiveOwner = {
@@ -43,7 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!uid) { setProfile(null); return; }
     const { data } = await supabase
       .from("profiles")
-      .select("id, role, full_name, restaurant_name, employee_id")
+      .select("id, role, full_name, restaurant_name, employee_id, subscription_status")
       .eq("id", uid)
       .maybeSingle();
     setProfile((data as Profile | null) ?? null);
