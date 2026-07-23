@@ -39,6 +39,8 @@ import { useAuth } from "@/lib/auth-context";
 // (removed) team-permissions registry — single-login owner model.
 import { fetchBookedInterviewSlots } from "@/lib/hiring-supabase";
 import { cn } from "@/lib/utils";
+import { listOwnerQuizAttempts, type QuizAttemptSummary } from "@/lib/quiz.functions";
+import { useServerFn } from "@tanstack/react-start";
 
 type TeamSortKey =
   | "firstNameAsc" | "firstNameDesc"
@@ -329,6 +331,16 @@ function TeamTab() {
   const [sortKey, setSortKey] = useState<TeamSortKey>("firstNameAsc");
   const [filters, setFilters] = useState<Set<string>>(new Set(["all"]));
   const [sfOpen, setSfOpen] = useState(false);
+  const [quizAttempts, setQuizAttempts] = useState<QuizAttemptSummary[]>([]);
+  const loadQuizAttempts = useServerFn(listOwnerQuizAttempts);
+
+  useEffect(() => {
+    let active = true;
+    loadQuizAttempts()
+      .then((rows) => { if (active) setQuizAttempts(rows); })
+      .catch((error) => console.error("[quiz] couldn't load attempt history", error));
+    return () => { active = false; };
+  }, [loadQuizAttempts]);
 
   useEffect(() => {
     try {
@@ -643,18 +655,18 @@ function TeamTab() {
                     <p className="mt-1 text-xs text-muted-foreground">{s.passed}/{s.total} videos passed</p>
                     <Progress value={s.pct} className="mt-2 h-1.5 w-32" />
                     {(() => {
-                      const notable = e.progress.filter((p) => (p.attempts ?? 0) > 1 || p.distractionFlagged);
-                      if (notable.length === 0) return null;
+                      const recentAttempts = quizAttempts.filter((attempt) => attempt.employeeId === e.id).slice(0, 5);
+                      if (recentAttempts.length === 0) return null;
                       return (
                         <div className="mt-2 space-y-0.5 text-right text-[11px] text-muted-foreground">
-                          {notable.slice(0, 3).map((p) => {
-                            const v = videos.find((vv) => vv.id === p.videoId);
+                          {recentAttempts.map((attempt, index) => {
+                            const v = videos.find((vv) => vv.id === attempt.videoId);
                             if (!v) return null;
                             return (
-                              <p key={p.videoId}>
-                                {v.title}: {p.passed ? `passed on attempt ${p.attempts}` : `${p.attempts} attempts`}
-                                {p.distractionFlagged && (
-                                  <span className="ml-1 font-semibold text-amber-600 dark:text-amber-400">⚠ tab-switch</span>
+                              <p key={attempt.id}>
+                                {v.title} #{recentAttempts.length - index}: {attempt.score}% {attempt.passed ? "passed" : "not passed"}
+                                {attempt.distractionFlagged && (
+                                  <span className="ml-1 font-semibold text-amber-600 dark:text-amber-400">⚠ possible distraction</span>
                                 )}
                               </p>
                             );

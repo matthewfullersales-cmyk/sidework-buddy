@@ -309,7 +309,6 @@ function QuizSection({
       onCopy={(e) => e.preventDefault()}
       onCut={(e) => e.preventDefault()}
       onContextMenu={(e) => e.preventDefault()}
-      style={{ WebkitUserSelect: "none", userSelect: "none" }}
     >
       <div className="mb-3 flex items-center justify-between text-xs font-semibold text-primary">
         <span>Question {idx + 1} of {questions.length}</span>
@@ -319,14 +318,16 @@ function QuizSection({
       <p className="mt-4 text-sm font-medium sm:text-base">{q.question}</p>
       <div className="mt-3 grid gap-2">
         {q.options.map((opt, j) => (
-          <button
+          <Button
             key={j}
+            type="button"
+            variant="outline"
             onClick={() => pickAnswer(j)}
             disabled={submitting}
-            className="rounded-lg border border-border bg-card px-3 py-2.5 text-left text-sm transition-colors hover:border-primary hover:bg-primary/5 active:bg-primary-soft"
+            className="h-auto min-h-10 justify-start whitespace-normal px-3 py-2.5 text-left text-sm hover:border-primary hover:bg-primary/5 active:bg-primary-soft"
           >
             {opt}
-          </button>
+          </Button>
         ))}
       </div>
       <p className="mt-3 text-xs text-muted-foreground">

@@ -24,7 +24,7 @@ const startSchema = z.object({
 
 const submitSchema = z.object({
   attemptId: z.string().uuid(),
-  answers: z.array(z.number().int().min(-1).max(10)).max(50),
+  answers: z.array(z.number().int().min(-1).max(10)).max(QUIZ_SIZE),
   distractionFlagged: z.boolean().optional().default(false),
 });
 
@@ -49,6 +49,17 @@ export type SubmitQuizResult =
       distractionFlagged: boolean;
     }
   | { ok: false; error: string };
+
+export type QuizAttemptSummary = {
+  id: string;
+  employeeId: string;
+  videoId: string;
+  score: number | null;
+  passed: boolean | null;
+  distractionFlagged: boolean;
+  submittedAt: string | null;
+  createdAt: string;
+};
 
 // Given raw bank questions, produce (a) the client-visible payload with
 // options shuffled per-question, and (b) the server-only answer key that
@@ -192,6 +203,9 @@ export const submitQuizAttempt = createServerFn({ method: "POST" })
       )
       .safeParse(attempt.questions);
     if (!stored.success) return { ok: false, error: "Stored quiz is malformed." };
+    if (data.answers.length !== stored.data.length) {
+      return { ok: false, error: "The submitted answers don't match this attempt." };
+    }
 
     let correct = 0;
     stored.data.forEach((q, i) => {
@@ -257,4 +271,30 @@ export const submitQuizAttempt = createServerFn({ method: "POST" })
     }
 
     return { ok: true, score, passed, attempts, distractionFlagged };
+  });
+
+export const listOwnerQuizAttempts = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<QuizAttemptSummary[]> => {
+    const { data, error } = await context.supabase
+      .from("quiz_attempts")
+      .select("id, employee_id, video_id, score, passed, distraction_flagged, submitted_at, created_at")
+      .eq("owner_id", context.userId)
+      .not("submitted_at", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(250);
+    if (error) {
+      console.error("[quiz] owner attempt list failed", error);
+      return [];
+    }
+    return (data ?? []).map((row) => ({
+      id: row.id,
+      employeeId: row.employee_id,
+      videoId: row.video_id,
+      score: row.score,
+      passed: row.passed,
+      distractionFlagged: row.distraction_flagged,
+      submittedAt: row.submitted_at,
+      createdAt: row.created_at,
+    }));
   });
