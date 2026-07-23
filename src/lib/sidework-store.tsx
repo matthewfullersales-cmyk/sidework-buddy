@@ -703,7 +703,10 @@ export interface Notification {
   read: boolean;
 }
 
+export type MenuBankMeta = { version: number; updatedAt: string; foodCount: number; drinkCount: number };
+
 interface Store {
+
   currentUser: { type: "manager"; id: "owner" } | { type: "employee"; id: string };
   setCurrentUser: (u: Store["currentUser"]) => void;
   employeeHydrating: boolean;
@@ -739,7 +742,7 @@ interface Store {
   setMenu: (m: MenuUpload | null) => void;
   setDrinkMenu: (m: MenuUpload | null) => void;
   markMenuGenerated: () => void;
-  setMenuBankMeta: (m: { version: number; updatedAt: string } | null) => void;
+  setMenuBankMeta: (m: MenuBankMeta | null) => void;
   refreshMenuBankMeta: () => Promise<void>;
   completeSetup: (profile: Omit<RestaurantProfile, "completedAt">, food: MenuUpload | null, drink: MenuUpload | null) => void;
 
@@ -1212,7 +1215,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     customRoles: [] as CustomRole[],
     setupCompleted: false,
     notifications: [] as Notification[],
-    menuBankMeta: null as { version: number; updatedAt: string } | null,
+    menuBankMeta: null as MenuBankMeta | null,
   }));
 
 
