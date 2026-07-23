@@ -211,7 +211,7 @@ export function MenuQuizGenerator({ menuName }: { menuName?: string }) {
               <div className="space-y-1">
                 <p className="text-sm font-medium">Upload your menu</p>
                 <p className="text-xs text-muted-foreground">
-                  PDF, PNG, JPG or WEBP · up to {MAX_MB} MB · drag &amp; drop or click
+                  PDF up to {MAX_PDF_MB} MB, or a phone photo (auto-compressed) · drag &amp; drop or click
                 </p>
               </div>
             )}
