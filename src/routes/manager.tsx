@@ -18,7 +18,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
-import { onboardingStatus, useStore, type Role, type ApplicationStatus, type Employee, type Relationship, DAY_KEYS, hoursConfigured, type JobApplication, type HiringStage, type ShadowShiftDetails, type InterviewType, getHiringStage, isPendingRoleAssignment, isScheduleEligible, trainingProgressFor } from "@/lib/sidework-store";
+import { onboardingStatus, useStore, type Role, type ApplicationStatus, type Employee, type Relationship, DAY_KEYS, hoursConfigured, type JobApplication, type HiringStage, type ShadowShiftDetails, type InterviewType, getHiringStage, isPendingRoleAssignment, isScheduleEligible, trainingProgressFor, menuTestStatus } from "@/lib/sidework-store";
 import { roleStyle, fohRolesWithCustom, bohRolesWithCustom, allRolesWithCustom } from "@/lib/role-colors";
 
 import { PhoneInput } from "@/components/ui/phone-input";
@@ -177,14 +177,20 @@ function ManagerTabs({ tab, setTab, onOpenSetup }: { tab: string; setTab: (v: st
 
 
 function OverviewTab() {
-  const { employees, videos, trades, shifts, applications, timeOff } = useStore();
+  const { employees, videos, trades, shifts, applications, timeOff, menuBankMeta } = useStore();
+  const menuBankVersion = menuBankMeta?.version ?? null;
   const stats = useMemo(() => {
-    const onboarded = employees.filter((e) => onboardingStatus(e, videos).fullyOnboarded).length;
+    const onboarded = employees.filter((e) => onboardingStatus(e, videos, menuBankVersion).fullyOnboarded).length;
     const pending = trades.filter((t) => t.status === "pending_approval").length;
     const newApps = applications.filter((a) => a.status === "new").length;
     const pendingTO = timeOff.filter((t) => t.status === "pending").length;
-    return { onboarded, total: employees.length, pending, newApps, pendingTO, shifts: shifts.length };
-  }, [employees, videos, trades, shifts, applications, timeOff]);
+    const menuStale = employees.filter((e) => menuTestStatus(e, menuBankVersion) === "stale").length;
+    const menuNever = employees.filter((e) => {
+      const s = menuTestStatus(e, menuBankVersion);
+      return s === "never" || s === "in-progress";
+    }).length;
+    return { onboarded, total: employees.length, pending, newApps, pendingTO, shifts: shifts.length, menuStale, menuNever };
+  }, [employees, videos, trades, shifts, applications, timeOff, menuBankVersion]);
 
   return (
     <div className="grid gap-6">
@@ -194,6 +200,18 @@ function OverviewTab() {
         <Stat label="New applications" value={stats.newApps} hint="Awaiting review" tone={stats.newApps > 0 ? "warn" : undefined} />
         <Stat label="Time off pending" value={stats.pendingTO} hint="Need a decision" tone={stats.pendingTO > 0 ? "warn" : undefined} />
       </div>
+      {(stats.menuStale > 0 || stats.menuNever > 0) && (
+        <Card className="border-amber-500/40 bg-amber-500/10">
+          <CardContent className="p-4 text-sm">
+            <p className="font-semibold text-amber-900 dark:text-amber-200">Menu Knowledge Test — schedule gate</p>
+            <p className="mt-1 text-amber-900/80 dark:text-amber-200/80">
+              {stats.menuStale > 0 && <>{stats.menuStale} of {stats.total} staff need to <b>retake</b> the updated menu test. </>}
+              {stats.menuNever > 0 && <>{stats.menuNever} of {stats.total} staff have <b>never passed</b> the menu test. </>}
+              These employees can't be scheduled until they pass at 80%.
+            </p>
+          </CardContent>
+        </Card>
+      )}
       <NotificationsCard />
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
@@ -201,7 +219,7 @@ function OverviewTab() {
         </CardHeader>
         <CardContent className="space-y-4">
           {employees.map((e) => {
-            const s = onboardingStatus(e, videos);
+            const s = onboardingStatus(e, videos, menuBankVersion);
             return (
               <div key={e.id} className="space-y-1.5">
                 <div className="flex items-center justify-between text-sm">
@@ -316,7 +334,8 @@ function PendingRoleAssignmentQueue({
 }
 
 function TeamTab() {
-  const { employees, videos, inviteEmployee, restaurantProfile, activeRoles, customRoles, shifts, trades, timeOff, clearAllEmployees, updateEmployee } = useStore();
+  const { employees, videos, inviteEmployee, restaurantProfile, activeRoles, customRoles, shifts, trades, timeOff, clearAllEmployees, updateEmployee, menuBankMeta } = useStore();
+  const menuBankVersion = menuBankMeta?.version ?? null;
   const fohActive = fohRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r));
   const bohActive = bohRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r));
   const [open, setOpen] = useState(false);
@@ -370,7 +389,7 @@ function TeamTab() {
       if (filters.has("all")) return true;
       const role = e.primaryRole;
       const isFoh = (FOH_ROLES as string[]).includes(role);
-      const status = onboardingStatus(e, videos);
+      const status = onboardingStatus(e, videos, menuBankVersion);
       for (const f of filters) {
         if (f === "foh" && isFoh) return true;
         if (f === "boh" && !isFoh) return true;
@@ -382,7 +401,7 @@ function TeamTab() {
     });
     const firstOf = (e: Employee) => (e.firstName ?? e.name.split(" ")[0] ?? "").toLowerCase();
     const lastOf = (e: Employee) => (e.lastName ?? e.name.split(" ").slice(1).join(" ") ?? "").toLowerCase();
-    const pctOf = (e: Employee) => onboardingStatus(e, videos).pct;
+    const pctOf = (e: Employee) => onboardingStatus(e, videos, menuBankVersion).pct;
     const sorted = [...list];
     sorted.sort((a, b) => {
       switch (sortKey) {
@@ -621,8 +640,9 @@ function TeamTab() {
           <Card><CardContent className="p-8 text-center text-sm text-muted-foreground">No staff match the current filters.</CardContent></Card>
         )}
         {visibleEmployees.map((e) => {
-          const s = onboardingStatus(e, videos);
+          const s = onboardingStatus(e, videos, menuBankVersion);
           const fullName = e.firstName && e.lastName ? `${e.firstName} ${e.lastName}` : e.name;
+          const menuState = menuTestStatus(e, menuBankVersion);
           return (
             <Card key={e.id}>
               <CardContent className="p-5">
@@ -644,16 +664,23 @@ function TeamTab() {
                   <div className="text-right">
                     {isPendingRoleAssignment(e) ? (
                       <Badge variant="secondary" className="bg-muted text-foreground">Pending role</Badge>
-                    ) : isScheduleEligible(e, videos, customRoles) ? (
+                    ) : isScheduleEligible(e, videos, customRoles, menuBankVersion) ? (
                       <Badge className="bg-success text-success-foreground hover:bg-success">Schedule eligible</Badge>
                     ) : (
                       (() => {
-                        const tp = trainingProgressFor(e, videos, customRoles);
+                        const tp = trainingProgressFor(e, videos, customRoles, menuBankVersion);
                         return <Badge variant="secondary" className="bg-amber-500/15 text-amber-700 dark:text-amber-300">In training · {tp.passed}/{tp.total}</Badge>;
                       })()
                     )}
+                    {menuState === "stale" && (
+                      <p className="mt-1 text-[11px] font-semibold text-amber-700 dark:text-amber-300">Menu updated — retake required</p>
+                    )}
+                    {(menuState === "never" || menuState === "in-progress") && (
+                      <p className="mt-1 text-[11px] font-semibold text-amber-700 dark:text-amber-300">Menu test not passed</p>
+                    )}
                     <p className="mt-1 text-xs text-muted-foreground">{s.passed}/{s.total} videos passed</p>
                     <Progress value={s.pct} className="mt-2 h-1.5 w-32" />
+
                     {(() => {
                       const recentAttempts = quizAttempts.filter((attempt) => attempt.employeeId === e.id).slice(0, 5);
                       if (recentAttempts.length === 0) return null;

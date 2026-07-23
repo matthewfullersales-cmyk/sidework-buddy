@@ -16,6 +16,7 @@ type Row = {
   attempts: number;
   locked_out: boolean;
   distraction_flagged: boolean;
+  bank_version: number | null;
 };
 
 function fromRow(r: Row): VideoProgress {
@@ -28,8 +29,10 @@ function fromRow(r: Row): VideoProgress {
     attempts: r.attempts ?? 0,
     lockedOut: r.locked_out,
     distractionFlagged: r.distraction_flagged ?? false,
+    bankVersion: r.bank_version ?? undefined,
   };
 }
+
 
 /** Fetch every training row for every employee in this restaurant. */
 export async function fetchOwnerTrainingProgress(
@@ -94,10 +97,34 @@ export async function upsertTrainingProgress(
     attempts: patch.attempts ?? current?.attempts ?? 0,
     locked_out: patch.lockedOut ?? current?.locked_out ?? false,
     distraction_flagged: patch.distractionFlagged ?? current?.distraction_flagged ?? false,
+    bank_version:
+      patch.bankVersion !== undefined ? patch.bankVersion : current?.bank_version ?? null,
   };
+
 
   const { error } = await supabase
     .from("training_progress")
     .upsert(merged as never, { onConflict: "employee_id,video_id" });
   if (error) throw error;
+}
+
+/**
+ * Read the current menu quiz bank metadata for a restaurant. Callable by
+ * the owner OR by any employee of that restaurant via the SECURITY DEFINER
+ * function `get_menu_bank_meta`. Returns null when the owner hasn't
+ * generated a menu quiz yet.
+ */
+export async function fetchMenuBankMeta(
+  ownerId: string,
+): Promise<{ version: number; updatedAt: string } | null> {
+  const { data, error } = await supabase.rpc("get_menu_bank_meta", {
+    p_owner_id: ownerId,
+  });
+  if (error) throw error;
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) return null;
+  const version = (row as { bank_version?: number }).bank_version;
+  const updatedAt = (row as { updated_at?: string }).updated_at;
+  if (typeof version !== "number" || !updatedAt) return null;
+  return { version, updatedAt };
 }

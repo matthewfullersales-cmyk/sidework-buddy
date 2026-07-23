@@ -16,7 +16,7 @@ import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { TrainingModule } from "@/components/sidework/TrainingModule";
 import { AvailabilityEditor } from "@/components/sidework/AvailabilityEditor";
-import { onboardingStatus, useStore, videosForEmployee, type Relationship, type WeeklyAvailability } from "@/lib/sidework-store";
+import { onboardingStatus, useStore, videosForEmployee, menuTestStatus, type Relationship, type WeeklyAvailability } from "@/lib/sidework-store";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatPhone } from "@/lib/format-phone";
 import { toast } from "sonner";
@@ -36,7 +36,8 @@ export const Route = createFileRoute("/employee")({
 function EmployeePage() {
   useRequireRole("employee", "/employee-login");
   const { profile, employeeContext, loading: authLoading } = useAuth();
-  const { currentUser, setCurrentUser, employees, videos, employeeHydrating } = useStore();
+  const { currentUser, setCurrentUser, employees, videos, employeeHydrating, menuBankMeta } = useStore();
+  const menuBankVersion = menuBankMeta?.version ?? null;
   const targetId = employeeContext?.employeeId ?? profile?.employee_id ?? null;
   useEffect(() => {
     if (targetId && (currentUser.type !== "employee" || currentUser.id !== targetId)) {
@@ -45,7 +46,7 @@ function EmployeePage() {
   }, [targetId, currentUser, setCurrentUser]);
   const stillLoading = authLoading || employeeHydrating || (targetId && employees.length === 0);
   const me = currentUser.type === "employee" ? employees.find((e) => e.id === currentUser.id) : undefined;
-  const status = useMemo(() => (me ? onboardingStatus(me, videos) : null), [me, videos]);
+  const status = useMemo(() => (me ? onboardingStatus(me, videos, menuBankVersion) : null), [me, videos, menuBankVersion]);
 
   useEffect(() => {
     if (!me || !status) return;
@@ -121,7 +122,8 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
   });
   const [specialTalents, setSpecialTalents] = useState(me.specialTalents ?? "");
   const [photoUrl, setPhotoUrl] = useState(me.photoUrl ?? "");
-  const s = onboardingStatus(me, videos);
+  const { menuBankMeta } = useStore();
+  const s = onboardingStatus(me, videos, menuBankMeta?.version ?? null);
 
   const onPhotoFile = (file: File | null) => {
     if (!file) return;
@@ -258,9 +260,10 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
 }
 
 function TrainingTab({ employeeId }: { employeeId: string }) {
-  const { employees, videos, recordVideoProgress, applyQuizAttemptResult } = useStore();
+  const { employees, videos, recordVideoProgress, applyQuizAttemptResult, menuBankMeta } = useStore();
   const me = employees.find((e) => e.id === employeeId)!;
   const assigned = videosForEmployee(videos, me);
+  const menuState = menuTestStatus(me, menuBankMeta?.version ?? null);
 
   // sequential: previous module must be passed
   const firstUnlockedIndex = useMemo(() => {
@@ -277,6 +280,15 @@ function TrainingTab({ employeeId }: { employeeId: string }) {
 
   return (
     <div className="grid gap-4">
+      {menuState === "stale" && (
+        <Card className="border-amber-500/50 bg-amber-500/10">
+          <CardContent className="p-4 text-sm text-amber-900 dark:text-amber-200">
+            <p className="font-semibold">Your restaurant's menu was updated</p>
+            <p className="mt-1">Retake the Menu Knowledge Test below to regain schedule access. You can't be scheduled until you pass at 80%.</p>
+          </CardContent>
+        </Card>
+      )}
+
       {assigned.map((video, i) => {
         const prog = me.progress.find((p) => p.videoId === video.id);
         const locked = i > firstUnlockedIndex;
