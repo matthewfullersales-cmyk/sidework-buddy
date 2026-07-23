@@ -3,9 +3,11 @@ import { useNavigate } from "@tanstack/react-router";
 import { useAuth } from "./auth-context";
 
 /**
- * Manager dashboard is owner-only. Single-login model:
- *  - profiles.role === "owner" → allowed
- *  - anyone else → redirected to /employee
+ * Manager dashboard is owner-only AND requires an active subscription.
+ * Single-login model:
+ *  - no session → /login
+ *  - non-owner → /employee
+ *  - owner without active subscription → /pricing
  */
 export function useRequireManagerAccess(redirectTo = "/login") {
   const { loading, session, profile } = useAuth();
@@ -13,10 +15,10 @@ export function useRequireManagerAccess(redirectTo = "/login") {
   useEffect(() => {
     if (loading) return;
     if (!session) { navigate({ to: redirectTo }); return; }
-    // Wait until the profile has actually loaded before deciding — otherwise
-    // owners flash through /employee for a tick right after sign-in.
-    if (profile && profile.role !== "owner") {
-      navigate({ to: "/employee" });
+    if (!profile) return; // wait for profile to hydrate
+    if (profile.role !== "owner") { navigate({ to: "/employee" }); return; }
+    if (profile.subscription_status !== "active") {
+      navigate({ to: "/pricing" });
     }
   }, [loading, session, profile, redirectTo, navigate]);
 }
