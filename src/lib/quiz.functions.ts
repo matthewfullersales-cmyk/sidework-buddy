@@ -200,6 +200,9 @@ export const submitQuizAttempt = createServerFn({ method: "POST" })
       .maybeSingle();
     if (error || !attempt) return { ok: false, error: "Attempt not found." };
     if (attempt.submitted_at) return { ok: false, error: "Attempt already submitted." };
+    if (new Date(attempt.expires_at).getTime() <= Date.now()) {
+      return { ok: false, error: "This attempt expired. Start a new quiz." };
+    }
 
     const access = await verifyEmployeeAccess(supabase, attempt.employee_id, userId);
     if (!access.ok) return access;
@@ -227,7 +230,7 @@ export const submitQuizAttempt = createServerFn({ method: "POST" })
     const passed = score >= PASS_PCT;
     const distractionFlagged = !!data.distractionFlagged;
 
-    const { error: attemptUpdateErr } = await supabaseAdmin
+    const { data: submittedAttempt, error: attemptUpdateErr } = await supabaseAdmin
       .from("quiz_attempts")
       .update({
         score,
@@ -235,11 +238,15 @@ export const submitQuizAttempt = createServerFn({ method: "POST" })
         distraction_flagged: distractionFlagged,
         submitted_at: new Date().toISOString(),
       })
-      .eq("id", data.attemptId);
+      .eq("id", data.attemptId)
+      .is("submitted_at", null)
+      .select("id")
+      .maybeSingle();
     if (attemptUpdateErr) {
       console.error("[quiz] attempt update failed", attemptUpdateErr);
       return { ok: false, error: "Couldn't save the quiz result. Try again." };
     }
+    if (!submittedAttempt) return { ok: false, error: "Attempt already submitted." };
 
     // Upsert training_progress row. We increment attempts and only flip
     // `passed`/`completed_at` forward — never regress a prior pass.
