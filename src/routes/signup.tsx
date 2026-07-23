@@ -19,17 +19,20 @@ function SignupPage() {
   const navigate = useNavigate();
   const checkout = useServerFn(createCheckoutSession);
   const [restaurantName, setRestaurantName] = useState("");
-  const [fullName, setFullName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
 
+  const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password.length < 8) return toast.error("Password must be at least 8 characters");
     if (password !== confirm) return toast.error("Passwords don't match");
-    if (!restaurantName.trim() || !fullName.trim()) return toast.error("All fields required");
+    if (!restaurantName.trim() || !firstName.trim() || !lastName.trim()) return toast.error("All fields required");
 
     setBusy(true);
     const redirectTo = typeof window !== "undefined" ? window.location.origin : undefined;
