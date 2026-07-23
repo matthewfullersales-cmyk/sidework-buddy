@@ -237,6 +237,27 @@ export type Database = {
           },
         ]
       }
+      menu_quiz_banks: {
+        Row: {
+          created_at: string
+          owner_id: string
+          questions: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          owner_id: string
+          questions: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          owner_id?: string
+          questions?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           business_info: Json | null
@@ -322,6 +343,62 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "push_subscriptions_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "restaurant_employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quiz_attempts: {
+        Row: {
+          created_at: string
+          distraction_flagged: boolean
+          employee_id: string
+          expires_at: string
+          id: string
+          owner_id: string
+          passed: boolean | null
+          question_count: number
+          questions: Json
+          score: number | null
+          submitted_at: string | null
+          updated_at: string
+          video_id: string
+        }
+        Insert: {
+          created_at?: string
+          distraction_flagged?: boolean
+          employee_id: string
+          expires_at?: string
+          id?: string
+          owner_id: string
+          passed?: boolean | null
+          question_count: number
+          questions: Json
+          score?: number | null
+          submitted_at?: string | null
+          updated_at?: string
+          video_id: string
+        }
+        Update: {
+          created_at?: string
+          distraction_flagged?: boolean
+          employee_id?: string
+          expires_at?: string
+          id?: string
+          owner_id?: string
+          passed?: boolean | null
+          question_count?: number
+          questions?: Json
+          score?: number | null
+          submitted_at?: string | null
+          updated_at?: string
+          video_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_attempts_employee_id_fkey"
             columns: ["employee_id"]
             isOneToOne: false
             referencedRelation: "restaurant_employees"
@@ -644,6 +721,7 @@ export type Database = {
           attempts: number
           completed_at: string | null
           created_at: string
+          distraction_flagged: boolean
           employee_id: string
           id: string
           locked_out: boolean
@@ -658,6 +736,7 @@ export type Database = {
           attempts?: number
           completed_at?: string | null
           created_at?: string
+          distraction_flagged?: boolean
           employee_id: string
           id?: string
           locked_out?: boolean
@@ -672,6 +751,7 @@ export type Database = {
           attempts?: number
           completed_at?: string | null
           created_at?: string
+          distraction_flagged?: boolean
           employee_id?: string
           id?: string
           locked_out?: boolean
