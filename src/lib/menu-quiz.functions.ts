@@ -16,7 +16,11 @@ const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 // this kind of one-shot structured extraction.
 const MODEL = "google/gemini-2.5-flash";
 
-const MAX_FILE_BYTES = 8 * 1024 * 1024; // 8 MB after base64 decode
+// Gemini 2.5 Flash accepts inline file data up to ~20 MB per request; keep a small
+// safety margin so the whole JSON body (base64 + prompt overhead) fits comfortably.
+const MAX_FILE_BYTES = 20 * 1024 * 1024; // 20 MB after base64 decode
+const MAX_PDF_BYTES = 20 * 1024 * 1024;
+const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
 const ACCEPTED_MIME = new Set([
   "image/png",
   "image/jpeg",
