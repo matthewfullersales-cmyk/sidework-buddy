@@ -247,6 +247,10 @@ export type Database = {
           restaurant_hours: Json | null
           restaurant_name: string | null
           role: Database["public"]["Enums"]["user_role"]
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          subscription_current_period_end: string | null
+          subscription_status: string
           updated_at: string
         }
         Insert: {
@@ -258,6 +262,10 @@ export type Database = {
           restaurant_hours?: Json | null
           restaurant_name?: string | null
           role: Database["public"]["Enums"]["user_role"]
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_current_period_end?: string | null
+          subscription_status?: string
           updated_at?: string
         }
         Update: {
@@ -269,6 +277,10 @@ export type Database = {
           restaurant_hours?: Json | null
           restaurant_name?: string | null
           role?: Database["public"]["Enums"]["user_role"]
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_current_period_end?: string | null
+          subscription_status?: string
           updated_at?: string
         }
         Relationships: []
