@@ -1439,9 +1439,12 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
             personalInfoComplete: false,
             progress: [] as VideoProgress[],
           }));
+        const meWithProgress = me
+          ? { ...me, progress: myProgress.length > 0 ? myProgress : me.progress }
+          : null;
         setState((s) => ({
           ...s,
-          employees: me ? [me, ...coworkerStubs] : coworkerStubs,
+          employees: meWithProgress ? [meWithProgress, ...coworkerStubs] : coworkerStubs,
           shifts: [...myShifts, ...boardShifts],
           trades: openTrades,
           timeOff: myTimeOff,
