@@ -45,6 +45,11 @@ import {
   fetchMyTimeOff,
   fetchCoworkerNames,
 } from "@/lib/employee-supabase";
+import {
+  fetchOwnerTrainingProgress,
+  fetchEmployeeTrainingProgress,
+  upsertTrainingProgress,
+} from "@/lib/training-progress-supabase";
 import { useAuth } from "@/lib/auth-context";
 import { toast } from "sonner";
 
