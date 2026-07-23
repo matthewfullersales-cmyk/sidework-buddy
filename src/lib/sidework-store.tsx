@@ -1245,7 +1245,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     }
     (async () => {
       try {
-        const [postings, apps, remoteEmployeesInitial, remoteHours, remoteShiftsInitial, remoteTimeOffInitial, remoteTradesInitial, remoteBusinessInfo] = await Promise.all([
+        const [postings, apps, remoteEmployeesInitial, remoteHours, remoteShiftsInitial, remoteTimeOffInitial, remoteTradesInitial, remoteBusinessInfo, remoteTrainingProgress] = await Promise.all([
           fetchOwnerPostings(effectiveOwnerId),
           fetchOwnerApplications(effectiveOwnerId),
           fetchOwnerEmployees(effectiveOwnerId),
@@ -1254,6 +1254,10 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           fetchOwnerTimeOff(effectiveOwnerId),
           fetchOwnerTrades(effectiveOwnerId),
           fetchBusinessInfo(effectiveOwnerId),
+          fetchOwnerTrainingProgress(effectiveOwnerId).catch((e) => {
+            console.error("[owner-sync] training progress load failed", e);
+            return new Map<string, VideoProgress[]>();
+          }),
         ]);
         if (cancelled) return;
 
