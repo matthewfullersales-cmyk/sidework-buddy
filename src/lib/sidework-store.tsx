@@ -760,7 +760,16 @@ interface Store {
   updateEmployee: (id: string, patch: Partial<Employee>) => void;
   clearAllEmployees: () => void;
   recordVideoProgress: (employeeId: string, videoId: string, patch: Partial<VideoProgress>) => void;
-  recordQuizAttempt: (employeeId: string, videoId: string, score: number, passed: boolean) => void;
+  /**
+   * Apply a quiz attempt result graded by the server. Only updates local
+   * state — the server function (submitQuizAttempt) has already persisted
+   * the training_progress row.
+   */
+  applyQuizAttemptResult: (
+    employeeId: string,
+    videoId: string,
+    result: { score: number; passed: boolean; attempts: number; distractionFlagged: boolean },
+  ) => void;
   postTrade: (shiftId: string, note?: string) => void;
   upsertShift: (shift: Shift) => void;
   deleteShift: (id: string) => void;
