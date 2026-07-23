@@ -1,24 +1,38 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { pickRandomQuestions, type TrainingVideo, type VideoProgress } from "@/lib/sidework-store";
+import type { TrainingVideo, VideoProgress } from "@/lib/sidework-store";
+import {
+  startQuizAttempt,
+  submitQuizAttempt,
+  type PublicQuestion,
+} from "@/lib/quiz.functions";
 
-const QUIZ_SIZE = 5;
-const SECONDS_PER_Q = 30;
-const PASS_PCT = 80;
+const DEFAULT_SECONDS_PER_Q = 30;
+const DEFAULT_PASS_PCT = 80;
+
+export type QuizAttemptOutcome = {
+  score: number;
+  passed: boolean;
+  attempts: number;
+  distractionFlagged: boolean;
+};
 
 export function TrainingModule({
   video,
+  employeeId,
   progress,
   onVideoComplete,
   onQuizSubmit,
 }: {
   video: TrainingVideo;
+  employeeId: string;
   progress: VideoProgress | undefined;
   onVideoComplete: () => void;
-  onQuizSubmit: (score: number, passed: boolean) => void;
+  onQuizSubmit: (result: QuizAttemptOutcome) => void;
 }) {
   const [watched, setWatched] = useState(Math.min(progress?.watchedSec ?? 0, video.durationSec));
   const [playing, setPlaying] = useState(false);
@@ -94,7 +108,8 @@ export function TrainingModule({
 
         {/* Quiz */}
         <QuizSection
-          video={video}
+          videoId={video.id}
+          employeeId={employeeId}
           unlocked={videoComplete}
           passed={passed}
           attempts={attempts}
@@ -106,72 +121,142 @@ export function TrainingModule({
 }
 
 function QuizSection({
-  video, unlocked, passed, attempts, onSubmit,
+  videoId, employeeId, unlocked, passed, attempts, onSubmit,
 }: {
-  video: TrainingVideo;
+  videoId: string;
+  employeeId: string;
   unlocked: boolean;
   passed: boolean;
   attempts: number;
-  onSubmit: (score: number, passed: boolean) => void;
+  onSubmit: (result: QuizAttemptOutcome) => void;
 }) {
-  const [started, setStarted] = useState(false);
-  const [questions, setQuestions] = useState<typeof video.quiz>([]);
+  const start = useServerFn(startQuizAttempt);
+  const submit = useServerFn(submitQuizAttempt);
+
+  const [starting, setStarting] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [attemptId, setAttemptId] = useState<string | null>(null);
+  const [questions, setQuestions] = useState<PublicQuestion[]>([]);
+  const [secondsPerQ, setSecondsPerQ] = useState(DEFAULT_SECONDS_PER_Q);
+  const [passPct, setPassPct] = useState(DEFAULT_PASS_PCT);
   const [idx, setIdx] = useState(0);
-  const [answers, setAnswers] = useState<Record<number, number>>({});
-  const [timeLeft, setTimeLeft] = useState(SECONDS_PER_Q);
-  const [done, setDone] = useState<{ score: number; passed: boolean } | null>(null);
+  const [answers, setAnswers] = useState<number[]>([]);
+  const [timeLeft, setTimeLeft] = useState(DEFAULT_SECONDS_PER_Q);
+  const [done, setDone] = useState<QuizAttemptOutcome | null>(null);
+  // Anti-cheat: flip true if user backgrounds tab or window blurs during
+  // an active attempt. We don't fail them — just surface it to the manager.
+  const [distractionFlagged, setDistractionFlagged] = useState(false);
+  const distractionRef = useRef(false);
+  const active = attemptId !== null && !done;
 
-  // start: shuffle questions
-  const beginQuiz = () => {
-    const qs = pickRandomQuestions(video.quiz, Math.min(QUIZ_SIZE, video.quiz.length));
-    setQuestions(qs);
-    setIdx(0);
-    setAnswers({});
-    setTimeLeft(SECONDS_PER_Q);
-    setDone(null);
-    setStarted(true);
-  };
-
-  const finish = (finalAnswers: Record<number, number>) => {
-    let correct = 0;
-    questions.forEach((q, i) => { if (finalAnswers[i] === q.answerIndex) correct++; });
-    const score = Math.round((correct / questions.length) * 100);
-    const didPass = score >= PASS_PCT;
-    setDone({ score, passed: didPass });
-    setStarted(false);
-    onSubmit(score, didPass);
-  };
-
-  // countdown timer per question
+  // Watch for tab/app switches while the quiz is active.
   useEffect(() => {
-    if (!started || done) return;
+    if (!active) return;
+    const flag = () => {
+      if (!distractionRef.current) {
+        distractionRef.current = true;
+        setDistractionFlagged(true);
+      }
+    };
+    const onVis = () => { if (document.visibilityState === "hidden") flag(); };
+    window.addEventListener("blur", flag);
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.removeEventListener("blur", flag);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [active]);
+
+  const finishAttempt = async (finalAnswers: number[]) => {
+    if (!attemptId || submitting) return;
+    setSubmitting(true);
+    try {
+      const res = await submit({
+        data: {
+          attemptId,
+          answers: finalAnswers,
+          distractionFlagged: distractionRef.current,
+        },
+      });
+      if (!res.ok) {
+        setError(res.error);
+        setSubmitting(false);
+        return;
+      }
+      const outcome: QuizAttemptOutcome = {
+        score: res.score,
+        passed: res.passed,
+        attempts: res.attempts,
+        distractionFlagged: res.distractionFlagged,
+      };
+      setDone(outcome);
+      setAttemptId(null);
+      onSubmit(outcome);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't submit quiz.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const beginQuiz = async () => {
+    setError(null);
+    setDone(null);
+    setStarting(true);
+    setDistractionFlagged(false);
+    distractionRef.current = false;
+    try {
+      const res = await start({ data: { employeeId, videoId } });
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      setAttemptId(res.attemptId);
+      setQuestions(res.questions);
+      setSecondsPerQ(res.secondsPerQuestion);
+      setPassPct(res.passingScore);
+      setIdx(0);
+      setAnswers(new Array(res.questions.length).fill(-1));
+      setTimeLeft(res.secondsPerQuestion);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't start quiz.");
+    } finally {
+      setStarting(false);
+    }
+  };
+
+  // Countdown timer per question (no going back).
+  useEffect(() => {
+    if (!active) return;
     if (timeLeft <= 0) {
-      // auto-advance, no answer = wrong
       if (idx + 1 >= questions.length) {
-        finish(answers);
+        finishAttempt(answers);
       } else {
         setIdx((i) => i + 1);
-        setTimeLeft(SECONDS_PER_Q);
+        setTimeLeft(secondsPerQ);
       }
       return;
     }
     const t = window.setTimeout(() => setTimeLeft((s) => s - 1), 1000);
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [started, timeLeft, idx, done]);
+  }, [active, timeLeft, idx]);
 
   const pickAnswer = (j: number) => {
-    const next = { ...answers, [idx]: j };
+    if (!active) return;
+    const next = [...answers];
+    next[idx] = j;
     setAnswers(next);
     if (idx + 1 >= questions.length) {
-      finish(next);
+      finishAttempt(next);
     } else {
       setIdx((i) => i + 1);
-      setTimeLeft(SECONDS_PER_Q);
+      setTimeLeft(secondsPerQ);
     }
   };
 
-  // Gates
+  // --- Gates ---
   if (!unlocked) {
     return (
       <div className="flex items-center gap-3 rounded-xl border border-dashed border-border bg-muted/40 p-4 text-sm text-muted-foreground">
@@ -180,7 +265,7 @@ function QuizSection({
       </div>
     );
   }
-  if (passed) {
+  if (passed && !active && !done) {
     return (
       <div className="flex items-center gap-3 rounded-xl border border-success/30 bg-success/10 p-4 text-sm font-medium text-success">
         <CheckIcon className="h-4 w-4" />
@@ -188,14 +273,14 @@ function QuizSection({
       </div>
     );
   }
-  if (!started) {
+  if (!active) {
     return (
       <div className="rounded-xl border border-border bg-background p-4 sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="font-semibold">Ready for the quiz?</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              {QUIZ_SIZE} random questions · {SECONDS_PER_Q}s per question · pass at {PASS_PCT}%.
+              5 random questions · 30s per question · pass at {passPct}%.
             </p>
             <p className="mt-2 text-xs text-muted-foreground">
               Unlimited retakes — retry immediately if you don't pass. {attempts > 0 && <>Attempts so far: <span className="font-semibold text-foreground">{attempts}</span></>}
@@ -203,8 +288,13 @@ function QuizSection({
             {done && !done.passed && (
               <p className="mt-2 text-xs text-destructive">Last attempt: {done.score}% — try again.</p>
             )}
+            {error && (
+              <p className="mt-2 text-xs text-destructive">{error}</p>
+            )}
           </div>
-          <Button onClick={beginQuiz}>Start quiz</Button>
+          <Button onClick={beginQuiz} disabled={starting}>
+            {starting ? "Starting…" : "Start quiz"}
+          </Button>
         </div>
       </div>
     );
@@ -212,9 +302,15 @@ function QuizSection({
 
   // Active quiz
   const q = questions[idx];
-  const timerPct = Math.round((timeLeft / SECONDS_PER_Q) * 100);
+  const timerPct = Math.round((timeLeft / secondsPerQ) * 100);
   return (
-    <div className="rounded-xl border border-primary/30 bg-primary-soft p-4 sm:p-5">
+    <div
+      className="rounded-xl border border-primary/30 bg-primary-soft p-4 sm:p-5 select-none"
+      onCopy={(e) => e.preventDefault()}
+      onCut={(e) => e.preventDefault()}
+      onContextMenu={(e) => e.preventDefault()}
+      style={{ WebkitUserSelect: "none", userSelect: "none" }}
+    >
       <div className="mb-3 flex items-center justify-between text-xs font-semibold text-primary">
         <span>Question {idx + 1} of {questions.length}</span>
         <span className={timeLeft <= 5 ? "text-destructive" : ""}>⏱ {timeLeft}s</span>
@@ -226,13 +322,21 @@ function QuizSection({
           <button
             key={j}
             onClick={() => pickAnswer(j)}
+            disabled={submitting}
             className="rounded-lg border border-border bg-card px-3 py-2.5 text-left text-sm transition-colors hover:border-primary hover:bg-primary/5 active:bg-primary-soft"
           >
             {opt}
           </button>
         ))}
       </div>
-      <p className="mt-3 text-xs text-muted-foreground">No going back. Don't Google — answer from memory.</p>
+      <p className="mt-3 text-xs text-muted-foreground">
+        No going back. Don't Google — answer from memory.
+        {distractionFlagged && (
+          <span className="ml-2 font-semibold text-amber-600 dark:text-amber-400">
+            ⚠ Tab switch detected — this attempt will be flagged.
+          </span>
+        )}
+      </p>
     </div>
   );
 }
