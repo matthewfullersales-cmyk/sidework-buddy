@@ -977,52 +977,69 @@ export function isPendingRoleAssignment(emp: Pick<Employee, "personalInfoComplet
  */
 function hasCurrentMenuPass(
   progress: VideoProgress[],
-  currentMenuBankVersion: number | null | undefined,
+  meta: MenuBankMeta | null | undefined,
 ): boolean {
   const row = progress.find((p) => p.videoId === MENU_MODULE.id);
   if (!row || !row.passed) return false;
-  if (currentMenuBankVersion == null) return true; // no bank yet — nothing to compare against
-  return row.bankVersion === currentMenuBankVersion;
+  if (!meta) return true; // no bank yet — nothing to compare against
+  return row.bankVersion === meta.version;
+}
+
+/**
+ * Is the Menu Knowledge Test required for this employee, given their section
+ * and what content the current menu bank actually has? BOH needs food-only;
+ * FOH needs food or drink. Empty relevant pool -> not required (graceful).
+ */
+function menuTestRequiredFor(
+  emp: Pick<Employee, "primaryRole" | "approvedRoles">,
+  customRoles: CustomRole[],
+  meta: MenuBankMeta | null | undefined,
+): boolean {
+  if (!meta) return false;
+  const roles = emp.approvedRoles && emp.approvedRoles.length > 0 ? emp.approvedRoles : (emp.primaryRole ? [emp.primaryRole] : []);
+  if (roles.length === 0) return false;
+  // If ANY of the employee's approved roles is FOH, treat them as FOH (they
+  // can be scheduled front-of-house). Only pure-BOH staff skip drink.
+  const anyFoh = roles.some((r) => sectionForRole(r, customRoles) === "FOH");
+  if (anyFoh) return meta.foodCount > 0 || meta.drinkCount > 0;
+  return meta.foodCount > 0;
 }
 
 export type MenuTestStatus = "not-required" | "never" | "in-progress" | "stale" | "passed";
 
 /**
- * Menu Knowledge Test status for a single employee, relative to the
- * restaurant's current menu bank version. "stale" = they previously
- * passed, but the menu has since been regenerated and they need to retake.
+ * Menu Knowledge Test status for a single employee, relative to the current
+ * menu bank version AND scoped to the employee's section. Returns
+ * "not-required" when the pool their section needs is empty (or no bank).
  */
 export function menuTestStatus(
   emp: Pick<Employee, "primaryRole" | "approvedRoles" | "progress">,
-  currentMenuBankVersion: number | null | undefined,
+  meta: MenuBankMeta | null | undefined,
+  customRoles: CustomRole[] = [],
 ): MenuTestStatus {
-  if (currentMenuBankVersion == null) return "not-required";
+  if (!menuTestRequiredFor(emp, customRoles, meta)) return "not-required";
   const row = emp.progress.find((p) => p.videoId === MENU_MODULE.id);
   if (!row) return "never";
   if (!row.passed) return "in-progress";
-  if (row.bankVersion !== currentMenuBankVersion) return "stale";
+  if (row.bankVersion !== meta!.version) return "stale";
   return "passed";
 }
 
-/**
- * "Schedule eligible" — a role has been assigned AND every required training
- * module for that role's track has been passed. This is the gate a manager
- * hits when trying to schedule the employee. When the menu quiz bank has
- * been regenerated, an outdated menu-quiz pass no longer counts.
- */
 export function isScheduleEligible(
   emp: Pick<Employee, "personalInfoComplete" | "primaryRole" | "approvedRoles" | "progress">,
   videos: TrainingVideo[],
   customRoles: CustomRole[] = [],
-  currentMenuBankVersion: number | null | undefined = null,
+  meta: MenuBankMeta | null | undefined = null,
 ): boolean {
   if (isPendingRoleAssignment(emp)) return false;
   const required = new Set(moduleIdsForEmployee(emp, customRoles));
   if (required.size === 0) return false;
+  const menuRequired = menuTestRequiredFor(emp, customRoles, meta);
   const passed = new Set(emp.progress.filter((p) => p.passed).map((p) => p.videoId));
   for (const id of required) {
     if (id === MENU_MODULE.id) {
-      if (!hasCurrentMenuPass(emp.progress, currentMenuBankVersion)) return false;
+      if (!menuRequired) continue;
+      if (!hasCurrentMenuPass(emp.progress, meta)) return false;
       continue;
     }
     if (!passed.has(id)) return false;
@@ -1030,23 +1047,23 @@ export function isScheduleEligible(
   return true;
 }
 
-/** For UI progress pills: how many required modules passed. */
 export function trainingProgressFor(
   emp: Pick<Employee, "primaryRole" | "approvedRoles" | "progress">,
   videos: TrainingVideo[],
   customRoles: CustomRole[] = [],
-  currentMenuBankVersion: number | null | undefined = null,
+  meta: MenuBankMeta | null | undefined = null,
 ): { passed: number; total: number } {
-  const required = moduleIdsForEmployee(emp, customRoles);
+  const allIds = moduleIdsForEmployee(emp, customRoles);
+  const menuRequired = menuTestRequiredFor(emp, customRoles, meta);
+  const required = allIds.filter((id) => id !== MENU_MODULE.id || menuRequired);
   const passedIds = new Set(emp.progress.filter((p) => p.passed).map((p) => p.videoId));
-  const menuStale = passedIds.has(MENU_MODULE.id) && !hasCurrentMenuPass(emp.progress, currentMenuBankVersion);
   const passed = required.filter((id) => {
-    if (id === MENU_MODULE.id) return hasCurrentMenuPass(emp.progress, currentMenuBankVersion);
+    if (id === MENU_MODULE.id) return hasCurrentMenuPass(emp.progress, meta);
     return passedIds.has(id);
   }).length;
-  void menuStale;
   return { passed, total: required.length };
 }
+
 
 
 function seedEmployees(): Employee[] {
@@ -2304,16 +2321,20 @@ export function aiScoreFor(a: Partial<JobApplication>): AiScore {
 export function onboardingStatus(
   employee: Employee,
   videos: TrainingVideo[],
-  currentMenuBankVersion: number | null | undefined = null,
+  meta: MenuBankMeta | null | undefined = null,
+  customRoles: CustomRole[] = [],
 ) {
   const assigned = videosForEmployee(videos, employee);
-  const passed = assigned.filter((v) => {
-    if (v.id === MENU_MODULE.id) return hasCurrentMenuPass(employee.progress, currentMenuBankVersion);
+  const menuRequired = menuTestRequiredFor(employee, customRoles, meta);
+  const relevant = assigned.filter((v) => v.id !== MENU_MODULE.id || menuRequired);
+  const passed = relevant.filter((v) => {
+    if (v.id === MENU_MODULE.id) return hasCurrentMenuPass(employee.progress, meta);
     return employee.progress.find((p) => p.videoId === v.id)?.passed;
   }).length;
-  const total = assigned.length;
+  const total = relevant.length;
   const fullyOnboarded = employee.personalInfoComplete && total > 0 && passed === total;
   return { passed, total, fullyOnboarded, pct: total ? Math.round((passed / total) * 100) : 0 };
 }
+
 
 
