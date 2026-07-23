@@ -97,7 +97,8 @@ function SignupPage() {
           <Label htmlFor="confirm">Confirm password</Label>
           <Input id="confirm" type="password" autoComplete="new-password" required minLength={8} value={confirm} onChange={(e) => setConfirm(e.target.value)} />
         </div>
-        <Button type="submit" size="lg" className="h-12" disabled={busy}>{busy ? "Creating…" : "Create account"}</Button>
+        <Button type="submit" size="lg" className="h-12" disabled={busy}>{busy ? "Redirecting to checkout…" : "Subscribe — $99/mo"}</Button>
+        <p className="text-center text-xs text-muted-foreground">You'll be redirected to Stripe to enter payment. Cancel anytime.</p>
       </form>
       <p className="mt-6 text-center text-sm text-muted-foreground">
         Already have an account? <Link to="/login" className="font-semibold text-primary hover:underline">Sign in</Link>
