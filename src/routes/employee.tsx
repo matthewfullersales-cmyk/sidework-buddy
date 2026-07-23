@@ -36,7 +36,8 @@ export const Route = createFileRoute("/employee")({
 function EmployeePage() {
   useRequireRole("employee", "/employee-login");
   const { profile, employeeContext, loading: authLoading } = useAuth();
-  const { currentUser, setCurrentUser, employees, videos, employeeHydrating } = useStore();
+  const { currentUser, setCurrentUser, employees, videos, employeeHydrating, menuBankMeta } = useStore();
+  const menuBankVersion = menuBankMeta?.version ?? null;
   const targetId = employeeContext?.employeeId ?? profile?.employee_id ?? null;
   useEffect(() => {
     if (targetId && (currentUser.type !== "employee" || currentUser.id !== targetId)) {
@@ -45,7 +46,7 @@ function EmployeePage() {
   }, [targetId, currentUser, setCurrentUser]);
   const stillLoading = authLoading || employeeHydrating || (targetId && employees.length === 0);
   const me = currentUser.type === "employee" ? employees.find((e) => e.id === currentUser.id) : undefined;
-  const status = useMemo(() => (me ? onboardingStatus(me, videos) : null), [me, videos]);
+  const status = useMemo(() => (me ? onboardingStatus(me, videos, menuBankVersion) : null), [me, videos, menuBankVersion]);
 
   useEffect(() => {
     if (!me || !status) return;
