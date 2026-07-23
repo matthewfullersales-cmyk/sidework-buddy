@@ -93,6 +93,7 @@ export async function upsertTrainingProgress(
     passed: patch.passed ?? current?.passed ?? false,
     attempts: patch.attempts ?? current?.attempts ?? 0,
     locked_out: patch.lockedOut ?? current?.locked_out ?? false,
+    distraction_flagged: patch.distractionFlagged ?? current?.distraction_flagged ?? false,
   };
 
   const { error } = await supabase
