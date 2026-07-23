@@ -131,16 +131,6 @@ export const startQuizAttempt = createServerFn({ method: "POST" })
     if (!access.ok) return access;
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-
-export const startQuizAttempt = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((data: unknown) => startSchema.parse(data))
-  .handler(async ({ data, context }): Promise<StartQuizResult> => {
-    const { supabase, userId } = context;
-    const access = await verifyEmployeeAccess(supabase, data.employeeId, userId);
-    if (!access.ok) return access;
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-
     // Resolve question bank for this video.
     let bank: BankQuestion[] = [];
     if (data.videoId === "menu-quiz") {
@@ -165,13 +155,48 @@ export const startQuizAttempt = createServerFn({ method: "POST" })
             question: z.string(),
             options: z.array(z.string()).length(4),
             answerIndex: z.number().int().min(0).max(3),
+            source: z.enum(["food", "drink"]).optional(),
           }),
         )
         .safeParse(row.questions);
       if (!parsed.success || parsed.data.length === 0) {
         return { ok: false, error: "The stored menu quiz is malformed." };
       }
-      bank = parsed.data;
+
+      // Section-scoped draw:
+      //   BOH staff -> food only.
+      //   FOH staff -> food + drink; if either pool is empty, graceful fallback to the other.
+      const isBoh = isBohRole(access.primaryRole);
+      const foodPool = parsed.data.filter((q) => q.source === "food" || q.source === undefined);
+      const drinkPool = parsed.data.filter((q) => q.source === "drink");
+      if (isBoh) {
+        if (foodPool.length < QUIZ_SIZE) {
+          return { ok: false, error: "No food-menu questions available yet — ask the manager to upload the food menu." };
+        }
+        bank = pickRandom(foodPool, QUIZ_SIZE);
+      } else {
+        // FOH: aim for a balanced mix when both pools have material.
+        if (foodPool.length === 0 && drinkPool.length === 0) {
+          return { ok: false, error: "The stored menu quiz is malformed." };
+        }
+        if (foodPool.length === 0) bank = pickRandom(drinkPool, QUIZ_SIZE);
+        else if (drinkPool.length === 0) bank = pickRandom(foodPool, QUIZ_SIZE);
+        else {
+          const foodTarget = Math.min(foodPool.length, Math.max(2, Math.floor(QUIZ_SIZE / 2)));
+          const drinkTarget = Math.min(drinkPool.length, QUIZ_SIZE - foodTarget);
+          const foodPart = pickRandom(foodPool, foodTarget);
+          const drinkPart = pickRandom(drinkPool, drinkTarget);
+          let combined = [...foodPart, ...drinkPart];
+          if (combined.length < QUIZ_SIZE) {
+            const remainingPool = [
+              ...foodPool.filter((q) => !foodPart.includes(q)),
+              ...drinkPool.filter((q) => !drinkPart.includes(q)),
+            ];
+            combined = [...combined, ...pickRandom(remainingPool, QUIZ_SIZE - combined.length)];
+          }
+          bank = shuffle(combined);
+        }
+      }
     } else {
       const { QUIZ_POOLS, VIDEO_CATEGORY } = await import("@/lib/quiz-bank.server");
       const category = VIDEO_CATEGORY[data.videoId];
@@ -182,8 +207,9 @@ export const startQuizAttempt = createServerFn({ method: "POST" })
     if (bank.length < QUIZ_SIZE) {
       return { ok: false, error: "This quiz needs at least 5 questions before it can be assigned." };
     }
-    const chosen = pickRandom(bank, QUIZ_SIZE);
+    const chosen = bank.length === QUIZ_SIZE ? bank : pickRandom(bank, QUIZ_SIZE);
     const { storedQuestions, publicQuestions } = shuffleAndSplit(chosen);
+
 
     const { data: inserted, error: insertErr } = await supabaseAdmin
       .from("quiz_attempts")
