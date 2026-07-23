@@ -86,6 +86,8 @@ export interface VideoProgress {
   passed?: boolean;
   attempts: number;
   lockedOut?: boolean;
+  /** Set true if the employee switched tabs/apps during their most recent quiz attempt. */
+  distractionFlagged?: boolean;
 }
 
 export type Section = "FOH" | "BOH";
@@ -758,7 +760,16 @@ interface Store {
   updateEmployee: (id: string, patch: Partial<Employee>) => void;
   clearAllEmployees: () => void;
   recordVideoProgress: (employeeId: string, videoId: string, patch: Partial<VideoProgress>) => void;
-  recordQuizAttempt: (employeeId: string, videoId: string, score: number, passed: boolean) => void;
+  /**
+   * Apply a quiz attempt result graded by the server. Only updates local
+   * state — the server function (submitQuizAttempt) has already persisted
+   * the training_progress row.
+   */
+  applyQuizAttemptResult: (
+    employeeId: string,
+    videoId: string,
+    result: { score: number; passed: boolean; attempts: number; distractionFlagged: boolean },
+  ) => void;
   postTrade: (shiftId: string, note?: string) => void;
   upsertShift: (shift: Shift) => void;
   deleteShift: (id: string) => void;
@@ -786,54 +797,10 @@ interface Store {
 
 const Ctx = createContext<Store | null>(null);
 
-// Quiz question pools — drawn from existing role-specific content. Each module
-// pulls its questions from the pool that matches its training category.
-const QUIZ_POOLS: Record<TrainingCategory, QuizQuestion[]> = {
-  Server: [
-    { question: "When should you greet a guest after they're seated?", options: ["Within 5 minutes", "Within 2 minutes & offer water", "When you have time", "Only if they wave"], answerIndex: 1 },
-    { question: "How should allergies be handled?", options: ["Ignore them", "Note & alert kitchen immediately", "Tell guest to be careful", "Guess what's safe"], answerIndex: 1 },
-    { question: "A guest is unhappy with their dish. What do you do first?", options: ["Argue politely", "Listen, apologize, then offer a fix", "Comp the meal silently", "Ignore it"], answerIndex: 1 },
-    { question: "How often should you check back after entrées drop?", options: ["Never", "Within 2 bites", "After 15 minutes", "Only when called"], answerIndex: 1 },
-    { question: "Best way to deliver a check?", options: ["Toss on table", "Wait until asked, then promptly", "Drop with appetizers", "Hand directly to host"], answerIndex: 1 },
-    { question: "When clearing plates, you should…", options: ["Stack loudly at table", "Clear quietly from the right when all are done", "Leave them all night", "Ask guests to help"], answerIndex: 1 },
-    { question: "Best way to upsell wine?", options: ["Push the most expensive", "Pair to the dish they ordered", "Ignore wine list", "Suggest random"], answerIndex: 1 },
-    { question: "If you don't know an ingredient, you should:", options: ["Make it up", "Check with the kitchen", "Skip the question", "Say it's a secret"], answerIndex: 1 },
-    { question: "When describing a dish, focus on:", options: ["Calories", "Ingredients, preparation, and flavor", "Pricing", "Allergens only"], answerIndex: 1 },
-    { question: "Modifiers must be entered…", options: ["After food delivered", "Before sending the ticket", "Only if reminded", "Never"], answerIndex: 1 },
-  ],
-  Bartender: [
-    { question: "When must you ID a guest?", options: ["Never", "After 10pm only", "Anyone appearing under 30", "Weekends only"], answerIndex: 2 },
-    { question: "Visibly intoxicated guest orders another drink. You:", options: ["Serve", "Politely refuse, offer water/food", "Charge double", "Ask coworker to serve"], answerIndex: 1 },
-    { question: "Signs of intoxication include:", options: ["Quietness", "Slurred speech, unsteady balance", "Ordering food", "Asking for the check"], answerIndex: 1 },
-    { question: "Standard single pour is:", options: ["0.5 oz", "1.5 oz", "3 oz", "Whatever feels right"], answerIndex: 1 },
-    { question: "Why use a jigger?", options: ["Tradition", "Consistency and cost control", "Looks cool", "It's faster"], answerIndex: 1 },
-    { question: "Fresh citrus should be juiced:", options: ["Weekly", "Daily", "Monthly", "Pre-bottled is fine"], answerIndex: 1 },
-    { question: "Red wine is typically served at:", options: ["32°F", "55–65°F", "85°F", "Boiling"], answerIndex: 1 },
-    { question: "Best draft beer pour leaves:", options: ["No head", "About 1-inch head", "All foam", "Half foam"], answerIndex: 1 },
-    { question: "FIFO inventory applies to:", options: ["Only food", "Beer kegs and wine inventory too", "Nothing", "Just wine"], answerIndex: 1 },
-  ],
-  Host: [
-    { question: "Greet every guest within:", options: ["30 seconds", "2 minutes", "5 minutes", "When you have time"], answerIndex: 0 },
-    { question: "When the wait is 45+ minutes you should:", options: ["Hide the truth", "Quote accurately & offer alternatives", "Tell them to leave", "Quote 10 min"], answerIndex: 1 },
-    { question: "Rotating sections helps:", options: ["Confuse staff", "Balance server workload & tips", "Slow service", "Annoy guests"], answerIndex: 1 },
-    { question: "When seating a guest with accessibility needs:", options: ["Far booth", "Ask their preference, accommodate", "Closest table only", "Skip them"], answerIndex: 1 },
-    { question: "If you mis-seat into a closed section:", options: ["Leave them", "Apologize, move them, notify server", "Argue", "Ignore"], answerIndex: 1 },
-    { question: "A reservation no-shows after 15 minutes — best move:", options: ["Hold forever", "Release the table & note the no-show", "Charge them", "Re-book immediately"], answerIndex: 1 },
-    { question: "Phone reservation best practice:", options: ["Rush the call", "Confirm name, party, time, contact, special needs", "Take only the name", "Refuse phone bookings"], answerIndex: 1 },
-  ],
-  Kitchen: [
-    { question: "Safe internal temp for chicken (°F):", options: ["120", "145", "165", "200"], answerIndex: 2 },
-    { question: "Cutting board color for raw poultry:", options: ["Green", "Red", "Yellow", "Blue"], answerIndex: 2 },
-    { question: "Hands must be washed:", options: ["Once a shift", "Between tasks and after contamination", "Only after bathroom", "When dirty visibly"], answerIndex: 1 },
-    { question: "Danger zone temperature range (°F):", options: ["0–32", "41–135", "150–200", "200+"], answerIndex: 1 },
-    { question: "Raw meat in the walk-in should be stored:", options: ["On top shelf", "Below ready-to-eat foods", "Anywhere", "Next to dairy"], answerIndex: 1 },
-    { question: "Mise en place means:", options: ["Cleaning at close", "Everything in its place before service", "A French sauce", "A knife type"], answerIndex: 1 },
-    { question: "If you 86 an item, you should:", options: ["Keep selling it", "Notify FOH immediately", "Wait an hour", "Tell only one server"], answerIndex: 1 },
-    { question: "Walk-in temperature should be at or below:", options: ["50°F", "41°F", "60°F", "32°F"], answerIndex: 1 },
-    { question: "Sanitizer bucket should be changed:", options: ["Weekly", "Every 2–4 hours", "Once a month", "Never"], answerIndex: 1 },
-    { question: "Hot oil disposal:", options: ["Down drain", "Cool, then to designated grease bin", "Trash bag hot", "Leave in fryer indefinitely"], answerIndex: 1 },
-  ],
-};
+// Quiz question pools live SERVER-SIDE only, in `src/lib/quiz-bank.server.ts`.
+// The client never has access to correct answers — quizzes are fetched and
+// graded via `startQuizAttempt` / `submitQuizAttempt` server functions.
+
 
 // Training tracks are built in three explicit layers when a role is assigned:
 //
@@ -948,7 +915,7 @@ function seedVideos(): TrainingVideo[] {
     durationSec: 15,
     role: m.category,
     passingScore: 80,
-    quiz: pickRandomQuestions(QUIZ_POOLS[m.category], Math.min(6, QUIZ_POOLS[m.category].length)),
+    quiz: [], // answers live server-side; see quiz.functions.ts
   }));
 }
 
@@ -1699,18 +1666,33 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
         );
       }
     },
-    recordQuizAttempt: (employeeId, videoId, score, passed) => {
-      let updatedEntry: VideoProgress | null = null;
+    applyQuizAttemptResult: (employeeId, videoId, result) => {
+      const { score, passed, attempts, distractionFlagged } = result;
       setState((s) => {
         const emp = s.employees.find((e) => e.id === employeeId);
         const video = s.videos.find((v) => v.id === videoId);
         if (!emp || !video) return s;
         const existing = emp.progress.find((p) => p.videoId === videoId);
-        const attempts = (existing?.attempts ?? 0) + 1;
         const merged: VideoProgress = existing
-          ? { ...existing, attempts, quizScore: score, passed: passed || existing.passed, completedAt: passed ? new Date().toISOString() : existing.completedAt, lockedOut: false }
-          : { videoId, watchedSec: video.durationSec, attempts, quizScore: score, passed, completedAt: passed ? new Date().toISOString() : undefined, lockedOut: false };
-        updatedEntry = merged;
+          ? {
+              ...existing,
+              attempts,
+              quizScore: score,
+              passed: passed || existing.passed,
+              completedAt: passed ? new Date().toISOString() : existing.completedAt,
+              lockedOut: false,
+              distractionFlagged,
+            }
+          : {
+              videoId,
+              watchedSec: video.durationSec,
+              attempts,
+              quizScore: score,
+              passed,
+              completedAt: passed ? new Date().toISOString() : undefined,
+              lockedOut: false,
+              distractionFlagged,
+            };
         const nextProgress = existing
           ? emp.progress.map((p) => (p.videoId === videoId ? merged : p))
           : [...emp.progress, merged];
@@ -1718,8 +1700,8 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           id: uid("n"),
           type: passed ? "training_passed" : "training_failed",
           message: passed
-            ? `${emp.name} passed "${video.title}" with ${score}% on attempt ${attempts}`
-            : `${emp.name} failed "${video.title}" (${score}%) — attempt ${attempts}, can retry immediately`,
+            ? `${emp.name} passed "${video.title}" with ${score}% on attempt ${attempts}${distractionFlagged ? " — flagged for possible distraction" : ""}`
+            : `${emp.name} failed "${video.title}" (${score}%) — attempt ${attempts}, can retry immediately${distractionFlagged ? " (flagged for possible distraction)" : ""}`,
           employeeId,
           videoId,
           createdAt: new Date().toISOString(),
@@ -1731,12 +1713,6 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           notifications: [newNotif, ...s.notifications],
         };
       });
-      const oid = ownerIdRef.current;
-      if (oid && updatedEntry) {
-        upsertTrainingProgress(oid, employeeId, videoId, updatedEntry).catch((e) =>
-          console.error("[recordQuizAttempt] cloud sync failed", e),
-        );
-      }
     },
     upsertShift: (shift) => {
       // Optimistic local update first.

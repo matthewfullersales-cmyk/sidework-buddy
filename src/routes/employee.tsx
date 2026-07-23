@@ -258,7 +258,7 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
 }
 
 function TrainingTab({ employeeId }: { employeeId: string }) {
-  const { employees, videos, recordVideoProgress, recordQuizAttempt } = useStore();
+  const { employees, videos, recordVideoProgress, applyQuizAttemptResult } = useStore();
   const me = employees.find((e) => e.id === employeeId)!;
   const assigned = videosForEmployee(videos, me);
 
@@ -300,12 +300,13 @@ function TrainingTab({ employeeId }: { employeeId: string }) {
           <TrainingModule
             key={video.id}
             video={video}
+            employeeId={me.id}
             progress={prog}
             onVideoComplete={() => recordVideoProgress(me.id, video.id, { watchedSec: video.durationSec })}
-            onQuizSubmit={(score, passed) => {
-              recordQuizAttempt(me.id, video.id, score, passed);
-              if (passed) toast.success(`Passed with ${score}% — module complete!`);
-              else toast.error(`Scored ${score}%. Try again.`);
+            onQuizSubmit={(result) => {
+              applyQuizAttemptResult(me.id, video.id, result);
+              if (result.passed) toast.success(`Passed with ${result.score}% — module complete!`);
+              else toast.error(`Scored ${result.score}%. Try again.`);
             }}
           />
         );

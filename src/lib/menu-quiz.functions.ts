@@ -110,7 +110,7 @@ function extractJson(raw: string): unknown {
 export const generateMenuQuiz = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => inputSchema.parse(data))
-  .handler(async ({ data }): Promise<GenerateMenuQuizResult> => {
+  .handler(async ({ data, context }): Promise<GenerateMenuQuizResult> => {
     const lovableKey = process.env.LOVABLE_API_KEY;
     if (!lovableKey) return { ok: false, error: "AI is not configured on this project (missing LOVABLE_API_KEY)." };
 
@@ -202,6 +202,24 @@ export const generateMenuQuiz = createServerFn({ method: "POST" })
       options: q.options.slice(0, 4).map((o) => o.slice(0, 140)),
       answerIndex: Math.max(0, Math.min(3, q.answerIndex)),
     }));
+
+    // Persist the answer key server-side. Employees never receive
+    // answerIndex in their client bundle — startQuizAttempt reads from
+    // menu_quiz_banks and returns shuffled options only.
+    const { error: bankErr } = await context.supabase
+      .from("menu_quiz_banks")
+      .upsert(
+        {
+          owner_id: context.userId,
+          questions,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "owner_id" },
+      );
+    if (bankErr) {
+      console.error("[menu-quiz] failed to persist bank", bankErr);
+      return { ok: false, error: "Generated the quiz but couldn't save it. Try again." };
+    }
 
     return { ok: true, questions };
   });

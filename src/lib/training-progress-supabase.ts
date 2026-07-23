@@ -15,6 +15,7 @@ type Row = {
   passed: boolean;
   attempts: number;
   locked_out: boolean;
+  distraction_flagged: boolean;
 };
 
 function fromRow(r: Row): VideoProgress {
@@ -26,6 +27,7 @@ function fromRow(r: Row): VideoProgress {
     passed: r.passed,
     attempts: r.attempts ?? 0,
     lockedOut: r.locked_out,
+    distractionFlagged: r.distraction_flagged ?? false,
   };
 }
 
@@ -91,6 +93,7 @@ export async function upsertTrainingProgress(
     passed: patch.passed ?? current?.passed ?? false,
     attempts: patch.attempts ?? current?.attempts ?? 0,
     locked_out: patch.lockedOut ?? current?.locked_out ?? false,
+    distraction_flagged: patch.distractionFlagged ?? current?.distraction_flagged ?? false,
   };
 
   const { error } = await supabase
