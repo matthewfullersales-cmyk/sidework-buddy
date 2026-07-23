@@ -1,126 +1,101 @@
-import { useMemo, useState } from "react";
+import { useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { useServerFn } from "@tanstack/react-start";
+import { generateMenuQuiz, type MenuQuizQuestion } from "@/lib/menu-quiz.functions";
+import { useStore } from "@/lib/sidework-store";
 
-type Question = {
-  question: string;
-  options: string[];
-  answerIndex: number;
-};
+const ACCEPT = "application/pdf,image/png,image/jpeg,image/webp";
+const MAX_MB = 8;
 
-const STARTER_ITEMS = [
-  "Truffle Burrata — heirloom tomato, basil oil, sourdough",
-  "Wagyu Sliders — caramelized onion, aged cheddar, brioche",
-  "Charred Octopus — chickpea, salsa verde, lemon",
-  "Cacio e Pepe — pecorino, black pepper, tonnarelli",
-  "Old Fashioned — bourbon, demerara, orange bitters",
-];
-
-function buildQuestionsFromMenu(raw: string): Question[] {
-  const items = raw
-    .split(/\n+/)
-    .map((l) => l.trim())
-    .filter(Boolean);
-
-  if (items.length === 0) return [];
-
-  const qs: Question[] = [];
-  items.slice(0, 8).forEach((line, i) => {
-    const [namePart, ingredientPart] = line.split(/—|--|:|-/, 2).map((p) => p?.trim() ?? "");
-    const name = namePart || `Item ${i + 1}`;
-    const ingredients = ingredientPart || "house ingredients";
-
-    // Q1: name -> ingredients (multiple choice with distractors from other items)
-    const distractors = items
-      .filter((_, j) => j !== i)
-      .slice(0, 3)
-      .map((d) => d.split(/—|--|:|-/, 2)[1]?.trim() ?? d.trim())
-      .filter(Boolean);
-    const opts1 = [ingredients, ...distractors].slice(0, 4);
-    while (opts1.length < 4) opts1.push("Ask the kitchen");
-    qs.push({
-      question: `What's in the "${name}"?`,
-      options: shuffle(opts1, ingredients),
-      answerIndex: 0, // fixed after shuffle below
-    });
-
-    // Q2: ingredient -> name
-    const opts2Names = items
-      .filter((_, j) => j !== i)
-      .slice(0, 3)
-      .map((d) => d.split(/—|--|:|-/, 1)[0].trim());
-    const opts2 = [name, ...opts2Names].slice(0, 4);
-    while (opts2.length < 4) opts2.push("Chef's special");
-    qs.push({
-      question: `Which dish features ${ingredients}?`,
-      options: shuffle(opts2, name),
-      answerIndex: 0,
-    });
+function readFileAsBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Couldn't read that file."));
+    reader.onload = () => {
+      const result = String(reader.result ?? "");
+      const comma = result.indexOf(",");
+      resolve(comma >= 0 ? result.slice(comma + 1) : result);
+    };
+    reader.readAsDataURL(file);
   });
-
-  // Fix answerIndex after shuffle by re-finding the correct option
-  return qs.map((q) => {
-    const correct = q.options.find(Boolean)!;
-    return q;
-  });
-}
-
-// Shuffle while tracking the correct option, updating answerIndex implicitly
-function shuffle<T>(arr: T[], correct: T): T[] {
-  const copy = [...arr];
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-  // Move correct to index 0 deterministically (consumer expects answerIndex=0)
-  const idx = copy.indexOf(correct);
-  if (idx > 0) {
-    [copy[0], copy[idx]] = [copy[idx], copy[0]];
-  }
-  return copy;
 }
 
 export function MenuQuizGenerator({ menuName }: { menuName?: string }) {
-  const [raw, setRaw] = useState(STARTER_ITEMS.join("\n"));
-  const [questions, setQuestions] = useState<Question[]>([]);
+  const { setMenuQuiz, restaurantProfile } = useStore();
+  const generate = useServerFn(generateMenuQuiz);
+
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [questions, setQuestions] = useState<MenuQuizQuestion[]>([]);
   const [revealed, setRevealed] = useState<Record<number, boolean>>({});
+  const [saved, setSaved] = useState(false);
 
-  const itemCount = useMemo(
-    () => raw.split(/\n+/).filter((l) => l.trim()).length,
-    [raw],
-  );
+  const pickFile = () => inputRef.current?.click();
 
-  const generate = () => {
-    const qs = buildQuestionsFromMenu(raw);
-    if (qs.length === 0) {
-      toast.error("Add at least one menu item to generate a quiz.");
+  const onFile = (f: File | null) => {
+    setError(null);
+    setQuestions([]);
+    setSaved(false);
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(null);
+    if (!f) {
+      setFile(null);
       return;
     }
-    setQuestions(qs);
-    setRevealed({});
-    toast.success(`Generated ${qs.length} questions from ${itemCount} items.`);
+    if (f.size > MAX_MB * 1024 * 1024) {
+      setError(`File is too large. Please upload under ${MAX_MB} MB.`);
+      setFile(null);
+      return;
+    }
+    setFile(f);
+    if (f.type.startsWith("image/")) {
+      setPreviewUrl(URL.createObjectURL(f));
+    }
   };
 
-  const copyToClipboard = async () => {
-    if (questions.length === 0) return;
-    const text = questions
-      .map(
-        (q, i) =>
-          `${i + 1}. ${q.question}\n${q.options
-            .map((o, j) => `   ${String.fromCharCode(65 + j)}. ${o}${j === q.answerIndex ? "  ✓" : ""}`)
-            .join("\n")}`,
-      )
-      .join("\n\n");
+  const runGenerate = async () => {
+    if (!file) return;
+    setLoading(true);
+    setError(null);
+    setSaved(false);
+    setQuestions([]);
+    setRevealed({});
     try {
-      await navigator.clipboard.writeText(text);
-      toast.success("Quiz copied to clipboard.");
-    } catch {
-      toast.error("Couldn't copy — try selecting manually.");
+      const fileBase64 = await readFileAsBase64(file);
+      const result = await generate({
+        data: {
+          fileBase64,
+          mimeType: file.type,
+          restaurantName: restaurantProfile?.name ?? "",
+        },
+      });
+      if (!result.ok) {
+        setError(result.error);
+        toast.error(result.error);
+        return;
+      }
+      setQuestions(result.questions);
+      toast.success(`Generated ${result.questions.length} questions from your menu.`);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Something went wrong.";
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  const saveAsTraining = () => {
+    if (questions.length === 0) return;
+    setMenuQuiz(questions);
+    setSaved(true);
+    toast.success("Saved as this restaurant's menu quiz. Staff will see it in training.");
   };
 
   return (
@@ -130,47 +105,115 @@ export function MenuQuizGenerator({ menuName }: { menuName?: string }) {
           <div>
             <CardTitle className="text-base sm:text-lg">Menu Quiz Generator</CardTitle>
             <p className="mt-1 text-xs text-muted-foreground">
-              Auto-build practice questions {menuName ? `from ${menuName}` : "from your menu"}.
+              Upload {menuName ? menuName : "your menu"} (PDF or photo) — AI reads it and builds a real quiz for your staff.
             </p>
           </div>
-          <Badge variant="secondary" className="bg-primary-soft text-primary">
-            {itemCount} item{itemCount === 1 ? "" : "s"}
-          </Badge>
+          {questions.length > 0 && (
+            <Badge variant="secondary" className="bg-primary-soft text-primary">
+              {questions.length} question{questions.length === 1 ? "" : "s"}
+            </Badge>
+          )}
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="space-y-1.5">
-          <Label htmlFor="menu-raw" className="text-xs uppercase tracking-wide text-muted-foreground">
-            Menu items (one per line — "Name — ingredients")
-          </Label>
-          <Textarea
-            id="menu-raw"
-            value={raw}
-            onChange={(e) => setRaw(e.target.value)}
-            rows={6}
-            className="font-mono text-sm"
-            placeholder="Truffle Burrata — heirloom tomato, basil oil, sourdough"
+        {/* Upload area */}
+        <div>
+          <input
+            ref={inputRef}
+            type="file"
+            accept={ACCEPT}
+            className="sr-only"
+            onChange={(e) => onFile(e.target.files?.[0] ?? null)}
           />
+          <div
+            onClick={pickFile}
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = "copy";
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              onFile(e.dataTransfer.files?.[0] ?? null);
+            }}
+            className="cursor-pointer rounded-xl border-2 border-dashed border-border bg-muted/30 p-5 text-center transition-colors hover:border-primary/50 hover:bg-primary/5"
+          >
+            {file ? (
+              <div className="space-y-2">
+                {previewUrl ? (
+                  <img
+                    src={previewUrl}
+                    alt="Menu preview"
+                    className="mx-auto max-h-40 rounded-lg border border-border object-contain"
+                  />
+                ) : (
+                  <div className="mx-auto grid h-16 w-16 place-items-center rounded-lg bg-primary-soft text-primary">
+                    <PdfIcon className="h-8 w-8" />
+                  </div>
+                )}
+                <p className="text-sm font-medium">{file.name}</p>
+                <p className="text-xs text-muted-foreground">
+                  {(file.size / 1024 / 1024).toFixed(2)} MB · {file.type || "unknown"}
+                </p>
+                <p className="text-xs text-muted-foreground">Tap to replace</p>
+              </div>
+            ) : (
+              <div className="space-y-1">
+                <p className="text-sm font-medium">Upload your menu</p>
+                <p className="text-xs text-muted-foreground">
+                  PDF, PNG, JPG or WEBP · up to {MAX_MB} MB · drag &amp; drop or click
+                </p>
+              </div>
+            )}
+          </div>
         </div>
 
+        {/* Actions */}
         <div className="flex flex-wrap gap-2">
-          <Button onClick={generate} className="flex-1 sm:flex-none">
-            Generate quiz
+          <Button onClick={runGenerate} disabled={!file || loading} className="flex-1 sm:flex-none">
+            {loading ? (
+              <>
+                <Spinner className="mr-2 h-4 w-4 animate-spin" />
+                Reading menu &amp; generating…
+              </>
+            ) : questions.length > 0 ? (
+              "Regenerate"
+            ) : (
+              "Generate quiz with AI"
+            )}
           </Button>
           {questions.length > 0 && (
-            <Button variant="outline" onClick={copyToClipboard}>
-              Copy
+            <Button
+              variant={saved ? "outline" : "default"}
+              onClick={saveAsTraining}
+              disabled={loading}
+            >
+              {saved ? "Saved ✓" : "Save as menu training"}
             </Button>
           )}
         </div>
 
-        {questions.length > 0 && (
+        {/* Loading state */}
+        {loading && (
+          <div className="rounded-xl border border-primary/30 bg-primary-soft p-4 text-sm text-primary">
+            The AI is reading your menu and writing questions. This usually takes 5–15 seconds…
+          </div>
+        )}
+
+        {/* Error state */}
+        {error && !loading && (
+          <div className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-sm">
+            <div className="flex-1 text-destructive">{error}</div>
+            <Button size="sm" variant="outline" onClick={runGenerate} disabled={!file}>
+              Retry
+            </Button>
+          </div>
+        )}
+
+        {/* Questions preview */}
+        {questions.length > 0 && !loading && (
           <div className="space-y-3">
             {questions.map((q, i) => (
-              <div
-                key={i}
-                className="rounded-xl border border-border bg-background p-3 sm:p-4"
-              >
+              <div key={i} className="rounded-xl border border-border bg-background p-3 sm:p-4">
                 <p className="text-sm font-medium sm:text-base">
                   <span className="mr-1 text-primary">{i + 1}.</span> {q.question}
                 </p>
@@ -212,5 +255,21 @@ export function MenuQuizGenerator({ menuName }: { menuName?: string }) {
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function Spinner({ className = "" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" />
+    </svg>
+  );
+}
+function PdfIcon({ className = "" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+    </svg>
   );
 }
