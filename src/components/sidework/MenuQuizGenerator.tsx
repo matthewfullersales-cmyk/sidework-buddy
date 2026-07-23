@@ -8,9 +8,12 @@ import { generateMenuQuiz, type MenuQuizQuestion } from "@/lib/menu-quiz.functio
 import { useStore } from "@/lib/sidework-store";
 
 const ACCEPT = "application/pdf,image/png,image/jpeg,image/webp";
-const MAX_MB = 8;
+const MAX_PDF_MB = 20;
+const MAX_IMAGE_INPUT_MB = 40; // pre-compression; we shrink client-side
+const COMPRESS_MAX_EDGE = 2000;
+const COMPRESS_QUALITY = 0.8;
 
-function readFileAsBase64(file: File): Promise<string> {
+function readFileAsBase64(file: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(new Error("Couldn't read that file."));
@@ -21,6 +24,35 @@ function readFileAsBase64(file: File): Promise<string> {
     };
     reader.readAsDataURL(file);
   });
+}
+
+async function compressImage(file: File): Promise<{ blob: Blob; mimeType: string; name: string }> {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => reject(new Error("Couldn't read that image."));
+      el.src = url;
+    });
+    const longest = Math.max(img.width, img.height);
+    const scale = longest > COMPRESS_MAX_EDGE ? COMPRESS_MAX_EDGE / longest : 1;
+    const w = Math.round(img.width * scale);
+    const h = Math.round(img.height * scale);
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas not supported in this browser.");
+    ctx.drawImage(img, 0, 0, w, h);
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob((b) => resolve(b), "image/jpeg", COMPRESS_QUALITY),
+    );
+    if (!blob) throw new Error("Couldn't compress that image.");
+    return { blob, mimeType: "image/jpeg", name: file.name.replace(/\.(png|webp|jpe?g)$/i, "") + ".jpg" };
+  } finally {
+    URL.revokeObjectURL(url);
+  }
 }
 
 export function MenuQuizGenerator({ menuName }: { menuName?: string }) {
@@ -38,7 +70,7 @@ export function MenuQuizGenerator({ menuName }: { menuName?: string }) {
 
   const pickFile = () => inputRef.current?.click();
 
-  const onFile = (f: File | null) => {
+  const onFile = async (f: File | null) => {
     setError(null);
     setQuestions([]);
     setSaved(false);
@@ -48,14 +80,33 @@ export function MenuQuizGenerator({ menuName }: { menuName?: string }) {
       setFile(null);
       return;
     }
-    if (f.size > MAX_MB * 1024 * 1024) {
-      setError(`File is too large. Please upload under ${MAX_MB} MB.`);
+    const isPdf = f.type === "application/pdf";
+    if (isPdf && f.size > MAX_PDF_MB * 1024 * 1024) {
+      setError(
+        `This PDF is ${(f.size / 1024 / 1024).toFixed(1)} MB — over the ${MAX_PDF_MB} MB limit. Try re-exporting at "smallest file size", or snap a phone photo of the menu instead (photos are auto-compressed).`,
+      );
       setFile(null);
       return;
     }
-    setFile(f);
-    if (f.type.startsWith("image/")) {
-      setPreviewUrl(URL.createObjectURL(f));
+    if (!isPdf && f.size > MAX_IMAGE_INPUT_MB * 1024 * 1024) {
+      setError(`Image is too large (over ${MAX_IMAGE_INPUT_MB} MB). Try a smaller photo.`);
+      setFile(null);
+      return;
+    }
+    if (isPdf) {
+      setFile(f);
+      return;
+    }
+    // Auto-compress images so a full-res phone photo becomes a small payload.
+    try {
+      const { blob, mimeType, name } = await compressImage(f);
+      const compressed = new File([blob], name, { type: mimeType });
+      setFile(compressed);
+      setPreviewUrl(URL.createObjectURL(compressed));
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Couldn't process that image.";
+      setError(msg);
+      setFile(null);
     }
   };
 
@@ -160,7 +211,7 @@ export function MenuQuizGenerator({ menuName }: { menuName?: string }) {
               <div className="space-y-1">
                 <p className="text-sm font-medium">Upload your menu</p>
                 <p className="text-xs text-muted-foreground">
-                  PDF, PNG, JPG or WEBP · up to {MAX_MB} MB · drag &amp; drop or click
+                  PDF up to {MAX_PDF_MB} MB, or a phone photo (auto-compressed) · drag &amp; drop or click
                 </p>
               </div>
             )}

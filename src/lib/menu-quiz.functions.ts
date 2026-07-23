@@ -16,7 +16,11 @@ const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 // this kind of one-shot structured extraction.
 const MODEL = "google/gemini-2.5-flash";
 
-const MAX_FILE_BYTES = 8 * 1024 * 1024; // 8 MB after base64 decode
+// Gemini 2.5 Flash accepts inline file data up to ~20 MB per request; keep a small
+// safety margin so the whole JSON body (base64 + prompt overhead) fits comfortably.
+const MAX_FILE_BYTES = 20 * 1024 * 1024; // 20 MB after base64 decode
+const MAX_PDF_BYTES = 20 * 1024 * 1024;
+const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
 const ACCEPTED_MIME = new Set([
   "image/png",
   "image/jpeg",
@@ -113,11 +117,21 @@ export const generateMenuQuiz = createServerFn({ method: "POST" })
     if (!ACCEPTED_MIME.has(data.mimeType)) {
       return { ok: false, error: "Unsupported file type. Upload a PDF, PNG, JPG, or WEBP." };
     }
-    // Base64 → bytes ratio ~3/4.
     const approxBytes = Math.floor((data.fileBase64.length * 3) / 4);
-    if (approxBytes > MAX_FILE_BYTES) {
-      return { ok: false, error: "Menu file is too large. Please upload something under 8 MB." };
+    const isPdf = data.mimeType === "application/pdf";
+    const limit = isPdf ? MAX_PDF_BYTES : MAX_IMAGE_BYTES;
+    if (approxBytes > limit) {
+      if (isPdf) {
+        return {
+          ok: false,
+          error:
+            "This PDF is too large (over 20 MB). Try re-exporting it at a lower resolution, printing to PDF at 'smallest file size', or snap a phone photo of the menu instead — photos are auto-compressed.",
+        };
+      }
+      return { ok: false, error: "Image is too large after compression (over 20 MB). Try a smaller photo." };
     }
+    // Kept for legacy reference
+    void MAX_FILE_BYTES;
 
     let resp: Response;
     try {
