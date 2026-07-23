@@ -1402,12 +1402,16 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     ownerIdRef.current = employeeCtxOwnerId;
     (async () => {
       try {
-        const [me, myShifts, openTrades, myTimeOff, coworkers] = await Promise.all([
+        const [me, myShifts, openTrades, myTimeOff, coworkers, myProgress] = await Promise.all([
           fetchMyEmployeeRow(employeeCtxEmployeeId),
           fetchMyShifts(employeeCtxEmployeeId),
           fetchOwnerOpenTrades(employeeCtxOwnerId),
           fetchMyTimeOff(employeeCtxEmployeeId),
           fetchCoworkerNames(employeeCtxOwnerId),
+          fetchEmployeeTrainingProgress(employeeCtxEmployeeId).catch((e) => {
+            console.error("[employee-sync] training progress load failed", e);
+            return [] as VideoProgress[];
+          }),
         ]);
         if (cancelled) return;
         // Also fetch shifts referenced by open trades so the trade board
