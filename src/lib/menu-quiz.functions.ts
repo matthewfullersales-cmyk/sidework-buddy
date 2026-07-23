@@ -117,11 +117,21 @@ export const generateMenuQuiz = createServerFn({ method: "POST" })
     if (!ACCEPTED_MIME.has(data.mimeType)) {
       return { ok: false, error: "Unsupported file type. Upload a PDF, PNG, JPG, or WEBP." };
     }
-    // Base64 → bytes ratio ~3/4.
     const approxBytes = Math.floor((data.fileBase64.length * 3) / 4);
-    if (approxBytes > MAX_FILE_BYTES) {
-      return { ok: false, error: "Menu file is too large. Please upload something under 8 MB." };
+    const isPdf = data.mimeType === "application/pdf";
+    const limit = isPdf ? MAX_PDF_BYTES : MAX_IMAGE_BYTES;
+    if (approxBytes > limit) {
+      if (isPdf) {
+        return {
+          ok: false,
+          error:
+            "This PDF is too large (over 20 MB). Try re-exporting it at a lower resolution, printing to PDF at 'smallest file size', or snap a phone photo of the menu instead — photos are auto-compressed.",
+        };
+      }
+      return { ok: false, error: "Image is too large after compression (over 20 MB). Try a smaller photo." };
     }
+    // Kept for legacy reference
+    void MAX_FILE_BYTES;
 
     let resp: Response;
     try {
