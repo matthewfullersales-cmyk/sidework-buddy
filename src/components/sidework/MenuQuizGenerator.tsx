@@ -70,7 +70,7 @@ export function MenuQuizGenerator({ menuName }: { menuName?: string }) {
 
   const pickFile = () => inputRef.current?.click();
 
-  const onFile = (f: File | null) => {
+  const onFile = async (f: File | null) => {
     setError(null);
     setQuestions([]);
     setSaved(false);
@@ -80,14 +80,33 @@ export function MenuQuizGenerator({ menuName }: { menuName?: string }) {
       setFile(null);
       return;
     }
-    if (f.size > MAX_MB * 1024 * 1024) {
-      setError(`File is too large. Please upload under ${MAX_MB} MB.`);
+    const isPdf = f.type === "application/pdf";
+    if (isPdf && f.size > MAX_PDF_MB * 1024 * 1024) {
+      setError(
+        `This PDF is ${(f.size / 1024 / 1024).toFixed(1)} MB — over the ${MAX_PDF_MB} MB limit. Try re-exporting at "smallest file size", or snap a phone photo of the menu instead (photos are auto-compressed).`,
+      );
       setFile(null);
       return;
     }
-    setFile(f);
-    if (f.type.startsWith("image/")) {
-      setPreviewUrl(URL.createObjectURL(f));
+    if (!isPdf && f.size > MAX_IMAGE_INPUT_MB * 1024 * 1024) {
+      setError(`Image is too large (over ${MAX_IMAGE_INPUT_MB} MB). Try a smaller photo.`);
+      setFile(null);
+      return;
+    }
+    if (isPdf) {
+      setFile(f);
+      return;
+    }
+    // Auto-compress images so a full-res phone photo becomes a small payload.
+    try {
+      const { blob, mimeType, name } = await compressImage(f);
+      const compressed = new File([blob], name, { type: mimeType });
+      setFile(compressed);
+      setPreviewUrl(URL.createObjectURL(compressed));
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Couldn't process that image.";
+      setError(msg);
+      setFile(null);
     }
   };
 
