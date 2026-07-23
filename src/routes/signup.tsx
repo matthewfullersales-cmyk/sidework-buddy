@@ -85,8 +85,12 @@ function SignupPage() {
           <Input id="restaurant" required value={restaurantName} onChange={(e) => setRestaurantName(e.target.value)} maxLength={120} />
         </div>
         <div className="grid gap-1.5">
-          <Label htmlFor="name">Your full name</Label>
-          <Input id="name" required autoComplete="name" value={fullName} onChange={(e) => setFullName(e.target.value)} maxLength={120} />
+          <Label htmlFor="firstName">First name</Label>
+          <Input id="firstName" required autoComplete="given-name" value={firstName} onChange={(e) => setFirstName(e.target.value)} maxLength={60} />
+        </div>
+        <div className="grid gap-1.5">
+          <Label htmlFor="lastName">Last name</Label>
+          <Input id="lastName" required autoComplete="family-name" value={lastName} onChange={(e) => setLastName(e.target.value)} maxLength={60} />
         </div>
         <div className="grid gap-1.5">
           <Label htmlFor="email">Email</Label>
