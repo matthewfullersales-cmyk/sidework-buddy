@@ -121,7 +121,8 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
   });
   const [specialTalents, setSpecialTalents] = useState(me.specialTalents ?? "");
   const [photoUrl, setPhotoUrl] = useState(me.photoUrl ?? "");
-  const s = onboardingStatus(me, videos);
+  const { menuBankMeta } = useStore();
+  const s = onboardingStatus(me, videos, menuBankMeta?.version ?? null);
 
   const onPhotoFile = (file: File | null) => {
     if (!file) return;
@@ -258,9 +259,10 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
 }
 
 function TrainingTab({ employeeId }: { employeeId: string }) {
-  const { employees, videos, recordVideoProgress, applyQuizAttemptResult } = useStore();
+  const { employees, videos, recordVideoProgress, applyQuizAttemptResult, menuBankMeta } = useStore();
   const me = employees.find((e) => e.id === employeeId)!;
   const assigned = videosForEmployee(videos, me);
+  const menuState = menuTestStatus(me, menuBankMeta?.version ?? null);
 
   // sequential: previous module must be passed
   const firstUnlockedIndex = useMemo(() => {
@@ -277,6 +279,15 @@ function TrainingTab({ employeeId }: { employeeId: string }) {
 
   return (
     <div className="grid gap-4">
+      {menuState === "stale" && (
+        <Card className="border-amber-500/50 bg-amber-500/10">
+          <CardContent className="p-4 text-sm text-amber-900 dark:text-amber-200">
+            <p className="font-semibold">Your restaurant's menu was updated</p>
+            <p className="mt-1">Retake the Menu Knowledge Test below to regain schedule access. You can't be scheduled until you pass at 80%.</p>
+          </CardContent>
+        </Card>
+      )}
+
       {assigned.map((video, i) => {
         const prog = me.progress.find((p) => p.videoId === video.id);
         const locked = i > firstUnlockedIndex;
