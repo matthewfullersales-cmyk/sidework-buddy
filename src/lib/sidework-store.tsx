@@ -1697,18 +1697,21 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
         );
       }
     },
-    recordQuizAttempt: (employeeId, videoId, score, passed) =>
+    recordQuizAttempt: (employeeId, videoId, score, passed) => {
+      let updatedEntry: VideoProgress | null = null;
       setState((s) => {
         const emp = s.employees.find((e) => e.id === employeeId);
         const video = s.videos.find((v) => v.id === videoId);
         if (!emp || !video) return s;
         const existing = emp.progress.find((p) => p.videoId === videoId);
         const attempts = (existing?.attempts ?? 0) + 1;
+        const merged: VideoProgress = existing
+          ? { ...existing, attempts, quizScore: score, passed: passed || existing.passed, completedAt: passed ? new Date().toISOString() : existing.completedAt, lockedOut: false }
+          : { videoId, watchedSec: video.durationSec, attempts, quizScore: score, passed, completedAt: passed ? new Date().toISOString() : undefined, lockedOut: false };
+        updatedEntry = merged;
         const nextProgress = existing
-          ? emp.progress.map((p) => p.videoId === videoId
-              ? { ...p, attempts, quizScore: score, passed: passed || p.passed, completedAt: passed ? new Date().toISOString() : p.completedAt, lockedOut: false }
-              : p)
-          : [...emp.progress, { videoId, watchedSec: video.durationSec, attempts, quizScore: score, passed, completedAt: passed ? new Date().toISOString() : undefined, lockedOut: false }];
+          ? emp.progress.map((p) => (p.videoId === videoId ? merged : p))
+          : [...emp.progress, merged];
         const newNotif: Notification = {
           id: uid("n"),
           type: passed ? "training_passed" : "training_failed",
@@ -1725,7 +1728,14 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           employees: s.employees.map((e) => e.id === employeeId ? { ...e, progress: nextProgress } : e),
           notifications: [newNotif, ...s.notifications],
         };
-      }),
+      });
+      const oid = ownerIdRef.current;
+      if (oid && updatedEntry) {
+        upsertTrainingProgress(oid, employeeId, videoId, updatedEntry).catch((e) =>
+          console.error("[recordQuizAttempt] cloud sync failed", e),
+        );
+      }
+    },
     upsertShift: (shift) => {
       // Optimistic local update first.
       setState((s) => {
