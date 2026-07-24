@@ -50,9 +50,15 @@ const modelResponseSchema = z.object({
 
 export type MenuQuizQuestion = z.infer<typeof questionSchema>;
 export type MenuQuizPreviewQuestion = Pick<MenuQuizQuestion, "question" | "options" | "source">;
+/** Draft returned by generateMenuQuiz — includes answerIndex for owner review. NOT persisted. */
+export type MenuQuizDraftQuestion = MenuQuizQuestion;
 export type GenerateMenuQuizResult =
-  | { ok: true; questions: MenuQuizPreviewQuestion[]; bankVersion: number; foodCount: number; drinkCount: number }
+  | { ok: true; questions: MenuQuizDraftQuestion[]; foodCount: number; drinkCount: number }
   | { ok: false; error: string };
+export type PublishMenuQuizResult =
+  | { ok: true; bankVersion: number; foodCount: number; drinkCount: number }
+  | { ok: false; error: string };
+
 
 
 function buildSystemPrompt(hasFood: boolean, hasDrink: boolean): string {
