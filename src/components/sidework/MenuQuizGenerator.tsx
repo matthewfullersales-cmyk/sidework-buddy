@@ -2,9 +2,14 @@ import { useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
-import { generateMenuQuiz, type MenuQuizPreviewQuestion } from "@/lib/menu-quiz.functions";
+import {
+  generateMenuQuiz,
+  publishMenuQuiz,
+  type MenuQuizDraftQuestion,
+} from "@/lib/menu-quiz.functions";
 import { useStore } from "@/lib/sidework-store";
 
 const ACCEPT = "application/pdf,image/png,image/jpeg,image/webp";
@@ -60,18 +65,21 @@ async function compressImage(file: File): Promise<{ blob: Blob; mimeType: string
 export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }) {
   const { restaurantProfile, setMenu, setDrinkMenu, refreshMenuBankMeta, menuBankMeta } = useStore();
   const generate = useServerFn(generateMenuQuiz);
+  const publish = useServerFn(publishMenuQuiz);
 
   const [food, setFood] = useState<File | null>(null);
   const [drink, setDrink] = useState<File | null>(null);
   const [foodPreview, setFoodPreview] = useState<string | null>(null);
   const [drinkPreview, setDrinkPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [questions, setQuestions] = useState<MenuQuizPreviewQuestion[]>([]);
+  // Draft questions live only in memory until the owner explicitly publishes.
+  const [draft, setDraft] = useState<MenuQuizDraftQuestion[]>([]);
 
   const onFile = async (kind: MenuKind, f: File | null) => {
     setError(null);
-    setQuestions([]);
+    setDraft([]);
     const prevUrl = kind === "food" ? foodPreview : drinkPreview;
     if (prevUrl) URL.revokeObjectURL(prevUrl);
     if (kind === "food") { setFood(null); setFoodPreview(null); }
@@ -109,7 +117,7 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
     }
     setLoading(true);
     setError(null);
-    setQuestions([]);
+    setDraft([]);
     try {
       const foodPayload = food ? { fileBase64: await readFileAsBase64(food), mimeType: food.type } : undefined;
       const drinkPayload = drink ? { fileBase64: await readFileAsBase64(drink), mimeType: drink.type } : undefined;
@@ -125,10 +133,48 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
         toast.error(result.error);
         return;
       }
-      setQuestions(result.questions);
-      // Persist the menu file references on the restaurant profile so the
-      // Team dashboard shows what was uploaded. Actual quiz answers are
-      // stored server-side only.
+      setDraft(result.questions);
+      toast.success(`Draft ready — review ${result.questions.length} questions and publish when you're happy.`);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Something went wrong.";
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateQuestion = (idx: number, patch: Partial<MenuQuizDraftQuestion>) => {
+    setDraft((prev) => prev.map((q, i) => (i === idx ? { ...q, ...patch } : q)));
+  };
+  const updateOption = (idx: number, optIdx: number, value: string) => {
+    setDraft((prev) =>
+      prev.map((q, i) =>
+        i === idx ? { ...q, options: q.options.map((o, j) => (j === optIdx ? value : o)) } : q,
+      ),
+    );
+  };
+  const removeQuestion = (idx: number) => {
+    setDraft((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const runPublish = async () => {
+    if (draft.length === 0) return;
+    // Validate: every question needs 4 non-empty options.
+    const bad = draft.findIndex(
+      (q) => !q.question.trim() || q.options.length !== 4 || q.options.some((o) => !o.trim()),
+    );
+    if (bad !== -1) {
+      toast.error(`Question ${bad + 1} is missing text or an option — fill it in or delete it.`);
+      return;
+    }
+    setPublishing(true);
+    try {
+      const result = await publish({ data: { questions: draft } });
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
       const now = new Date().toISOString();
       if (food) {
         setMenu({
@@ -152,21 +198,26 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
       }
       await refreshMenuBankMeta();
       const isRegen = (menuBankMeta?.version ?? 0) > 0;
+      setDraft([]);
       toast.success(
         isRegen
-          ? `Menu Knowledge Test regenerated (v${result.bankVersion}). All staff will need to retake it before their next shift.`
-          : `Generated ${result.questions.length} menu questions. Staff must pass the Menu Knowledge Test before being scheduled.`,
+          ? `Menu Knowledge Test published (v${result.bankVersion}). All staff will need to retake it before their next shift.`
+          : `Published ${draft.length} menu questions. Staff must pass the Menu Knowledge Test before being scheduled.`,
       );
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Something went wrong.";
-      setError(msg);
-      toast.error(msg);
+      toast.error(e instanceof Error ? e.message : "Couldn't publish. Try again.");
     } finally {
-      setLoading(false);
+      setPublishing(false);
     }
   };
 
-  const canGenerate = !!(food || drink) && !loading;
+  const discardDraft = () => {
+    setDraft([]);
+    setError(null);
+  };
+
+  const canGenerate = !!(food || drink) && !loading && !publishing;
+  const hasDraft = draft.length > 0;
 
   return (
     <Card className="border-border">
@@ -175,17 +226,17 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
           <div>
             <CardTitle className="text-base sm:text-lg">Menu Knowledge Test</CardTitle>
             <p className="mt-1 text-xs text-muted-foreground">
-              Upload your food menu, drink menu, or both. AI reads them and builds a real 15-question test. Every employee must pass at 80% before they can be scheduled.
+              Upload your food menu, drink menu, or both. AI reads them and drafts a real 15-question test. You review, edit, and publish — nothing goes live to staff until you approve it.
             </p>
             {menuBankMeta && (
               <p className="mt-1 text-[11px] font-medium text-primary">
-                Current test: v{menuBankMeta.version} · updated {new Date(menuBankMeta.updatedAt).toLocaleDateString()}
+                Current live test: v{menuBankMeta.version} · updated {new Date(menuBankMeta.updatedAt).toLocaleDateString()}
               </p>
             )}
           </div>
-          {questions.length > 0 && (
-            <Badge variant="secondary" className="bg-primary-soft text-primary">
-              {questions.length} question{questions.length === 1 ? "" : "s"}
+          {hasDraft && (
+            <Badge variant="secondary" className="bg-amber-500/15 text-amber-700 dark:text-amber-300">
+              Draft · not yet live
             </Badge>
           )}
         </div>
@@ -210,7 +261,7 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
 
         {menuBankMeta && (
           <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-900 dark:text-amber-200">
-            ⚠ Regenerating replaces the current test. Every employee's previous pass becomes stale and they'll need to retake before their next shift.
+            ⚠ Publishing a new test replaces the current live one. Every employee's previous pass becomes stale and they'll need to retake before their next shift.
           </div>
         )}
 
@@ -219,14 +270,14 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
             {loading ? (
               <>
                 <Spinner className="mr-2 h-4 w-4 animate-spin" />
-                Reading menu &amp; generating…
+                Reading menu &amp; drafting…
               </>
-            ) : questions.length > 0 ? (
-              "Regenerate"
+            ) : hasDraft ? (
+              "Regenerate draft"
             ) : menuBankMeta ? (
-              "Regenerate Menu Knowledge Test"
+              "Draft new Menu Knowledge Test"
             ) : (
-              "Generate Menu Knowledge Test"
+              "Draft Menu Knowledge Test"
             )}
           </Button>
         </div>
@@ -245,24 +296,100 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
           </div>
         )}
 
-        {questions.length > 0 && !loading && (
+        {hasDraft && !loading && (
           <div className="space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Preview (5 will be drawn per attempt, shuffled)</p>
-            {questions.map((q, i) => (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-900 dark:text-amber-200">
+              <div>
+                <strong>Owner review.</strong> Fix any garbled text, remove weak questions, then publish. Staff never see the correct answers — only you do here.
+                <div className="mt-1 text-xs opacity-80">
+                  {draft.filter((q) => q.source === "food").length} food · {draft.filter((q) => q.source === "drink").length} drink · {draft.length} total
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={discardDraft} disabled={publishing}>
+                  Discard
+                </Button>
+                <Button size="sm" onClick={runPublish} disabled={publishing || draft.length === 0}>
+                  {publishing ? "Publishing…" : `Publish (${draft.length})`}
+                </Button>
+              </div>
+            </div>
+
+            {draft.map((q, i) => (
               <div key={i} className="rounded-xl border border-border bg-background p-3 sm:p-4">
-                <p className="text-sm font-medium sm:text-base">
-                  <span className="mr-1 text-primary">{i + 1}.</span> {q.question}
-                </p>
+                <div className="mb-2 flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-xs text-muted-foreground">Q{i + 1}</span>
+                    <Badge variant="outline" className="text-[10px] uppercase">
+                      {q.source}
+                    </Badge>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-destructive hover:text-destructive"
+                    onClick={() => removeQuestion(i)}
+                    disabled={publishing}
+                  >
+                    Remove
+                  </Button>
+                </div>
+                <Input
+                  value={q.question}
+                  onChange={(e) => updateQuestion(i, { question: e.target.value })}
+                  className="text-sm font-medium"
+                  disabled={publishing}
+                />
                 <div className="mt-2 grid gap-1.5">
-                  {q.options.map((opt, j) => (
-                    <div key={j} className="rounded-lg border border-border bg-card px-3 py-2 text-sm">
-                      <span className="mr-2 font-mono text-xs text-muted-foreground">{String.fromCharCode(65 + j)}.</span>
-                      {opt}
-                    </div>
-                  ))}
+                  {q.options.map((opt, j) => {
+                    const isAnswer = q.answerIndex === j;
+                    return (
+                      <label
+                        key={j}
+                        className={
+                          "flex items-center gap-2 rounded-lg border px-2 py-1.5 text-sm transition-colors " +
+                          (isAnswer
+                            ? "border-emerald-500/60 bg-emerald-500/10"
+                            : "border-border bg-card")
+                        }
+                      >
+                        <input
+                          type="radio"
+                          name={`answer-${i}`}
+                          checked={isAnswer}
+                          onChange={() => updateQuestion(i, { answerIndex: j })}
+                          disabled={publishing}
+                          className="h-4 w-4 accent-emerald-600"
+                        />
+                        <span className="w-5 font-mono text-xs text-muted-foreground">
+                          {String.fromCharCode(65 + j)}.
+                        </span>
+                        <Input
+                          value={opt}
+                          onChange={(e) => updateOption(i, j, e.target.value)}
+                          disabled={publishing}
+                          className="h-8 flex-1 text-sm"
+                        />
+                        {isAnswer && (
+                          <Badge className="bg-emerald-600 text-white hover:bg-emerald-600">
+                            Correct
+                          </Badge>
+                        )}
+                      </label>
+                    );
+                  })}
                 </div>
               </div>
             ))}
+
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={discardDraft} disabled={publishing}>
+                Discard draft
+              </Button>
+              <Button onClick={runPublish} disabled={publishing || draft.length === 0}>
+                {publishing ? "Publishing…" : `Publish Menu Knowledge Test (${draft.length})`}
+              </Button>
+            </div>
           </div>
         )}
       </CardContent>

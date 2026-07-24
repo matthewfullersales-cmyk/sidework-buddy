@@ -50,9 +50,15 @@ const modelResponseSchema = z.object({
 
 export type MenuQuizQuestion = z.infer<typeof questionSchema>;
 export type MenuQuizPreviewQuestion = Pick<MenuQuizQuestion, "question" | "options" | "source">;
+/** Draft returned by generateMenuQuiz — includes answerIndex for owner review. NOT persisted. */
+export type MenuQuizDraftQuestion = MenuQuizQuestion;
 export type GenerateMenuQuizResult =
-  | { ok: true; questions: MenuQuizPreviewQuestion[]; bankVersion: number; foodCount: number; drinkCount: number }
+  | { ok: true; questions: MenuQuizDraftQuestion[]; foodCount: number; drinkCount: number }
   | { ok: false; error: string };
+export type PublishMenuQuizResult =
+  | { ok: true; bankVersion: number; foodCount: number; drinkCount: number }
+  | { ok: false; error: string };
+
 
 
 function buildSystemPrompt(hasFood: boolean, hasDrink: boolean): string {
@@ -215,8 +221,34 @@ export const generateMenuQuiz = createServerFn({ method: "POST" })
     const foodCount = questions.filter((q) => q.source === "food").length;
     const drinkCount = questions.filter((q) => q.source === "drink").length;
 
-    // Bump bank_version so every prior "menu-quiz passed" row is treated as
-    // stale — schedule-eligibility re-locks until each employee retakes.
+    return {
+      ok: true,
+      foodCount,
+      drinkCount,
+      questions,
+    };
+  });
+
+// Owner-only publish step. Persists the (possibly edited) question set as the
+// live Menu Knowledge Test and bumps bank_version so every prior staff pass
+// becomes stale and schedule-eligibility re-locks until each employee retakes.
+const publishInputSchema = z.object({
+  questions: z.array(questionSchema).min(1).max(60),
+});
+
+export const publishMenuQuiz = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => publishInputSchema.parse(data))
+  .handler(async ({ data, context }): Promise<PublishMenuQuizResult> => {
+    const questions = data.questions.map((q) => ({
+      question: q.question.slice(0, 240),
+      options: q.options.slice(0, 4).map((o) => o.slice(0, 140)),
+      answerIndex: Math.max(0, Math.min(3, q.answerIndex)),
+      source: q.source,
+    }));
+    const foodCount = questions.filter((q) => q.source === "food").length;
+    const drinkCount = questions.filter((q) => q.source === "drink").length;
+
     const { data: existing, error: readErr } = await context.supabase
       .from("menu_quiz_banks")
       .select("bank_version")
@@ -224,7 +256,7 @@ export const generateMenuQuiz = createServerFn({ method: "POST" })
       .maybeSingle();
     if (readErr) {
       console.error("[menu-quiz] read existing bank failed", readErr);
-      return { ok: false, error: "Generated the quiz but couldn't check the current version. Try again." };
+      return { ok: false, error: "Couldn't read the current version. Try again." };
     }
     const nextVersion = (existing?.bank_version ?? 0) + 1;
 
@@ -241,15 +273,10 @@ export const generateMenuQuiz = createServerFn({ method: "POST" })
       );
     if (bankErr) {
       console.error("[menu-quiz] failed to persist bank", bankErr);
-      return { ok: false, error: "Generated the quiz but couldn't save it. Try again." };
+      return { ok: false, error: "Couldn't save the quiz. Try again." };
     }
 
-    return {
-      ok: true,
-      bankVersion: nextVersion,
-      foodCount,
-      drinkCount,
-      questions: questions.map(({ question, options, source }) => ({ question, options, source })),
-    };
+    return { ok: true, bankVersion: nextVersion, foodCount, drinkCount };
   });
+
 
