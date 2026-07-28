@@ -314,6 +314,7 @@ function TrainingTab({ employeeId }: { employeeId: string }) {
             video={video}
             employeeId={me.id}
             progress={prog}
+            retakeRequired={video.id === MENU_MODULE_ID && menuState === "stale"}
             onVideoComplete={() => recordVideoProgress(me.id, video.id, { watchedSec: video.durationSec })}
             onQuizSubmit={(result) => {
               applyQuizAttemptResult(me.id, video.id, result);
