@@ -319,13 +319,18 @@ export const submitQuizAttempt = createServerFn({ method: "POST" })
     }
 
     const attempts = (existing?.attempts ?? 0) + 1;
-    const alreadyPassed = !!existing?.passed;
+    // A prior pass only carries forward when it was earned against the same
+    // question bank. A menu republish (bank_version bump) invalidates it, so
+    // failing the new menu test must NOT be recorded as a pass.
+    const alreadyPassed =
+      !!existing?.passed &&
+      (bankVersion === undefined || existing?.bank_version === bankVersion);
     const nextPassed = alreadyPassed || passed;
-    const completedAt = alreadyPassed
-      ? existing?.completed_at
-      : passed
-        ? new Date().toISOString()
-        : (existing?.completed_at ?? null);
+    const completedAt = passed
+      ? new Date().toISOString()
+      : alreadyPassed
+        ? (existing?.completed_at ?? null)
+        : null;
 
     const baseRow = {
       owner_id: access.ownerId,

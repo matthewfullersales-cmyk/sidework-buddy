@@ -25,12 +25,15 @@ export function TrainingModule({
   video,
   employeeId,
   progress,
+  retakeRequired = false,
   onVideoComplete,
   onQuizSubmit,
 }: {
   video: TrainingVideo;
   employeeId: string;
   progress: VideoProgress | undefined;
+  /** Prior pass is stale (e.g. menu republished) — force a retake affordance. */
+  retakeRequired?: boolean;
   onVideoComplete: () => void;
   onQuizSubmit: (result: QuizAttemptOutcome) => void;
 }) {
@@ -38,7 +41,7 @@ export function TrainingModule({
   const [playing, setPlaying] = useState(false);
   const tRef = useRef<number | null>(null);
   const videoComplete = watched >= video.durationSec;
-  const passed = !!progress?.passed;
+  const passed = !!progress?.passed && !retakeRequired;
   const attempts = progress?.attempts ?? 0;
 
   useEffect(() => {
@@ -71,6 +74,8 @@ export function TrainingModule({
             <Badge className="bg-success text-success-foreground hover:bg-success gap-1.5">
               <CheckIcon className="h-3.5 w-3.5" /> Complete · {progress?.quizScore}% · attempt {attempts}
             </Badge>
+          ) : retakeRequired ? (
+            <Badge variant="destructive">Retake required</Badge>
           ) : attempts > 0 ? (
             <Badge variant="secondary">Attempt {attempts} · unlimited retakes</Badge>
           ) : (
