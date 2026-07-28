@@ -74,6 +74,8 @@ export function TrainingModule({
             <Badge className="bg-success text-success-foreground hover:bg-success gap-1.5">
               <CheckIcon className="h-3.5 w-3.5" /> Complete · {progress?.quizScore}% · attempt {attempts}
             </Badge>
+          ) : retakeRequired ? (
+            <Badge variant="destructive">Retake required</Badge>
           ) : attempts > 0 ? (
             <Badge variant="secondary">Attempt {attempts} · unlimited retakes</Badge>
           ) : (
