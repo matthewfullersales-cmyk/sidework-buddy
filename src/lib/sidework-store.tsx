@@ -1765,13 +1765,19 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
         const video = s.videos.find((v) => v.id === videoId);
         if (!emp || !video) return s;
         const existing = emp.progress.find((p) => p.videoId === videoId);
+        // A prior pass only carries forward when it was earned against the
+        // SAME question bank. For the menu test, a version bump invalidates it.
+        const priorPassStillValid =
+          !!existing?.passed &&
+          (bankVersion === undefined || existing?.bankVersion === bankVersion);
+        const nextPassed = passed || priorPassStillValid;
         const merged: VideoProgress = existing
           ? {
               ...existing,
               attempts,
               quizScore: score,
-              passed: passed || existing.passed,
-              completedAt: passed ? new Date().toISOString() : existing.completedAt,
+              passed: nextPassed,
+              completedAt: passed ? new Date().toISOString() : (priorPassStillValid ? existing.completedAt : undefined),
               lockedOut: false,
               distractionFlagged,
               bankVersion: bankVersion ?? existing.bankVersion,
