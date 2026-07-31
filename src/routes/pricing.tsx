@@ -40,6 +40,7 @@ function PricingPage() {
       const { url } = await checkout({
         data: {
           origin: window.location.origin,
+          plan,
           userId: user?.id,
           email: user?.email ?? undefined,
         },
