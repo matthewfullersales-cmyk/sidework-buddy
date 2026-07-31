@@ -93,7 +93,7 @@ function PricingPage() {
               "Everything in Starter",
               "Unlimited staff",
               "Video interview screening",
-              "Character & completion tracking",
+              "Anti-cheat & completion tracking",
             ]}
             cta={
               <Button
@@ -135,9 +135,8 @@ function PricingPage() {
             blurb="For 2+ locations. Talk to us."
             features={[
               "Everything in Growth",
-              "Cross-location scheduling",
-              "Consolidated reporting",
-              "Priority support",
+              "Priced per location",
+              "Talk to us about your setup",
             ]}
             cta={
               <a href="mailto:hello@86paper.com?subject=86Paper%20Multi-location">
