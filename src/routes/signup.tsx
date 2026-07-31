@@ -60,7 +60,12 @@ function SignupPage() {
     if (data.session && uid) {
       try {
         const { url } = await checkout({
-          data: { origin: window.location.origin, userId: uid, email: email.trim() },
+          data: {
+            origin: window.location.origin,
+            plan: "growth",
+            userId: uid,
+            email: email.trim(),
+          },
         });
         window.location.href = url;
         return;

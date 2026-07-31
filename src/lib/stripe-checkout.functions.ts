@@ -31,7 +31,7 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
 
     const body = new URLSearchParams({
       mode: "subscription",
-      "line_items[0][price]": PRICE_ID,
+      "line_items[0][price]": PLAN_PRICE_IDS[data.plan],
       "line_items[0][quantity]": "1",
       success_url: `${data.origin}/onboarding?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${data.origin}/pricing`,
