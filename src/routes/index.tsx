@@ -17,8 +17,8 @@ export const Route = createFileRoute("/")({
       { title: "86Paper — 20 years of restaurant expertise for $99/month" },
       {
         name: "description",
-        content:
-          "The virtual restaurant consultant for independent owners. Self-onboarding, AI scheduling, training, hiring, and shift trades — all in one app.",
+          content:
+            "The virtual restaurant consultant for independent owners. Self-onboarding, AI scheduling, knowledge testing, hiring, and shift trades — all in one app.",
       },
       {
         property: "og:title",
@@ -27,7 +27,7 @@ export const Route = createFileRoute("/")({
       {
         property: "og:description",
         content:
-          "Built for independent restaurant owners. The tools big chains pay six figures for, for $99/month.",
+          "Built for independent restaurant owners. Self-onboarding, AI scheduling, knowledge testing, hiring, and shift trades — all in one app.",
       },
     ],
   }),
@@ -185,7 +185,7 @@ function Marketing() {
             <FeatureCard
               icon={<Eye className="h-6 w-6" />}
               title="We help you see when you're not looking."
-              body="Quiz anti-cheat, training completion, onboarding behavior — the data quietly tells you who's serious and who's not. Long before they cost you a Friday night."
+              body="Quiz anti-cheat, test completion, onboarding behavior — the data quietly tells you who's serious and who's not. Long before they cost you a Friday night."
               tag="Character signals"
             />
           </div>
