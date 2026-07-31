@@ -9,74 +9,29 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as TermsRouteImport } from './routes/terms'
-import { Route as SignupRouteImport } from './routes/signup'
-import { Route as PrivacyRouteImport } from './routes/privacy'
-import { Route as PricingRouteImport } from './routes/pricing'
-import { Route as OnboardingRouteImport } from './routes/onboarding'
-import { Route as ManagerRouteImport } from './routes/manager'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as EmployeeLoginRouteImport } from './routes/employee-login'
-import { Route as EmployeeRouteImport } from './routes/employee'
-import { Route as CareersRouteImport } from './routes/careers'
-import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as StaffInviteTokenRouteImport } from './routes/staff-invite.$token'
-import { Route as ShadowIdRouteImport } from './routes/shadow.$id'
-import { Route as JoinSlugRouteImport } from './routes/join.$slug'
-import { Route as InterviewIdRouteImport } from './routes/interview.$id'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as CareersRouteImport } from './routes/careers'
+import { Route as EmployeeRouteImport } from './routes/employee'
+import { Route as EmployeeLoginRouteImport } from './routes/employee-login'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as ManagerRouteImport } from './routes/manager'
+import { Route as OnboardingRouteImport } from './routes/onboarding'
+import { Route as PricingRouteImport } from './routes/pricing'
+import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as SignupRouteImport } from './routes/signup'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as HiredIdRouteImport } from './routes/hired.$id'
-import { Route as InterviewIdHostRouteImport } from './routes/interview.$id.host'
+import { Route as InterviewIdRouteImport } from './routes/interview.$id'
+import { Route as JoinSlugRouteImport } from './routes/join.$slug'
+import { Route as ShadowIdRouteImport } from './routes/shadow.$id'
+import { Route as StaffInviteTokenRouteImport } from './routes/staff-invite.$token'
 import { Route as ApiPublicStripeWebhookRouteImport } from './routes/api/public/stripe-webhook'
+import { Route as InterviewIdHostRouteImport } from './routes/interview.$id.host'
 
-const TermsRoute = TermsRouteImport.update({
-  id: '/terms',
-  path: '/terms',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SignupRoute = SignupRouteImport.update({
-  id: '/signup',
-  path: '/signup',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PrivacyRoute = PrivacyRouteImport.update({
-  id: '/privacy',
-  path: '/privacy',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PricingRoute = PricingRouteImport.update({
-  id: '/pricing',
-  path: '/pricing',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const OnboardingRoute = OnboardingRouteImport.update({
-  id: '/onboarding',
-  path: '/onboarding',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ManagerRoute = ManagerRouteImport.update({
-  id: '/manager',
-  path: '/manager',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const EmployeeLoginRoute = EmployeeLoginRouteImport.update({
-  id: '/employee-login',
-  path: '/employee-login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const EmployeeRoute = EmployeeRouteImport.update({
-  id: '/employee',
-  path: '/employee',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CareersRoute = CareersRouteImport.update({
-  id: '/careers',
-  path: '/careers',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRoute = AdminRouteImport.update({
@@ -84,29 +39,54 @@ const AdminRoute = AdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const CareersRoute = CareersRouteImport.update({
+  id: '/careers',
+  path: '/careers',
   getParentRoute: () => rootRouteImport,
 } as any)
-const StaffInviteTokenRoute = StaffInviteTokenRouteImport.update({
-  id: '/staff-invite/$token',
-  path: '/staff-invite/$token',
+const EmployeeRoute = EmployeeRouteImport.update({
+  id: '/employee',
+  path: '/employee',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ShadowIdRoute = ShadowIdRouteImport.update({
-  id: '/shadow/$id',
-  path: '/shadow/$id',
+const EmployeeLoginRoute = EmployeeLoginRouteImport.update({
+  id: '/employee-login',
+  path: '/employee-login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const JoinSlugRoute = JoinSlugRouteImport.update({
-  id: '/join/$slug',
-  path: '/join/$slug',
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const InterviewIdRoute = InterviewIdRouteImport.update({
-  id: '/interview/$id',
-  path: '/interview/$id',
+const ManagerRoute = ManagerRouteImport.update({
+  id: '/manager',
+  path: '/manager',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OnboardingRoute = OnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PricingRoute = PricingRouteImport.update({
+  id: '/pricing',
+  path: '/pricing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SignupRoute = SignupRouteImport.update({
+  id: '/signup',
+  path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HiredIdRoute = HiredIdRouteImport.update({
@@ -114,15 +94,35 @@ const HiredIdRoute = HiredIdRouteImport.update({
   path: '/hired/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
-const InterviewIdHostRoute = InterviewIdHostRouteImport.update({
-  id: '/host',
-  path: '/host',
-  getParentRoute: () => InterviewIdRoute,
+const InterviewIdRoute = InterviewIdRouteImport.update({
+  id: '/interview/$id',
+  path: '/interview/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const JoinSlugRoute = JoinSlugRouteImport.update({
+  id: '/join/$slug',
+  path: '/join/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ShadowIdRoute = ShadowIdRouteImport.update({
+  id: '/shadow/$id',
+  path: '/shadow/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StaffInviteTokenRoute = StaffInviteTokenRouteImport.update({
+  id: '/staff-invite/$token',
+  path: '/staff-invite/$token',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicStripeWebhookRoute = ApiPublicStripeWebhookRouteImport.update({
   id: '/api/public/stripe-webhook',
   path: '/api/public/stripe-webhook',
   getParentRoute: () => rootRouteImport,
+} as any)
+const InterviewIdHostRoute = InterviewIdHostRouteImport.update({
+  id: '/host',
+  path: '/host',
+  getParentRoute: () => InterviewIdRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -278,74 +278,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/terms': {
-      id: '/terms'
-      path: '/terms'
-      fullPath: '/terms'
-      preLoaderRoute: typeof TermsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/signup': {
-      id: '/signup'
-      path: '/signup'
-      fullPath: '/signup'
-      preLoaderRoute: typeof SignupRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/privacy': {
-      id: '/privacy'
-      path: '/privacy'
-      fullPath: '/privacy'
-      preLoaderRoute: typeof PrivacyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/pricing': {
-      id: '/pricing'
-      path: '/pricing'
-      fullPath: '/pricing'
-      preLoaderRoute: typeof PricingRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/onboarding': {
-      id: '/onboarding'
-      path: '/onboarding'
-      fullPath: '/onboarding'
-      preLoaderRoute: typeof OnboardingRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/manager': {
-      id: '/manager'
-      path: '/manager'
-      fullPath: '/manager'
-      preLoaderRoute: typeof ManagerRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/employee-login': {
-      id: '/employee-login'
-      path: '/employee-login'
-      fullPath: '/employee-login'
-      preLoaderRoute: typeof EmployeeLoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/employee': {
-      id: '/employee'
-      path: '/employee'
-      fullPath: '/employee'
-      preLoaderRoute: typeof EmployeeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/careers': {
-      id: '/careers'
-      path: '/careers'
-      fullPath: '/careers'
-      preLoaderRoute: typeof CareersRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin': {
@@ -355,39 +292,74 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/careers': {
+      id: '/careers'
+      path: '/careers'
+      fullPath: '/careers'
+      preLoaderRoute: typeof CareersRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/staff-invite/$token': {
-      id: '/staff-invite/$token'
-      path: '/staff-invite/$token'
-      fullPath: '/staff-invite/$token'
-      preLoaderRoute: typeof StaffInviteTokenRouteImport
+    '/employee': {
+      id: '/employee'
+      path: '/employee'
+      fullPath: '/employee'
+      preLoaderRoute: typeof EmployeeRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/shadow/$id': {
-      id: '/shadow/$id'
-      path: '/shadow/$id'
-      fullPath: '/shadow/$id'
-      preLoaderRoute: typeof ShadowIdRouteImport
+    '/employee-login': {
+      id: '/employee-login'
+      path: '/employee-login'
+      fullPath: '/employee-login'
+      preLoaderRoute: typeof EmployeeLoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/join/$slug': {
-      id: '/join/$slug'
-      path: '/join/$slug'
-      fullPath: '/join/$slug'
-      preLoaderRoute: typeof JoinSlugRouteImport
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/interview/$id': {
-      id: '/interview/$id'
-      path: '/interview/$id'
-      fullPath: '/interview/$id'
-      preLoaderRoute: typeof InterviewIdRouteImport
+    '/manager': {
+      id: '/manager'
+      path: '/manager'
+      fullPath: '/manager'
+      preLoaderRoute: typeof ManagerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/onboarding': {
+      id: '/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof OnboardingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pricing': {
+      id: '/pricing'
+      path: '/pricing'
+      fullPath: '/pricing'
+      preLoaderRoute: typeof PricingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/signup': {
+      id: '/signup'
+      path: '/signup'
+      fullPath: '/signup'
+      preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/hired/$id': {
@@ -397,12 +369,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HiredIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/interview/$id/host': {
-      id: '/interview/$id/host'
-      path: '/host'
-      fullPath: '/interview/$id/host'
-      preLoaderRoute: typeof InterviewIdHostRouteImport
-      parentRoute: typeof InterviewIdRoute
+    '/interview/$id': {
+      id: '/interview/$id'
+      path: '/interview/$id'
+      fullPath: '/interview/$id'
+      preLoaderRoute: typeof InterviewIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/join/$slug': {
+      id: '/join/$slug'
+      path: '/join/$slug'
+      fullPath: '/join/$slug'
+      preLoaderRoute: typeof JoinSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/shadow/$id': {
+      id: '/shadow/$id'
+      path: '/shadow/$id'
+      fullPath: '/shadow/$id'
+      preLoaderRoute: typeof ShadowIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/staff-invite/$token': {
+      id: '/staff-invite/$token'
+      path: '/staff-invite/$token'
+      fullPath: '/staff-invite/$token'
+      preLoaderRoute: typeof StaffInviteTokenRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/public/stripe-webhook': {
       id: '/api/public/stripe-webhook'
@@ -410,6 +403,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/public/stripe-webhook'
       preLoaderRoute: typeof ApiPublicStripeWebhookRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/interview/$id/host': {
+      id: '/interview/$id/host'
+      path: '/host'
+      fullPath: '/interview/$id/host'
+      preLoaderRoute: typeof InterviewIdHostRouteImport
+      parentRoute: typeof InterviewIdRoute
     }
   }
 }
