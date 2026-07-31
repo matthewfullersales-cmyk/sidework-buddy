@@ -198,10 +198,10 @@ export const startQuizAttempt = createServerFn({ method: "POST" })
         }
       }
     } else {
-      const { QUIZ_POOLS, VIDEO_CATEGORY } = await import("@/lib/quiz-bank.server");
-      const category = VIDEO_CATEGORY[data.videoId];
-      if (!category) return { ok: false, error: "Unknown training module." };
-      bank = QUIZ_POOLS[category];
+      // 86Paper is a testing platform: the only knowledge test today is the
+      // restaurant-specific Menu Knowledge Test. Future direct tests (e.g. an
+      // employee-handbook test) plug in here with their own bank.
+      return { ok: false, error: "Unknown knowledge test." };
     }
 
     if (bank.length < QUIZ_SIZE) {

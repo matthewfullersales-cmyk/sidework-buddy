@@ -14,9 +14,9 @@ import { PhoneInput } from "@/components/ui/phone-input";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { TrainingModule } from "@/components/sidework/TrainingModule";
+import { KnowledgeTest } from "@/components/sidework/KnowledgeTest";
 import { AvailabilityEditor } from "@/components/sidework/AvailabilityEditor";
-import { onboardingStatus, useStore, videosForEmployee, menuTestStatus, MENU_MODULE_ID, type Relationship, type WeeklyAvailability } from "@/lib/sidework-store";
+import { onboardingStatus, useStore, testIdsForEmployee, menuTestStatus, MENU_MODULE_ID, MENU_TEST_TITLE, type Relationship, type WeeklyAvailability } from "@/lib/sidework-store";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatPhone } from "@/lib/format-phone";
 import { toast } from "sonner";
@@ -36,7 +36,7 @@ export const Route = createFileRoute("/employee")({
 function EmployeePage() {
   useRequireRole("employee", "/employee-login");
   const { profile, employeeContext, loading: authLoading } = useAuth();
-  const { currentUser, setCurrentUser, employees, videos, employeeHydrating, menuBankMeta } = useStore();
+  const { currentUser, setCurrentUser, employees, customRoles, employeeHydrating, menuBankMeta } = useStore();
   const menuBankVersion = menuBankMeta;
   const targetId = employeeContext?.employeeId ?? profile?.employee_id ?? null;
   useEffect(() => {
@@ -46,15 +46,15 @@ function EmployeePage() {
   }, [targetId, currentUser, setCurrentUser]);
   const stillLoading = authLoading || employeeHydrating || (targetId && employees.length === 0);
   const me = currentUser.type === "employee" ? employees.find((e) => e.id === currentUser.id) : undefined;
-  const status = useMemo(() => (me ? onboardingStatus(me, videos, menuBankVersion) : null), [me, videos, menuBankVersion]);
+  const status = useMemo(() => (me ? onboardingStatus(me, customRoles, menuBankVersion) : null), [me, customRoles, menuBankVersion]);
 
   useEffect(() => {
     if (!me || !status) return;
     const key = `sw-welcome-${me.id}`;
     try {
       if (!localStorage.getItem(key) && status.total > 0 && status.passed === 0) {
-        toast.success("Welcome! Your training program is ready.", {
-          description: "Complete all videos and quizzes before your first shift.",
+        toast.success("Welcome! Your knowledge checks are ready.", {
+          description: "Pass your required knowledge tests before your first shift.",
           duration: 6000,
         });
         localStorage.setItem(key, "1");
@@ -84,7 +84,7 @@ function EmployeePage() {
       <Tabs defaultValue={!me.personalInfoComplete ? "profile" : "schedule"}>
         <TabsList className="mb-6 grid h-auto w-full grid-cols-3 md:grid-cols-6">
           <TabsTrigger value="profile">{me.personalInfoComplete ? "Profile" : "Onboarding"}</TabsTrigger>
-          <TabsTrigger value="training">Training</TabsTrigger>
+          <TabsTrigger value="training">Testing</TabsTrigger>
           <TabsTrigger value="schedule">Schedule</TabsTrigger>
           <TabsTrigger value="trades">Trades</TabsTrigger>
           <TabsTrigger value="timeoff">Time Off</TabsTrigger>
@@ -107,7 +107,7 @@ function EmployeePage() {
 }
 
 function OnboardingTab({ employeeId }: { employeeId: string }) {
-  const { employees, updateEmployee, videos, mealPeriods } = useStore();
+  const { employees, updateEmployee, customRoles, mealPeriods } = useStore();
   const me = employees.find((e) => e.id === employeeId)!;
   const [firstName, setFirstName] = useState(me.firstName ?? me.name.split(" ")[0] ?? "");
   const [lastName, setLastName] = useState(me.lastName ?? me.name.split(" ").slice(1).join(" ") ?? "");
@@ -123,7 +123,7 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
   const [specialTalents, setSpecialTalents] = useState(me.specialTalents ?? "");
   const [photoUrl, setPhotoUrl] = useState(me.photoUrl ?? "");
   const { menuBankMeta } = useStore();
-  const s = onboardingStatus(me, videos, menuBankMeta);
+  const s = onboardingStatus(me, customRoles, menuBankMeta);
 
   const onPhotoFile = (file: File | null) => {
     if (!file) return;
@@ -159,7 +159,7 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
         </CardHeader>
         <CardContent className="space-y-3">
           <ChecklistItem done={me.personalInfoComplete} label="Personal info, availability & emergency contact" />
-          <ChecklistItem done={s.total > 0 && s.passed === s.total} label={`Role training (${s.passed}/${s.total} videos)`} />
+          <ChecklistItem done={s.total > 0 && s.passed === s.total} label={`Knowledge tests (${s.passed}/${s.total} passed)`} />
           <ChecklistItem done={s.fullyOnboarded} label="Marked fully onboarded" />
           <Progress value={Math.round(((me.personalInfoComplete ? 1 : 0) + (s.total ? s.passed / s.total : 0)) / 2 * 100)} className="h-2" />
         </CardContent>
@@ -260,22 +260,13 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
 }
 
 function TrainingTab({ employeeId }: { employeeId: string }) {
-  const { employees, videos, recordVideoProgress, applyQuizAttemptResult, menuBankMeta } = useStore();
+  const { employees, applyQuizAttemptResult, menuBankMeta } = useStore();
   const me = employees.find((e) => e.id === employeeId)!;
-  const assigned = videosForEmployee(videos, me);
   const menuState = menuTestStatus(me, menuBankMeta);
+  const testIds = testIdsForEmployee(me);
 
-  // sequential: previous module must be passed
-  const firstUnlockedIndex = useMemo(() => {
-    for (let i = 0; i < assigned.length; i++) {
-      const p = me.progress.find((x) => x.videoId === assigned[i].id);
-      if (!p?.passed) return i;
-    }
-    return assigned.length;
-  }, [assigned, me.progress]);
-
-  if (assigned.length === 0) {
-    return <Card><CardContent className="p-6 text-sm text-muted-foreground">No training assigned for your role yet.</CardContent></Card>;
+  if (testIds.length === 0 || menuState === "not-required") {
+    return <Card><CardContent className="p-6 text-sm text-muted-foreground">No knowledge tests assigned for your role yet.</CardContent></Card>;
   }
 
   return (
@@ -289,41 +280,19 @@ function TrainingTab({ employeeId }: { employeeId: string }) {
         </Card>
       )}
 
-      {assigned.map((video, i) => {
-        const prog = me.progress.find((p) => p.videoId === video.id);
-        const locked = i > firstUnlockedIndex;
-        if (locked) {
-          return (
-            <Card key={video.id} className="opacity-60">
-              <CardContent className="flex items-center gap-3 p-5">
-                <div className="grid h-9 w-9 place-items-center rounded-full bg-muted text-muted-foreground">
-                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Lesson {i + 1} · {me.primaryRole}</p>
-                  <p className="font-semibold">{video.title}</p>
-                  <p className="text-xs text-muted-foreground">Finish the previous module to unlock.</p>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        }
-        return (
-          <TrainingModule
-            key={video.id}
-            video={video}
-            employeeId={me.id}
-            progress={prog}
-            retakeRequired={video.id === MENU_MODULE_ID && menuState === "stale"}
-            onVideoComplete={() => recordVideoProgress(me.id, video.id, { watchedSec: video.durationSec })}
-            onQuizSubmit={(result) => {
-              applyQuizAttemptResult(me.id, video.id, result);
-              if (result.passed) toast.success(`Passed with ${result.score}% — module complete!`);
-              else toast.error(`Scored ${result.score}%. Try again.`);
-            }}
-          />
-        );
-      })}
+      <KnowledgeTest
+        testId={MENU_MODULE_ID}
+        title={MENU_TEST_TITLE}
+        description="Straight knowledge check on your restaurant's current menu. You must pass before you can be scheduled."
+        employeeId={me.id}
+        progress={me.progress.find((p) => p.videoId === MENU_MODULE_ID)}
+        retakeRequired={menuState === "stale"}
+        onQuizSubmit={(result) => {
+          applyQuizAttemptResult(me.id, MENU_MODULE_ID, result);
+          if (result.passed) toast.success(`Passed with ${result.score}% — you're schedule eligible.`);
+          else toast.error(`Scored ${result.score}%. Try again.`);
+        }}
+      />
     </div>
   );
 }

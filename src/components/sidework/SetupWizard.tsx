@@ -563,7 +563,7 @@ function SummaryComposer({
   const items = [
     `Scheduling grid set up with your roles (${[...answers.fohRoles, ...answers.bohRoles].length || 0} configured)`,
     `Menu quiz generated from ${foodMenu?.name ?? "food menu"} & ${drinkMenu?.name ?? "drink menu"}`,
-    `Training videos assigned for ${answers.type || "your restaurant"}`,
+    `Menu Knowledge Test gate enabled for ${answers.type || "your restaurant"} staff`,
     `Hiring templates created${answers.positions ? ` for ${answers.positions}` : ""}`,
     "First AI schedule ready",
   ];

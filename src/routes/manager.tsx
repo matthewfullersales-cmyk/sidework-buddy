@@ -18,7 +18,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
-import { onboardingStatus, useStore, type Role, type ApplicationStatus, type Employee, type Relationship, DAY_KEYS, hoursConfigured, type JobApplication, type HiringStage, type ShadowShiftDetails, type InterviewType, getHiringStage, isPendingRoleAssignment, isScheduleEligible, trainingProgressFor, menuTestStatus } from "@/lib/sidework-store";
+import { onboardingStatus, useStore, type Role, type ApplicationStatus, type Employee, type Relationship, DAY_KEYS, hoursConfigured, type JobApplication, type HiringStage, type ShadowShiftDetails, type InterviewType, getHiringStage, isPendingRoleAssignment, isScheduleEligible, trainingProgressFor, menuTestStatus, MENU_MODULE_ID, MENU_TEST_TITLE } from "@/lib/sidework-store";
 import { roleStyle, fohRolesWithCustom, bohRolesWithCustom, allRolesWithCustom } from "@/lib/role-colors";
 
 import { PhoneInput } from "@/components/ui/phone-input";
@@ -177,10 +177,10 @@ function ManagerTabs({ tab, setTab, onOpenSetup }: { tab: string; setTab: (v: st
 
 
 function OverviewTab() {
-  const { employees, videos, trades, shifts, applications, timeOff, menuBankMeta } = useStore();
+  const { employees, customRoles, trades, shifts, applications, timeOff, menuBankMeta } = useStore();
   const menuBankMetaObj = menuBankMeta;
   const stats = useMemo(() => {
-    const onboarded = employees.filter((e) => onboardingStatus(e, videos, menuBankMetaObj).fullyOnboarded).length;
+    const onboarded = employees.filter((e) => onboardingStatus(e, customRoles, menuBankMetaObj).fullyOnboarded).length;
     const pending = trades.filter((t) => t.status === "pending_approval").length;
     const newApps = applications.filter((a) => a.status === "new").length;
     const pendingTO = timeOff.filter((t) => t.status === "pending").length;
@@ -190,7 +190,7 @@ function OverviewTab() {
       return s === "never" || s === "in-progress";
     }).length;
     return { onboarded, total: employees.length, pending, newApps, pendingTO, shifts: shifts.length, menuStale, menuNever };
-  }, [employees, videos, trades, shifts, applications, timeOff, menuBankMetaObj]);
+  }, [employees, customRoles, trades, shifts, applications, timeOff, menuBankMetaObj]);
 
   return (
     <div className="grid gap-6">
@@ -219,7 +219,7 @@ function OverviewTab() {
         </CardHeader>
         <CardContent className="space-y-4">
           {employees.map((e) => {
-            const s = onboardingStatus(e, videos, menuBankMetaObj);
+            const s = onboardingStatus(e, customRoles, menuBankMetaObj);
             return (
               <div key={e.id} className="space-y-1.5">
                 <div className="flex items-center justify-between text-sm">
@@ -229,7 +229,7 @@ function OverviewTab() {
                     <Badge style={roleStyle(e.primaryRole)} className="border-transparent">{e.primaryRole}</Badge>
                     {s.fullyOnboarded && <Badge className="bg-success text-success-foreground hover:bg-success">Onboarded</Badge>}
                   </div>
-                  <span className="text-muted-foreground">{s.passed}/{s.total} videos</span>
+                  <span className="text-muted-foreground">{s.passed}/{s.total} tests</span>
                 </div>
                 <Progress value={s.pct} className="h-1.5" />
               </div>
@@ -334,7 +334,7 @@ function PendingRoleAssignmentQueue({
 }
 
 function TeamTab() {
-  const { employees, videos, inviteEmployee, restaurantProfile, activeRoles, customRoles, shifts, trades, timeOff, clearAllEmployees, updateEmployee, menuBankMeta } = useStore();
+  const { employees, inviteEmployee, restaurantProfile, activeRoles, customRoles, shifts, trades, timeOff, clearAllEmployees, updateEmployee, menuBankMeta } = useStore();
   const menuBankMetaObj = menuBankMeta;
   const fohActive = fohRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r));
   const bohActive = bohRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r));
@@ -389,7 +389,7 @@ function TeamTab() {
       if (filters.has("all")) return true;
       const role = e.primaryRole;
       const isFoh = (FOH_ROLES as string[]).includes(role);
-      const status = onboardingStatus(e, videos, menuBankMetaObj);
+      const status = onboardingStatus(e, customRoles, menuBankMetaObj);
       for (const f of filters) {
         if (f === "foh" && isFoh) return true;
         if (f === "boh" && !isFoh) return true;
@@ -401,7 +401,7 @@ function TeamTab() {
     });
     const firstOf = (e: Employee) => (e.firstName ?? e.name.split(" ")[0] ?? "").toLowerCase();
     const lastOf = (e: Employee) => (e.lastName ?? e.name.split(" ").slice(1).join(" ") ?? "").toLowerCase();
-    const pctOf = (e: Employee) => onboardingStatus(e, videos, menuBankMetaObj).pct;
+    const pctOf = (e: Employee) => onboardingStatus(e, customRoles, menuBankMetaObj).pct;
     const sorted = [...list];
     sorted.sort((a, b) => {
       switch (sortKey) {
@@ -416,7 +416,7 @@ function TeamTab() {
       }
     });
     return sorted;
-  }, [employees, videos, filters, sortKey]);
+  }, [employees, customRoles, menuBankMetaObj, filters, sortKey]);
 
   const joinSlug = restaurantProfile?.slug ?? (restaurantProfile?.name ? slugify(restaurantProfile.name) : "team");
   const copyJoinLink = () => {
@@ -640,7 +640,7 @@ function TeamTab() {
           <Card><CardContent className="p-8 text-center text-sm text-muted-foreground">No staff match the current filters.</CardContent></Card>
         )}
         {visibleEmployees.map((e) => {
-          const s = onboardingStatus(e, videos, menuBankMetaObj);
+          const s = onboardingStatus(e, customRoles, menuBankMetaObj);
           const fullName = e.firstName && e.lastName ? `${e.firstName} ${e.lastName}` : e.name;
           const menuState = menuTestStatus(e, menuBankMetaObj);
           return (
@@ -664,11 +664,11 @@ function TeamTab() {
                   <div className="text-right">
                     {isPendingRoleAssignment(e) ? (
                       <Badge variant="secondary" className="bg-muted text-foreground">Pending role</Badge>
-                    ) : isScheduleEligible(e, videos, customRoles, menuBankMetaObj) ? (
+                    ) : isScheduleEligible(e, customRoles, menuBankMetaObj) ? (
                       <Badge className="bg-success text-success-foreground hover:bg-success">Schedule eligible</Badge>
                     ) : (
                       (() => {
-                        const tp = trainingProgressFor(e, videos, customRoles, menuBankMetaObj);
+                        const tp = trainingProgressFor(e, customRoles, menuBankMetaObj);
                         return <Badge variant="secondary" className="bg-amber-500/15 text-amber-700 dark:text-amber-300">In training · {tp.passed}/{tp.total}</Badge>;
                       })()
                     )}
@@ -678,7 +678,7 @@ function TeamTab() {
                     {(menuState === "never" || menuState === "in-progress") && (
                       <p className="mt-1 text-[11px] font-semibold text-amber-700 dark:text-amber-300">Menu test not passed</p>
                     )}
-                    <p className="mt-1 text-xs text-muted-foreground">{s.passed}/{s.total} videos passed</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{s.passed}/{s.total} knowledge tests passed</p>
                     <Progress value={s.pct} className="mt-2 h-1.5 w-32" />
 
                     {(() => {
@@ -687,11 +687,10 @@ function TeamTab() {
                       return (
                         <div className="mt-2 space-y-0.5 text-right text-[11px] text-muted-foreground">
                           {recentAttempts.map((attempt, index) => {
-                            const v = videos.find((vv) => vv.id === attempt.videoId);
-                            if (!v) return null;
+                            const testTitle = attempt.videoId === MENU_MODULE_ID ? MENU_TEST_TITLE : "Knowledge test";
                             return (
                               <p key={attempt.id}>
-                                {v.title} #{recentAttempts.length - index}: {attempt.score}% {attempt.passed ? "passed" : "not passed"}
+                                {testTitle} #{recentAttempts.length - index}: {attempt.score}% {attempt.passed ? "passed" : "not passed"}
                                 {attempt.distractionFlagged && (
                                   <span className="ml-1 font-semibold text-amber-600 dark:text-amber-400">⚠ possible distraction</span>
                                 )}
@@ -2293,7 +2292,6 @@ function TrainingProgramTab() {
           </CardContent>
         </Card>
       )}
-      <TrainingProgram menuName={menu?.name ?? "your menus"} />
       <MenuQuizGenerator menuName={menu?.name} />
     </div>
   );
@@ -2435,72 +2433,7 @@ function MenuTab() {
         </Card>
       )}
 
-      {menu && menu.generatedAt && <TrainingProgram menuName={menu.name} />}
     </div>
-  );
-}
-
-const TRAINING_MODULES: Record<"Server" | "Bartender" | "Kitchen", { title: string; videos: string[] }[]> = {
-  Server: [
-    { title: "Menu Knowledge & Storytelling", videos: ["Starters & shareables walkthrough", "Entrée specs and allergens", "Dessert pairings & upsell cues"] },
-    { title: "Wine & Beverage Pairing", videos: ["House pours & by-the-glass list", "Pairing guide for tonight's menu"] },
-    { title: "Service Standards", videos: ["Greeting & table touch sequence", "Handling allergies and substitutions"] },
-  ],
-  Bartender: [
-    { title: "Signature Cocktails", videos: ["House cocktail builds & specs", "Garnish and glassware standards", "Batching for peak hours"] },
-    { title: "Wine & Beer Program", videos: ["Wine list overview", "Draft program & rotation"] },
-    { title: "Responsible Service", videos: ["ID verification & refusal of service"] },
-  ],
-  Kitchen: [
-    { title: "Line Setup & Menu Items", videos: ["Mise en place by station", "Cook times & plating standards", "Specials & 86 procedures"] },
-    { title: "Allergens & Cross-Contamination", videos: ["Top 9 allergen handling", "Color-coded board protocol"] },
-    { title: "Food Safety", videos: ["Cooking & holding temperatures", "Closing checklist"] },
-  ],
-};
-
-function TrainingProgram({ menuName }: { menuName: string }) {
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <CardTitle className="text-base">Custom training program</CardTitle>
-            <p className="mt-1 text-xs text-muted-foreground">Generated from <span className="font-medium text-foreground">{menuName}</span></p>
-          </div>
-          <Badge className="bg-success text-success-foreground hover:bg-success">Ready</Badge>
-        </div>
-      </CardHeader>
-      <CardContent className="grid gap-5 md:grid-cols-3">
-        {(Object.keys(TRAINING_MODULES) as Array<keyof typeof TRAINING_MODULES>).map((role) => (
-          <div key={role} className="rounded-xl border border-border bg-background p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <p className="font-semibold">{role}</p>
-              <Badge variant="secondary">{TRAINING_MODULES[role].reduce((n, m) => n + m.videos.length, 0)} videos</Badge>
-            </div>
-            <div className="space-y-3">
-              {TRAINING_MODULES[role].map((mod, i) => (
-                <div key={i} className="rounded-lg border border-border p-3">
-                  <p className="text-sm font-semibold">{mod.title}</p>
-                  <ul className="mt-2 space-y-1.5">
-                    {mod.videos.map((v, j) => (
-                      <li key={j} className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <span className="grid h-5 w-5 place-items-center rounded-full bg-primary-soft text-[10px] font-semibold text-primary">{j + 1}</span>
-                        <span className="flex-1">{v}</span>
-                        <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                      </li>
-                    ))}
-                    <li className="mt-2 flex items-center gap-2 rounded-md border border-dashed border-border bg-muted/40 px-2 py-1.5 text-xs text-muted-foreground">
-                      <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                      Quiz · unlocks after all videos
-                    </li>
-                  </ul>
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </CardContent>
-    </Card>
   );
 }
 
