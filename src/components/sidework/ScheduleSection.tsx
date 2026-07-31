@@ -795,7 +795,7 @@ function ShiftDetailsDialog({
   employeeId: string; date: string; existing?: Shift;
   onClose: () => void; onSave: (s: Shift) => void; onDelete: (id: string) => void;
 }) {
-  const { employees, activeRoles, customRoles, timeOff, mealPeriods, restaurantHours, videos, menuBankMeta } = useStore();
+  const { employees, activeRoles, customRoles, timeOff, mealPeriods, restaurantHours, menuBankMeta } = useStore();
   const menuBankMetaObj = menuBankMeta;
   const emp = employees.find((e) => e.id === employeeId);
   // Compute suggestions up-front so a brand-new shift is seeded with the
@@ -866,8 +866,8 @@ function ShiftDetailsDialog({
   // be scheduled — the manager must assign a role and the employee must pass
   // their required training modules first.
   const pendingRole = emp ? isPendingRoleAssignment(emp) : false;
-  const eligible = emp ? isScheduleEligible(emp, videos, customRoles, menuBankMetaObj) : true;
-  const progress = emp ? trainingProgressFor(emp, videos, customRoles, menuBankMetaObj) : { passed: 0, total: 0 };
+  const eligible = emp ? isScheduleEligible(emp, customRoles, menuBankMetaObj) : true;
+  const progress = emp ? trainingProgressFor(emp, customRoles, menuBankMetaObj) : { passed: 0, total: 0 };
   const menuState = emp ? menuTestStatus(emp, menuBankMetaObj) : "not-required";
   const trainingBlocked = !!emp && !eligible;
   const trainingBlockMsg = pendingRole

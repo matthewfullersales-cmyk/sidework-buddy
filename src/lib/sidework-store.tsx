@@ -63,15 +63,8 @@ export const BUILT_IN_ROLES = [
 export type BuiltInRole = typeof BUILT_IN_ROLES[number];
 export interface CustomRole { name: string; section: "FOH" | "BOH"; color: string }
 
-export type TrainingCategory = "Server" | "Bartender" | "Host" | "Kitchen";
 
-export interface TrainingVideo {
-  id: string;
-  title: string;
-  durationSec: number;
-  role: TrainingCategory;
-  passingScore: number;
-}
+
 
 export interface VideoProgress {
   videoId: string;
@@ -711,7 +704,6 @@ interface Store {
   setCurrentUser: (u: Store["currentUser"]) => void;
   employeeHydrating: boolean;
   employees: Employee[];
-  videos: TrainingVideo[];
   shifts: Shift[];
   trades: Trade[];
   jobs: JobPosting[];
@@ -768,7 +760,6 @@ interface Store {
   updateRestaurantSlug: (slug: string) => void;
   updateEmployee: (id: string, patch: Partial<Employee>) => void;
   clearAllEmployees: () => void;
-  recordVideoProgress: (employeeId: string, videoId: string, patch: Partial<VideoProgress>) => void;
   /**
    * Apply a quiz attempt result graded by the server. Only updates local
    * state — the server function (submitQuizAttempt) has already persisted
@@ -807,101 +798,18 @@ interface Store {
 
 const Ctx = createContext<Store | null>(null);
 
-// Quiz question pools live SERVER-SIDE only, in `src/lib/quiz-bank.server.ts`.
-// The client never has access to correct answers — quizzes are fetched and
-// graded via `startQuizAttempt` / `submitQuizAttempt` server functions.
-
-
-// Training tracks are built in three explicit layers when a role is assigned:
+// Knowledge tests are graded SERVER-SIDE only. The client never has access to
+// correct answers — tests are fetched and graded via `startQuizAttempt` /
+// `submitQuizAttempt` server functions.
 //
-//   1. GENERAL restaurant knowledge — one shared module per section (FOH/BOH).
-//      Reused across every restaurant.
-//   2. ROLE-SPECIFIC skill/scenario modules — generic across the system but
-//      keyed to the individual role (wine service for Server, ticket-rail
-//      management for Line Cook, etc.). Reused across every restaurant.
-//   3. MENU QUIZ — the one restaurant-specific module, generated from that
-//      restaurant's uploaded menu via the existing AI menu-quiz feature.
-//
-// Real training video content for the role-specific skill modules doesn't
-// exist yet — those entries are placeholders labeled "— [Placeholder]" so
-// the gating system is fully wired and content can drop in later.
+// 86Paper is a testing / screening platform, not a training-content library.
+// There is no video watching and no sequential lesson unlocking. The only
+// knowledge test today is the restaurant-specific Menu Knowledge Test,
+// generated from the owner's uploaded menu(s). Future direct tests (e.g.
+// employee-handbook tests) plug in here as additional test ids.
 
-type ModuleLayer = "general" | "role" | "menu";
-type ModuleDef = {
-  id: string;
-  title: string;
-  category: TrainingCategory;
-  roles: Role[];       // roles this module is required for; [] = all roles
-  layer: ModuleLayer;
-  section?: Section;   // for `layer: "general"`
-};
-
-const LINE_COOK_ROLES: Role[] = ["Line Cook", "Saute", "Grill", "Fry Cook"];
-const CHEF_ROLES: Role[] = ["Chef", "Sous Chef"];
-const MANAGER_ROLES: Role[] = ["Manager", "Assistant Manager"];
-
-// Layer 1 — General restaurant knowledge (shared by section)
-const GENERAL_MODULES: ModuleDef[] = [
-  { id: "general-foh", title: "FOH General Restaurant Knowledge — [Placeholder]", category: "Server", roles: [], layer: "general", section: "FOH" },
-  { id: "general-boh", title: "BOH General Restaurant Knowledge — [Placeholder]", category: "Kitchen", roles: [], layer: "general", section: "BOH" },
-];
-
-// Layer 2 — Role-specific skill/scenario modules (system-generic, placeholders)
-const ROLE_MODULES: ModuleDef[] = [
-  // Host
-  { id: "host-greet-seat", title: "Host: Greeting & Seating Guests — [Placeholder]", category: "Host", roles: ["Host"], layer: "role" },
-  { id: "host-reservations", title: "Host: Reservation Management — [Placeholder]", category: "Host", roles: ["Host"], layer: "role" },
-  { id: "host-waitlist-recovery", title: "Host: Waitlist & Guest Recovery — [Placeholder]", category: "Host", roles: ["Host"], layer: "role" },
-  // Server
-  { id: "server-wine-service", title: "Server: Wine Service (Present, Open, Pour) — [Placeholder]", category: "Server", roles: ["Server"], layer: "role" },
-  { id: "server-table-presentation", title: "Server: Table Presentation & Order Timing — [Placeholder]", category: "Server", roles: ["Server"], layer: "role" },
-  { id: "server-allergens-mods", title: "Server: Allergens & Modifiers — [Placeholder]", category: "Server", roles: ["Server"], layer: "role" },
-  // Busser / Server Assistant
-  { id: "support-table-reset", title: "Busser / SA: Table Reset & Turn Time — [Placeholder]", category: "Server", roles: ["Busser", "Server Assistant"], layer: "role" },
-  { id: "support-service-flow", title: "Busser / SA: Service Flow & Guest Interaction — [Placeholder]", category: "Server", roles: ["Busser", "Server Assistant"], layer: "role" },
-  // Bartender
-  { id: "bar-cocktail-standards", title: "Bartender: Cocktail Standards & Specs — [Placeholder]", category: "Bartender", roles: ["Bartender"], layer: "role" },
-  { id: "bar-responsible-service", title: "Bartender: Responsible Alcohol Service — [Placeholder]", category: "Bartender", roles: ["Bartender"], layer: "role" },
-  { id: "bar-wine-beer", title: "Bartender: Wine & Beer Program — [Placeholder]", category: "Bartender", roles: ["Bartender"], layer: "role" },
-  // Bar Back
-  { id: "barback-setup", title: "Bar Back: Bar Setup & Restock — [Placeholder]", category: "Bartender", roles: ["Bar Back"], layer: "role" },
-  { id: "barback-support", title: "Bar Back: Supporting the Bartender in a Rush — [Placeholder]", category: "Bartender", roles: ["Bar Back"], layer: "role" },
-  // Chef / Sous Chef
-  { id: "chef-leadership", title: "Chef: Kitchen Leadership & Line Communication — [Placeholder]", category: "Kitchen", roles: CHEF_ROLES, layer: "role" },
-  { id: "chef-menu-development", title: "Chef: Menu Development & Costing — [Placeholder]", category: "Kitchen", roles: CHEF_ROLES, layer: "role" },
-  { id: "chef-food-safety", title: "Chef: Food Safety & Compliance — [Placeholder]", category: "Kitchen", roles: CHEF_ROLES, layer: "role" },
-  // Line Cook / Saute / Grill / Fry
-  { id: "line-ticket-rail", title: "Line Cook: Ticket Rail Management in a Rush — [Placeholder]", category: "Kitchen", roles: LINE_COOK_ROLES, layer: "role" },
-  { id: "line-station-setup", title: "Line Cook: Station Setup & Mise en Place — [Placeholder]", category: "Kitchen", roles: LINE_COOK_ROLES, layer: "role" },
-  { id: "line-allergens", title: "Line Cook: Allergens & Cross-Contamination — [Placeholder]", category: "Kitchen", roles: LINE_COOK_ROLES, layer: "role" },
-  // Garde Manger
-  { id: "garde-cold-station", title: "Garde Manger: Cold Station & Plating — [Placeholder]", category: "Kitchen", roles: ["Garde Manger"], layer: "role" },
-  // Pizza
-  { id: "pizza-production", title: "Pizza: Dough & Production Standards — [Placeholder]", category: "Kitchen", roles: ["Pizza"], layer: "role" },
-  // Prep
-  { id: "prep-knife-skills", title: "Prep: Knife Skills & Yield — [Placeholder]", category: "Kitchen", roles: ["Prep"], layer: "role" },
-  // Dishwasher
-  { id: "dish-sanitation", title: "Dishwasher: Sanitation & Equipment Care — [Placeholder]", category: "Kitchen", roles: ["Dishwasher"], layer: "role" },
-  // Manager / Assistant Manager (own modules; they also receive every other module)
-  { id: "mgr-leadership", title: "Manager: Leadership & Team Management — [Placeholder]", category: "Server", roles: MANAGER_ROLES, layer: "role" },
-  { id: "mgr-scheduling-ops", title: "Manager: Scheduling & Operations — [Placeholder]", category: "Server", roles: MANAGER_ROLES, layer: "role" },
-  { id: "mgr-guest-recovery", title: "Manager: Guest Recovery — [Placeholder]", category: "Server", roles: MANAGER_ROLES, layer: "role" },
-];
-
-// Layer 3 — Menu quiz. Restaurant-specific in content (generated from that
-// restaurant's uploaded menu), but a single module id — required for every
-// role, including kitchen staff.
-const MENU_MODULE: ModuleDef = {
-  id: "menu-quiz",
-  title: "This Restaurant's Menu Quiz",
-  category: "Server",
-  roles: [],
-  layer: "menu",
-};
-
-const MODULE_DEFS: ModuleDef[] = [...GENERAL_MODULES, ...ROLE_MODULES, MENU_MODULE];
-export const MENU_MODULE_ID = MENU_MODULE.id;
-
+export const MENU_MODULE_ID = "menu-quiz";
+export const MENU_TEST_TITLE = "Menu Knowledge Test";
 
 export function sectionForRole(role: Role, customRoles: CustomRole[] = []): Section {
   if (BOH_BUILT_IN.includes(role)) return "BOH";
@@ -911,54 +819,13 @@ export function sectionForRole(role: Role, customRoles: CustomRole[] = []): Sect
 }
 const BOH_BUILT_IN: Role[] = ["Chef", "Sous Chef", "Line Cook", "Fry Cook", "Saute", "Grill", "Pizza", "Garde Manger", "Dishwasher", "Prep"];
 
-export function trainingCategoryForRole(role: Role, customRoles: CustomRole[] = []): TrainingCategory {
-  if (role === "Host") return "Host";
-  if (role === "Bartender" || role === "Bar Back") return "Bartender";
-  if (BOH_BUILT_IN.includes(role)) return "Kitchen";
-  const custom = customRoles.find((c) => c.name === role);
-  if (custom) return custom.section === "BOH" ? "Kitchen" : "Server";
-  return "Server";
-}
-
-function seedVideos(): TrainingVideo[] {
-  return MODULE_DEFS.map((m) => ({
-    id: m.id,
-    title: m.title,
-    durationSec: 15,
-    role: m.category,
-    passingScore: 80,
-  }));
-}
-
-/**
- * All module ids required for a single role, composed of the three layers:
- *   general (FOH or BOH) + role-specific placeholders + menu quiz.
- * Manager / Assistant Manager receive every role-specific module as well.
- */
-export function moduleIdsForRole(role: Role, customRoles: CustomRole[] = []): string[] {
-  const section = sectionForRole(role, customRoles);
-  const ids: string[] = [];
-  // Layer 1: general
-  ids.push(section === "BOH" ? "general-boh" : "general-foh");
-  // Layer 2: role-specific
-  if (MANAGER_ROLES.includes(role)) {
-    ROLE_MODULES.forEach((m) => ids.push(m.id));
-  } else {
-    ROLE_MODULES.filter((m) => m.roles.includes(role)).forEach((m) => ids.push(m.id));
-  }
-  // Layer 3: menu quiz — always required
-  ids.push(MENU_MODULE.id);
-  return ids;
-}
-
-/** Union of module ids across an employee's approved roles (or primary role as fallback). */
-export function moduleIdsForEmployee(emp: { primaryRole: Role; approvedRoles?: Role[] }, customRoles: CustomRole[] = []): string[] {
+/** Knowledge tests required for an employee. Today: the Menu Knowledge Test. */
+export function testIdsForEmployee(emp: { primaryRole: Role; approvedRoles?: Role[] }): string[] {
   const roles = emp.approvedRoles && emp.approvedRoles.length > 0 ? emp.approvedRoles : (emp.primaryRole ? [emp.primaryRole] : []);
   if (roles.length === 0) return [];
-  const ids = new Set<string>();
-  roles.forEach((r) => moduleIdsForRole(r, customRoles).forEach((id) => ids.add(id)));
-  return Array.from(ids);
+  return [MENU_MODULE_ID];
 }
+
 
 /**
  * "Pending role assignment" — the employee completed their own personal-info
@@ -979,7 +846,7 @@ function hasCurrentMenuPass(
   progress: VideoProgress[],
   meta: MenuBankMeta | null | undefined,
 ): boolean {
-  const row = progress.find((p) => p.videoId === MENU_MODULE.id);
+  const row = progress.find((p) => p.videoId === MENU_MODULE_ID);
   if (!row || !row.passed) return false;
   if (!meta) return true; // no bank yet — nothing to compare against
   return row.bankVersion === meta.version;
@@ -1018,7 +885,7 @@ export function menuTestStatus(
   customRoles: CustomRole[] = [],
 ): MenuTestStatus {
   if (!menuTestRequiredFor(emp, customRoles, meta)) return "not-required";
-  const row = emp.progress.find((p) => p.videoId === MENU_MODULE.id);
+  const row = emp.progress.find((p) => p.videoId === MENU_MODULE_ID);
   if (!row) return "never";
   if (!row.passed) return "in-progress";
   if (row.bankVersion !== meta!.version) return "stale";
@@ -1027,42 +894,24 @@ export function menuTestStatus(
 
 export function isScheduleEligible(
   emp: Pick<Employee, "personalInfoComplete" | "primaryRole" | "approvedRoles" | "progress">,
-  videos: TrainingVideo[],
   customRoles: CustomRole[] = [],
   meta: MenuBankMeta | null | undefined = null,
 ): boolean {
   if (isPendingRoleAssignment(emp)) return false;
-  const required = new Set(moduleIdsForEmployee(emp, customRoles));
-  if (required.size === 0) return false;
-  const menuRequired = menuTestRequiredFor(emp, customRoles, meta);
-  const passed = new Set(emp.progress.filter((p) => p.passed).map((p) => p.videoId));
-  for (const id of required) {
-    if (id === MENU_MODULE.id) {
-      if (!menuRequired) continue;
-      if (!hasCurrentMenuPass(emp.progress, meta)) return false;
-      continue;
-    }
-    if (!passed.has(id)) return false;
-  }
-  return true;
+  if (testIdsForEmployee(emp).length === 0) return false;
+  if (!menuTestRequiredFor(emp, customRoles, meta)) return true;
+  return hasCurrentMenuPass(emp.progress, meta);
 }
 
 export function trainingProgressFor(
   emp: Pick<Employee, "primaryRole" | "approvedRoles" | "progress">,
-  videos: TrainingVideo[],
   customRoles: CustomRole[] = [],
   meta: MenuBankMeta | null | undefined = null,
 ): { passed: number; total: number } {
-  const allIds = moduleIdsForEmployee(emp, customRoles);
-  const menuRequired = menuTestRequiredFor(emp, customRoles, meta);
-  const required = allIds.filter((id) => id !== MENU_MODULE.id || menuRequired);
-  const passedIds = new Set(emp.progress.filter((p) => p.passed).map((p) => p.videoId));
-  const passed = required.filter((id) => {
-    if (id === MENU_MODULE.id) return hasCurrentMenuPass(emp.progress, meta);
-    return passedIds.has(id);
-  }).length;
-  return { passed, total: required.length };
+  if (!menuTestRequiredFor(emp, customRoles, meta)) return { passed: 0, total: 0 };
+  return { passed: hasCurrentMenuPass(emp.progress, meta) ? 1 : 0, total: 1 };
 }
+
 
 
 
@@ -1212,7 +1061,6 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState(() => ({
     currentUser: { type: "manager", id: "owner" } as Store["currentUser"],
     employees: seedEmployees(),
-    videos: seedVideos(),
     shifts: seedShifts(),
     trades: seedTrades(),
     jobs: seedJobs(),
@@ -1712,15 +1560,15 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
         const after = employees.find((e) => e.id === id);
         let notifications = s.notifications;
         if (before && after) {
-          const beforeIds = new Set(moduleIdsForEmployee(before));
-          const afterIds = moduleIdsForEmployee(after);
-          const added = afterIds.filter((mid) => !beforeIds.has(mid));
+          // Newly required knowledge tests after a role change.
+          const beforeIds = new Set(testIdsForEmployee(before));
+          const added = testIdsForEmployee(after).filter((tid) => !beforeIds.has(tid));
           if (added.length > 0) {
             notifications = [
               {
                 id: uid("n"),
                 type: "training_passed",
-                message: `Training updated for ${after.name}: ${added.length} new module${added.length === 1 ? "" : "s"} assigned for ${after.primaryRole} role.`,
+                message: `${after.name} must pass the ${MENU_TEST_TITLE} before being scheduled as ${after.primaryRole}.`,
                 employeeId: after.id,
                 createdAt: new Date().toISOString(),
                 read: false,
@@ -1729,41 +1577,20 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
             ];
           }
         }
+
         return { ...s, employees, notifications };
       });
       const oid = ownerIdRef.current;
       if (oid) updateEmployeeRow(id, patch).catch((e) => console.error("[updateEmployee]", e));
     },
-    recordVideoProgress: (employeeId, videoId, patch) => {
-      let nextEntry: VideoProgress | null = null;
-      setState((s) => ({
-        ...s,
-        employees: s.employees.map((e) => {
-          if (e.id !== employeeId) return e;
-          const existing = e.progress.find((p) => p.videoId === videoId);
-          const merged: VideoProgress = existing
-            ? { ...existing, ...patch }
-            : { videoId, watchedSec: 0, attempts: 0, ...patch };
-          nextEntry = merged;
-          const next = existing
-            ? e.progress.map((p) => (p.videoId === videoId ? merged : p))
-            : [...e.progress, merged];
-          return { ...e, progress: next };
-        }),
-      }));
-      const oid = ownerIdRef.current;
-      if (oid && nextEntry) {
-        upsertTrainingProgress(oid, employeeId, videoId, nextEntry).catch((e) =>
-          console.error("[recordVideoProgress] cloud sync failed", e),
-        );
-      }
-    },
     applyQuizAttemptResult: (employeeId, videoId, result) => {
+
       const { score, passed, attempts, distractionFlagged, bankVersion } = result;
+      const testTitle = videoId === MENU_MODULE_ID ? MENU_TEST_TITLE : "Knowledge test";
       setState((s) => {
         const emp = s.employees.find((e) => e.id === employeeId);
-        const video = s.videos.find((v) => v.id === videoId);
-        if (!emp || !video) return s;
+        if (!emp) return s;
+
         const existing = emp.progress.find((p) => p.videoId === videoId);
         // A prior pass only carries forward when it was earned against the
         // SAME question bank. For the menu test, a version bump invalidates it.
@@ -1784,7 +1611,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
             }
           : {
               videoId,
-              watchedSec: video.durationSec,
+              watchedSec: 0,
               attempts,
               quizScore: score,
               passed,
@@ -1800,8 +1627,8 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           id: uid("n"),
           type: passed ? "training_passed" : "training_failed",
           message: passed
-            ? `${emp.name} passed "${video.title}" with ${score}% on attempt ${attempts}${distractionFlagged ? " — flagged for possible distraction" : ""}`
-            : `${emp.name} failed "${video.title}" (${score}%) — attempt ${attempts}, can retry immediately${distractionFlagged ? " (flagged for possible distraction)" : ""}`,
+            ? `${emp.name} passed "${testTitle}" with ${score}% on attempt ${attempts}${distractionFlagged ? " — flagged for possible distraction" : ""}`
+            : `${emp.name} failed "${testTitle}" (${score}%) — attempt ${attempts}, can retry immediately${distractionFlagged ? " (flagged for possible distraction)" : ""}`,
           employeeId,
           videoId,
           createdAt: new Date().toISOString(),
@@ -2289,16 +2116,8 @@ export function useStore() {
   return ctx;
 }
 
-export function videosForRole(videos: TrainingVideo[], role: Role, customRoles: CustomRole[] = []) {
-  const ids = new Set(moduleIdsForRole(role, customRoles));
-  return videos.filter((v) => ids.has(v.id));
-}
 
-/** Videos assigned across all of an employee's approved roles. */
-export function videosForEmployee(videos: TrainingVideo[], employee: { primaryRole: Role; approvedRoles?: Role[] }, customRoles: CustomRole[] = []) {
-  const ids = new Set(moduleIdsForEmployee(employee, customRoles));
-  return videos.filter((v) => ids.has(v.id));
-}
+
 
 export function aiScoreFor(a: Partial<JobApplication>): AiScore {
   let pts = 0;
@@ -2326,21 +2145,15 @@ export function aiScoreFor(a: Partial<JobApplication>): AiScore {
 
 export function onboardingStatus(
   employee: Employee,
-  videos: TrainingVideo[],
-  meta: MenuBankMeta | null | undefined = null,
   customRoles: CustomRole[] = [],
+  meta: MenuBankMeta | null | undefined = null,
 ) {
-  const assigned = videosForEmployee(videos, employee);
-  const menuRequired = menuTestRequiredFor(employee, customRoles, meta);
-  const relevant = assigned.filter((v) => v.id !== MENU_MODULE.id || menuRequired);
-  const passed = relevant.filter((v) => {
-    if (v.id === MENU_MODULE.id) return hasCurrentMenuPass(employee.progress, meta);
-    return employee.progress.find((p) => p.videoId === v.id)?.passed;
-  }).length;
-  const total = relevant.length;
-  const fullyOnboarded = employee.personalInfoComplete && total > 0 && passed === total;
-  return { passed, total, fullyOnboarded, pct: total ? Math.round((passed / total) * 100) : 0 };
+  const { passed, total } = trainingProgressFor(employee, customRoles, meta);
+
+  const fullyOnboarded = !!employee.personalInfoComplete && passed === total;
+  return { passed, total, fullyOnboarded, pct: total ? Math.round((passed / total) * 100) : 100 };
 }
+
 
 
 
