@@ -114,7 +114,7 @@ function PricingPage() {
             features={[
               "Employee self-onboarding via QR",
               "AI weekly scheduling",
-              "Training & menu quizzes",
+              "Menu knowledge testing",
               "Shift trade & sick-call board",
             ]}
             cta={

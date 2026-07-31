@@ -166,9 +166,9 @@ function Marketing() {
             />
             <FeatureCard
               icon={<GraduationCap className="h-6 w-6" />}
-              title="They know the menu before they touch a table."
-              body="Short training videos plus AI-generated quizzes on your actual menu — allergens, preparations, wine pairings. New hires pass before they hit the floor."
-              tag="Training"
+              title="They prove the menu before they touch a table."
+              body="AI-generated menu knowledge test on your actual menu — allergens, preparations, wine pairings. New hires pass before they hit the floor."
+              tag="Testing"
             />
             <FeatureCard
               icon={<Video className="h-6 w-6" />}
