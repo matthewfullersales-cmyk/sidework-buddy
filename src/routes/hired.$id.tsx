@@ -189,7 +189,7 @@ function HiredPage() {
         <p className="mt-2 text-muted-foreground">
           Looks like this hire link has already been used. If that wasn't you, please contact {restaurantName}.
         </p>
-        <Button asChild className="mt-6"><Link to="/auth">Sign in</Link></Button>
+        <Button asChild className="mt-6"><Link to="/employee-login">Sign in</Link></Button>
       </Centered>
     );
   }
