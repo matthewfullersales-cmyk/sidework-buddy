@@ -1,17 +1,27 @@
 import { createServerFn } from "@tanstack/react-start";
 
-// Single self-serve plan: Growth $99/month.
-const PRICE_ID = "price_1TtwjgJlcbyvYgFpCEc30ek6";
+// Self-serve plans (live mode).
+const PLAN_PRICE_IDS = {
+  starter: "price_1TzJywR8oYiccj05nLgcRWRx", // Starter $49/mo
+  growth: "price_1TzK6vR8oYiccj052xSHe0PG", // Growth $99/mo
+} as const;
+
+type Plan = keyof typeof PLAN_PRICE_IDS;
 
 export const createCheckoutSession = createServerFn({ method: "POST" })
   .inputValidator(
     (input: {
       origin: string;
+      plan: Plan;
       userId?: string;
       email?: string;
     }) => {
       if (!input.origin || !/^https?:\/\//.test(input.origin))
         throw new Error("Invalid origin");
+      if (!input.plan || !(input.plan in PLAN_PRICE_IDS))
+        throw new Error(
+          `Invalid plan: expected "starter" or "growth", got "${String(input.plan)}"`,
+        );
       return input;
     },
   )
