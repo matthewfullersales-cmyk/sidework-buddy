@@ -181,6 +181,9 @@ export async function bootstrapLocalEmployees(
   locals: Employee[],
 ): Promise<Employee[]> {
   if (locals.length === 0) return [];
+  // Public/signed-out pages must never attempt the roster bootstrap.
+  const { data: sessionData } = await supabase.auth.getSession();
+  if (!sessionData?.session) return [];
   const rows = locals.map((e) => employeeToInsert(ownerId, e, { localId: e.id }));
   const { error } = await supabase
     .from("restaurant_employees")
