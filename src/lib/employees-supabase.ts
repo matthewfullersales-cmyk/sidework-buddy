@@ -103,6 +103,12 @@ function employeeToInsert(ownerId: string, e: Employee, opts?: { localId?: strin
   };
 }
 
+/** True only when an authenticated Supabase session exists in this browser. */
+export async function hasSupabaseSession(): Promise<boolean> {
+  const { data } = await supabase.auth.getSession();
+  return Boolean(data?.session);
+}
+
 /** Owner-scoped: fetch every employee. */
 export async function fetchOwnerEmployees(ownerId: string): Promise<Employee[]> {
   const { data, error } = await supabase
