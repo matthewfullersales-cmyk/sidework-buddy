@@ -13,6 +13,7 @@ import {
 import {
   fetchOwnerEmployees,
   bootstrapLocalEmployees,
+  hasSupabaseSession,
   insertEmployee,
   updateEmployeeRow,
   deleteAllOwnerEmployees,
