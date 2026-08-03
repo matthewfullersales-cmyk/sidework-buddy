@@ -1221,7 +1221,8 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           } catch (e) {
             // Roll back the guard so a transient failure can retry next mount.
             bootstrappedOwnersRef.current.delete(effectiveOwnerId);
-            console.error("[employees-bootstrap] failed", e);
+            // Non-fatal: keep the local roster and continue hydrating.
+            console.warn("[employees-bootstrap] failed", e);
             remoteEmployees = [];
           }
         }
