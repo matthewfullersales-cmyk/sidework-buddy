@@ -42,12 +42,11 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       cancel_url: `${data.origin}/pricing`,
       allow_promotion_codes: "true",
     });
-    if (data.userId) {
-      body.set("client_reference_id", data.userId);
-      body.set("metadata[user_id]", data.userId);
-      body.set("subscription_data[metadata][user_id]", data.userId);
-    }
-    if (data.email) body.set("customer_email", data.email);
+    body.set("client_reference_id", userId);
+    body.set("metadata[user_id]", userId);
+    body.set("subscription_data[metadata][user_id]", userId);
+    if (email) body.set("customer_email", email);
+
 
     const res = await fetch("https://api.stripe.com/v1/checkout/sessions", {
       method: "POST",
