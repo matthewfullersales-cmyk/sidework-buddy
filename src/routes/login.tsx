@@ -1,21 +1,31 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { Logo } from "@/components/sidework/Logo";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
+import { createCheckoutSession } from "@/lib/stripe-checkout.functions";
 import { toast } from "sonner";
+
+type PlanParam = "starter" | "growth";
 
 export const Route = createFileRoute("/login")({
   ssr: false,
+  validateSearch: (search: Record<string, unknown>): { plan?: PlanParam } => {
+    const plan = search['plan'];
+    return plan === "starter" || plan === "growth" ? { plan } : {};
+  },
   head: () => ({ meta: [{ title: "Sign in — 86Paper" }] }),
   component: LoginPage,
 });
 
 function LoginPage() {
   const navigate = useNavigate();
+  const { plan: planParam } = Route.useSearch();
+  const checkout = useServerFn(createCheckoutSession);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -28,11 +38,28 @@ function LoginPage() {
       setBusy(false);
       return toast.error(error.message);
     }
+
+    if (planParam) {
+      try {
+        const { url } = await checkout({
+          data: { origin: window.location.origin, plan: planParam },
+        });
+        window.location.href = url;
+        return;
+      } catch (err) {
+        setBusy(false);
+        toast.error(err instanceof Error ? err.message : "Could not start checkout");
+        navigate({ to: "/pricing" });
+        return;
+      }
+    }
+
     // Single-login model: owners land on /manager; non-owners are bounced to
     // /employee by useRequireManagerAccess.
     toast.success("Welcome back");
     navigate({ to: "/manager" });
   };
+
 
   return (
     <AuthShell title="Sign in to your restaurant">
