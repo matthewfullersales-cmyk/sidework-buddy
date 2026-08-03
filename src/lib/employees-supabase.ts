@@ -103,6 +103,12 @@ function employeeToInsert(ownerId: string, e: Employee, opts?: { localId?: strin
   };
 }
 
+/** True only when an authenticated Supabase session exists in this browser. */
+export async function hasSupabaseSession(): Promise<boolean> {
+  const { data } = await supabase.auth.getSession();
+  return Boolean(data?.session);
+}
+
 /** Owner-scoped: fetch every employee. */
 export async function fetchOwnerEmployees(ownerId: string): Promise<Employee[]> {
   const { data, error } = await supabase
@@ -180,10 +186,9 @@ export async function bootstrapLocalEmployees(
   ownerId: string,
   locals: Employee[],
 ): Promise<Employee[]> {
+  // Public/signed-out pages must never issue any roster request.
+  if (!(await hasSupabaseSession())) return [];
   if (locals.length === 0) return [];
-  // Public/signed-out pages must never attempt the roster bootstrap.
-  const { data: sessionData } = await supabase.auth.getSession();
-  if (!sessionData?.session) return [];
   const rows = locals.map((e) => employeeToInsert(ownerId, e, { localId: e.id }));
   const { error } = await supabase
     .from("restaurant_employees")

@@ -13,6 +13,7 @@ import {
 import {
   fetchOwnerEmployees,
   bootstrapLocalEmployees,
+  hasSupabaseSession,
   insertEmployee,
   updateEmployeeRow,
   deleteAllOwnerEmployees,
@@ -1174,7 +1175,9 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           remoteEmployees.length === 0 &&
           acting === "owner" &&
           local.employees.length > 0 &&
-          !alreadyBootstrapped
+          !alreadyBootstrapped &&
+          // Signed-out/public pages: no-op silently before issuing any request.
+          (await hasSupabaseSession())
         ) {
           bootstrappedOwnersRef.current.add(effectiveOwnerId);
           try {
