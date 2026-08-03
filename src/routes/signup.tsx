@@ -34,6 +34,7 @@ function SignupPage() {
   const [busy, setBusy] = useState(false);
 
   const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
+  const planLabel = planParam === "starter" ? "$49/mo" : "$99/mo";
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
