@@ -34,6 +34,7 @@ function SignupPage() {
   const [busy, setBusy] = useState(false);
 
   const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
+  const planLabel = planParam === "starter" ? "$49/mo" : "$99/mo";
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -114,7 +115,7 @@ function SignupPage() {
           <Label htmlFor="confirm">Confirm password</Label>
           <Input id="confirm" type="password" autoComplete="new-password" required minLength={8} value={confirm} onChange={(e) => setConfirm(e.target.value)} />
         </div>
-        <Button type="submit" size="lg" className="h-12" disabled={busy}>{busy ? "Redirecting to checkout…" : "Subscribe — $99/mo"}</Button>
+        <Button type="submit" size="lg" className="h-12" disabled={busy}>{busy ? "Redirecting to checkout…" : `Subscribe — ${planLabel}`}</Button>
         <p className="text-center text-xs text-muted-foreground">You'll be redirected to Stripe to enter payment. Cancel anytime.</p>
       </form>
       <p className="mt-6 text-center text-sm text-muted-foreground">
