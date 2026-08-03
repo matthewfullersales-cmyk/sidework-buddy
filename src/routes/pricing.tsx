@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Button } from "@/components/ui/button";
@@ -30,20 +30,20 @@ type Plan = "starter" | "growth";
 
 function PricingPage() {
   const checkout = useServerFn(createCheckoutSession);
+  const navigate = useNavigate();
   const [loading, setLoading] = useState<Plan | null>(null);
 
   const startCheckout = async (plan: Plan) => {
     try {
       setLoading(plan);
       const { data: sess } = await supabase.auth.getSession();
-      const user = sess.session?.user;
+      if (!sess.session) {
+        navigate({ to: "/signup", search: { plan } });
+        setLoading(null);
+        return;
+      }
       const { url } = await checkout({
-        data: {
-          origin: window.location.origin,
-          plan,
-          userId: user?.id,
-          email: user?.email ?? undefined,
-        },
+        data: { origin: window.location.origin, plan },
       });
       window.location.href = url;
     } catch (e) {
@@ -51,6 +51,7 @@ function PricingPage() {
       toast.error(e instanceof Error ? e.message : "Could not start checkout");
     }
   };
+
 
   return (
     <div className="min-h-screen bg-[#faf7f2] text-stone-900">

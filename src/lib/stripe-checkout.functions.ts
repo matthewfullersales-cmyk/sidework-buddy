@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 // Self-serve plans (live mode).
 const PLAN_PRICE_IDS = {
@@ -9,12 +10,11 @@ const PLAN_PRICE_IDS = {
 type Plan = keyof typeof PLAN_PRICE_IDS;
 
 export const createCheckoutSession = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator(
     (input: {
       origin: string;
       plan: Plan;
-      userId?: string;
-      email?: string;
     }) => {
       if (!input.origin || !/^https?:\/\//.test(input.origin))
         throw new Error("Invalid origin");
@@ -25,7 +25,12 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       return input;
     },
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    const userId = context.userId;
+    const email =
+      typeof context.claims.email === "string" ? context.claims.email : undefined;
+    if (!userId) throw new Error("You must be signed in to start checkout");
+
     const secret = process.env.STRIPE_SECRET_KEY;
     if (!secret) throw new Error("Stripe not configured");
 
@@ -37,12 +42,11 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       cancel_url: `${data.origin}/pricing`,
       allow_promotion_codes: "true",
     });
-    if (data.userId) {
-      body.set("client_reference_id", data.userId);
-      body.set("metadata[user_id]", data.userId);
-      body.set("subscription_data[metadata][user_id]", data.userId);
-    }
-    if (data.email) body.set("customer_email", data.email);
+    body.set("client_reference_id", userId);
+    body.set("metadata[user_id]", userId);
+    body.set("subscription_data[metadata][user_id]", userId);
+    if (email) body.set("customer_email", email);
+
 
     const res = await fetch("https://api.stripe.com/v1/checkout/sessions", {
       method: "POST",

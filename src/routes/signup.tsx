@@ -9,14 +9,21 @@ import { supabase } from "@/integrations/supabase/client";
 import { createCheckoutSession } from "@/lib/stripe-checkout.functions";
 import { toast } from "sonner";
 
+type PlanParam = "starter" | "growth";
+
 export const Route = createFileRoute("/signup")({
   ssr: false,
+  validateSearch: (search: Record<string, unknown>): { plan?: PlanParam } => {
+    const plan = search['plan'];
+    return plan === "starter" || plan === "growth" ? { plan } : {};
+  },
   head: () => ({ meta: [{ title: "Create account — 86Paper" }] }),
   component: SignupPage,
 });
 
 function SignupPage() {
   const navigate = useNavigate();
+  const { plan: planParam } = Route.useSearch();
   const checkout = useServerFn(createCheckoutSession);
   const [restaurantName, setRestaurantName] = useState("");
   const [firstName, setFirstName] = useState("");
@@ -62,9 +69,7 @@ function SignupPage() {
         const { url } = await checkout({
           data: {
             origin: window.location.origin,
-            plan: "growth",
-            userId: uid,
-            email: email.trim(),
+            plan: planParam ?? "growth",
           },
         });
         window.location.href = url;
