@@ -69,9 +69,7 @@ function SignupPage() {
         const { url } = await checkout({
           data: {
             origin: window.location.origin,
-            plan: "growth",
-            userId: uid,
-            email: email.trim(),
+            plan: planParam ?? "growth",
           },
         });
         window.location.href = url;
