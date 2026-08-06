@@ -75,7 +75,7 @@ function Marketing() {
             <h1 className="mt-6 text-5xl font-bold leading-[1.02] tracking-tight md:text-7xl">
               20 years of restaurant
               <br />
-              expertise. <span className="italic text-amber-800">$99 a month.</span>
+              expertise. <span className="italic text-amber-800">Starting at $49 a month.</span>
             </h1>
             <p className="mt-6 max-w-2xl text-lg text-stone-700 md:text-xl">
               86Paper isn't another scheduling app. It's a virtual restaurant
@@ -103,7 +103,7 @@ function Marketing() {
               </a>
             </div>
             <p className="mt-4 text-sm text-stone-500">
-              One plan. One price. Cancel anytime.
+              Three plans. No contracts. Cancel anytime.
             </p>
           </div>
         </div>
