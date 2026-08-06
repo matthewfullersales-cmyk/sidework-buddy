@@ -14,20 +14,20 @@ import { Button } from "@/components/ui/button";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "86Paper — 20 years of restaurant expertise for $99/month" },
+      { title: "86Paper — 20 years of restaurant expertise. Starting at $49/month" },
       {
         name: "description",
-          content:
-            "The virtual restaurant consultant for independent owners. Self-onboarding, AI scheduling, knowledge testing, hiring, and shift trades — all in one app.",
+        content:
+          "Testing and screening software for independent restaurants. Menu knowledge tests, staff accountability, and hiring insight. Three plans, starting at $49/month.",
       },
       {
         property: "og:title",
-        content: "86Paper — 20 years of restaurant expertise for $99/month",
+        content: "86Paper — 20 years of restaurant expertise. Starting at $49/month",
       },
       {
         property: "og:description",
         content:
-          "Built for independent restaurant owners. Self-onboarding, AI scheduling, knowledge testing, hiring, and shift trades — all in one app.",
+          "Testing and screening software for independent restaurants. Menu knowledge tests, staff accountability, and hiring insight. Three plans, starting at $49/month.",
       },
     ],
   }),
