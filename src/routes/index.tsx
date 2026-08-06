@@ -78,10 +78,7 @@ function Marketing() {
               expertise. <span className="italic text-amber-800">Starting at $49 a month.</span>
             </h1>
             <p className="mt-6 max-w-2xl text-lg text-stone-700 md:text-xl">
-              86Paper isn't another scheduling app. It's a virtual restaurant
-              consultant — the systems, standards, and instincts of someone who's
-              run rooms for two decades — built into software your whole staff
-              actually uses.
+              86Paper isn't another scheduling app. It's how you find out who your people really are — before their first shift. Menu tests they can't fake, onboarding they complete themselves, and a clear record of who did the work and who didn't.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link to="/pricing">
