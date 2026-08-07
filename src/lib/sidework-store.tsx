@@ -1427,7 +1427,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     ownerIdRef.current = employeeCtxOwnerId;
     (async () => {
       try {
-        const [me, myShifts, openTrades, myTimeOff, coworkers, myProgress, menuBankMeta] = await Promise.all([
+        const [me, myShifts, openTrades, myTimeOff, coworkers, myProgress, menuBankMeta, remoteMenuTestConfig] = await Promise.all([
           fetchMyEmployeeRow(employeeCtxEmployeeId),
           fetchMyShifts(employeeCtxEmployeeId),
           fetchOwnerOpenTrades(employeeCtxOwnerId),
@@ -1439,6 +1439,10 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           }),
           fetchMenuBankMeta(employeeCtxOwnerId).catch((e) => {
             console.error("[employee-sync] menu bank meta load failed", e);
+            return null;
+          }),
+          fetchMenuTestConfigViaRpc(employeeCtxOwnerId).catch((e) => {
+            console.warn("[employee-sync] menu test config load failed", e);
             return null;
           }),
         ]);
