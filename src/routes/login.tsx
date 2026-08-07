@@ -5,6 +5,7 @@ import { Logo } from "@/components/sidework/Logo";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { createCheckoutSession } from "@/lib/stripe-checkout.functions";
@@ -70,7 +71,7 @@ function LoginPage() {
         </div>
         <div className="grid gap-1.5">
           <Label htmlFor="password">Password</Label>
-          <Input id="password" type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+          <PasswordInput id="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
         </div>
         <Button type="submit" size="lg" className="h-12" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</Button>
       </form>
