@@ -1081,6 +1081,8 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     timeOff: seedTimeOff(),
     menu: null as MenuUpload | null,
     drinkMenu: null as MenuUpload | null,
+    dessertMenu: null as MenuUpload | null,
+    uploadedMenuTypes: [] as MenuKind[],
     restaurantProfile: null as RestaurantProfile | null,
     restaurantHours: defaultRestaurantHours(),
     mealPeriods: defaultMealPeriods(),
