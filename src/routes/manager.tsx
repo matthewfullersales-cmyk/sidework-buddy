@@ -2438,8 +2438,12 @@ function MenuTab() {
 }
 
 function SettingsTab({ onOpenSetup }: { onOpenSetup: () => void }) {
-  const { setupCompleted, restaurantProfile, resetSetup, restaurantHours, updateRestaurantDay, mealPeriods, updateMealPeriod, businessInfo, setBusinessInfo } = useStore();
+  const { setupCompleted, restaurantProfile, resetSetup, restaurantHours, updateRestaurantDay, mealPeriods, updateMealPeriod, businessInfo, setBusinessInfo, activeRoles, customRoles, menuTestConfig, setMenuTestConfig, menuBankMetaObj, uploadedMenuTypes } = useStore() as ReturnType<typeof useStore> & { menuBankMetaObj?: never };
+  const store = useStore();
   const configured = hoursConfigured(restaurantHours, mealPeriods);
+  const menuKinds = availableMenuKinds(store.menuBankMeta, uploadedMenuTypes);
+  void menuBankMetaObj;
+
   return (
     <div className="space-y-4">
       <Card>
