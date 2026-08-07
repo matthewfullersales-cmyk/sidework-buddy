@@ -144,6 +144,7 @@ export type BusinessInfo = {
   state?: string;
   zip?: string;
   phone?: string;
+  email?: string;
   website?: string;
   instagram?: string;
   facebook?: string;
@@ -164,6 +165,7 @@ export function normalizeBusinessInfo(raw: unknown): BusinessInfo {
     state: pick("state"),
     zip: pick("zip"),
     phone: pick("phone"),
+    email: pick("email"),
     website: pick("website"),
     instagram: pick("instagram"),
     facebook: pick("facebook"),
