@@ -712,6 +712,9 @@ interface Store {
   timeOff: TimeOffRequest[];
   menu: MenuUpload | null;
   drinkMenu: MenuUpload | null;
+  dessertMenu: MenuUpload | null;
+  /** Which menu types the owner actually uploaded (food/drink/dessert). */
+  uploadedMenuTypes: MenuKind[];
   menuBankMeta: MenuBankMeta | null;
   restaurantProfile: RestaurantProfile | null;
 
