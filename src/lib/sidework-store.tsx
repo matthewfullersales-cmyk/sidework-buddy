@@ -1255,7 +1255,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     }
     (async () => {
       try {
-        const [postings, apps, remoteEmployeesInitial, remoteHours, remoteShiftsInitial, remoteTimeOffInitial, remoteTradesInitial, remoteBusinessInfo, remoteTrainingProgress, menuBankMeta] = await Promise.all([
+        const [postings, apps, remoteEmployeesInitial, remoteHours, remoteShiftsInitial, remoteTimeOffInitial, remoteTradesInitial, remoteBusinessInfo, remoteTrainingProgress, menuBankMeta, remoteMenuTestConfig] = await Promise.all([
           fetchOwnerPostings(effectiveOwnerId),
           fetchOwnerApplications(effectiveOwnerId),
           fetchOwnerEmployees(effectiveOwnerId),
@@ -1270,6 +1270,10 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           }),
           fetchMenuBankMeta(effectiveOwnerId).catch((e) => {
             console.error("[owner-sync] menu bank meta load failed", e);
+            return null;
+          }),
+          fetchMenuTestConfig(effectiveOwnerId).catch((e) => {
+            console.warn("[owner-sync] menu test config load failed", e);
             return null;
           }),
         ]);
