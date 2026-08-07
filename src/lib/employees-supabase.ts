@@ -237,6 +237,38 @@ export async function saveBusinessInfo(ownerId: string, info: unknown): Promise<
   if (error) throw error;
 }
 
+/* ---------------- Per-role menu test config (jsonb on profiles) ---------------- */
+
+/** Owner-side read (RLS: owner reads their own profile row). */
+export async function fetchMenuTestConfig(ownerId: string): Promise<unknown | null> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("menu_test_config" as never)
+    .eq("id", ownerId)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as { menu_test_config: unknown } | null)?.menu_test_config ?? null;
+}
+
+/** Employee-side read via security-definer RPC (staff can't select the owner profile row). */
+export async function fetchMenuTestConfigViaRpc(ownerId: string): Promise<unknown | null> {
+  const { data, error } = await (supabase as never as {
+    rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>;
+  }).rpc("get_menu_test_config", { p_owner_id: ownerId });
+  if (error) throw error;
+  return data ?? null;
+}
+
+export async function saveMenuTestConfig(ownerId: string, config: unknown): Promise<void> {
+  const { error } = await supabase
+    .from("profiles")
+    .update({ menu_test_config: config as never } as never)
+    .eq("id", ownerId);
+  if (error) throw error;
+}
+
+
+
 /* ---------------- Staff-invite tokens (self-serve profile fill) ---------------- */
 
 /**
