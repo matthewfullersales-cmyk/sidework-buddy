@@ -2098,6 +2098,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     },
     setMenu: (m) => setState((s) => ({ ...s, menu: m })),
     setDrinkMenu: (m) => setState((s) => ({ ...s, drinkMenu: m })),
+    setDessertMenu: (m) => setState((s) => ({ ...s, dessertMenu: m })),
     markMenuGenerated: () =>
       setState((s) => ({ ...s, menu: s.menu ? { ...s.menu, generatedAt: new Date().toISOString() } : s.menu })),
     setMenuBankMeta: (m) => setState((s) => ({ ...s, menuBankMeta: m })),
