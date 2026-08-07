@@ -2295,8 +2295,10 @@ export function onboardingStatus(
   employee: Employee,
   customRoles: CustomRole[] = [],
   meta: MenuBankMeta | null | undefined = null,
+  config?: MenuTestConfig | null,
+  uploadedMenuTypes: MenuKind[] = [],
 ) {
-  const { passed, total } = trainingProgressFor(employee, customRoles, meta);
+  const { passed, total } = trainingProgressFor(employee, customRoles, meta, config, uploadedMenuTypes);
 
   const fullyOnboarded = !!employee.personalInfoComplete && passed === total;
   return { passed, total, fullyOnboarded, pct: total ? Math.round((passed / total) * 100) : 100 };

@@ -178,10 +178,10 @@ function ManagerTabs({ tab, setTab, onOpenSetup }: { tab: string; setTab: (v: st
 
 
 function OverviewTab() {
-  const { employees, customRoles, trades, shifts, applications, timeOff, menuBankMeta } = useStore();
+  const { employees, customRoles, trades, shifts, applications, timeOff, menuBankMeta, menuTestConfig, uploadedMenuTypes } = useStore();
   const menuBankMetaObj = menuBankMeta;
   const stats = useMemo(() => {
-    const onboarded = employees.filter((e) => onboardingStatus(e, customRoles, menuBankMetaObj).fullyOnboarded).length;
+    const onboarded = employees.filter((e) => onboardingStatus(e, customRoles, menuBankMetaObj, menuTestConfig, uploadedMenuTypes).fullyOnboarded).length;
     const pending = trades.filter((t) => t.status === "pending_approval").length;
     const newApps = applications.filter((a) => a.status === "new").length;
     const pendingTO = timeOff.filter((t) => t.status === "pending").length;
@@ -220,7 +220,7 @@ function OverviewTab() {
         </CardHeader>
         <CardContent className="space-y-4">
           {employees.map((e) => {
-            const s = onboardingStatus(e, customRoles, menuBankMetaObj);
+            const s = onboardingStatus(e, customRoles, menuBankMetaObj, menuTestConfig, uploadedMenuTypes);
             return (
               <div key={e.id} className="space-y-1.5">
                 <div className="flex items-center justify-between text-sm">
@@ -335,7 +335,7 @@ function PendingRoleAssignmentQueue({
 }
 
 function TeamTab() {
-  const { employees, inviteEmployee, restaurantProfile, activeRoles, customRoles, shifts, trades, timeOff, clearAllEmployees, updateEmployee, menuBankMeta } = useStore();
+  const { employees, inviteEmployee, restaurantProfile, activeRoles, customRoles, shifts, trades, timeOff, clearAllEmployees, updateEmployee, menuBankMeta, menuTestConfig, uploadedMenuTypes } = useStore();
   const menuBankMetaObj = menuBankMeta;
   const fohActive = fohRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r));
   const bohActive = bohRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r));
@@ -390,7 +390,7 @@ function TeamTab() {
       if (filters.has("all")) return true;
       const role = e.primaryRole;
       const isFoh = (FOH_ROLES as string[]).includes(role);
-      const status = onboardingStatus(e, customRoles, menuBankMetaObj);
+      const status = onboardingStatus(e, customRoles, menuBankMetaObj, menuTestConfig, uploadedMenuTypes);
       for (const f of filters) {
         if (f === "foh" && isFoh) return true;
         if (f === "boh" && !isFoh) return true;
@@ -402,7 +402,7 @@ function TeamTab() {
     });
     const firstOf = (e: Employee) => (e.firstName ?? e.name.split(" ")[0] ?? "").toLowerCase();
     const lastOf = (e: Employee) => (e.lastName ?? e.name.split(" ").slice(1).join(" ") ?? "").toLowerCase();
-    const pctOf = (e: Employee) => onboardingStatus(e, customRoles, menuBankMetaObj).pct;
+    const pctOf = (e: Employee) => onboardingStatus(e, customRoles, menuBankMetaObj, menuTestConfig, uploadedMenuTypes).pct;
     const sorted = [...list];
     sorted.sort((a, b) => {
       switch (sortKey) {
@@ -641,7 +641,7 @@ function TeamTab() {
           <Card><CardContent className="p-8 text-center text-sm text-muted-foreground">No staff match the current filters.</CardContent></Card>
         )}
         {visibleEmployees.map((e) => {
-          const s = onboardingStatus(e, customRoles, menuBankMetaObj);
+          const s = onboardingStatus(e, customRoles, menuBankMetaObj, menuTestConfig, uploadedMenuTypes);
           const fullName = e.firstName && e.lastName ? `${e.firstName} ${e.lastName}` : e.name;
           const menuState = menuTestStatus(e, menuBankMetaObj, customRoles, menuTestConfig, uploadedMenuTypes);
           return (
