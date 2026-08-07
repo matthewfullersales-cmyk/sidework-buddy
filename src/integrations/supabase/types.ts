@@ -268,6 +268,7 @@ export type Database = {
           employee_id: string | null
           full_name: string
           id: string
+          menu_test_config: Json
           restaurant_hours: Json | null
           restaurant_name: string | null
           role: Database["public"]["Enums"]["user_role"]
@@ -283,6 +284,7 @@ export type Database = {
           employee_id?: string | null
           full_name?: string
           id: string
+          menu_test_config?: Json
           restaurant_hours?: Json | null
           restaurant_name?: string | null
           role: Database["public"]["Enums"]["user_role"]
@@ -298,6 +300,7 @@ export type Database = {
           employee_id?: string | null
           full_name?: string
           id?: string
+          menu_test_config?: Json
           restaurant_hours?: Json | null
           restaurant_name?: string | null
           role?: Database["public"]["Enums"]["user_role"]
@@ -839,6 +842,7 @@ export type Database = {
           updated_at: string
         }[]
       }
+      get_menu_test_config: { Args: { p_owner_id: string }; Returns: Json }
       get_public_employee_invite: {
         Args: { p_token: string }
         Returns: {
