@@ -80,8 +80,16 @@ Rules:
 - Distractors must be plausible — prefer other items from the SAME menu.
 - Keep questions concise (under 140 chars) and answers under 90 chars.
 - NEVER generate questions about: prices, seasonal/rotating/market-price/chef's-choice/daily-special items, or who a dish is named after (ignore proper names like owners, family members, or regulars; test the food, not the naming).
+- NEVER generate a question that asks whether an item is safe for someone with a dietary restriction or allergy, or that frames an ingredient as an allergen. Specifically forbidden:
+  - "Is [dish] gluten-free / dairy-free / nut-free / vegan / vegetarian?"
+  - "Which item is safe for a guest with a [X] allergy?"
+  - "Which dish contains no [allergen]?"
+  - "Which of these contains a common allergen?"
+  - Any question using the words allergen, allergy, intolerance, celiac, or "safe for"
+  - Any question whose correct answer would function as dietary guidance to a guest
+- If an item's only distinguishing detail would require framing it as an allergen question, skip that item and build the question from a different one.
 - Always focus on what staff genuinely need to answer a guest:
-  - FOOD: listed ingredients and components, preparation method, sauce, accompanying sides/garnishes, or which item contains a given allergen/ingredient.
+  - FOOD: listed ingredients and components, preparation method, sauce, accompanying sides/garnishes, or which item contains a given ingredient.
   - COCKTAILS: listed ingredients — spirits, mixers, and garnish.
   - BEER: style and brand.
   - WINE: varietal and producer.
