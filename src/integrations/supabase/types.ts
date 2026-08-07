@@ -837,6 +837,7 @@ export type Database = {
         Args: { p_owner_id: string }
         Returns: {
           bank_version: number
+          dessert_count: number
           drink_count: number
           food_count: number
           updated_at: string
