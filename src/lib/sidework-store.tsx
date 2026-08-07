@@ -1486,6 +1486,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           jobs: [],
           applications: [],
           menuBankMeta,
+          menuTestConfig: normalizeMenuTestConfig(remoteMenuTestConfig),
         }));
 
         // Auto-select this employee as currentUser so /employee finds them.
