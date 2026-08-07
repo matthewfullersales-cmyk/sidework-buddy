@@ -338,6 +338,10 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
               </div>
             </div>
 
+            <p className="text-xs text-muted-foreground">
+              86Paper does not test allergen or dietary-safety knowledge. Allergen training and guest dietary guidance remain the responsibility of restaurant management.
+            </p>
+
             {draft.map((q, i) => (
               <div key={i} className="rounded-xl border border-border bg-background p-3 sm:p-4">
                 <div className="mb-2 flex items-start justify-between gap-2">
