@@ -850,6 +850,77 @@ export function isPendingRoleAssignment(emp: Pick<Employee, "personalInfoComplet
   return !!emp.personalInfoComplete && !hasRole;
 }
 
+/* ---------------- Per-role menu test configuration ---------------- */
+
+/**
+ * Which menu tests each role must pass before their schedule unlocks.
+ * `{}` (or a missing role key) means "use the sensible default" — see
+ * `defaultMenuKindsForRole`. An explicit empty array means NOT gated.
+ */
+export type MenuTestConfig = Record<string, MenuKind[]>;
+
+export const MENU_KINDS: MenuKind[] = ["food", "drink", "dessert"];
+
+export const MENU_KIND_LABEL: Record<MenuKind, string> = {
+  food: "Food",
+  drink: "Drink",
+  dessert: "Dessert",
+};
+
+/** Roles that never need menu knowledge by default. */
+const MENU_EXEMPT_ROLES: Role[] = ["Dishwasher"];
+
+/**
+ * Defaults so the owner mostly just confirms:
+ * FOH -> every uploaded menu type; BOH -> food + dessert (no drink);
+ * Dishwasher -> nothing.
+ */
+export function defaultMenuKindsForRole(
+  role: Role,
+  available: MenuKind[],
+  customRoles: CustomRole[] = [],
+): MenuKind[] {
+  if (MENU_EXEMPT_ROLES.includes(role)) return [];
+  if (sectionForRole(role, customRoles) === "FOH") return available.slice();
+  return available.filter((k) => k !== "drink");
+}
+
+export function defaultMenuTestConfig(
+  roles: Role[],
+  available: MenuKind[],
+  customRoles: CustomRole[] = [],
+): MenuTestConfig {
+  const cfg: MenuTestConfig = {};
+  for (const r of roles) cfg[r] = defaultMenuKindsForRole(r, available, customRoles);
+  return cfg;
+}
+
+export function normalizeMenuTestConfig(raw: unknown): MenuTestConfig {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const out: MenuTestConfig = {};
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (!Array.isArray(v)) continue;
+    out[k] = v.filter((x): x is MenuKind => x === "food" || x === "drink" || x === "dessert");
+  }
+  return out;
+}
+
+/**
+ * Menu kinds the current bank can actually test. Dessert questions live in the
+ * food pool today (generation is unchanged), so dessert follows food content.
+ */
+export function availableMenuKinds(
+  meta: MenuBankMeta | null | undefined,
+  uploadedMenuTypes: MenuKind[] = [],
+): MenuKind[] {
+  if (!meta) return [];
+  const out: MenuKind[] = [];
+  if (meta.foodCount > 0) out.push("food");
+  if (meta.drinkCount > 0) out.push("drink");
+  if (meta.foodCount > 0 && uploadedMenuTypes.includes("dessert")) out.push("dessert");
+  return out;
+}
+
 /**
  * True if the employee's stored menu-quiz pass is against the current bank.
  * Any pass stamped with an older bank_version (or no version at all — the
@@ -866,38 +937,56 @@ function hasCurrentMenuPass(
 }
 
 /**
- * Is the Menu Knowledge Test required for this employee, given their section
- * and what content the current menu bank actually has? BOH needs food-only;
- * FOH needs food or drink. Empty relevant pool -> not required (graceful).
+ * Menu kinds this employee must pass, from the owner's per-role configuration
+ * (union across their approved roles), intersected with what the bank has.
+ * Empty array => never gated.
  */
+export function requiredMenuKindsFor(
+  emp: Pick<Employee, "primaryRole" | "approvedRoles">,
+  customRoles: CustomRole[],
+  meta: MenuBankMeta | null | undefined,
+  config?: MenuTestConfig | null,
+  uploadedMenuTypes: MenuKind[] = [],
+): MenuKind[] {
+  const available = availableMenuKinds(meta, uploadedMenuTypes.length ? uploadedMenuTypes : ["food", "drink", "dessert"]);
+  if (available.length === 0) return [];
+  const roles = emp.approvedRoles && emp.approvedRoles.length > 0 ? emp.approvedRoles : (emp.primaryRole ? [emp.primaryRole] : []);
+  if (roles.length === 0) return [];
+  const set = new Set<MenuKind>();
+  for (const r of roles) {
+    const kinds = config && Object.prototype.hasOwnProperty.call(config, r)
+      ? config[r]
+      : defaultMenuKindsForRole(r, available, customRoles);
+    for (const k of kinds) if (available.includes(k)) set.add(k);
+  }
+  return MENU_KINDS.filter((k) => set.has(k));
+}
+
+/** Is the Menu Knowledge Test required for this employee at all? */
 function menuTestRequiredFor(
   emp: Pick<Employee, "primaryRole" | "approvedRoles">,
   customRoles: CustomRole[],
   meta: MenuBankMeta | null | undefined,
+  config?: MenuTestConfig | null,
+  uploadedMenuTypes: MenuKind[] = [],
 ): boolean {
-  if (!meta) return false;
-  const roles = emp.approvedRoles && emp.approvedRoles.length > 0 ? emp.approvedRoles : (emp.primaryRole ? [emp.primaryRole] : []);
-  if (roles.length === 0) return false;
-  // If ANY of the employee's approved roles is FOH, treat them as FOH (they
-  // can be scheduled front-of-house). Only pure-BOH staff skip drink.
-  const anyFoh = roles.some((r) => sectionForRole(r, customRoles) === "FOH");
-  if (anyFoh) return meta.foodCount > 0 || meta.drinkCount > 0;
-  return meta.foodCount > 0;
+  return requiredMenuKindsFor(emp, customRoles, meta, config, uploadedMenuTypes).length > 0;
 }
 
 export type MenuTestStatus = "not-required" | "never" | "in-progress" | "stale" | "passed";
 
 /**
  * Menu Knowledge Test status for a single employee, relative to the current
- * menu bank version AND scoped to the employee's section. Returns
- * "not-required" when the pool their section needs is empty (or no bank).
+ * menu bank version AND the owner's per-role requirement configuration.
  */
 export function menuTestStatus(
   emp: Pick<Employee, "primaryRole" | "approvedRoles" | "progress">,
   meta: MenuBankMeta | null | undefined,
   customRoles: CustomRole[] = [],
+  config?: MenuTestConfig | null,
+  uploadedMenuTypes: MenuKind[] = [],
 ): MenuTestStatus {
-  if (!menuTestRequiredFor(emp, customRoles, meta)) return "not-required";
+  if (!menuTestRequiredFor(emp, customRoles, meta, config, uploadedMenuTypes)) return "not-required";
   const row = emp.progress.find((p) => p.videoId === MENU_MODULE_ID);
   if (!row) return "never";
   if (!row.passed) return "in-progress";
@@ -909,10 +998,12 @@ export function isScheduleEligible(
   emp: Pick<Employee, "personalInfoComplete" | "primaryRole" | "approvedRoles" | "progress">,
   customRoles: CustomRole[] = [],
   meta: MenuBankMeta | null | undefined = null,
+  config?: MenuTestConfig | null,
+  uploadedMenuTypes: MenuKind[] = [],
 ): boolean {
   if (isPendingRoleAssignment(emp)) return false;
   if (testIdsForEmployee(emp).length === 0) return false;
-  if (!menuTestRequiredFor(emp, customRoles, meta)) return true;
+  if (!menuTestRequiredFor(emp, customRoles, meta, config, uploadedMenuTypes)) return true;
   return hasCurrentMenuPass(emp.progress, meta);
 }
 
@@ -920,8 +1011,10 @@ export function trainingProgressFor(
   emp: Pick<Employee, "primaryRole" | "approvedRoles" | "progress">,
   customRoles: CustomRole[] = [],
   meta: MenuBankMeta | null | undefined = null,
+  config?: MenuTestConfig | null,
+  uploadedMenuTypes: MenuKind[] = [],
 ): { passed: number; total: number } {
-  if (!menuTestRequiredFor(emp, customRoles, meta)) return { passed: 0, total: 0 };
+  if (!menuTestRequiredFor(emp, customRoles, meta, config, uploadedMenuTypes)) return { passed: 0, total: 0 };
   return { passed: hasCurrentMenuPass(emp.progress, meta) ? 1 : 0, total: 1 };
 }
 
