@@ -328,6 +328,38 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
             />
           )}
 
+          {step === 8 && (
+            <div className="space-y-3">
+              <MenuTestMatrix
+                roles={wizardRoles}
+                menuKinds={uploadedKinds}
+                value={testConfig}
+                onChange={setTestConfig}
+              />
+              <p className="text-xs text-muted-foreground">
+                Leave a row unchecked and that role is never blocked by a menu test.
+              </p>
+              <Button
+                size="lg"
+                className="w-full"
+                onClick={() => {
+                  const filled = defaultsFilled(wizardRoles, uploadedKinds, testConfig);
+                  setTestConfig(filled);
+                  const gated = wizardRoles.filter((r) => (filled[r] ?? []).length > 0);
+                  advance(
+                    gated.length
+                      ? `Menu tests required for ${gated.join(", ")}`
+                      : "No roles gated by a menu test",
+                    "",
+                  );
+                }}
+              >
+                Save requirements →
+              </Button>
+            </div>
+          )}
+
+
           {step === 9 && (
             <SchedulingForm
               value={answers}
