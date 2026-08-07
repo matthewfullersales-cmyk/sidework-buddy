@@ -4,7 +4,16 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
 import { Logo } from "@/components/sidework/Logo";
-import { useStore, type MenuUpload, type ServiceStyle } from "@/lib/sidework-store";
+import {
+  useStore,
+  defaultMenuKindsForRole,
+  type MenuUpload,
+  type MenuKind,
+  type MenuTestConfig,
+  type Role,
+  type ServiceStyle,
+} from "@/lib/sidework-store";
+import { MenuTestMatrix } from "@/components/sidework/MenuTestMatrix";
 import { toast } from "sonner";
 
 /* ----------------------------- Types ----------------------------- */
@@ -85,7 +94,7 @@ const SERVICE_MAP: Record<RestaurantType, ServiceStyle> = {
   Other: "Casual Dining",
 };
 
-const TOTAL_STEPS = 10;
+const TOTAL_STEPS = 11;
 
 const EMPTY: Answers = {
   name: "", cityState: "", type: "",
@@ -99,13 +108,23 @@ const EMPTY: Answers = {
 
 /* ---------------------------- Component --------------------------- */
 
+/** Fill in any role that the owner never explicitly touched with its default. */
+function defaultsFilled(roles: Role[], kinds: MenuKind[], cfg: MenuTestConfig): MenuTestConfig {
+  const out: MenuTestConfig = {};
+  for (const r of roles) {
+    out[r] = Object.prototype.hasOwnProperty.call(cfg, r) ? cfg[r] : defaultMenuKindsForRole(r, kinds);
+  }
+  return out;
+}
+
 export function SetupWizard({ onComplete }: { onComplete: () => void }) {
-  const { completeSetup } = useStore();
+  const { completeSetup, setMenuTestConfig } = useStore();
   const [step, setStep] = useState(1);
   const [answers, setAnswers] = useState<Answers>(EMPTY);
   const [foodMenu, setFoodMenu] = useState<MenuUpload | null>(null);
   const [drinkMenu, setDrinkMenu] = useState<MenuUpload | null>(null);
   const [dessertMenu, setDessertMenu] = useState<MenuUpload | null>(null);
+  const [testConfig, setTestConfig] = useState<MenuTestConfig>({});
   const [messages, setMessages] = useState<ChatMsg[]>([
     {
       from: "bot",
@@ -117,6 +136,13 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const progress = Math.round((step / TOTAL_STEPS) * 100);
+
+  const wizardRoles = [...answers.fohRoles, ...answers.bohRoles] as Role[];
+  const uploadedKinds: MenuKind[] = [
+    ...(foodMenu ? (["food"] as MenuKind[]) : []),
+    ...(drinkMenu ? (["drink"] as MenuKind[]) : []),
+    ...(dessertMenu ? (["dessert"] as MenuKind[]) : []),
+  ];
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -175,6 +201,7 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
         drinkMenu,
         dessertMenu,
       );
+      setMenuTestConfig(defaultsFilled(wizardRoles, uploadedKinds, testConfig));
       onComplete();
     }, 2500);
   };
@@ -192,10 +219,11 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
       4: "Let's talk team structure. Which front-of-house roles do you staff, which back-of-house roles, what's your minimum staff per shift, and who actually builds the schedule?",
       5: "What are your biggest day-to-day pain points? Pick all that apply.",
       6: "Now training — how do you train staff today, what's your biggest training headache, and how often does your menu change?",
+      8: "Now decide who actually has to pass a menu test. Check the menus each role must know before their schedule unlocks — I've pre-filled the usual setup.",
       7: "Time to make this real. Upload at least one menu — food, drink, or dessert (PDF or photo) — and I'll generate a custom staff knowledge quiz from whatever you give me.",
-      8: "Let's set scheduling preferences — how far in advance do you post schedules, what are your shift trade rules, how should staff call in sick, and any other scheduling rules?",
-      9: "Last topic — hiring. Are you currently hiring? Which positions, what's your process, and what matters most to you in a new hire?",
-      10: "All set. Here's everything I've configured for you.",
+      9: "Let's set scheduling preferences — how far in advance do you post schedules, what are your shift trade rules, how should staff call in sick, and any other scheduling rules?",
+      10: "Last topic — hiring. Are you currently hiring? Which positions, what's your process, and what matters most to you in a new hire?",
+      11: "All set. Here's everything I've configured for you.",
     };
     if (prompts[step]) {
       const t = setTimeout(() => pushBot(prompts[step]), 200);
@@ -328,6 +356,38 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
           )}
 
           {step === 8 && (
+            <div className="space-y-3">
+              <MenuTestMatrix
+                roles={wizardRoles}
+                menuKinds={uploadedKinds}
+                value={testConfig}
+                onChange={setTestConfig}
+              />
+              <p className="text-xs text-muted-foreground">
+                Leave a row unchecked and that role is never blocked by a menu test.
+              </p>
+              <Button
+                size="lg"
+                className="w-full"
+                onClick={() => {
+                  const filled = defaultsFilled(wizardRoles, uploadedKinds, testConfig);
+                  setTestConfig(filled);
+                  const gated = wizardRoles.filter((r) => (filled[r] ?? []).length > 0);
+                  advance(
+                    gated.length
+                      ? `Menu tests required for ${gated.join(", ")}`
+                      : "No roles gated by a menu test",
+                    "",
+                  );
+                }}
+              >
+                Save requirements →
+              </Button>
+            </div>
+          )}
+
+
+          {step === 9 && (
             <SchedulingForm
               value={answers}
               onSubmit={(v) => {
@@ -340,7 +400,7 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
             />
           )}
 
-          {step === 9 && (
+          {step === 10 && (
             <HiringForm
               value={answers}
               onSubmit={(v) => {
@@ -355,7 +415,7 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
             />
           )}
 
-          {step === 10 && (
+          {step === 11 && (
             <SummaryComposer
               answers={answers}
               foodMenu={foodMenu}
