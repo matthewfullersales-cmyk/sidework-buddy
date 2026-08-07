@@ -13,6 +13,7 @@ import {
   type ServiceStyle,
 } from "@/lib/sidework-store";
 import { MenuTestMatrix } from "@/components/sidework/MenuTestMatrix";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { toast } from "sonner";
 
 /* ----------------------------- Types ----------------------------- */
@@ -43,7 +44,16 @@ const RESTAURANT_TYPES: RestaurantType[] = [
 type Answers = {
   // basics
   name: string;
-  cityState: string;
+  street: string;
+  city: string;
+  state: string;
+  zip: string;
+  phone: string;
+  email: string;
+  website: string;
+  instagram: string;
+  facebook: string;
+  tiktok: string;
   type: RestaurantType | "";
   // team
   fohRoles: string[];
@@ -67,7 +77,8 @@ const SERVICE_MAP: Record<RestaurantType, ServiceStyle> = {
 const TOTAL_STEPS = 6;
 
 const EMPTY: Answers = {
-  name: "", cityState: "", type: "",
+  name: "", street: "", city: "", state: "", zip: "", phone: "", email: "",
+  website: "", instagram: "", facebook: "", tiktok: "", type: "",
   fohRoles: [], bohRoles: [],
 };
 
@@ -83,7 +94,7 @@ function defaultsFilled(roles: Role[], kinds: MenuKind[], cfg: MenuTestConfig): 
 }
 
 export function SetupWizard({ onComplete }: { onComplete: () => void }) {
-  const { completeSetup, setMenuTestConfig } = useStore();
+  const { completeSetup, setMenuTestConfig, setBusinessInfo } = useStore();
   const [step, setStep] = useState(1);
   const [answers, setAnswers] = useState<Answers>(EMPTY);
   const [foodMenu, setFoodMenu] = useState<MenuUpload | null>(null);
@@ -129,7 +140,25 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
     setFinishing(true);
     const profileType = (answers.type || "Other") as RestaurantType;
     const serviceStyle = SERVICE_MAP[profileType];
-    const concept = `${profileType} · ${answers.cityState || "Location TBD"}`;
+    const cityState = [answers.city, answers.state].filter(Boolean).join(", ");
+    const concept = `${profileType} · ${cityState || "Location TBD"}`;
+
+    const t = (v: string) => {
+      const x = v.trim();
+      return x === "" ? undefined : x;
+    };
+    setBusinessInfo({
+      street: t(answers.street),
+      city: t(answers.city),
+      state: t(answers.state),
+      zip: t(answers.zip),
+      phone: t(answers.phone),
+      email: t(answers.email),
+      website: t(answers.website),
+      instagram: t(answers.instagram),
+      facebook: t(answers.facebook),
+      tiktok: t(answers.tiktok),
+    });
 
     setTimeout(() => {
       completeSetup(
@@ -159,7 +188,7 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
   useEffect(() => {
     if (promptedRef.current.has(step)) return;
     const prompts: Record<number, string> = {
-      2: "Awesome — let's start with the basics. What's the name of your restaurant, what city/state are you in, and what type of restaurant is it?",
+      2: "Awesome — let's start with the basics. Tell me your restaurant's name and type, plus the address and contact info applicants and new hires will see on your career page and hire invites.",
       3: "Now your team. Which front-of-house and back-of-house roles do you staff? These are the roles I'll use for menu test requirements.",
       4: "Time to make this real. Upload at least one menu — food, drink, or dessert (PDF or photo). You'll generate and approve the actual test from the Menu tab once you're inside.",
       5: "Last question: who actually has to pass a menu test? Check the menus each role must know before their schedule unlocks — I've pre-filled the usual setup.",
@@ -215,7 +244,7 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
               value={answers}
               onSubmit={(v) => {
                 setAnswers((a) => ({ ...a, ...v }));
-                advance(`${v.name} · ${v.cityState} · ${v.type}`, "");
+                advance(`${v.name} · ${[v.city, v.state].filter(Boolean).join(", ")} · ${v.type}`, "");
               }}
             />
           )}
@@ -323,20 +352,34 @@ function Bubble({ from, children }: { from: "bot" | "user"; children: React.Reac
 
 function BasicsForm({
   value, onSubmit,
-}: { value: Answers; onSubmit: (v: Pick<Answers, "name" | "cityState" | "type">) => void }) {
-  const [name, setName] = useState(value.name);
-  const [cityState, setCityState] = useState(value.cityState);
-  const [type, setType] = useState<RestaurantType | "">(value.type);
+}: {
+  value: Answers;
+  onSubmit: (v: Omit<Answers, "fohRoles" | "bohRoles">) => void;
+}) {
+  const [f, setF] = useState(value);
+  const set = (patch: Partial<Answers>) => setF((p) => ({ ...p, ...patch }));
+  const ok = Boolean(f.name.trim() && f.street.trim() && f.city.trim() && f.state.trim() && f.zip.trim() && f.phone.trim() && f.email.trim() && f.type);
   return (
-    <div className="space-y-3">
-      <Input placeholder="Restaurant name" value={name} onChange={(e) => setName(e.target.value)} />
-      <Input placeholder="City, State" value={cityState} onChange={(e) => setCityState(e.target.value)} />
-      <ChipGrid options={RESTAURANT_TYPES} value={type} onChange={(v) => setType(v as RestaurantType)} />
-      <Button
-        size="lg" className="w-full"
-        disabled={!name.trim() || !cityState.trim() || !type}
-        onClick={() => onSubmit({ name: name.trim(), cityState: cityState.trim(), type: type as RestaurantType })}
-      >
+    <div className="max-h-[52vh] space-y-3 overflow-y-auto pr-1">
+      <Input placeholder="Restaurant name" value={f.name} onChange={(e) => set({ name: e.target.value })} />
+      <ChipGrid options={RESTAURANT_TYPES} value={f.type} onChange={(v) => set({ type: v as RestaurantType })} />
+      <Input placeholder="Street address" value={f.street} onChange={(e) => set({ street: e.target.value })} aria-label="Street address" />
+      <div className="grid grid-cols-3 gap-2">
+        <Input placeholder="City" value={f.city} onChange={(e) => set({ city: e.target.value })} aria-label="City" />
+        <Input placeholder="State" value={f.state} onChange={(e) => set({ state: e.target.value })} aria-label="State" />
+        <Input placeholder="ZIP" value={f.zip} onChange={(e) => set({ zip: e.target.value })} aria-label="ZIP" />
+      </div>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <PhoneInput placeholder="(555) 555-5555" value={f.phone} onChange={(v) => set({ phone: v })} />
+        <Input type="email" placeholder="hello@your-restaurant.com" value={f.email} onChange={(e) => set({ email: e.target.value })} aria-label="Business email" />
+      </div>
+      <Input type="url" placeholder="https://your-restaurant.com (optional)" value={f.website} onChange={(e) => set({ website: e.target.value })} aria-label="Website" />
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+        <Input placeholder="Instagram (e.g. @your_spot)" value={f.instagram} onChange={(e) => set({ instagram: e.target.value })} aria-label="Instagram" />
+        <Input placeholder="Facebook (page URL or handle)" value={f.facebook} onChange={(e) => set({ facebook: e.target.value })} aria-label="Facebook" />
+        <Input placeholder="TikTok (e.g. @your_spot)" value={f.tiktok} onChange={(e) => set({ tiktok: e.target.value })} aria-label="TikTok" />
+      </div>
+      <Button size="lg" className="w-full" disabled={!ok} onClick={() => onSubmit({ ...f, name: f.name.trim(), type: f.type })}>
         Continue →
       </Button>
     </div>
@@ -411,7 +454,7 @@ function SummaryComposer({
   const uploadedNames = [foodMenu, drinkMenu, dessertMenu].filter(Boolean).map((m) => m!.name);
   const gated = roles.filter((r) => (testConfig[r] ?? []).length > 0);
   const items = [
-    `Restaurant profile saved — ${answers.name || "your restaurant"}${answers.cityState ? `, ${answers.cityState}` : ""}${answers.type ? ` (${answers.type})` : ""}`,
+    `Restaurant profile saved — ${answers.name || "your restaurant"}${[answers.city, answers.state].filter(Boolean).join(", ") ? `, ${[answers.city, answers.state].filter(Boolean).join(", ")}` : ""}${answers.type ? ` (${answers.type})` : ""}`,
     `${roles.length} role${roles.length === 1 ? "" : "s"} configured${roles.length ? `: ${roles.join(", ")}` : ""}`,
     uploadedNames.length
       ? `Menu${uploadedNames.length > 1 ? "s" : ""} uploaded: ${uploadedNames.join(", ")}`
