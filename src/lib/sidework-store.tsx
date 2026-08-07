@@ -2113,14 +2113,27 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
       }
     },
 
-    completeSetup: (profile, food, drink) =>
-      setState((s) => ({
-        ...s,
-        restaurantProfile: { ...profile, completedAt: new Date().toISOString() },
-        menu: food ? { ...food, generatedAt: new Date().toISOString() } : s.menu,
-        drinkMenu: drink ? { ...drink, generatedAt: new Date().toISOString() } : s.drinkMenu,
-        setupCompleted: true,
-      })),
+    completeSetup: (profile, food, drink, dessert) => {
+      const stamp = new Date().toISOString();
+      setState((s) => {
+        const nextFood = food ? { ...food, generatedAt: stamp } : s.menu;
+        const nextDrink = drink ? { ...drink, generatedAt: stamp } : s.drinkMenu;
+        const nextDessert = dessert ? { ...dessert, generatedAt: stamp } : s.dessertMenu;
+        const types: MenuKind[] = [];
+        if (nextFood) types.push("food");
+        if (nextDrink) types.push("drink");
+        if (nextDessert) types.push("dessert");
+        return {
+          ...s,
+          restaurantProfile: { ...profile, completedAt: stamp },
+          menu: nextFood,
+          drinkMenu: nextDrink,
+          dessertMenu: nextDessert,
+          uploadedMenuTypes: types,
+          setupCompleted: true,
+        };
+      });
+    },
     resetSetup: () => setState((s) => ({ ...s, setupCompleted: false, restaurantProfile: null })),
     markNotificationsRead: () =>
       setState((s) => ({ ...s, notifications: s.notifications.map((n) => ({ ...n, read: true })) })),
