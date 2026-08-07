@@ -358,7 +358,7 @@ function BasicsForm({
 }) {
   const [f, setF] = useState(value);
   const set = (patch: Partial<Answers>) => setF((p) => ({ ...p, ...patch }));
-  const ok = Boolean(f.name.trim() && f.street.trim() && f.city.trim() && f.state.trim() && f.zip.trim() && f.phone.trim() && f.email.trim() && f.type);
+  const ok = Boolean(f.name.trim() && f.type);
   return (
     <div className="max-h-[52vh] space-y-3 overflow-y-auto pr-1">
       <Input placeholder="Restaurant name" value={f.name} onChange={(e) => set({ name: e.target.value })} />
