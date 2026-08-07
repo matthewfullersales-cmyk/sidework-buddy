@@ -866,9 +866,9 @@ function ShiftDetailsDialog({
   // be scheduled — the manager must assign a role and the employee must pass
   // their required training modules first.
   const pendingRole = emp ? isPendingRoleAssignment(emp) : false;
-  const eligible = emp ? isScheduleEligible(emp, customRoles, menuBankMetaObj) : true;
-  const progress = emp ? trainingProgressFor(emp, customRoles, menuBankMetaObj) : { passed: 0, total: 0 };
-  const menuState = emp ? menuTestStatus(emp, menuBankMetaObj) : "not-required";
+  const eligible = emp ? isScheduleEligible(emp, customRoles, menuBankMetaObj, menuTestConfig, uploadedMenuTypes) : true;
+  const progress = emp ? trainingProgressFor(emp, customRoles, menuBankMetaObj, menuTestConfig, uploadedMenuTypes) : { passed: 0, total: 0 };
+  const menuState = emp ? menuTestStatus(emp, menuBankMetaObj, customRoles, menuTestConfig, uploadedMenuTypes) : "not-required";
   const trainingBlocked = !!emp && !eligible;
   const trainingBlockMsg = pendingRole
     ? `${emp?.name ?? "This employee"} doesn't have a role assigned yet — assign one from the Team tab before scheduling.`

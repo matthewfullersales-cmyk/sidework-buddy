@@ -46,7 +46,7 @@ function EmployeePage() {
   }, [targetId, currentUser, setCurrentUser]);
   const stillLoading = authLoading || employeeHydrating || (targetId && employees.length === 0);
   const me = currentUser.type === "employee" ? employees.find((e) => e.id === currentUser.id) : undefined;
-  const status = useMemo(() => (me ? onboardingStatus(me, customRoles, menuBankVersion) : null), [me, customRoles, menuBankVersion]);
+  const status = useMemo(() => (me ? onboardingStatus(me, customRoles, menuBankVersion, menuTestConfig, uploadedMenuTypes) : null), [me, customRoles, menuBankVersion]);
 
   useEffect(() => {
     if (!me || !status) return;
@@ -122,8 +122,8 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
   });
   const [specialTalents, setSpecialTalents] = useState(me.specialTalents ?? "");
   const [photoUrl, setPhotoUrl] = useState(me.photoUrl ?? "");
-  const { menuBankMeta } = useStore();
-  const s = onboardingStatus(me, customRoles, menuBankMeta);
+  const { menuBankMeta, menuTestConfig, uploadedMenuTypes } = useStore();
+  const s = onboardingStatus(me, customRoles, menuBankMeta, menuTestConfig, uploadedMenuTypes);
 
   const onPhotoFile = (file: File | null) => {
     if (!file) return;
@@ -268,9 +268,9 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
 }
 
 function TrainingTab({ employeeId }: { employeeId: string }) {
-  const { employees, applyQuizAttemptResult, menuBankMeta } = useStore();
+  const { employees, applyQuizAttemptResult, menuBankMeta, menuTestConfig, uploadedMenuTypes, customRoles } = useStore();
   const me = employees.find((e) => e.id === employeeId)!;
-  const menuState = menuTestStatus(me, menuBankMeta);
+  const menuState = menuTestStatus(me, menuBankMeta, customRoles, menuTestConfig, uploadedMenuTypes);
   const testIds = testIdsForEmployee(me);
 
   if (testIds.length === 0 || menuState === "not-required") {
