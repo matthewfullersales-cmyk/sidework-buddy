@@ -73,11 +73,19 @@ ${coverage}
 
 Rules:
 - Only use items and details that ACTUALLY appear on the menus you were given. Never invent items.
+- If a menu item has no ingredient detail printed, do NOT invent any — skip that item and build the question from an item that does list its components.
 - If a file is blurry, unreadable, or clearly not a menu, skip that file. If no file yields anything usable, return {"questions": []}.
 - Each question must have exactly 4 options and exactly one correct answer.
 - Mix question types: "What's in [dish/drink/dessert]?", "Which item contains [ingredient]?", "Which category does [item] belong to?", "What garnish/side comes with [item]?".
 - Distractors must be plausible — prefer other items from the SAME menu.
 - Keep questions concise (under 140 chars) and answers under 90 chars.
+- NEVER generate questions about: prices, seasonal/rotating/market-price/chef's-choice/daily-special items, or who a dish is named after (ignore proper names like owners, family members, or regulars; test the food, not the naming).
+- Always focus on what staff genuinely need to answer a guest:
+  - FOOD: listed ingredients and components, preparation method, sauce, accompanying sides/garnishes, or which item contains a given allergen/ingredient.
+  - COCKTAILS: listed ingredients — spirits, mixers, and garnish.
+  - BEER: style and brand.
+  - WINE: varietal and producer.
+  - DESSERTS: listed ingredients and components, same as food.
 - Return STRICT JSON only, matching this shape exactly, no prose, no markdown fences:
 {"questions":[{"question":"...","options":["A","B","C","D"],"answerIndex":0,"source":"food"}, ...]}`;
 }
