@@ -85,7 +85,7 @@ const SERVICE_MAP: Record<RestaurantType, ServiceStyle> = {
   Other: "Casual Dining",
 };
 
-const TOTAL_STEPS = 10;
+const TOTAL_STEPS = 11;
 
 const EMPTY: Answers = {
   name: "", cityState: "", type: "",
@@ -192,10 +192,11 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
       4: "Let's talk team structure. Which front-of-house roles do you staff, which back-of-house roles, what's your minimum staff per shift, and who actually builds the schedule?",
       5: "What are your biggest day-to-day pain points? Pick all that apply.",
       6: "Now training — how do you train staff today, what's your biggest training headache, and how often does your menu change?",
+      8: "Now decide who actually has to pass a menu test. Check the menus each role must know before their schedule unlocks — I've pre-filled the usual setup.",
       7: "Time to make this real. Upload at least one menu — food, drink, or dessert (PDF or photo) — and I'll generate a custom staff knowledge quiz from whatever you give me.",
-      8: "Let's set scheduling preferences — how far in advance do you post schedules, what are your shift trade rules, how should staff call in sick, and any other scheduling rules?",
-      9: "Last topic — hiring. Are you currently hiring? Which positions, what's your process, and what matters most to you in a new hire?",
-      10: "All set. Here's everything I've configured for you.",
+      9: "Let's set scheduling preferences — how far in advance do you post schedules, what are your shift trade rules, how should staff call in sick, and any other scheduling rules?",
+      10: "Last topic — hiring. Are you currently hiring? Which positions, what's your process, and what matters most to you in a new hire?",
+      11: "All set. Here's everything I've configured for you.",
     };
     if (prompts[step]) {
       const t = setTimeout(() => pushBot(prompts[step]), 200);
@@ -327,7 +328,7 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
             />
           )}
 
-          {step === 8 && (
+          {step === 9 && (
             <SchedulingForm
               value={answers}
               onSubmit={(v) => {
@@ -340,7 +341,7 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
             />
           )}
 
-          {step === 9 && (
+          {step === 10 && (
             <HiringForm
               value={answers}
               onSubmit={(v) => {
@@ -355,7 +356,7 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
             />
           )}
 
-          {step === 10 && (
+          {step === 11 && (
             <SummaryComposer
               answers={answers}
               foodMenu={foodMenu}
