@@ -398,6 +398,7 @@ export function BusinessInfoEditor({
       state: clean(draft.state),
       zip: clean(draft.zip),
       phone: clean(draft.phone),
+      email: clean(draft.email),
       website: clean(draft.website),
       instagram: clean(draft.instagram),
       facebook: clean(draft.facebook),
@@ -449,6 +450,17 @@ export function BusinessInfoEditor({
             className="mt-1"
           />
 
+        </div>
+        <div>
+          <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Email</Label>
+          <Input
+            type="email"
+            placeholder="hello@your-restaurant.com"
+            value={draft.email ?? ""}
+            onChange={(e) => set({ email: e.target.value })}
+            className="mt-1"
+            aria-label="Business email"
+          />
         </div>
         <div>
           <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Website</Label>
