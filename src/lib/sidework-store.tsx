@@ -672,6 +672,9 @@ export interface MenuUpload {
   preview?: string;
 }
 
+/** Menu types an owner can upload in the setup wizard. */
+export type MenuKind = "food" | "drink" | "dessert";
+
 export type ServiceStyle = "Casual Dining" | "Upscale Casual" | "Fine Dining" | "Bar and Nightlife" | "Fast Casual";
 export type Priority = "Speed of service" | "Warm hospitality" | "Product knowledge" | "Upselling" | "All equally important";
 
