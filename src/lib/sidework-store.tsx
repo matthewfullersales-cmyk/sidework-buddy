@@ -2193,6 +2193,12 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
         updateTimeOffRow(id, patch).catch((e) => console.error("[resolveTimeOff]", e));
       }
     },
+    setMenuTestConfig: (cfg) => {
+      const clean = normalizeMenuTestConfig(cfg);
+      setState((s) => ({ ...s, menuTestConfig: clean }));
+      const oid = ownerIdRef.current;
+      if (oid) saveMenuTestConfig(oid, clean).catch((e: unknown) => console.error("[setMenuTestConfig]", e));
+    },
     setMenu: (m) => setState((s) => ({ ...s, menu: m })),
     setDrinkMenu: (m) => setState((s) => ({ ...s, drinkMenu: m })),
     setDessertMenu: (m) => setState((s) => ({ ...s, dessertMenu: m })),
