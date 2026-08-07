@@ -116,20 +116,21 @@ export async function upsertTrainingProgress(
  */
 export async function fetchMenuBankMeta(
   ownerId: string,
-): Promise<{ version: number; updatedAt: string; foodCount: number; drinkCount: number } | null> {
+): Promise<{ version: number; updatedAt: string; foodCount: number; drinkCount: number; dessertCount: number } | null> {
   const { data, error } = await supabase.rpc("get_menu_bank_meta", {
     p_owner_id: ownerId,
   });
   if (error) throw error;
   const row = Array.isArray(data) ? data[0] : data;
   if (!row) return null;
-  const r = row as { bank_version?: number; updated_at?: string; food_count?: number; drink_count?: number };
+  const r = row as { bank_version?: number; updated_at?: string; food_count?: number; drink_count?: number; dessert_count?: number };
   if (typeof r.bank_version !== "number" || !r.updated_at) return null;
   return {
     version: r.bank_version,
     updatedAt: r.updated_at,
     foodCount: typeof r.food_count === "number" ? r.food_count : 0,
     drinkCount: typeof r.drink_count === "number" ? r.drink_count : 0,
+    dessertCount: typeof r.dessert_count === "number" ? r.dessert_count : 0,
   };
 }
 
