@@ -1,4 +1,10 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import {
+  computeAutofillPatches,
+  loadAutofillMemo,
+  saveAutofillMemo,
+  type AutofillMemo,
+} from "@/lib/hours-autofill";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { PhoneInput } from "@/components/ui/phone-input";
