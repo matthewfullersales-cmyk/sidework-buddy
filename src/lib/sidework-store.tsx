@@ -672,6 +672,9 @@ export interface MenuUpload {
   preview?: string;
 }
 
+/** Menu types an owner can upload in the setup wizard. */
+export type MenuKind = "food" | "drink" | "dessert";
+
 export type ServiceStyle = "Casual Dining" | "Upscale Casual" | "Fine Dining" | "Bar and Nightlife" | "Fast Casual";
 export type Priority = "Speed of service" | "Warm hospitality" | "Product knowledge" | "Upselling" | "All equally important";
 
@@ -712,6 +715,9 @@ interface Store {
   timeOff: TimeOffRequest[];
   menu: MenuUpload | null;
   drinkMenu: MenuUpload | null;
+  dessertMenu: MenuUpload | null;
+  /** Which menu types the owner actually uploaded (food/drink/dessert). */
+  uploadedMenuTypes: MenuKind[];
   menuBankMeta: MenuBankMeta | null;
   restaurantProfile: RestaurantProfile | null;
 
@@ -734,10 +740,16 @@ interface Store {
   notifications: Notification[];
   setMenu: (m: MenuUpload | null) => void;
   setDrinkMenu: (m: MenuUpload | null) => void;
+  setDessertMenu: (m: MenuUpload | null) => void;
   markMenuGenerated: () => void;
   setMenuBankMeta: (m: MenuBankMeta | null) => void;
   refreshMenuBankMeta: () => Promise<void>;
-  completeSetup: (profile: Omit<RestaurantProfile, "completedAt">, food: MenuUpload | null, drink: MenuUpload | null) => void;
+  completeSetup: (
+    profile: Omit<RestaurantProfile, "completedAt">,
+    food: MenuUpload | null,
+    drink: MenuUpload | null,
+    dessert?: MenuUpload | null,
+  ) => void;
 
   resetSetup: () => void;
   markNotificationsRead: () => void;
@@ -1069,6 +1081,8 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     timeOff: seedTimeOff(),
     menu: null as MenuUpload | null,
     drinkMenu: null as MenuUpload | null,
+    dessertMenu: null as MenuUpload | null,
+    uploadedMenuTypes: [] as MenuKind[],
     restaurantProfile: null as RestaurantProfile | null,
     restaurantHours: defaultRestaurantHours(),
     mealPeriods: defaultMealPeriods(),
@@ -2084,6 +2098,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     },
     setMenu: (m) => setState((s) => ({ ...s, menu: m })),
     setDrinkMenu: (m) => setState((s) => ({ ...s, drinkMenu: m })),
+    setDessertMenu: (m) => setState((s) => ({ ...s, dessertMenu: m })),
     markMenuGenerated: () =>
       setState((s) => ({ ...s, menu: s.menu ? { ...s.menu, generatedAt: new Date().toISOString() } : s.menu })),
     setMenuBankMeta: (m) => setState((s) => ({ ...s, menuBankMeta: m })),
@@ -2098,14 +2113,27 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
       }
     },
 
-    completeSetup: (profile, food, drink) =>
-      setState((s) => ({
-        ...s,
-        restaurantProfile: { ...profile, completedAt: new Date().toISOString() },
-        menu: food ? { ...food, generatedAt: new Date().toISOString() } : s.menu,
-        drinkMenu: drink ? { ...drink, generatedAt: new Date().toISOString() } : s.drinkMenu,
-        setupCompleted: true,
-      })),
+    completeSetup: (profile, food, drink, dessert) => {
+      const stamp = new Date().toISOString();
+      setState((s) => {
+        const nextFood = food ? { ...food, generatedAt: stamp } : s.menu;
+        const nextDrink = drink ? { ...drink, generatedAt: stamp } : s.drinkMenu;
+        const nextDessert = dessert ? { ...dessert, generatedAt: stamp } : s.dessertMenu;
+        const types: MenuKind[] = [];
+        if (nextFood) types.push("food");
+        if (nextDrink) types.push("drink");
+        if (nextDessert) types.push("dessert");
+        return {
+          ...s,
+          restaurantProfile: { ...profile, completedAt: stamp },
+          menu: nextFood,
+          drinkMenu: nextDrink,
+          dessertMenu: nextDessert,
+          uploadedMenuTypes: types,
+          setupCompleted: true,
+        };
+      });
+    },
     resetSetup: () => setState((s) => ({ ...s, setupCompleted: false, restaurantProfile: null })),
     markNotificationsRead: () =>
       setState((s) => ({ ...s, notifications: s.notifications.map((n) => ({ ...n, read: true })) })),

@@ -105,6 +105,7 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
   const [answers, setAnswers] = useState<Answers>(EMPTY);
   const [foodMenu, setFoodMenu] = useState<MenuUpload | null>(null);
   const [drinkMenu, setDrinkMenu] = useState<MenuUpload | null>(null);
+  const [dessertMenu, setDessertMenu] = useState<MenuUpload | null>(null);
   const [messages, setMessages] = useState<ChatMsg[]>([
     {
       from: "bot",
@@ -172,6 +173,7 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
         },
         foodMenu,
         drinkMenu,
+        dessertMenu,
       );
       onComplete();
     }, 2500);
@@ -190,7 +192,7 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
       4: "Let's talk team structure. Which front-of-house roles do you staff, which back-of-house roles, what's your minimum staff per shift, and who actually builds the schedule?",
       5: "What are your biggest day-to-day pain points? Pick all that apply.",
       6: "Now training — how do you train staff today, what's your biggest training headache, and how often does your menu change?",
-      7: "Time to make this real. Upload your food menu and your drink menu (PDF or photo) and I'll generate a custom staff knowledge quiz instantly.",
+      7: "Time to make this real. Upload at least one menu — food, drink, or dessert (PDF or photo) — and I'll generate a custom staff knowledge quiz from whatever you give me.",
       8: "Let's set scheduling preferences — how far in advance do you post schedules, what are your shift trade rules, how should staff call in sick, and any other scheduling rules?",
       9: "Last topic — hiring. Are you currently hiring? Which positions, what's your process, and what matters most to you in a new hire?",
       10: "All set. Here's everything I've configured for you.",
@@ -307,15 +309,18 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
             <MenuUploadComposer
               food={foodMenu}
               drink={drinkMenu}
+              dessert={dessertMenu}
               onFood={setFoodMenu}
               onDrink={setDrinkMenu}
+              onDessert={setDessertMenu}
               onSubmit={() => {
-                if (!foodMenu || !drinkMenu) {
-                  toast.error("Upload both your food and drink menus to continue.");
+                const uploaded = [foodMenu, drinkMenu, dessertMenu].filter(Boolean) as MenuUpload[];
+                if (uploaded.length === 0) {
+                  toast.error("Upload at least one menu to continue.");
                   return;
                 }
                 advance(
-                  `Uploaded ${foodMenu.name} + ${drinkMenu.name} — generating quiz ✨`,
+                  `Uploaded ${uploaded.map((m) => m.name).join(" + ")} — generating quiz ✨`,
                   "",
                 );
               }}
@@ -355,6 +360,7 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
               answers={answers}
               foodMenu={foodMenu}
               drinkMenu={drinkMenu}
+              dessertMenu={dessertMenu}
               onConfirm={finish}
             />
           )}
@@ -539,18 +545,21 @@ function HiringForm({
 }
 
 function MenuUploadComposer({
-  food, drink, onFood, onDrink, onSubmit,
+  food, drink, dessert, onFood, onDrink, onDessert, onSubmit,
 }: {
-  food: MenuUpload | null; drink: MenuUpload | null;
+  food: MenuUpload | null; drink: MenuUpload | null; dessert: MenuUpload | null;
   onFood: (m: MenuUpload | null) => void;
   onDrink: (m: MenuUpload | null) => void;
+  onDessert: (m: MenuUpload | null) => void;
   onSubmit: () => void;
 }) {
+  const hasAny = Boolean(food || drink || dessert);
   return (
     <div className="space-y-3">
       <UploadField label="Food menu" value={food} onChange={onFood} />
-      <UploadField label="Drink menu" value={drink} onChange={onDrink} />
-      <Button size="lg" className="w-full" disabled={!food || !drink} onClick={onSubmit}>
+      <UploadField label="Drink menu" value={drink} onChange={onDrink} hint="Optional — skip if these are on your food menu." />
+      <UploadField label="Dessert menu" value={dessert} onChange={onDessert} hint="Optional — skip if these are on your food menu." />
+      <Button size="lg" className="w-full" disabled={!hasAny} onClick={onSubmit}>
         Generate quiz & continue →
       </Button>
     </div>
@@ -558,11 +567,12 @@ function MenuUploadComposer({
 }
 
 function SummaryComposer({
-  answers, foodMenu, drinkMenu, onConfirm,
-}: { answers: Answers; foodMenu: MenuUpload | null; drinkMenu: MenuUpload | null; onConfirm: () => void }) {
+  answers, foodMenu, drinkMenu, dessertMenu, onConfirm,
+}: { answers: Answers; foodMenu: MenuUpload | null; drinkMenu: MenuUpload | null; dessertMenu: MenuUpload | null; onConfirm: () => void }) {
+  const uploadedNames = [foodMenu, drinkMenu, dessertMenu].filter(Boolean).map((m) => m!.name);
   const items = [
     `Scheduling grid set up with your roles (${[...answers.fohRoles, ...answers.bohRoles].length || 0} configured)`,
-    `Menu quiz generated from ${foodMenu?.name ?? "food menu"} & ${drinkMenu?.name ?? "drink menu"}`,
+    `Menu quiz generated from ${uploadedNames.join(" & ") || "your menu"}`,
     `Menu Knowledge Test gate enabled for ${answers.type || "your restaurant"} staff`,
     `Hiring templates created${answers.positions ? ` for ${answers.positions}` : ""}`,
     "First AI schedule ready",
@@ -632,8 +642,8 @@ function ChipGrid({
 }
 
 function UploadField({
-  label, value, onChange,
-}: { label: string; value: MenuUpload | null; onChange: (m: MenuUpload | null) => void }) {
+  label, value, onChange, hint,
+}: { label: string; value: MenuUpload | null; onChange: (m: MenuUpload | null) => void; hint?: string }) {
   const ref = useRef<HTMLInputElement>(null);
   const handleFile = (file: File) => {
     const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
@@ -658,6 +668,7 @@ function UploadField({
   return (
     <div className="grid gap-1.5">
       <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</span>
+      {hint ? <span className="-mt-0.5 text-xs text-muted-foreground">{hint}</span> : null}
       {!value ? (
         <button
           type="button"
