@@ -1,4 +1,10 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import {
+  computeAutofillPatches,
+  loadAutofillMemo,
+  saveAutofillMemo,
+  type AutofillMemo,
+} from "@/lib/hours-autofill";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { PhoneInput } from "@/components/ui/phone-input";
@@ -148,12 +154,31 @@ export function AvailabilityEditor({
 export function MealPeriodsEditor({
   value,
   onChange,
+  restaurantHours,
+  onHoursAutofill,
 }: {
   value: MealPeriods;
   onChange: (meal: Meal, patch: Partial<MealPeriodConfig>) => void;
+  /** Current daily hours — required for auto-fill on toggle. */
+  restaurantHours?: RestaurantHours;
+  /** Called per day with a proposed (still fully editable) hours default. */
+  onHoursAutofill?: (day: DayKey, patch: { open: string; close: string }) => void;
 }) {
   const meals: Meal[] = ["Breakfast", "Lunch", "Dinner"];
   const overlaps = findMealPeriodOverlaps(value);
+  const memoRef = useRef<AutofillMemo | null>(null);
+
+  const toggleMeal = (m: Meal, enabled: boolean) => {
+    onChange(m, { enabled });
+    if (!restaurantHours || !onHoursAutofill) return;
+    if (memoRef.current === null) memoRef.current = loadAutofillMemo();
+    const nextPeriods: MealPeriods = { ...value, [m]: { ...value[m], enabled } };
+    const { patches, memo } = computeAutofillPatches(nextPeriods, restaurantHours, memoRef.current);
+    memoRef.current = memo;
+    saveAutofillMemo(memo);
+    patches.forEach(({ day, patch }) => onHoursAutofill(day, patch));
+  };
+
   return (
     <div className="space-y-2">
       {overlaps.length > 0 && (
@@ -176,7 +201,7 @@ export function MealPeriodsEditor({
               <p className="text-sm font-semibold w-24">{m}</p>
               <label className="flex items-center gap-2 text-xs">
                 <span className="text-muted-foreground">{cfg.enabled ? "Serving" : "Not served"}</span>
-                <Switch checked={cfg.enabled} onCheckedChange={(v) => onChange(m, { enabled: v })} />
+                <Switch checked={cfg.enabled} onCheckedChange={(v) => toggleMeal(m, v)} />
               </label>
             </div>
             {cfg.enabled && (
