@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { Switch } from "@/components/ui/switch";
 import { Logo } from "@/components/sidework/Logo";
 import {
   useStore,
@@ -37,11 +36,6 @@ const BOH_ROLES = [
   "Grill", "Pizza", "Garde Manger", "Dishwasher", "Prep",
 ] as const;
 
-const PAIN_POINTS = [
-  "Staff training", "Menu knowledge", "Scheduling", "Paperwork",
-  "Side work", "Turnover", "Sick calls", "Shift trading",
-] as const;
-
 const RESTAURANT_TYPES: RestaurantType[] = [
   "Fine Dining", "Casual Dining", "Fast Casual", "Bar/Nightlife", "Cafe", "Food Truck", "Other",
 ];
@@ -51,33 +45,9 @@ type Answers = {
   name: string;
   cityState: string;
   type: RestaurantType | "";
-  // operations
-  seats: string;
-  daysOpen: string;
-  hours: string;
-  busiestNight: string;
-  avgCovers: string;
   // team
   fohRoles: string[];
   bohRoles: string[];
-  minStaff: string;
-  scheduler: string;
-  // pain
-  painPoints: string[];
-  // training
-  currentTraining: string;
-  trainingHeadache: string;
-  menuChanges: string;
-  // scheduling
-  schedAdvance: string;
-  tradeRules: string;
-  sickProcess: string;
-  schedRules: string;
-  // hiring
-  hiring: string;
-  positions: string;
-  hiringProcess: string;
-  hiringMatters: string;
 };
 
 type ChatMsg =
@@ -94,16 +64,11 @@ const SERVICE_MAP: Record<RestaurantType, ServiceStyle> = {
   Other: "Casual Dining",
 };
 
-const TOTAL_STEPS = 11;
+const TOTAL_STEPS = 6;
 
 const EMPTY: Answers = {
   name: "", cityState: "", type: "",
-  seats: "", daysOpen: "", hours: "", busiestNight: "", avgCovers: "",
-  fohRoles: [], bohRoles: [], minStaff: "", scheduler: "",
-  painPoints: [],
-  currentTraining: "", trainingHeadache: "", menuChanges: "",
-  schedAdvance: "", tradeRules: "", sickProcess: "", schedRules: "",
-  hiring: "", positions: "", hiringProcess: "", hiringMatters: "",
+  fohRoles: [], bohRoles: [],
 };
 
 /* ---------------------------- Component --------------------------- */
@@ -129,7 +94,7 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
     {
       from: "bot",
       text:
-        "Welcome to 86Paper! I'm your restaurant intelligence assistant. I'm going to ask you a few questions so I can customize everything specifically for your restaurant. This takes about 5 minutes. Ready?",
+        "Welcome to 86Paper! I'm your restaurant intelligence assistant. Just a few quick questions so I can set up your roles and menu tests. This takes about 2 minutes. Ready?",
     },
   ]);
   const [finishing, setFinishing] = useState(false);
@@ -165,26 +130,6 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
     const profileType = (answers.type || "Other") as RestaurantType;
     const serviceStyle = SERVICE_MAP[profileType];
     const concept = `${profileType} · ${answers.cityState || "Location TBD"}`;
-    const guestExperience = [
-      `${answers.seats || "?"} seats, open ${answers.daysOpen || "—"}, ${answers.hours || "—"}.`,
-      `Busiest night ${answers.busiestNight || "—"} (~${answers.avgCovers || "—"} covers).`,
-      `FOH: ${answers.fohRoles.join(", ") || "—"}.`,
-      `BOH: ${answers.bohRoles.join(", ") || "—"}.`,
-      `Min staff/shift: ${answers.minStaff || "—"}. Scheduler: ${answers.scheduler || "—"}.`,
-    ].join(" ");
-    const nonNegotiables = [
-      `Schedules posted ${answers.schedAdvance || "—"} in advance.`,
-      `Trade rules: ${answers.tradeRules || "—"}.`,
-      `Sick call: ${answers.sickProcess || "—"}.`,
-      answers.schedRules ? `Rules: ${answers.schedRules}.` : "",
-    ].filter(Boolean).join(" ");
-    const pastProblems = [
-      `Pain points: ${answers.painPoints.join(", ") || "—"}.`,
-      `Current training: ${answers.currentTraining || "—"}.`,
-      `Biggest training headache: ${answers.trainingHeadache || "—"}.`,
-      `Menu changes: ${answers.menuChanges || "—"}.`,
-      answers.hiring ? `Hiring: ${answers.hiring}. Positions: ${answers.positions || "—"}. Process: ${answers.hiringProcess || "—"}. Priorities: ${answers.hiringMatters || "—"}.` : "",
-    ].filter(Boolean).join(" ");
 
     setTimeout(() => {
       completeSetup(
@@ -193,9 +138,9 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
           concept,
           serviceStyle,
           priority: "Warm hospitality",
-          guestExperience,
-          nonNegotiables,
-          pastProblems,
+          guestExperience: "",
+          nonNegotiables: "",
+          pastProblems: "",
         },
         foodMenu,
         drinkMenu,
@@ -203,7 +148,7 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
       );
       setMenuTestConfig(defaultsFilled(wizardRoles, uploadedKinds, testConfig));
       onComplete();
-    }, 2500);
+    }, 2000);
   };
 
   /* ------------------------- Step composers ------------------------ */
@@ -215,15 +160,10 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
     if (promptedRef.current.has(step)) return;
     const prompts: Record<number, string> = {
       2: "Awesome — let's start with the basics. What's the name of your restaurant, what city/state are you in, and what type of restaurant is it?",
-      3: "Great. Now tell me about operations — how many seats do you have, which days are you open, your hours, your busiest night, and roughly how many covers you do on that busy night?",
-      4: "Let's talk team structure. Which front-of-house roles do you staff, which back-of-house roles, what's your minimum staff per shift, and who actually builds the schedule?",
-      5: "What are your biggest day-to-day pain points? Pick all that apply.",
-      6: "Now training — how do you train staff today, what's your biggest training headache, and how often does your menu change?",
-      8: "Now decide who actually has to pass a menu test. Check the menus each role must know before their schedule unlocks — I've pre-filled the usual setup.",
-      7: "Time to make this real. Upload at least one menu — food, drink, or dessert (PDF or photo) — and I'll generate a custom staff knowledge quiz from whatever you give me.",
-      9: "Let's set scheduling preferences — how far in advance do you post schedules, what are your shift trade rules, how should staff call in sick, and any other scheduling rules?",
-      10: "Last topic — hiring. Are you currently hiring? Which positions, what's your process, and what matters most to you in a new hire?",
-      11: "All set. Here's everything I've configured for you.",
+      3: "Now your team. Which front-of-house and back-of-house roles do you staff? These are the roles I'll use for menu test requirements.",
+      4: "Time to make this real. Upload at least one menu — food, drink, or dessert (PDF or photo). You'll generate and approve the actual test from the Menu tab once you're inside.",
+      5: "Last question: who actually has to pass a menu test? Check the menus each role must know before their schedule unlocks — I've pre-filled the usual setup.",
+      6: "That's everything. Here's what's saved.",
     };
     if (prompts[step]) {
       const t = setTimeout(() => pushBot(prompts[step]), 200);
@@ -275,21 +215,18 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
               value={answers}
               onSubmit={(v) => {
                 setAnswers((a) => ({ ...a, ...v }));
-                advance(
-                  `${v.name} · ${v.cityState} · ${v.type}`,
-                  "",
-                );
+                advance(`${v.name} · ${v.cityState} · ${v.type}`, "");
               }}
             />
           )}
 
           {step === 3 && (
-            <OperationsForm
+            <TeamForm
               value={answers}
               onSubmit={(v) => {
                 setAnswers((a) => ({ ...a, ...v }));
                 advance(
-                  `${v.seats} seats · ${v.daysOpen} · ${v.hours} · busiest ${v.busiestNight} (~${v.avgCovers} covers)`,
+                  `FOH: ${v.fohRoles.join(", ") || "—"} | BOH: ${v.bohRoles.join(", ") || "—"}`,
                   "",
                 );
               }}
@@ -297,43 +234,6 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
           )}
 
           {step === 4 && (
-            <TeamForm
-              value={answers}
-              onSubmit={(v) => {
-                setAnswers((a) => ({ ...a, ...v }));
-                advance(
-                  `FOH: ${v.fohRoles.join(", ") || "—"} | BOH: ${v.bohRoles.join(", ") || "—"} | Min ${v.minStaff}/shift, scheduled by ${v.scheduler}`,
-                  "",
-                );
-              }}
-            />
-          )}
-
-          {step === 5 && (
-            <MultiSelectComposer
-              options={[...PAIN_POINTS]}
-              selected={answers.painPoints}
-              onSubmit={(sel) => {
-                setAnswers((a) => ({ ...a, painPoints: sel }));
-                advance(sel.length ? sel.join(", ") : "None right now", "");
-              }}
-            />
-          )}
-
-          {step === 6 && (
-            <TrainingForm
-              value={answers}
-              onSubmit={(v) => {
-                setAnswers((a) => ({ ...a, ...v }));
-                advance(
-                  `Trains via "${v.currentTraining}", headache: "${v.trainingHeadache}", menu changes ${v.menuChanges}`,
-                  "",
-                );
-              }}
-            />
-          )}
-
-          {step === 7 && (
             <MenuUploadComposer
               food={foodMenu}
               drink={drinkMenu}
@@ -347,15 +247,12 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
                   toast.error("Upload at least one menu to continue.");
                   return;
                 }
-                advance(
-                  `Uploaded ${uploaded.map((m) => m.name).join(" + ")} — generating quiz ✨`,
-                  "",
-                );
+                advance(`Uploaded ${uploaded.map((m) => m.name).join(" + ")}`, "");
               }}
             />
           )}
 
-          {step === 8 && (
+          {step === 5 && (
             <div className="space-y-3">
               <MenuTestMatrix
                 roles={wizardRoles}
@@ -386,41 +283,14 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
             </div>
           )}
 
-
-          {step === 9 && (
-            <SchedulingForm
-              value={answers}
-              onSubmit={(v) => {
-                setAnswers((a) => ({ ...a, ...v }));
-                advance(
-                  `Posted ${v.schedAdvance} ahead · trades: ${v.tradeRules} · sick: ${v.sickProcess}`,
-                  "",
-                );
-              }}
-            />
-          )}
-
-          {step === 10 && (
-            <HiringForm
-              value={answers}
-              onSubmit={(v) => {
-                setAnswers((a) => ({ ...a, ...v }));
-                advance(
-                  v.hiring.toLowerCase().startsWith("y")
-                    ? `Hiring for ${v.positions || "open roles"}`
-                    : "Not actively hiring",
-                  "",
-                );
-              }}
-            />
-          )}
-
-          {step === 11 && (
+          {step === 6 && (
             <SummaryComposer
               answers={answers}
               foodMenu={foodMenu}
               drinkMenu={drinkMenu}
               dessertMenu={dessertMenu}
+              testConfig={defaultsFilled(wizardRoles, uploadedKinds, testConfig)}
+              roles={wizardRoles}
               onConfirm={finish}
             />
           )}
@@ -473,37 +343,12 @@ function BasicsForm({
   );
 }
 
-function OperationsForm({
-  value, onSubmit,
-}: { value: Answers; onSubmit: (v: Pick<Answers, "seats" | "daysOpen" | "hours" | "busiestNight" | "avgCovers">) => void }) {
-  const [seats, setSeats] = useState(value.seats);
-  const [daysOpen, setDaysOpen] = useState(value.daysOpen);
-  const [hours, setHours] = useState(value.hours);
-  const [busiestNight, setBusiestNight] = useState(value.busiestNight);
-  const [avgCovers, setAvgCovers] = useState(value.avgCovers);
-  const ok = seats && daysOpen && hours && busiestNight && avgCovers;
-  return (
-    <div className="space-y-2.5">
-      <Input inputMode="numeric" placeholder="Number of seats (e.g. 80)" value={seats} onChange={(e) => setSeats(e.target.value)} />
-      <Input placeholder="Days open (e.g. Tue–Sun)" value={daysOpen} onChange={(e) => setDaysOpen(e.target.value)} />
-      <Input placeholder="Hours (e.g. 5pm–11pm)" value={hours} onChange={(e) => setHours(e.target.value)} />
-      <Input placeholder="Busiest night (e.g. Saturday)" value={busiestNight} onChange={(e) => setBusiestNight(e.target.value)} />
-      <Input inputMode="numeric" placeholder="Avg covers on busy night" value={avgCovers} onChange={(e) => setAvgCovers(e.target.value)} />
-      <Button size="lg" className="w-full" disabled={!ok} onClick={() => onSubmit({ seats, daysOpen, hours, busiestNight, avgCovers })}>
-        Continue →
-      </Button>
-    </div>
-  );
-}
-
 function TeamForm({
   value, onSubmit,
-}: { value: Answers; onSubmit: (v: Pick<Answers, "fohRoles" | "bohRoles" | "minStaff" | "scheduler">) => void }) {
+}: { value: Answers; onSubmit: (v: Pick<Answers, "fohRoles" | "bohRoles">) => void }) {
   const [foh, setFoh] = useState<string[]>(value.fohRoles);
   const [boh, setBoh] = useState<string[]>(value.bohRoles);
-  const [minStaff, setMinStaff] = useState(value.minStaff);
-  const [scheduler, setScheduler] = useState(value.scheduler);
-  const ok = (foh.length || boh.length) && minStaff && scheduler;
+  const ok = foh.length > 0 || boh.length > 0;
   const recommended =
     value.type === "Fine Dining" ? "Server Assistant" :
     value.type === "Casual Dining" || value.type === "Fast Casual" ? "Busser" :
@@ -523,81 +368,7 @@ function TeamForm({
         <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">BOH roles</p>
         <ChipGrid options={[...BOH_ROLES]} value={boh} multi onChange={(v) => setBoh(v as string[])} />
       </div>
-      <Input inputMode="numeric" placeholder="Minimum staff per shift" value={minStaff} onChange={(e) => setMinStaff(e.target.value)} />
-      <Input placeholder="Who makes the schedule? (e.g. GM, Owner)" value={scheduler} onChange={(e) => setScheduler(e.target.value)} />
-      <Button size="lg" className="w-full" disabled={!ok} onClick={() => onSubmit({ fohRoles: foh, bohRoles: boh, minStaff, scheduler })}>
-        Continue →
-      </Button>
-    </div>
-  );
-}
-
-function MultiSelectComposer({
-  options, selected, onSubmit,
-}: { options: string[]; selected: string[]; onSubmit: (sel: string[]) => void }) {
-  const [sel, setSel] = useState<string[]>(selected);
-  return (
-    <div className="space-y-3">
-      <ChipGrid options={options} value={sel} multi onChange={(v) => setSel(v as string[])} />
-      <Button size="lg" className="w-full" onClick={() => onSubmit(sel)}>Continue →</Button>
-    </div>
-  );
-}
-
-function TrainingForm({
-  value, onSubmit,
-}: { value: Answers; onSubmit: (v: Pick<Answers, "currentTraining" | "trainingHeadache" | "menuChanges">) => void }) {
-  const [a, setA] = useState(value.currentTraining);
-  const [b, setB] = useState(value.trainingHeadache);
-  const [c, setC] = useState(value.menuChanges);
-  const ok = a && b && c;
-  return (
-    <div className="space-y-2.5">
-      <Input placeholder="Current training method (e.g. shadowing)" value={a} onChange={(e) => setA(e.target.value)} />
-      <Input placeholder="Biggest training headache" value={b} onChange={(e) => setB(e.target.value)} />
-      <Input placeholder="How often menu changes (e.g. seasonal)" value={c} onChange={(e) => setC(e.target.value)} />
-      <Button size="lg" className="w-full" disabled={!ok} onClick={() => onSubmit({ currentTraining: a, trainingHeadache: b, menuChanges: c })}>
-        Continue →
-      </Button>
-    </div>
-  );
-}
-
-function SchedulingForm({
-  value, onSubmit,
-}: { value: Answers; onSubmit: (v: Pick<Answers, "schedAdvance" | "tradeRules" | "sickProcess" | "schedRules">) => void }) {
-  const [a, setA] = useState(value.schedAdvance);
-  const [b, setB] = useState(value.tradeRules);
-  const [c, setC] = useState(value.sickProcess);
-  const [d, setD] = useState(value.schedRules);
-  const ok = a && b && c;
-  return (
-    <div className="space-y-2.5">
-      <Input placeholder="How far in advance schedules are posted (e.g. 2 weeks)" value={a} onChange={(e) => setA(e.target.value)} />
-      <Input placeholder="Shift trade rules (e.g. manager approval)" value={b} onChange={(e) => setB(e.target.value)} />
-      <Input placeholder="Sick call process (e.g. text manager 4h ahead)" value={c} onChange={(e) => setC(e.target.value)} />
-      <Input placeholder="Other scheduling rules (optional)" value={d} onChange={(e) => setD(e.target.value)} />
-      <Button size="lg" className="w-full" disabled={!ok} onClick={() => onSubmit({ schedAdvance: a, tradeRules: b, sickProcess: c, schedRules: d })}>
-        Continue →
-      </Button>
-    </div>
-  );
-}
-
-function HiringForm({
-  value, onSubmit,
-}: { value: Answers; onSubmit: (v: Pick<Answers, "hiring" | "positions" | "hiringProcess" | "hiringMatters">) => void }) {
-  const [a, setA] = useState(value.hiring);
-  const [b, setB] = useState(value.positions);
-  const [c, setC] = useState(value.hiringProcess);
-  const [d, setD] = useState(value.hiringMatters);
-  return (
-    <div className="space-y-2.5">
-      <ChipGrid options={["Yes, actively", "Sometimes", "Not right now"]} value={a} onChange={(v) => setA(v as string)} />
-      <Input placeholder="Which positions? (optional)" value={b} onChange={(e) => setB(e.target.value)} />
-      <Input placeholder="Hiring process (e.g. apply → trail shift)" value={c} onChange={(e) => setC(e.target.value)} />
-      <Input placeholder="What matters most in a new hire?" value={d} onChange={(e) => setD(e.target.value)} />
-      <Button size="lg" className="w-full" disabled={!a} onClick={() => onSubmit({ hiring: a, positions: b, hiringProcess: c, hiringMatters: d })}>
+      <Button size="lg" className="w-full" disabled={!ok} onClick={() => onSubmit({ fohRoles: foh, bohRoles: boh })}>
         Continue →
       </Button>
     </div>
@@ -620,27 +391,39 @@ function MenuUploadComposer({
       <UploadField label="Drink menu" value={drink} onChange={onDrink} hint="Optional — skip if these are on your food menu." />
       <UploadField label="Dessert menu" value={dessert} onChange={onDessert} hint="Optional — skip if these are on your food menu." />
       <Button size="lg" className="w-full" disabled={!hasAny} onClick={onSubmit}>
-        Generate quiz & continue →
+        Continue →
       </Button>
     </div>
   );
 }
 
 function SummaryComposer({
-  answers, foodMenu, drinkMenu, dessertMenu, onConfirm,
-}: { answers: Answers; foodMenu: MenuUpload | null; drinkMenu: MenuUpload | null; dessertMenu: MenuUpload | null; onConfirm: () => void }) {
+  answers, foodMenu, drinkMenu, dessertMenu, testConfig, roles, onConfirm,
+}: {
+  answers: Answers;
+  foodMenu: MenuUpload | null;
+  drinkMenu: MenuUpload | null;
+  dessertMenu: MenuUpload | null;
+  testConfig: MenuTestConfig;
+  roles: Role[];
+  onConfirm: () => void;
+}) {
   const uploadedNames = [foodMenu, drinkMenu, dessertMenu].filter(Boolean).map((m) => m!.name);
+  const gated = roles.filter((r) => (testConfig[r] ?? []).length > 0);
   const items = [
-    `Scheduling grid set up with your roles (${[...answers.fohRoles, ...answers.bohRoles].length || 0} configured)`,
-    `Menu quiz generated from ${uploadedNames.join(" & ") || "your menu"}`,
-    `Menu Knowledge Test gate enabled for ${answers.type || "your restaurant"} staff`,
-    `Hiring templates created${answers.positions ? ` for ${answers.positions}` : ""}`,
-    "First AI schedule ready",
+    `Restaurant profile saved — ${answers.name || "your restaurant"}${answers.cityState ? `, ${answers.cityState}` : ""}${answers.type ? ` (${answers.type})` : ""}`,
+    `${roles.length} role${roles.length === 1 ? "" : "s"} configured${roles.length ? `: ${roles.join(", ")}` : ""}`,
+    uploadedNames.length
+      ? `Menu${uploadedNames.length > 1 ? "s" : ""} uploaded: ${uploadedNames.join(", ")}`
+      : "No menus uploaded",
+    gated.length
+      ? `Menu test required for ${gated.join(", ")}`
+      : "No roles currently require a menu test",
   ];
   return (
     <div className="space-y-3">
       <div className="rounded-2xl border border-border bg-card p-4">
-        <p className="mb-2 text-sm font-semibold">Here's what I configured for {answers.name || "your restaurant"}:</p>
+        <p className="mb-2 text-sm font-semibold">Here's what's saved for {answers.name || "your restaurant"}:</p>
         <ul className="space-y-1.5">
           {items.map((t, i) => (
             <li key={i} className="flex items-start gap-2 text-sm">
@@ -651,10 +434,10 @@ function SummaryComposer({
         </ul>
       </div>
       <p className="px-1 text-sm text-muted-foreground">
-        Your restaurant intelligence platform is ready. Want to invite your first staff member now?
+        Next up inside the app: generate the Menu Knowledge Test from your menus, review the questions, and publish it.
       </p>
       <Button size="lg" className="w-full" onClick={onConfirm}>
-        Yes — take me in →
+        Take me in →
       </Button>
     </div>
   );
@@ -776,10 +559,10 @@ function FinalizingScreen({ name }: { name: string }) {
           </svg>
         </div>
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-          Building your platform for {name || "your restaurant"}…
+          Setting up {name || "your restaurant"}…
         </h1>
         <p className="mt-3 text-white/80">
-          Customizing schedules, training, and hiring templates from your answers.
+          Saving your profile, roles, menus, and menu test requirements.
         </p>
       </div>
     </div>
