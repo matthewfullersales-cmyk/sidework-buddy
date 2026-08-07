@@ -1397,6 +1397,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           ...hoursPatch,
           businessInfo: normalizeBusinessInfo(remoteBusinessInfo),
           menuBankMeta,
+          menuTestConfig: normalizeMenuTestConfig(remoteMenuTestConfig),
         }));
 
       } catch (e) {
