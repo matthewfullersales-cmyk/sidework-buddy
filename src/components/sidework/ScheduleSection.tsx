@@ -795,7 +795,7 @@ function ShiftDetailsDialog({
   employeeId: string; date: string; existing?: Shift;
   onClose: () => void; onSave: (s: Shift) => void; onDelete: (id: string) => void;
 }) {
-  const { employees, activeRoles, customRoles, timeOff, mealPeriods, restaurantHours, menuBankMeta } = useStore();
+  const { employees, activeRoles, customRoles, timeOff, mealPeriods, restaurantHours, menuBankMeta, menuTestConfig, uploadedMenuTypes } = useStore();
   const menuBankMetaObj = menuBankMeta;
   const emp = employees.find((e) => e.id === employeeId);
   // Compute suggestions up-front so a brand-new shift is seeded with the
