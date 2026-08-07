@@ -5,36 +5,18 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import {
+  composeQuestions,
+  normalizeMenuTestConfig,
+  poolsByKind,
+  requiredKindsForRoles,
+  shuffle,
+  type BankQuestion,
+} from "@/lib/quiz-composition";
 
 const QUIZ_SIZE = 5;
 const SECONDS_PER_QUESTION = 30;
 const PASS_PCT = 80;
-type BankQuestion = { question: string; options: string[]; answerIndex: number; source?: "food" | "drink" };
-
-// Duplicates the BOH-built-in list from sidework-store so the server can
-// scope the Menu Knowledge Test without importing the client store.
-const BOH_ROLES = new Set([
-  "Chef", "Sous Chef", "Line Cook", "Fry Cook", "Saute", "Grill", "Pizza", "Garde Manger", "Dishwasher", "Prep",
-]);
-function isBohRole(role: string | null | undefined): boolean {
-  if (!role) return false;
-  return BOH_ROLES.has(role.trim());
-}
-
-
-function shuffle<T>(items: T[]): T[] {
-  const copy = [...items];
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-  return copy;
-}
-
-function pickRandom<T>(items: T[], count: number): T[] {
-  return shuffle(items).slice(0, count);
-}
-
 const startSchema = z.object({
   employeeId: z.string().uuid(),
   videoId: z.string().min(1).max(80),
@@ -109,17 +91,20 @@ async function verifyEmployeeAccess(
   supabase: import("@supabase/supabase-js").SupabaseClient,
   employeeId: string,
   userId: string,
-): Promise<{ ok: true; ownerId: string; primaryRole: string | null } | { ok: false; error: string }> {
+): Promise<{ ok: true; ownerId: string; primaryRole: string | null; approvedRoles: string[] } | { ok: false; error: string }> {
   const { data, error } = await supabase
     .from("restaurant_employees")
-    .select("id, owner_id, auth_user_id, primary_role")
+    .select("id, owner_id, auth_user_id, primary_role, approved_roles")
     .eq("id", employeeId)
     .maybeSingle();
   if (error || !data) return { ok: false, error: "Employee not found." };
   if (data.owner_id !== userId && data.auth_user_id !== userId) {
     return { ok: false, error: "Not authorized for this employee." };
   }
-  return { ok: true, ownerId: data.owner_id, primaryRole: data.primary_role ?? null };
+  const approved = Array.isArray(data.approved_roles)
+    ? (data.approved_roles as unknown[]).filter((r): r is string => typeof r === "string")
+    : [];
+  return { ok: true, ownerId: data.owner_id, primaryRole: data.primary_role ?? null, approvedRoles: approved };
 }
 
 export const startQuizAttempt = createServerFn({ method: "POST" })
@@ -155,7 +140,7 @@ export const startQuizAttempt = createServerFn({ method: "POST" })
             question: z.string(),
             options: z.array(z.string()).length(4),
             answerIndex: z.number().int().min(0).max(3),
-            source: z.enum(["food", "drink"]).optional(),
+            source: z.enum(["food", "drink", "dessert"]).optional(),
           }),
         )
         .safeParse(row.questions);
@@ -163,39 +148,29 @@ export const startQuizAttempt = createServerFn({ method: "POST" })
         return { ok: false, error: "The stored menu quiz is malformed." };
       }
 
-      // Section-scoped draw:
-      //   BOH staff -> food only.
-      //   FOH staff -> food + drink; if either pool is empty, graceful fallback to the other.
-      const isBoh = isBohRole(access.primaryRole);
-      const foodPool = parsed.data.filter((q) => q.source === "food" || q.source === undefined);
-      const drinkPool = parsed.data.filter((q) => q.source === "drink");
-      if (isBoh) {
-        if (foodPool.length < QUIZ_SIZE) {
-          return { ok: false, error: "No food-menu questions available yet — ask the manager to upload the food menu." };
-        }
-        bank = pickRandom(foodPool, QUIZ_SIZE);
-      } else {
-        // FOH: aim for a balanced mix when both pools have material.
-        if (foodPool.length === 0 && drinkPool.length === 0) {
-          return { ok: false, error: "The stored menu quiz is malformed." };
-        }
-        if (foodPool.length === 0) bank = pickRandom(drinkPool, QUIZ_SIZE);
-        else if (drinkPool.length === 0) bank = pickRandom(foodPool, QUIZ_SIZE);
-        else {
-          const foodTarget = Math.min(foodPool.length, Math.max(2, Math.floor(QUIZ_SIZE / 2)));
-          const drinkTarget = Math.min(drinkPool.length, QUIZ_SIZE - foodTarget);
-          const foodPart = pickRandom(foodPool, foodTarget);
-          const drinkPart = pickRandom(drinkPool, drinkTarget);
-          let combined = [...foodPart, ...drinkPart];
-          if (combined.length < QUIZ_SIZE) {
-            const remainingPool = [
-              ...foodPool.filter((q) => !foodPart.includes(q)),
-              ...drinkPool.filter((q) => !drinkPart.includes(q)),
-            ];
-            combined = [...combined, ...pickRandom(remainingPool, QUIZ_SIZE - combined.length)];
-          }
-          bank = shuffle(combined);
-        }
+      // One blended test. Which pools it draws from comes from the owner's
+      // per-role menu test config; the mix is proportional to pool size and
+      // interleaved so categories aren't sectioned.
+      const { data: profile } = await supabaseAdmin
+        .from("profiles")
+        .select("menu_test_config")
+        .eq("id", access.ownerId)
+        .maybeSingle();
+      const config = normalizeMenuTestConfig(profile?.menu_test_config ?? null);
+
+      const pools = poolsByKind(parsed.data as BankQuestion[]);
+      const roles = access.approvedRoles.length > 0
+        ? access.approvedRoles
+        : access.primaryRole
+          ? [access.primaryRole]
+          : [];
+      const requiredKinds = requiredKindsForRoles(roles, config, pools);
+      if (requiredKinds.length === 0) {
+        return { ok: false, error: "No menu test is required for this role." };
+      }
+      bank = composeQuestions(pools, requiredKinds, QUIZ_SIZE);
+      if (bank.length < QUIZ_SIZE) {
+        return { ok: false, error: "This quiz needs at least 5 questions before it can be assigned." };
       }
     } else {
       // 86Paper is a testing platform: the only knowledge test today is the
@@ -207,7 +182,7 @@ export const startQuizAttempt = createServerFn({ method: "POST" })
     if (bank.length < QUIZ_SIZE) {
       return { ok: false, error: "This quiz needs at least 5 questions before it can be assigned." };
     }
-    const chosen = bank.length === QUIZ_SIZE ? bank : pickRandom(bank, QUIZ_SIZE);
+    const chosen = bank.length === QUIZ_SIZE ? bank : shuffle(bank).slice(0, QUIZ_SIZE);
     const { storedQuestions, publicQuestions } = shuffleAndSplit(chosen);
 
 
