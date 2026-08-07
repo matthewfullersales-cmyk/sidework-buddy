@@ -718,6 +718,9 @@ interface Store {
   dessertMenu: MenuUpload | null;
   /** Which menu types the owner actually uploaded (food/drink/dessert). */
   uploadedMenuTypes: MenuKind[];
+  /** Per-role menu test requirements (role -> required menu kinds). */
+  menuTestConfig: MenuTestConfig;
+  setMenuTestConfig: (cfg: MenuTestConfig) => void;
   menuBankMeta: MenuBankMeta | null;
   restaurantProfile: RestaurantProfile | null;
 
