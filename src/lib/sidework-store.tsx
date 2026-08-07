@@ -740,10 +740,16 @@ interface Store {
   notifications: Notification[];
   setMenu: (m: MenuUpload | null) => void;
   setDrinkMenu: (m: MenuUpload | null) => void;
+  setDessertMenu: (m: MenuUpload | null) => void;
   markMenuGenerated: () => void;
   setMenuBankMeta: (m: MenuBankMeta | null) => void;
   refreshMenuBankMeta: () => Promise<void>;
-  completeSetup: (profile: Omit<RestaurantProfile, "completedAt">, food: MenuUpload | null, drink: MenuUpload | null) => void;
+  completeSetup: (
+    profile: Omit<RestaurantProfile, "completedAt">,
+    food: MenuUpload | null,
+    drink: MenuUpload | null,
+    dessert?: MenuUpload | null,
+  ) => void;
 
   resetSetup: () => void;
   markNotificationsRead: () => void;
