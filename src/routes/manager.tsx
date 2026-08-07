@@ -18,7 +18,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
-import { onboardingStatus, useStore, type Role, type ApplicationStatus, type Employee, type Relationship, DAY_KEYS, hoursConfigured, type JobApplication, type HiringStage, type ShadowShiftDetails, type InterviewType, getHiringStage, isPendingRoleAssignment, isScheduleEligible, trainingProgressFor, menuTestStatus, MENU_MODULE_ID, MENU_TEST_TITLE } from "@/lib/sidework-store";
+import { onboardingStatus, useStore, type Role, type ApplicationStatus, type Employee, type Relationship, DAY_KEYS, hoursConfigured, type JobApplication, type HiringStage, type ShadowShiftDetails, type InterviewType, getHiringStage, isPendingRoleAssignment, isScheduleEligible, trainingProgressFor, menuTestStatus, MENU_MODULE_ID, MENU_TEST_TITLE, availableMenuKinds } from "@/lib/sidework-store";
+import { MenuTestMatrix } from "@/components/sidework/MenuTestMatrix";
 import { roleStyle, fohRolesWithCustom, bohRolesWithCustom, allRolesWithCustom } from "@/lib/role-colors";
 
 import { PhoneInput } from "@/components/ui/phone-input";
@@ -184,9 +185,9 @@ function OverviewTab() {
     const pending = trades.filter((t) => t.status === "pending_approval").length;
     const newApps = applications.filter((a) => a.status === "new").length;
     const pendingTO = timeOff.filter((t) => t.status === "pending").length;
-    const menuStale = employees.filter((e) => menuTestStatus(e, menuBankMetaObj) === "stale").length;
+    const menuStale = employees.filter((e) => menuTestStatus(e, menuBankMetaObj, customRoles, menuTestConfig, uploadedMenuTypes) === "stale").length;
     const menuNever = employees.filter((e) => {
-      const s = menuTestStatus(e, menuBankMetaObj);
+      const s = menuTestStatus(e, menuBankMetaObj, customRoles, menuTestConfig, uploadedMenuTypes);
       return s === "never" || s === "in-progress";
     }).length;
     return { onboarded, total: employees.length, pending, newApps, pendingTO, shifts: shifts.length, menuStale, menuNever };
@@ -642,7 +643,7 @@ function TeamTab() {
         {visibleEmployees.map((e) => {
           const s = onboardingStatus(e, customRoles, menuBankMetaObj);
           const fullName = e.firstName && e.lastName ? `${e.firstName} ${e.lastName}` : e.name;
-          const menuState = menuTestStatus(e, menuBankMetaObj);
+          const menuState = menuTestStatus(e, menuBankMetaObj, customRoles, menuTestConfig, uploadedMenuTypes);
           return (
             <Card key={e.id}>
               <CardContent className="p-5">
@@ -664,11 +665,11 @@ function TeamTab() {
                   <div className="text-right">
                     {isPendingRoleAssignment(e) ? (
                       <Badge variant="secondary" className="bg-muted text-foreground">Pending role</Badge>
-                    ) : isScheduleEligible(e, customRoles, menuBankMetaObj) ? (
+                    ) : isScheduleEligible(e, customRoles, menuBankMetaObj, menuTestConfig, uploadedMenuTypes) ? (
                       <Badge className="bg-success text-success-foreground hover:bg-success">Schedule eligible</Badge>
                     ) : (
                       (() => {
-                        const tp = trainingProgressFor(e, customRoles, menuBankMetaObj);
+                        const tp = trainingProgressFor(e, customRoles, menuBankMetaObj, menuTestConfig, uploadedMenuTypes);
                         return <Badge variant="secondary" className="bg-amber-500/15 text-amber-700 dark:text-amber-300">In training · {tp.passed}/{tp.total}</Badge>;
                       })()
                     )}
@@ -2492,6 +2493,21 @@ function SettingsTab({ onOpenSetup }: { onOpenSetup: () => void }) {
         </CardHeader>
         <CardContent>
           <BusinessInfoEditor value={businessInfo} onChange={setBusinessInfo} />
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Menu test requirements</CardTitle>
+          <p className="mt-1 text-xs text-muted-foreground">Choose which menu knowledge each role must prove before their schedule unlocks. A role with nothing checked is never blocked by a menu test.</p>
+        </CardHeader>
+        <CardContent>
+          <MenuTestMatrix
+            roles={activeRoles}
+            menuKinds={menuKinds}
+            value={menuTestConfig}
+            onChange={setMenuTestConfig}
+            customRoles={customRoles}
+          />
         </CardContent>
       </Card>
       {setupCompleted && <StaffOnboardingCard />}
