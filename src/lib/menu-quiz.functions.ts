@@ -32,20 +32,21 @@ const inputSchema = z
   .object({
     food: filePayload.optional(),
     drink: filePayload.optional(),
+    dessert: filePayload.optional(),
     restaurantName: z.string().trim().max(200).optional().default(""),
   })
-  .refine((v) => v.food || v.drink, {
-    message: "Upload at least one menu (food or drink).",
+  .refine((v) => v.food || v.drink || v.dessert, {
+    message: "Upload at least one menu (food, drink, or dessert).",
   });
 
 const questionSchema = z.object({
   question: z.string().min(4),
   options: z.array(z.string().min(1)).length(4),
   answerIndex: z.number().int().min(0).max(3),
-  source: z.enum(["food", "drink"]),
+  source: z.enum(["food", "drink", "dessert"]),
 });
 const modelResponseSchema = z.object({
-  questions: z.array(questionSchema).min(5).max(30),
+  questions: z.array(questionSchema).min(1).max(60),
 });
 
 export type MenuQuizQuestion = z.infer<typeof questionSchema>;
@@ -53,35 +54,33 @@ export type MenuQuizPreviewQuestion = Pick<MenuQuizQuestion, "question" | "optio
 /** Draft returned by generateMenuQuiz — includes answerIndex for owner review. NOT persisted. */
 export type MenuQuizDraftQuestion = MenuQuizQuestion;
 export type GenerateMenuQuizResult =
-  | { ok: true; questions: MenuQuizDraftQuestion[]; foodCount: number; drinkCount: number }
+  | { ok: true; questions: MenuQuizDraftQuestion[]; foodCount: number; drinkCount: number; dessertCount: number }
   | { ok: false; error: string };
 export type PublishMenuQuizResult =
-  | { ok: true; bankVersion: number; foodCount: number; drinkCount: number }
+  | { ok: true; bankVersion: number; foodCount: number; drinkCount: number; dessertCount: number }
   | { ok: false; error: string };
 
 
 
-function buildSystemPrompt(hasFood: boolean, hasDrink: boolean): string {
-  const coverage = hasFood && hasDrink
-    ? `You will be given BOTH a food menu and a drink menu. Write about 15 questions from the food menu AND about 15 questions from the drink menu (~30 total). Every question must reference an item that appears in one of the uploaded menus. Tag each question with a "source" field: "food" for food-menu questions, "drink" for drink-menu questions.`
-    : hasFood
-      ? `You will be given the food menu. Write exactly 15 questions. Every question must reference a dish, ingredient, or category that actually appears on it. Tag every question with "source": "food".`
-      : `You will be given the drink menu. Write exactly 15 questions. Every question must reference a drink, ingredient, or category that actually appears on it. Tag every question with "source": "drink".`;
+function buildSystemPrompt(kinds: Array<"food" | "drink" | "dessert">): string {
+  const names: Record<string, string> = { food: "food menu", drink: "drink menu", dessert: "dessert menu" };
+  const list = kinds.map((k) => names[k]).join(", ");
+  const perMenu = kinds.length > 1 ? 15 : 15;
+  const coverage = `You will be given ${kinds.length} menu file(s): ${list}. Write about ${perMenu} questions PER menu file (roughly ${perMenu * kinds.length} total). Every question must reference an item that appears in the menu it was drawn from. Tag each question with a "source" field of exactly ${kinds.map((k) => `"${k}"`).join(", ")} depending on which uploaded menu it came from. Never emit a source that was not uploaded.`;
   return `You are a restaurant training coach building the mandatory "Menu Knowledge Test" for a restaurant's floor and kitchen staff. This is a gating test — an employee cannot be scheduled until they pass it — so every question must test genuine, on-menu knowledge.
 
 ${coverage}
 
 Rules:
 - Only use items and details that ACTUALLY appear on the menus you were given. Never invent items.
-- If a file is blurry, unreadable, or clearly not a menu, skip that file. If neither file yields anything usable, return {"questions": []}.
+- If a file is blurry, unreadable, or clearly not a menu, skip that file. If no file yields anything usable, return {"questions": []}.
 - Each question must have exactly 4 options and exactly one correct answer.
-- Mix question types: "What's in [dish/drink]?", "Which item contains [ingredient]?", "Which category does [item] belong to?", "What garnish/side comes with [item]?".
-- Distractors must be plausible — prefer other items from the SAME menu (food distractors for food questions, drink distractors for drink questions).
+- Mix question types: "What's in [dish/drink/dessert]?", "Which item contains [ingredient]?", "Which category does [item] belong to?", "What garnish/side comes with [item]?".
+- Distractors must be plausible — prefer other items from the SAME menu.
 - Keep questions concise (under 140 chars) and answers under 90 chars.
 - Return STRICT JSON only, matching this shape exactly, no prose, no markdown fences:
 {"questions":[{"question":"...","options":["A","B","C","D"],"answerIndex":0,"source":"food"}, ...]}`;
 }
-
 
 type UserBlock =
   | { type: "text"; text: string }
@@ -136,10 +135,14 @@ export const generateMenuQuiz = createServerFn({ method: "POST" })
     if (foodErr) return { ok: false, error: foodErr };
     const drinkErr = validatePayload(data.drink, "drink");
     if (drinkErr) return { ok: false, error: drinkErr };
+    const dessertErr = validatePayload(data.dessert, "dessert");
+    if (dessertErr) return { ok: false, error: dessertErr };
 
-    const hasFood = !!data.food;
-    const hasDrink = !!data.drink;
-    const systemPrompt = buildSystemPrompt(hasFood, hasDrink);
+    const kinds: Array<"food" | "drink" | "dessert"> = [];
+    if (data.food) kinds.push("food");
+    if (data.drink) kinds.push("drink");
+    if (data.dessert) kinds.push("dessert");
+    const systemPrompt = buildSystemPrompt(kinds);
 
     const intro = data.restaurantName
       ? `Restaurant: "${data.restaurantName}". Build the Menu Knowledge Test from the menu(s) below.`
@@ -147,6 +150,7 @@ export const generateMenuQuiz = createServerFn({ method: "POST" })
     const userContent: UserBlock[] = [{ type: "text", text: intro }];
     if (data.food) userContent.push(...fileBlocks("Food menu (tag questions from this as source=\"food\"):", "food-menu", data.food));
     if (data.drink) userContent.push(...fileBlocks("Drink menu (tag questions from this as source=\"drink\"):", "drink-menu", data.drink));
+    if (data.dessert) userContent.push(...fileBlocks("Dessert menu (tag questions from this as source=\"dessert\"):", "dessert-menu", data.dessert));
 
 
     let resp: Response;
@@ -202,17 +206,15 @@ export const generateMenuQuiz = createServerFn({ method: "POST" })
     }
 
     const questions = shaped.data.questions.map((q) => {
-      // If somehow the model tagged wrong, fall back based on which menu was uploaded.
-      const fallbackSource: "food" | "drink" = hasFood && !hasDrink ? "food" : !hasFood && hasDrink ? "drink" : q.source;
-      const source = q.source === "food" || q.source === "drink" ? q.source : fallbackSource;
-      // Drop drink-tagged questions if no drink menu (or vice versa) — model shouldn't do this, but be defensive.
+      // If somehow the model tagged wrong, fall back to the only uploaded menu.
+      const source = kinds.includes(q.source) ? q.source : kinds.length === 1 ? kinds[0] : q.source;
       return {
         question: q.question.slice(0, 240),
         options: q.options.slice(0, 4).map((o) => o.slice(0, 140)),
         answerIndex: Math.max(0, Math.min(3, q.answerIndex)),
         source,
       };
-    }).filter((q) => (q.source === "food" ? hasFood : hasDrink));
+    }).filter((q) => kinds.includes(q.source));
 
     if (questions.length === 0) {
       return { ok: false, error: "Couldn't read a menu in those files. Upload clearer photos or the original PDFs." };
@@ -220,11 +222,13 @@ export const generateMenuQuiz = createServerFn({ method: "POST" })
 
     const foodCount = questions.filter((q) => q.source === "food").length;
     const drinkCount = questions.filter((q) => q.source === "drink").length;
+    const dessertCount = questions.filter((q) => q.source === "dessert").length;
 
     return {
       ok: true,
       foodCount,
       drinkCount,
+      dessertCount,
       questions,
     };
   });
@@ -248,6 +252,7 @@ export const publishMenuQuiz = createServerFn({ method: "POST" })
     }));
     const foodCount = questions.filter((q) => q.source === "food").length;
     const drinkCount = questions.filter((q) => q.source === "drink").length;
+    const dessertCount = questions.filter((q) => q.source === "dessert").length;
 
     const { data: existing, error: readErr } = await context.supabase
       .from("menu_quiz_banks")
@@ -276,7 +281,7 @@ export const publishMenuQuiz = createServerFn({ method: "POST" })
       return { ok: false, error: "Couldn't save the quiz. Try again." };
     }
 
-    return { ok: true, bankVersion: nextVersion, foodCount, drinkCount };
+    return { ok: true, bankVersion: nextVersion, foodCount, drinkCount, dessertCount };
   });
 
 

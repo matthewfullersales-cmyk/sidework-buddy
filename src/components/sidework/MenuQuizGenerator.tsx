@@ -18,7 +18,7 @@ const MAX_IMAGE_INPUT_MB = 40;
 const COMPRESS_MAX_EDGE = 2000;
 const COMPRESS_QUALITY = 0.8;
 
-type MenuKind = "food" | "drink";
+type MenuKind = "food" | "drink" | "dessert";
 
 function readFileAsBase64(file: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -63,14 +63,16 @@ async function compressImage(file: File): Promise<{ blob: Blob; mimeType: string
 }
 
 export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }) {
-  const { restaurantProfile, setMenu, setDrinkMenu, refreshMenuBankMeta, menuBankMeta } = useStore();
+  const { restaurantProfile, setMenu, setDrinkMenu, setDessertMenu, refreshMenuBankMeta, menuBankMeta } = useStore();
   const generate = useServerFn(generateMenuQuiz);
   const publish = useServerFn(publishMenuQuiz);
 
   const [food, setFood] = useState<File | null>(null);
   const [drink, setDrink] = useState<File | null>(null);
+  const [dessert, setDessert] = useState<File | null>(null);
   const [foodPreview, setFoodPreview] = useState<string | null>(null);
   const [drinkPreview, setDrinkPreview] = useState<string | null>(null);
+  const [dessertPreview, setDessertPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -80,10 +82,11 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
   const onFile = async (kind: MenuKind, f: File | null) => {
     setError(null);
     setDraft([]);
-    const prevUrl = kind === "food" ? foodPreview : drinkPreview;
+    const prevUrl = kind === "food" ? foodPreview : kind === "drink" ? drinkPreview : dessertPreview;
     if (prevUrl) URL.revokeObjectURL(prevUrl);
     if (kind === "food") { setFood(null); setFoodPreview(null); }
-    else { setDrink(null); setDrinkPreview(null); }
+    else if (kind === "drink") { setDrink(null); setDrinkPreview(null); }
+    else { setDessert(null); setDessertPreview(null); }
     if (!f) return;
     const isPdf = f.type === "application/pdf";
     if (isPdf && f.size > MAX_PDF_MB * 1024 * 1024) {
@@ -107,12 +110,13 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
       }
     }
     if (kind === "food") { setFood(finalFile); setFoodPreview(preview); }
-    else { setDrink(finalFile); setDrinkPreview(preview); }
+    else if (kind === "drink") { setDrink(finalFile); setDrinkPreview(preview); }
+    else { setDessert(finalFile); setDessertPreview(preview); }
   };
 
   const runGenerate = async () => {
-    if (!food && !drink) {
-      toast.error("Upload at least one menu (food or drink) first.");
+    if (!food && !drink && !dessert) {
+      toast.error("Upload at least one menu (food, drink, or dessert) first.");
       return;
     }
     setLoading(true);
@@ -121,10 +125,12 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
     try {
       const foodPayload = food ? { fileBase64: await readFileAsBase64(food), mimeType: food.type } : undefined;
       const drinkPayload = drink ? { fileBase64: await readFileAsBase64(drink), mimeType: drink.type } : undefined;
+      const dessertPayload = dessert ? { fileBase64: await readFileAsBase64(dessert), mimeType: dessert.type } : undefined;
       const result = await generate({
         data: {
           food: foodPayload,
           drink: drinkPayload,
+          dessert: dessertPayload,
           restaurantName: restaurantProfile?.name ?? "",
         },
       });
@@ -196,6 +202,16 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
           preview: drinkPreview ?? undefined,
         });
       }
+      if (dessert) {
+        setDessertMenu({
+          name: dessert.name,
+          type: dessert.type,
+          sizeKB: Math.max(1, Math.round(dessert.size / 1024)),
+          uploadedAt: now,
+          generatedAt: now,
+          preview: dessertPreview ?? undefined,
+        });
+      }
       await refreshMenuBankMeta();
       const isRegen = (menuBankMeta?.version ?? 0) > 0;
       setDraft([]);
@@ -216,7 +232,7 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
     setError(null);
   };
 
-  const canGenerate = !!(food || drink) && !loading && !publishing;
+  const canGenerate = !!(food || drink || dessert) && !loading && !publishing;
   const hasDraft = draft.length > 0;
 
   return (
@@ -226,7 +242,7 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
           <div>
             <CardTitle className="text-base sm:text-lg">Menu Knowledge Test</CardTitle>
             <p className="mt-1 text-xs text-muted-foreground">
-              Upload your food menu, drink menu, or both. AI reads them and drafts a real 15-question test. You review, edit, and publish — nothing goes live to staff until you approve it.
+              Upload your food, drink and/or dessert menus. AI reads them and drafts a real 15-question test. You review, edit, and publish — nothing goes live to staff until you approve it.
             </p>
             {menuBankMeta && (
               <p className="mt-1 text-[11px] font-medium text-primary">
@@ -242,7 +258,7 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-3">
           <MenuSlot
             label="Food menu"
             accept={ACCEPT}
@@ -256,6 +272,13 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
             file={drink}
             previewUrl={drinkPreview}
             onPick={(f) => onFile("drink", f)}
+          />
+          <MenuSlot
+            label="Dessert menu"
+            accept={ACCEPT}
+            file={dessert}
+            previewUrl={dessertPreview}
+            onPick={(f) => onFile("dessert", f)}
           />
         </div>
 
@@ -302,7 +325,7 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
               <div>
                 <strong>Owner review.</strong> Fix any garbled text, remove weak questions, then publish. Staff never see the correct answers — only you do here.
                 <div className="mt-1 text-xs opacity-80">
-                  {draft.filter((q) => q.source === "food").length} food · {draft.filter((q) => q.source === "drink").length} drink · {draft.length} total
+                  {draft.filter((q) => q.source === "food").length} food · {draft.filter((q) => q.source === "drink").length} drink · {draft.filter((q) => q.source === "dessert").length} dessert · {draft.length} total
                 </div>
               </div>
               <div className="flex gap-2">

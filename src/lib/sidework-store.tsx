@@ -703,7 +703,7 @@ export interface Notification {
   read: boolean;
 }
 
-export type MenuBankMeta = { version: number; updatedAt: string; foodCount: number; drinkCount: number };
+export type MenuBankMeta = { version: number; updatedAt: string; foodCount: number; drinkCount: number; dessertCount: number };
 
 interface Store {
 
@@ -912,18 +912,18 @@ export function normalizeMenuTestConfig(raw: unknown): MenuTestConfig {
 }
 
 /**
- * Menu kinds the current bank can actually test. Dessert questions live in the
- * food pool today (generation is unchanged), so dessert follows food content.
+ * Menu kinds the current bank can actually test. Food, drink and dessert are
+ * genuine, independently generated question pools.
  */
 export function availableMenuKinds(
   meta: MenuBankMeta | null | undefined,
-  uploadedMenuTypes: MenuKind[] = [],
+  _uploadedMenuTypes: MenuKind[] = [],
 ): MenuKind[] {
   if (!meta) return [];
   const out: MenuKind[] = [];
   if (meta.foodCount > 0) out.push("food");
   if (meta.drinkCount > 0) out.push("drink");
-  if (meta.foodCount > 0 && uploadedMenuTypes.includes("dessert")) out.push("dessert");
+  if ((meta.dessertCount ?? 0) > 0) out.push("dessert");
   return out;
 }
 
