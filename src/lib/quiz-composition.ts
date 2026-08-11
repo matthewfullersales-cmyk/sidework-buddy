@@ -93,10 +93,34 @@ export function requiredKindsForRoles(
   return MENU_KINDS.filter((k) => set.has(k));
 }
 
+/** Anti-cheat sizing: bigger tests drawn from a bigger bank. */
+export const MIN_PER_POOL = 3;
+export const TARGET_QUESTIONS = 12;
+export const MAX_QUESTIONS = 15;
+export const MIN_QUESTIONS = 5;
+
+/**
+ * How many questions this attempt should have:
+ * min(total available across required pools, 12), raised so every required
+ * pool can contribute its floor of 3, and hard-capped at 15.
+ */
+export function quizSizeFor(
+  pools: Record<MenuKind, BankQuestion[]>,
+  kinds: MenuKind[],
+): number {
+  const usable = kinds.filter((k) => pools[k].length > 0);
+  if (usable.length === 0) return 0;
+  const total = usable.reduce((sum, k) => sum + pools[k].length, 0);
+  const floorTotal = usable.reduce((sum, k) => sum + Math.min(MIN_PER_POOL, pools[k].length), 0);
+  const target = Math.min(MAX_QUESTIONS, Math.max(TARGET_QUESTIONS, floorTotal));
+  return Math.min(total, target);
+}
+
 /**
  * Draw `size` questions across `kinds`, proportional to each pool's size,
- * with at least one question from every non-empty required pool, then shuffle
- * everything together so categories are interleaved rather than sectioned.
+ * with a floor of 3 questions (or the whole pool, if smaller) from every
+ * required pool, then shuffle everything together so categories are
+ * interleaved rather than sectioned.
  * If the required pools can't fill the quota, top up from the other pools.
  */
 export function composeQuestions(
@@ -108,10 +132,17 @@ export function composeQuestions(
   if (usable.length === 0) return [];
 
   const total = usable.reduce((sum, k) => sum + pools[k].length, 0);
-  // Start with one guaranteed question per required pool.
+  // Start with the guaranteed floor per required pool (capped at pool size,
+  // and at a fair share of the quota when the quota is small).
+  const fairShare = Math.max(1, Math.floor(size / usable.length));
   const alloc: Record<string, number> = {};
-  for (const k of usable) alloc[k] = 1;
-  let remaining = Math.max(0, size - usable.length);
+  let floorUsed = 0;
+  for (const k of usable) {
+    const base = Math.min(MIN_PER_POOL, pools[k].length, Math.max(1, fairShare));
+    alloc[k] = base;
+    floorUsed += base;
+  }
+  let remaining = Math.max(0, size - floorUsed);
 
   if (remaining > 0) {
     const shares = usable.map((k) => ({
@@ -131,6 +162,7 @@ export function composeQuestions(
       i++;
     }
   }
+
 
   // Cap each allocation at the pool size and draw.
   const picked: BankQuestion[] = [];
