@@ -9,12 +9,16 @@ import {
   composeQuestions,
   normalizeMenuTestConfig,
   poolsByKind,
+  quizSizeFor,
   requiredKindsForRoles,
   shuffle,
+  MAX_QUESTIONS,
+  MIN_QUESTIONS,
   type BankQuestion,
 } from "@/lib/quiz-composition";
 
-const QUIZ_SIZE = 5;
+// Per-attempt size scales with the bank (see quizSizeFor); these are bounds.
+const QUIZ_SIZE = MIN_QUESTIONS;
 const SECONDS_PER_QUESTION = 30;
 const PASS_PCT = 80;
 const startSchema = z.object({
@@ -24,7 +28,7 @@ const startSchema = z.object({
 
 const submitSchema = z.object({
   attemptId: z.string().uuid(),
-  answers: z.array(z.number().int().min(-1).max(10)).max(QUIZ_SIZE),
+  answers: z.array(z.number().int().min(-1).max(10)).max(MAX_QUESTIONS),
   distractionFlagged: z.boolean().optional().default(false),
 });
 
@@ -166,9 +170,24 @@ export const startQuizAttempt = createServerFn({ method: "POST" })
           : [];
       const requiredKinds = requiredKindsForRoles(roles, config, pools);
       if (requiredKinds.length === 0) {
+        // Fail closed: either nothing is required (handled client-side), or the
+        // role requires a menu type this restaurant has no questions for.
+        const configuredKinds = new Set(
+          roles.flatMap((r) =>
+            Object.prototype.hasOwnProperty.call(config, r) ? config[r] : [],
+          ),
+        );
+        if (configuredKinds.size > 0) {
+          return {
+            ok: false,
+            error:
+              "Your role is set to be tested on a menu that hasn't been uploaded yet. Ask your manager to upload it.",
+          };
+        }
         return { ok: false, error: "No menu test is required for this role." };
       }
-      bank = composeQuestions(pools, requiredKinds, QUIZ_SIZE);
+      const quizSize = quizSizeFor(pools, requiredKinds);
+      bank = composeQuestions(pools, requiredKinds, quizSize);
       if (bank.length < QUIZ_SIZE) {
         return { ok: false, error: "This quiz needs at least 5 questions before it can be assigned." };
       }
@@ -182,7 +201,9 @@ export const startQuizAttempt = createServerFn({ method: "POST" })
     if (bank.length < QUIZ_SIZE) {
       return { ok: false, error: "This quiz needs at least 5 questions before it can be assigned." };
     }
-    const chosen = bank.length === QUIZ_SIZE ? bank : shuffle(bank).slice(0, QUIZ_SIZE);
+    // Order is randomized per attempt; answer choices are shuffled per question
+    // inside shuffleAndSplit, so no two attempts look alike.
+    const chosen = shuffle(bank);
     const { storedQuestions, publicQuestions } = shuffleAndSplit(chosen);
 
 

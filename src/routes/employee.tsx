@@ -273,9 +273,21 @@ function TrainingTab({ employeeId }: { employeeId: string }) {
   const menuState = menuTestStatus(me, menuBankMeta, customRoles, menuTestConfig, uploadedMenuTypes);
   const testIds = testIdsForEmployee(me);
 
+  if (menuState === "blocked") {
+    return (
+      <Card className="border-amber-500/50 bg-amber-500/10">
+        <CardContent className="p-6 text-sm text-amber-900 dark:text-amber-200">
+          <p className="font-semibold">Your menu test isn't ready yet</p>
+          <p className="mt-1">Your role is set to be tested on a menu your restaurant hasn't uploaded yet. Ask your manager to upload it — you can't be scheduled until you pass.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   if (testIds.length === 0 || menuState === "not-required") {
     return <Card><CardContent className="p-6 text-sm text-muted-foreground">No knowledge tests assigned for your role yet.</CardContent></Card>;
   }
+
 
   return (
     <div className="grid gap-4">

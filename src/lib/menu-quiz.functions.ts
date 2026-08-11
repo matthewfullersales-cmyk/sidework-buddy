@@ -46,7 +46,7 @@ const questionSchema = z.object({
   source: z.enum(["food", "drink", "dessert"]),
 });
 const modelResponseSchema = z.object({
-  questions: z.array(questionSchema).min(1).max(60),
+  questions: z.array(questionSchema).min(1).max(80),
 });
 
 export type MenuQuizQuestion = z.infer<typeof questionSchema>;
@@ -65,8 +65,9 @@ export type PublishMenuQuizResult =
 function buildSystemPrompt(kinds: Array<"food" | "drink" | "dessert">): string {
   const names: Record<string, string> = { food: "food menu", drink: "drink menu", dessert: "dessert menu" };
   const list = kinds.map((k) => names[k]).join(", ");
-  const perMenu = kinds.length > 1 ? 15 : 15;
-  const coverage = `You will be given ${kinds.length} menu file(s): ${list}. Write about ${perMenu} questions PER menu file (roughly ${perMenu * kinds.length} total). Every question must reference an item that appears in the menu it was drawn from. Tag each question with a "source" field of exactly ${kinds.map((k) => `"${k}"`).join(", ")} depending on which uploaded menu it came from. Never emit a source that was not uploaded.`;
+  // Bigger bank per menu in ONE pass so retakes don't recycle the same handful.
+  const perMenu = 18;
+  const coverage = `You will be given ${kinds.length} menu file(s): ${list}. Write between 15 and 20 questions (aim for ${perMenu}) PER menu file (roughly ${perMenu * kinds.length} total). Every question must reference an item that appears in the menu it was drawn from. Tag each question with a "source" field of exactly ${kinds.map((k) => `"${k}"`).join(", ")} depending on which uploaded menu it came from. Never emit a source that was not uploaded.`;
   return `You are a restaurant training coach building the mandatory "Menu Knowledge Test" for a restaurant's floor and kitchen staff. This is a gating test — an employee cannot be scheduled until they pass it — so every question must test genuine, on-menu knowledge.
 
 ${coverage}
@@ -253,7 +254,7 @@ export const generateMenuQuiz = createServerFn({ method: "POST" })
 // live Menu Knowledge Test and bumps bank_version so every prior staff pass
 // becomes stale and schedule-eligibility re-locks until each employee retakes.
 const publishInputSchema = z.object({
-  questions: z.array(questionSchema).min(1).max(60),
+  questions: z.array(questionSchema).min(1).max(80),
 });
 
 export const publishMenuQuiz = createServerFn({ method: "POST" })
