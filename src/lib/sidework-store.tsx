@@ -970,6 +970,65 @@ export function requiredMenuKindsFor(
   return MENU_KINDS.filter((k) => set.has(k));
 }
 
+/**
+ * Kinds a role is CONFIGURED to require, BEFORE intersecting with what the
+ * bank can actually test. `available` is only used to resolve defaults.
+ */
+export function configuredMenuKindsForRole(
+  role: Role,
+  available: MenuKind[],
+  config?: MenuTestConfig | null,
+  customRoles: CustomRole[] = [],
+): MenuKind[] {
+  return config && Object.prototype.hasOwnProperty.call(config, role)
+    ? config[role]
+    : defaultMenuKindsForRole(role, available, customRoles);
+}
+
+/**
+ * Config-time validation: roles that require menu types the restaurant has no
+ * questions for. These roles must fail CLOSED (blocked from scheduling) and
+ * the owner must be warned where they configure it.
+ */
+export function menuTestConfigWarnings(
+  roles: Role[],
+  available: MenuKind[],
+  config?: MenuTestConfig | null,
+  customRoles: CustomRole[] = [],
+): { role: Role; missing: MenuKind[]; blocked: boolean }[] {
+  const out: { role: Role; missing: MenuKind[]; blocked: boolean }[] = [];
+  for (const role of roles) {
+    const wanted = configuredMenuKindsForRole(role, available, config, customRoles);
+    if (wanted.length === 0) continue; // deliberate opt-out — no warning
+    const missing = MENU_KINDS.filter((k) => wanted.includes(k) && !available.includes(k));
+    if (missing.length === 0) continue;
+    out.push({ role, missing, blocked: wanted.every((k) => !available.includes(k)) });
+  }
+  return out;
+}
+
+/**
+ * True when an employee's roles require menu knowledge, but NONE of the
+ * required menu types have questions available. Fails closed: the employee is
+ * blocked from the schedule until the owner uploads that menu or changes the
+ * role's requirements.
+ */
+export function menuTestBlockedFor(
+  emp: Pick<Employee, "primaryRole" | "approvedRoles">,
+  customRoles: CustomRole[] = [],
+  meta: MenuBankMeta | null | undefined = null,
+  config?: MenuTestConfig | null,
+  uploadedMenuTypes: MenuKind[] = [],
+): boolean {
+  const roles = emp.approvedRoles && emp.approvedRoles.length > 0 ? emp.approvedRoles : (emp.primaryRole ? [emp.primaryRole] : []);
+  if (roles.length === 0) return false;
+  const available = availableMenuKinds(meta, uploadedMenuTypes);
+  const wanted = new Set<MenuKind>();
+  for (const r of roles) for (const k of configuredMenuKindsForRole(r, available, config, customRoles)) wanted.add(k);
+  if (wanted.size === 0) return false; // deliberate opt-out
+  return MENU_KINDS.filter((k) => wanted.has(k) && available.includes(k)).length === 0;
+}
+
 /** Is the Menu Knowledge Test required for this employee at all? */
 function menuTestRequiredFor(
   emp: Pick<Employee, "primaryRole" | "approvedRoles">,
@@ -981,7 +1040,7 @@ function menuTestRequiredFor(
   return requiredMenuKindsFor(emp, customRoles, meta, config, uploadedMenuTypes).length > 0;
 }
 
-export type MenuTestStatus = "not-required" | "never" | "in-progress" | "stale" | "passed";
+export type MenuTestStatus = "not-required" | "blocked" | "never" | "in-progress" | "stale" | "passed";
 
 /**
  * Menu Knowledge Test status for a single employee, relative to the current
@@ -994,6 +1053,7 @@ export function menuTestStatus(
   config?: MenuTestConfig | null,
   uploadedMenuTypes: MenuKind[] = [],
 ): MenuTestStatus {
+  if (menuTestBlockedFor(emp, customRoles, meta, config, uploadedMenuTypes)) return "blocked";
   if (!menuTestRequiredFor(emp, customRoles, meta, config, uploadedMenuTypes)) return "not-required";
   const row = emp.progress.find((p) => p.videoId === MENU_MODULE_ID);
   if (!row) return "never";
@@ -1011,6 +1071,8 @@ export function isScheduleEligible(
 ): boolean {
   if (isPendingRoleAssignment(emp)) return false;
   if (testIdsForEmployee(emp).length === 0) return false;
+  // Fail closed: required menu types exist in config but not in the bank.
+  if (menuTestBlockedFor(emp, customRoles, meta, config, uploadedMenuTypes)) return false;
   if (!menuTestRequiredFor(emp, customRoles, meta, config, uploadedMenuTypes)) return true;
   return hasCurrentMenuPass(emp.progress, meta);
 }
@@ -1022,9 +1084,11 @@ export function trainingProgressFor(
   config?: MenuTestConfig | null,
   uploadedMenuTypes: MenuKind[] = [],
 ): { passed: number; total: number } {
+  if (menuTestBlockedFor(emp, customRoles, meta, config, uploadedMenuTypes)) return { passed: 0, total: 1 };
   if (!menuTestRequiredFor(emp, customRoles, meta, config, uploadedMenuTypes)) return { passed: 0, total: 0 };
   return { passed: hasCurrentMenuPass(emp.progress, meta) ? 1 : 0, total: 1 };
 }
+
 
 
 
