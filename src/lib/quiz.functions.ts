@@ -170,6 +170,20 @@ export const startQuizAttempt = createServerFn({ method: "POST" })
           : [];
       const requiredKinds = requiredKindsForRoles(roles, config, pools);
       if (requiredKinds.length === 0) {
+        // Fail closed: either nothing is required (handled client-side), or the
+        // role requires a menu type this restaurant has no questions for.
+        const configuredKinds = new Set(
+          roles.flatMap((r) =>
+            Object.prototype.hasOwnProperty.call(config, r) ? config[r] : [],
+          ),
+        );
+        if (configuredKinds.size > 0) {
+          return {
+            ok: false,
+            error:
+              "Your role is set to be tested on a menu that hasn't been uploaded yet. Ask your manager to upload it.",
+          };
+        }
         return { ok: false, error: "No menu test is required for this role." };
       }
       const quizSize = quizSizeFor(pools, requiredKinds);

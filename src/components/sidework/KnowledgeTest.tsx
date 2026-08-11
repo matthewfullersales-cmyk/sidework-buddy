@@ -240,7 +240,7 @@ function QuizSection({
           <div>
             <p className="font-semibold">Ready for the test?</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              5 random questions · 30s per question · pass at {passPct}%.
+              Randomized questions · 30s per question · pass at {passPct}%.
             </p>
             <p className="mt-2 text-xs text-muted-foreground">
               Unlimited retakes — retry immediately if you don't pass. {attempts > 0 && <>Attempts so far: <span className="font-semibold text-foreground">{attempts}</span></>}
