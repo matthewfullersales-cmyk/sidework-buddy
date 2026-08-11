@@ -1,7 +1,9 @@
+import { AlertTriangle } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   MENU_KIND_LABEL,
   defaultMenuKindsForRole,
+  menuTestConfigWarnings,
   type CustomRole,
   type MenuKind,
   type MenuTestConfig,
@@ -12,6 +14,10 @@ import {
  * Per-role / per-menu-type requirement grid. Rows = the roles the restaurant
  * staffs, columns = ONLY the menu types that actually exist. A row with zero
  * boxes checked means that role is never gated by the Menu Knowledge Test.
+ *
+ * If a role is configured to require a menu type the restaurant hasn't
+ * uploaded, that role fails CLOSED (blocked from the schedule) and the owner
+ * is warned here, at the point of configuration.
  */
 export function MenuTestMatrix({
   roles,
@@ -26,6 +32,8 @@ export function MenuTestMatrix({
   onChange: (next: MenuTestConfig) => void;
   customRoles?: CustomRole[];
 }) {
+  const warnings = menuTestConfigWarnings(roles, menuKinds, value, customRoles);
+
   if (roles.length === 0) {
     return <p className="text-sm text-muted-foreground">Pick your roles first — they'll show up here.</p>;
   }
@@ -43,6 +51,7 @@ export function MenuTestMatrix({
     const next = on ? Array.from(new Set([...current, kind])) : current.filter((k) => k !== kind);
     onChange({ ...value, [role]: next });
   };
+
 
   return (
     <div className="overflow-x-auto rounded-xl border border-border">
