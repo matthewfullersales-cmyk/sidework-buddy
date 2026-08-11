@@ -673,12 +673,16 @@ function TeamTab() {
                         return <Badge variant="secondary" className="bg-amber-500/15 text-amber-700 dark:text-amber-300">In training · {tp.passed}/{tp.total}</Badge>;
                       })()
                     )}
+                    {menuState === "blocked" && (
+                      <p className="mt-1 text-[11px] font-semibold text-amber-700 dark:text-amber-300">Required menu not uploaded — blocked</p>
+                    )}
                     {menuState === "stale" && (
                       <p className="mt-1 text-[11px] font-semibold text-amber-700 dark:text-amber-300">Menu updated — retake required</p>
                     )}
                     {(menuState === "never" || menuState === "in-progress") && (
                       <p className="mt-1 text-[11px] font-semibold text-amber-700 dark:text-amber-300">Menu test not passed</p>
                     )}
+
                     <p className="mt-1 text-xs text-muted-foreground">{s.passed}/{s.total} knowledge tests passed</p>
                     <Progress value={s.pct} className="mt-2 h-1.5 w-32" />
 
