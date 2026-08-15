@@ -8,6 +8,7 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   generateMenuQuiz,
   publishMenuQuiz,
+  regenerateMenuQuestion,
   type MenuQuizDraftQuestion,
 } from "@/lib/menu-quiz.functions";
 import { useStore } from "@/lib/sidework-store";
@@ -66,6 +67,7 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
   const { restaurantProfile, setMenu, setDrinkMenu, setDessertMenu, refreshMenuBankMeta, menuBankMeta } = useStore();
   const generate = useServerFn(generateMenuQuiz);
   const publish = useServerFn(publishMenuQuiz);
+  const regenerateOne = useServerFn(regenerateMenuQuestion);
 
   const [food, setFood] = useState<File | null>(null);
   const [drink, setDrink] = useState<File | null>(null);
@@ -78,6 +80,7 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
   const [error, setError] = useState<string | null>(null);
   // Draft questions live only in memory until the owner explicitly publishes.
   const [draft, setDraft] = useState<MenuQuizDraftQuestion[]>([]);
+  const [regenIdx, setRegenIdx] = useState<number | null>(null);
 
   const onFile = async (kind: MenuKind, f: File | null) => {
     setError(null);
@@ -140,7 +143,11 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
         return;
       }
       setDraft(result.questions);
-      toast.success(`Draft ready — review ${result.questions.length} questions and publish when you're happy.`);
+      toast.success(
+        result.rejectedCount > 0
+          ? `Draft ready — ${result.questions.length} questions (${result.rejectedCount} rejected by quality checks).`
+          : `Draft ready — review ${result.questions.length} questions and publish when you're happy.`,
+      );
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Something went wrong.";
       setError(msg);
@@ -162,6 +169,42 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
   };
   const removeQuestion = (idx: number) => {
     setDraft((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const fileForSource = (source: MenuKind): File | null =>
+    source === "food" ? food : source === "drink" ? drink : dessert;
+
+  const runRegenerateOne = async (idx: number) => {
+    const q = draft[idx];
+    if (!q) return;
+    const f = fileForSource(q.source);
+    if (!f) {
+      toast.error(`Re-upload the ${q.source} menu to regenerate this question.`);
+      return;
+    }
+    setRegenIdx(idx);
+    try {
+      const result = await regenerateOne({
+        data: {
+          file: { fileBase64: await readFileAsBase64(f), mimeType: f.type },
+          source: q.source,
+          sourceItem: q.sourceItem ?? "",
+          sourceCategory: q.sourceCategory ?? "",
+          avoid: draft.map((d) => d.question),
+          restaurantName: restaurantProfile?.name ?? "",
+        },
+      });
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      setDraft((prev) => prev.map((item, i) => (i === idx ? result.question : item)));
+      toast.success("Replacement question ready.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't regenerate that question.");
+    } finally {
+      setRegenIdx(null);
+    }
   };
 
   const runPublish = async () => {
@@ -350,16 +393,32 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
                     <Badge variant="outline" className="text-[10px] uppercase">
                       {q.source}
                     </Badge>
+                    {q.sourceItem && (
+                      <span className="truncate text-[11px] text-muted-foreground">
+                        {q.sourceItem}
+                        {q.sourceCategory ? ` · ${q.sourceCategory}` : ""}
+                      </span>
+                    )}
                   </div>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="text-destructive hover:text-destructive"
-                    onClick={() => removeQuestion(i)}
-                    disabled={publishing}
-                  >
-                    Remove
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => runRegenerateOne(i)}
+                      disabled={publishing || regenIdx !== null}
+                    >
+                      {regenIdx === i ? "Regenerating…" : "Regenerate this one"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-destructive hover:text-destructive"
+                      onClick={() => removeQuestion(i)}
+                      disabled={publishing || regenIdx !== null}
+                    >
+                      Remove
+                    </Button>
+                  </div>
                 </div>
                 <Input
                   value={q.question}
