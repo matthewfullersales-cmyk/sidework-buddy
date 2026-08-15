@@ -155,7 +155,7 @@ export function rejectionReason(
   }
 
   const item = (q.sourceItem ?? "").trim();
-  if (item) {
+  if (item && q.questionType !== "identify_attribute") {
     const itemWords = words(item).map(singularize).filter((w) => !STOP_WORDS.has(w));
     const stemWordList = words(q.question).map(singularize);
     const stemJoined = ` ${stemWordList.join(" ")} `;
