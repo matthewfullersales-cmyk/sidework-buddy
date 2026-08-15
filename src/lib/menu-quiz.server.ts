@@ -542,13 +542,25 @@ export async function runGenerateMenuQuiz(data: {
     return { ok: false, error: "Every generated question failed quality checks. Try a clearer menu scan and regenerate." };
   }
 
+  const bank = shuffled(final).slice(0, MAX_BANK_QUESTIONS);
+  const diagnostics = {
+    itemsExtracted: items.length,
+    candidatesSelected: candidates.length,
+    questionsReturned: produced.length,
+    rejectedByQuality: rejectedCount,
+    lostToFailedBatches,
+    finalBankSize: bank.length,
+  };
+  console.info("[menu-quiz] generation diagnostics", diagnostics);
+
   return {
     ok: true,
-    questions: shuffled(final),
-    foodCount: final.filter((q) => q.source === "food").length,
-    drinkCount: final.filter((q) => q.source === "drink").length,
-    dessertCount: final.filter((q) => q.source === "dessert").length,
+    questions: bank,
+    foodCount: bank.filter((q) => q.source === "food").length,
+    drinkCount: bank.filter((q) => q.source === "drink").length,
+    dessertCount: bank.filter((q) => q.source === "dessert").length,
     rejectedCount,
+    diagnostics,
   };
 }
 
