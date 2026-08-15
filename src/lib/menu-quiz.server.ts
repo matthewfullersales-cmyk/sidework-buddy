@@ -44,8 +44,11 @@ const ACCEPTED_MIME = new Set([
   "application/pdf",
 ]);
 
-const MAX_QUESTIONS_PER_TYPE = 18;
+/** Overall safety ceiling on the generated bank. */
+const MAX_BANK_QUESTIONS = 150;
 const ITEMS_PER_BATCH = 12;
+/** Max batches in flight at once (rate-limit protection). */
+const BATCH_CONCURRENCY = 2;
 
 /* --------------------------------- shared -------------------------------- */
 
