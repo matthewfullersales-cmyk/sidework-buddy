@@ -46,6 +46,9 @@ export type ExtractMenuResult =
 
 /* ---------------------------- stage 2: generation --------------------------- */
 
+export const questionTypeSchema = z.enum(["identify_item", "identify_attribute"]);
+export type QuestionType = z.infer<typeof questionTypeSchema>;
+
 export const questionSchema = z.object({
   question: z.string().min(4),
   options: z.array(z.string().min(1)).length(4),
@@ -53,6 +56,7 @@ export const questionSchema = z.object({
   source: menuSourceSchema,
   sourceItem: z.string().trim().max(160).optional().default(""),
   sourceCategory: z.string().trim().max(120).optional().default(""),
+  questionType: questionTypeSchema.optional().default("identify_item"),
 });
 
 export type MenuQuizQuestion = z.infer<typeof questionSchema>;
