@@ -522,15 +522,13 @@ export async function runGenerateMenuQuiz(data: {
       for (let i = 0; i < retryItems.length; i += ITEMS_PER_BATCH) {
         retryBatches.push(retryItems.slice(i, i + ITEMS_PER_BATCH));
       }
-      const retryResults = await Promise.all(
-        retryBatches.map((b) =>
-          generateForBatch(
-            lovableKey,
-            b,
-            items,
-            restaurantName,
-            `Your previous attempts at these items were REJECTED by an automated validator. Write clean replacements that fix the stated problems:\n${listing}`,
-          ),
+      const retryResults = await mapWithConcurrency(retryBatches, BATCH_CONCURRENCY, (b) =>
+        generateBatchWithRetry(
+          lovableKey,
+          b,
+          items,
+          restaurantName,
+          `Your previous attempts at these items were REJECTED by an automated validator. Write clean replacements that fix the stated problems:\n${listing}`,
         ),
       );
       const retried = retryResults.flatMap((r) => (r.ok ? r.questions.map((q) => retagFromRecord(q, byName)) : []));
