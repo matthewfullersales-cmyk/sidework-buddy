@@ -46,6 +46,89 @@ export function significantTokens(input: string): string[] {
     .map(singularize);
 }
 
+/** Levenshtein distance, capped for speed. */
+export function editDistance(a: string, b: string): number {
+  if (a === b) return 0;
+  const m = a.length;
+  const n = b.length;
+  if (Math.abs(m - n) > 3) return 99;
+  let prev = Array.from({ length: n + 1 }, (_, i) => i);
+  for (let i = 1; i <= m; i++) {
+    const cur = [i];
+    for (let j = 1; j <= n; j++) {
+      cur[j] = Math.min(
+        prev[j] + 1,
+        cur[j - 1] + 1,
+        prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1),
+      );
+    }
+    prev = cur;
+  }
+  return prev[n];
+}
+
+/**
+ * Menus routinely contain typos ("REISLING"), so exact token equality is not
+ * enough for the anti-self-answering check.
+ */
+export function nearMatch(a: string, b: string): boolean {
+  if (a === b) return true;
+  const long = a.length >= b.length ? a : b;
+  const short = a.length >= b.length ? b : a;
+  if (short.length >= 5 && long.startsWith(short)) return true;
+  const len = Math.min(a.length, b.length);
+  if (len >= 6) return editDistance(a, b) <= 2;
+  if (len >= 4) return editDistance(a, b) <= 1;
+  return false;
+}
+
+function nearMatchIn(token: string, pool: Iterable<string>): boolean {
+  for (const t of pool) if (nearMatch(token, t)) return true;
+  return false;
+}
+
+/* -------- option "kind" classification (distractors must match the answer) --- */
+
+const WINE_COLORS = new Set([
+  "red", "white", "rose", "rosato", "blush", "sparkling", "orange",
+  "red wine", "white wine", "rose wine", "sparkling wine", "dessert wine",
+]);
+
+const VARIETALS = new Set([
+  "chardonnay", "riesling", "reisling", "moscato", "merlot", "cabernet",
+  "cabernet sauvignon", "pinot noir", "pinot grigio", "pinot gris",
+  "sauvignon blanc", "malbec", "zinfandel", "prosecco", "syrah", "shiraz",
+  "grenache", "sangiovese", "tempranillo", "chianti", "gewurztraminer",
+  "viognier", "albarino", "nebbiolo", "barbera", "montepulciano",
+  "chenin blanc", "vermentino", "primitivo", "cava", "champagne", "verdejo",
+]);
+
+const BEER_STYLES = new Set([
+  "lager", "light lager", "pilsner", "ipa", "india pale ale", "pale ale",
+  "stout", "porter", "wheat", "wheat beer", "hefeweizen", "amber ale",
+  "amber", "sour", "saison", "blonde ale", "blonde", "cider", "brown ale",
+  "double ipa", "hazy ipa", "kolsch", "bock",
+]);
+
+export type OptionKind =
+  | "item" | "section" | "wine_color" | "varietal" | "beer_style" | "ingredient" | "other";
+
+export function classifyOption(option: string, index?: ProvenanceIndex): OptionKind {
+  const n = normalizeText(option);
+  if (!n) return "other";
+  if (WINE_COLORS.has(n)) return "wine_color";
+  if (VARIETALS.has(n)) return "varietal";
+  if (BEER_STYLES.has(n)) return "beer_style";
+  if (index) {
+    if (index.vocabByItem.has(n)) return "item";
+    if (index.sectionKeys?.has(n)) return "section";
+    const toks = significantTokens(option);
+    if (toks.length > 0 && toks.every((t) => index.ownersByToken.has(t))) return "ingredient";
+  }
+  return "other";
+}
+
+
 export type QuestionType = "identify_item" | "identify_attribute";
 
 export type ValidatableQuestion = {
