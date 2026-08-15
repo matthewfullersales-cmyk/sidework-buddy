@@ -389,6 +389,22 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
           </div>
         )}
 
+        {diagnostics && !busy && (
+          <div className="rounded-xl border border-border bg-muted/20 p-3 text-xs text-muted-foreground">
+            <p>
+              {diagnostics.itemsExtracted} items extracted · {diagnostics.candidatesSelected} candidates selected ·{" "}
+              {diagnostics.questionsReturned} questions written by AI · {diagnostics.rejectedByQuality} rejected by
+              quality checks · {diagnostics.lostToFailedBatches} lost to failed batches ·{" "}
+              <span className="font-medium text-foreground">{diagnostics.finalBankSize} in the final bank</span>.
+            </p>
+            {diagnostics.lostToFailedBatches > 0 && (
+              <p className="mt-1 text-destructive">
+                Some batches failed after a retry. Re-run generation to fill the gap.
+              </p>
+            )}
+          </div>
+        )}
+
         {busy && (
           <div className="rounded-xl border border-primary/30 bg-primary-soft p-4 text-sm text-primary">
             {stage === "extracting"
