@@ -353,7 +353,7 @@ function shuffled<T>(arr: T[]): T[] {
 
 function clampQuestion(q: {
   question: string; options: string[]; answerIndex: number; source: MenuSource;
-  sourceItem: string; sourceCategory: string;
+  sourceItem: string; sourceCategory: string; questionType?: QuestionType;
 }): MenuQuizDraftQuestion {
   return {
     question: q.question.slice(0, 240),
@@ -362,6 +362,7 @@ function clampQuestion(q: {
     source: q.source,
     sourceItem: q.sourceItem.slice(0, 160),
     sourceCategory: q.sourceCategory.slice(0, 120),
+    questionType: q.questionType ?? "identify_item",
   };
 }
 
