@@ -22,6 +22,7 @@ import {
   type MenuQuizDraftQuestion,
   type MenuSource,
   type PublishMenuQuizResult,
+  type QuestionType,
   type RegenerateQuestionResult,
 } from "./menu-quiz.schemas";
 import {
