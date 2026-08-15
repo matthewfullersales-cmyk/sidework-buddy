@@ -173,16 +173,22 @@ export function rejectionReason(
   if (new Set(normOpts).size !== normOpts.length) return "Two answer choices are identical.";
   if (normOpts.some((o) => banned.includes(o))) return "Uses an 'all/none of the above' option.";
 
+  if (index) {
+    const prov = provenanceRejection(q, index);
+    if (prov) return prov;
+  }
+
   return null;
 }
 
 export function partitionQuestions<T extends ValidatableQuestion>(
   questions: T[],
+  index?: ProvenanceIndex,
 ): { passed: T[]; rejected: { question: T; reason: string }[] } {
   const passed: T[] = [];
   const rejected: { question: T; reason: string }[] = [];
   for (const q of questions) {
-    const reason = rejectionReason(q);
+    const reason = rejectionReason(q, index);
     if (reason) rejected.push({ question: q, reason });
     else passed.push(q);
   }
