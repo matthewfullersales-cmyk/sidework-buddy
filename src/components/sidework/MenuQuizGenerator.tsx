@@ -81,6 +81,7 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
   const [error, setError] = useState<string | null>(null);
   const [items, setItems] = useState<ExtractedItem[]>([]);
   const [coverage, setCoverage] = useState<MenuCoverage | null>(null);
+  const [diagnostics, setDiagnostics] = useState<GenerationDiagnostics | null>(null);
   // Draft questions live only in memory until the owner explicitly publishes.
   const [draft, setDraft] = useState<MenuQuizDraftQuestion[]>([]);
   const [regenIdx, setRegenIdx] = useState<number | null>(null);
