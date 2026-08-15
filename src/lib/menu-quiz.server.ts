@@ -27,6 +27,8 @@ import {
 } from "./menu-quiz.schemas";
 import {
   buildProvenanceIndex,
+  isSectionQuestion,
+  normalizeText,
   partitionQuestions,
   rejectionReason,
   type ProvenanceIndex,
@@ -185,6 +187,8 @@ For EVERY item printed on the file(s), return one object:
   - Everything else edible -> "food".
 
 Rules:
+- NOT ITEMS — never return these as items: fees, surcharges, upcharges, add-on or split-plate charges, corkage or "twist cap" fees, gratuity or service-charge notes, "market price"/"MP" placeholders, allergen or consumer-advisory disclaimers, hours, reservation notes, and any other menu footnote.
+- Never return a truncated or incomplete name. If a line is only a possessive or fragment with no dish name (e.g. "WAYNE DEHOND'S"), either join it with the dish name printed with it or skip it.
 - One combined file may contain food, drink and dessert sections. Classify each item independently by its own section.
 - Do not include prices. Do not include seasonal/market-price placeholders as ingredients.
 - Skip unreadable or non-menu pages. If nothing is readable, return {"items": []}.
@@ -222,10 +226,22 @@ export async function runExtractMenu(data: {
     return { ok: false, error: "The menu reader returned a malformed result. Try again." };
   }
 
+  // Fees, disclaimers, footnotes and truncated fragments are not testable items.
+  const NON_ITEM = /\b(fee|fees|surcharge|upcharge|up-charge|charge|charges|corkage|twist cap|split plate|split-plate|gratuity|service charge|market price|mkt price|\bmp\b|substitution|substitutions|add[- ]?on|allergen|allergy|consumer advisory|undercooked|disclaimer|notice|please note|tax|minimum)\b/i;
+  function isRealItem(name: string): boolean {
+    const n = name.trim();
+    if (n.length < 3) return false;
+    if (NON_ITEM.test(n)) return false;
+    // truncated fragments: a lone possessive or trailing conjunction/preposition
+    if (/^[^\s]+['\u2019]s$/i.test(n)) return false;
+    if (/(\band\b|\bwith\b|\bof\b|['\u2019]s|,|&)$/i.test(n)) return false;
+    return true;
+  }
+
   // De-duplicate by name (keep the richest record).
   const byName = new Map<string, ExtractedItem>();
   for (const item of shaped.data.items) {
-    if (!item.name) continue;
+    if (!item.name || !isRealItem(item.name)) continue;
     const key = item.name.toLowerCase();
     const prev = byName.get(key);
     if (!prev || prev.ingredients.length < item.ingredients.length) byName.set(key, item);
@@ -300,6 +316,12 @@ const QUALITY_RULES = `Rules:
   - GOOD: ask about the item's OTHER components — "Which entrée is finished with butter and chicken stock?"
   - For "identify_attribute": if the varietal word already appears in the item name (e.g. "Chalk Hill Chardonnay"), you CANNOT ask a varietal question for that item — ask about producer or style instead, or skip it.
   - For "identify_item" only: the stem must also never contain the source item's name, or two or more consecutive words from it.
+- STRIP THE ANSWER TERM OUT OF THE ITEM NAME (identify_attribute, critical): when the item name already contains the answer, remove that word from the name before writing the stem. BAD: "SHADES OF BLUE REISLING is what varietal?" -> "Riesling". GOOD: "SHADES OF BLUE is what varietal?" -> options Riesling / Chardonnay / Pinot Grigio / Sauvignon Blanc. GOOD: "Caposaldo is a brand of which varietal?" -> "Moscato". Do the same for producer and style questions. If stripping the answer term leaves nothing meaningful to name (the item name IS just the varietal or style), SKIP that item.
+- SECTION / CATEGORY QUESTIONS ARE RARE: at most a handful per menu and never more than one per section. Only ask one when the answer is genuinely non-obvious — if every plausible distractor section would be obviously wrong to someone who has never read the menu, do not write the question. NEVER write an "identify_item" question whose only qualifier is the section or menu type ("Which sweet treat is served from the dessert menu?", "Which product is offered from the BOTTLED BEER section?") — those are unanswerable or guessable and are always rejected.
+- ANSWERABILITY: for "identify_item", the three distractors must NOT satisfy the condition in the stem. If the stem's qualifier is true of a distractor too, the question is wrong — add the specific detail that only the correct item has, or skip.
+- SAME-KIND OPTIONS: all four choices must be the same kind of thing. Wine colors/styles with wine colors/styles (red / white / rosé / sparkling), varietals with varietals, producers with producers, section names with section names, ingredients with ingredients, menu items with menu items. BAD: correct answer "Red" with distractors Pinot Grigio, Chardonnay, Rosé.
+- NO INVENTED ATTRIBUTES: every descriptive word in the stem must literally appear in that item's record (name, section, ingredients, preparation). If the menu does not print "light lager" or "Neapolitan", you may not write it.
+- NATURAL PHRASING: the stem must read like something a server or manager would actually say out loud. If avoiding a word from the correct answer forces unnatural phrasing, do NOT invent a euphemism ("middle neck components", "cheese and ricotta components") — pick a DIFFERENT angle on the same item (another ingredient, the preparation, the accompaniment) or skip the item. Never use vague filler like "components", "elements", or "options" in place of a real word.
 - ATTRIBUTE DISTRACTORS: incorrect options for an attribute question must be REAL attributes of the same kind drawn from elsewhere in the record — other varietals actually on the wine list, other real beer styles on the beer list, other real printed section names. Never invented.
 - INGREDIENT PROVENANCE (critical): every ingredient or component term you put in the stem must come from THAT item's own record. Citing another item's ingredients is an automatic rejection.
 - DISTRACTOR QUALITY: every incorrect option must be a REAL item or a REAL ingredient that appears somewhere in the provided record. No invented options, no absurd throwaway options, and never "all of the above" or "none of the above". Prefer distractors from the SAME menu section as the correct answer. If you cannot produce three valid distractors from the record, DROP that question.
@@ -473,6 +495,32 @@ async function generateBatchWithRetry(
   return { ok: false, error: lastError, lost: batch.length };
 }
 
+/**
+ * "Which section is X in?" questions teach one rule and test nothing, so they
+ * are capped at 10% of the bank and one per printed section.
+ */
+function capSectionQuestions(
+  questions: MenuQuizDraftQuestion[],
+  index: ProvenanceIndex,
+): MenuQuizDraftQuestion[] {
+  const cap = Math.max(1, Math.floor(questions.length * 0.1));
+  const usedSections = new Set<string>();
+  let kept = 0;
+  const out: MenuQuizDraftQuestion[] = [];
+  for (const q of questions) {
+    if (!isSectionQuestion(q, index)) {
+      out.push(q);
+      continue;
+    }
+    const sec = normalizeText(q.options[q.answerIndex] ?? "");
+    if (kept >= cap || usedSections.has(sec)) continue;
+    usedSections.add(sec);
+    kept += 1;
+    out.push(q);
+  }
+  return out;
+}
+
 export async function runGenerateMenuQuiz(data: {
   items: ExtractedItem[];
   restaurantName?: string;
@@ -559,7 +607,7 @@ export async function runGenerateMenuQuiz(data: {
     return { ok: false, error: "Every generated question failed quality checks. Try a clearer menu scan and regenerate." };
   }
 
-  const bank = shuffled(final).slice(0, MAX_BANK_QUESTIONS);
+  const bank = capSectionQuestions(shuffled(final), index).slice(0, MAX_BANK_QUESTIONS);
   const diagnostics = {
     itemsExtracted: items.length,
     candidatesSelected: candidates.length,
