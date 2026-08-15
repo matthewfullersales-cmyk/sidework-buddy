@@ -6,9 +6,12 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import {
+  extractMenuItems,
   generateMenuQuiz,
   publishMenuQuiz,
   regenerateMenuQuestion,
+  type ExtractedItem,
+  type MenuCoverage,
   type MenuQuizDraftQuestion,
 } from "@/lib/menu-quiz.functions";
 import { useStore } from "@/lib/sidework-store";
@@ -16,10 +19,11 @@ import { useStore } from "@/lib/sidework-store";
 const ACCEPT = "application/pdf,image/png,image/jpeg,image/webp";
 const MAX_PDF_MB = 20;
 const MAX_IMAGE_INPUT_MB = 40;
+const MAX_FILES = 6;
 const COMPRESS_MAX_EDGE = 2000;
 const COMPRESS_QUALITY = 0.8;
 
-type MenuKind = "food" | "drink" | "dessert";
+type PickedFile = { file: File; previewUrl: string | null };
 
 function readFileAsBase64(file: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -65,77 +69,112 @@ async function compressImage(file: File): Promise<{ blob: Blob; mimeType: string
 
 export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }) {
   const { restaurantProfile, setMenu, setDrinkMenu, setDessertMenu, refreshMenuBankMeta, menuBankMeta } = useStore();
+  const extract = useServerFn(extractMenuItems);
   const generate = useServerFn(generateMenuQuiz);
   const publish = useServerFn(publishMenuQuiz);
   const regenerateOne = useServerFn(regenerateMenuQuestion);
 
-  const [food, setFood] = useState<File | null>(null);
-  const [drink, setDrink] = useState<File | null>(null);
-  const [dessert, setDessert] = useState<File | null>(null);
-  const [foodPreview, setFoodPreview] = useState<string | null>(null);
-  const [drinkPreview, setDrinkPreview] = useState<string | null>(null);
-  const [dessertPreview, setDessertPreview] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [files, setFiles] = useState<PickedFile[]>([]);
+  const [stage, setStage] = useState<"idle" | "extracting" | "generating" | null>("idle");
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [items, setItems] = useState<ExtractedItem[]>([]);
+  const [coverage, setCoverage] = useState<MenuCoverage | null>(null);
   // Draft questions live only in memory until the owner explicitly publishes.
   const [draft, setDraft] = useState<MenuQuizDraftQuestion[]>([]);
   const [regenIdx, setRegenIdx] = useState<number | null>(null);
 
-  const onFile = async (kind: MenuKind, f: File | null) => {
-    setError(null);
+  const busy = stage === "extracting" || stage === "generating";
+
+  const resetDownstream = () => {
     setDraft([]);
-    const prevUrl = kind === "food" ? foodPreview : kind === "drink" ? drinkPreview : dessertPreview;
-    if (prevUrl) URL.revokeObjectURL(prevUrl);
-    if (kind === "food") { setFood(null); setFoodPreview(null); }
-    else if (kind === "drink") { setDrink(null); setDrinkPreview(null); }
-    else { setDessert(null); setDessertPreview(null); }
-    if (!f) return;
-    const isPdf = f.type === "application/pdf";
-    if (isPdf && f.size > MAX_PDF_MB * 1024 * 1024) {
-      setError(`This PDF is ${(f.size / 1024 / 1024).toFixed(1)} MB — over the ${MAX_PDF_MB} MB limit.`);
-      return;
-    }
-    if (!isPdf && f.size > MAX_IMAGE_INPUT_MB * 1024 * 1024) {
-      setError(`Image is too large (over ${MAX_IMAGE_INPUT_MB} MB). Try a smaller photo.`);
-      return;
-    }
-    let finalFile = f;
-    let preview: string | null = null;
-    if (!isPdf) {
-      try {
-        const { blob, mimeType, name } = await compressImage(f);
-        finalFile = new File([blob], name, { type: mimeType });
-        preview = URL.createObjectURL(finalFile);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Couldn't process that image.");
-        return;
-      }
-    }
-    if (kind === "food") { setFood(finalFile); setFoodPreview(preview); }
-    else if (kind === "drink") { setDrink(finalFile); setDrinkPreview(preview); }
-    else { setDessert(finalFile); setDessertPreview(preview); }
+    setItems([]);
+    setCoverage(null);
+    setError(null);
   };
 
-  const runGenerate = async () => {
-    if (!food && !drink && !dessert) {
-      toast.error("Upload at least one menu (food, drink, or dessert) first.");
-      return;
+  const addFiles = async (picked: FileList | File[] | null) => {
+    if (!picked) return;
+    resetDownstream();
+    const incoming = Array.from(picked);
+    const next: PickedFile[] = [];
+    for (const f of incoming) {
+      const isPdf = f.type === "application/pdf";
+      if (isPdf && f.size > MAX_PDF_MB * 1024 * 1024) {
+        setError(`"${f.name}" is ${(f.size / 1024 / 1024).toFixed(1)} MB — over the ${MAX_PDF_MB} MB limit.`);
+        continue;
+      }
+      if (!isPdf && f.size > MAX_IMAGE_INPUT_MB * 1024 * 1024) {
+        setError(`"${f.name}" is too large (over ${MAX_IMAGE_INPUT_MB} MB). Try a smaller photo.`);
+        continue;
+      }
+      if (isPdf) {
+        next.push({ file: f, previewUrl: null });
+      } else {
+        try {
+          const { blob, mimeType, name } = await compressImage(f);
+          const finalFile = new File([blob], name, { type: mimeType });
+          next.push({ file: finalFile, previewUrl: URL.createObjectURL(finalFile) });
+        } catch (e) {
+          setError(e instanceof Error ? e.message : "Couldn't process that image.");
+        }
+      }
     }
-    setLoading(true);
+    setFiles((prev) => [...prev, ...next].slice(0, MAX_FILES));
+  };
+
+  const removeFile = (idx: number) => {
+    resetDownstream();
+    setFiles((prev) => {
+      const target = prev[idx];
+      if (target?.previewUrl) URL.revokeObjectURL(target.previewUrl);
+      return prev.filter((_, i) => i !== idx);
+    });
+  };
+
+  const payloads = async () =>
+    Promise.all(
+      files.map(async ({ file }) => ({
+        fileBase64: await readFileAsBase64(file),
+        mimeType: file.type,
+        filename: file.name.slice(0, 200),
+      })),
+    );
+
+  const runExtract = async (): Promise<ExtractedItem[] | null> => {
+    setStage("extracting");
     setError(null);
     setDraft([]);
     try {
-      const foodPayload = food ? { fileBase64: await readFileAsBase64(food), mimeType: food.type } : undefined;
-      const drinkPayload = drink ? { fileBase64: await readFileAsBase64(drink), mimeType: drink.type } : undefined;
-      const dessertPayload = dessert ? { fileBase64: await readFileAsBase64(dessert), mimeType: dessert.type } : undefined;
+      const result = await extract({
+        data: { files: await payloads(), restaurantName: restaurantProfile?.name ?? "" },
+      });
+      if (!result.ok) {
+        setError(result.error);
+        toast.error(result.error);
+        return null;
+      }
+      setItems(result.items);
+      setCoverage(result.coverage);
+      return result.items;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Something went wrong reading the menu.";
+      setError(msg);
+      toast.error(msg);
+      return null;
+    } finally {
+      setStage("idle");
+    }
+  };
+
+  const runGenerate = async (extracted?: ExtractedItem[]) => {
+    const source = extracted ?? items;
+    if (source.length === 0) return;
+    setStage("generating");
+    setError(null);
+    try {
       const result = await generate({
-        data: {
-          food: foodPayload,
-          drink: drinkPayload,
-          dessert: dessertPayload,
-          restaurantName: restaurantProfile?.name ?? "",
-        },
+        data: { items: source, restaurantName: restaurantProfile?.name ?? "" },
       });
       if (!result.ok) {
         setError(result.error);
@@ -153,8 +192,17 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
       setError(msg);
       toast.error(msg);
     } finally {
-      setLoading(false);
+      setStage("idle");
     }
+  };
+
+  const runFullPipeline = async () => {
+    if (files.length === 0) {
+      toast.error("Upload at least one menu file first.");
+      return;
+    }
+    const extracted = await runExtract();
+    if (extracted) await runGenerate(extracted);
   };
 
   const updateQuestion = (idx: number, patch: Partial<MenuQuizDraftQuestion>) => {
@@ -171,25 +219,19 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
     setDraft((prev) => prev.filter((_, i) => i !== idx));
   };
 
-  const fileForSource = (source: MenuKind): File | null =>
-    source === "food" ? food : source === "drink" ? drink : dessert;
-
   const runRegenerateOne = async (idx: number) => {
     const q = draft[idx];
     if (!q) return;
-    const f = fileForSource(q.source);
-    if (!f) {
-      toast.error(`Re-upload the ${q.source} menu to regenerate this question.`);
+    const record = items.find((i) => i.name.toLowerCase() === (q.sourceItem ?? "").toLowerCase());
+    if (!record) {
+      toast.error("This question isn't linked to an extracted item — remove it instead.");
       return;
     }
     setRegenIdx(idx);
     try {
       const result = await regenerateOne({
         data: {
-          file: { fileBase64: await readFileAsBase64(f), mimeType: f.type },
-          source: q.source,
-          sourceItem: q.sourceItem ?? "",
-          sourceCategory: q.sourceCategory ?? "",
+          item: record,
           avoid: draft.map((d) => d.question),
           restaurantName: restaurantProfile?.name ?? "",
         },
@@ -209,7 +251,6 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
 
   const runPublish = async () => {
     if (draft.length === 0) return;
-    // Validate: every question needs 4 non-empty options.
     const bad = draft.findIndex(
       (q) => !q.question.trim() || q.options.length !== 4 || q.options.some((o) => !o.trim()),
     );
@@ -224,44 +265,34 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
         toast.error(result.error);
         return;
       }
+      // Record which menu kinds this upload actually covers, so the schedule
+      // gate knows what staff can be tested on. Derived from extraction, not
+      // from upload slots.
       const now = new Date().toISOString();
-      if (food) {
-        setMenu({
-          name: food.name,
-          type: food.type,
-          sizeKB: Math.max(1, Math.round(food.size / 1024)),
-          uploadedAt: now,
-          generatedAt: now,
-          preview: foodPreview ?? undefined,
-        });
-      }
-      if (drink) {
-        setDrinkMenu({
-          name: drink.name,
-          type: drink.type,
-          sizeKB: Math.max(1, Math.round(drink.size / 1024)),
-          uploadedAt: now,
-          generatedAt: now,
-          preview: drinkPreview ?? undefined,
-        });
-      }
-      if (dessert) {
-        setDessertMenu({
-          name: dessert.name,
-          type: dessert.type,
-          sizeKB: Math.max(1, Math.round(dessert.size / 1024)),
-          uploadedAt: now,
-          generatedAt: now,
-          preview: dessertPreview ?? undefined,
-        });
+      const primary = files[0];
+      const uploadMeta = primary
+        ? {
+            name: files.map((f) => f.file.name).join(", ").slice(0, 160),
+            type: primary.file.type,
+            sizeKB: Math.max(1, Math.round(files.reduce((s, f) => s + f.file.size, 0) / 1024)),
+            uploadedAt: now,
+            generatedAt: now,
+            preview: primary.previewUrl ?? undefined,
+          }
+        : null;
+      if (uploadMeta) {
+        if (result.foodCount > 0) setMenu(uploadMeta);
+        if (result.drinkCount > 0) setDrinkMenu(uploadMeta);
+        if (result.dessertCount > 0) setDessertMenu(uploadMeta);
       }
       await refreshMenuBankMeta();
       const isRegen = (menuBankMeta?.version ?? 0) > 0;
+      const count = draft.length;
       setDraft([]);
       toast.success(
         isRegen
           ? `Menu Knowledge Test published (v${result.bankVersion}). All staff will need to retake it before their next shift.`
-          : `Published ${draft.length} menu questions. Staff must pass the Menu Knowledge Test before being scheduled.`,
+          : `Published ${count} menu questions. Staff must pass the Menu Knowledge Test before being scheduled.`,
       );
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Couldn't publish. Try again.");
@@ -275,8 +306,8 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
     setError(null);
   };
 
-  const canGenerate = !!(food || drink || dessert) && !loading && !publishing;
   const hasDraft = draft.length > 0;
+  const canRun = files.length > 0 && !busy && !publishing;
 
   return (
     <Card className="border-border">
@@ -285,7 +316,7 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
           <div>
             <CardTitle className="text-base sm:text-lg">Menu Knowledge Test</CardTitle>
             <p className="mt-1 text-xs text-muted-foreground">
-              Upload your food, drink and/or dessert menus. AI reads them and drafts a real 15-question test. You review, edit, and publish — nothing goes live to staff until you approve it.
+              Upload your menu — one combined file or several. AI reads it, tells you what it found, then drafts the test. You review, edit, and publish; nothing goes live to staff until you approve it.
             </p>
             {menuBankMeta && (
               <p className="mt-1 text-[11px] font-medium text-primary">
@@ -301,29 +332,7 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid gap-3 sm:grid-cols-3">
-          <MenuSlot
-            label="Food menu"
-            accept={ACCEPT}
-            file={food}
-            previewUrl={foodPreview}
-            onPick={(f) => onFile("food", f)}
-          />
-          <MenuSlot
-            label="Drink menu"
-            accept={ACCEPT}
-            file={drink}
-            previewUrl={drinkPreview}
-            onPick={(f) => onFile("drink", f)}
-          />
-          <MenuSlot
-            label="Dessert menu"
-            accept={ACCEPT}
-            file={dessert}
-            previewUrl={dessertPreview}
-            onPick={(f) => onFile("dessert", f)}
-          />
-        </div>
+        <MenuDropzone accept={ACCEPT} files={files} onAdd={addFiles} onRemove={removeFile} disabled={busy || publishing} />
 
         {menuBankMeta && (
           <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-900 dark:text-amber-200">
@@ -332,11 +341,11 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
         )}
 
         <div className="flex flex-wrap gap-2">
-          <Button onClick={runGenerate} disabled={!canGenerate} className="flex-1 sm:flex-none">
-            {loading ? (
+          <Button onClick={runFullPipeline} disabled={!canRun} className="flex-1 sm:flex-none">
+            {busy ? (
               <>
                 <Spinner className="mr-2 h-4 w-4 animate-spin" />
-                Reading menu &amp; drafting…
+                {stage === "extracting" ? "Reading menu…" : "Writing questions…"}
               </>
             ) : hasDraft ? (
               "Regenerate draft"
@@ -346,23 +355,53 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
               "Draft Menu Knowledge Test"
             )}
           </Button>
+          {coverage && !busy && !hasDraft && items.length > 0 && (
+            <Button variant="outline" onClick={() => runGenerate()} disabled={publishing}>
+              Write questions from these items
+            </Button>
+          )}
         </div>
 
-        {loading && (
-          <div className="rounded-xl border border-primary/30 bg-primary-soft p-4 text-sm text-primary">
-            The AI is reading your menu(s) and writing questions. This usually takes 5–20 seconds…
+        {coverage && (
+          <div className="rounded-xl border border-border bg-muted/30 p-3 text-sm">
+            <p className="font-medium">
+              Found {coverage.foodItems} food {coverage.foodItems === 1 ? "item" : "items"}, {coverage.drinkItems} drink{" "}
+              {coverage.drinkItems === 1 ? "item" : "items"}, {coverage.dessertItems} dessert{" "}
+              {coverage.dessertItems === 1 ? "item" : "items"} across {coverage.sections.length}{" "}
+              {coverage.sections.length === 1 ? "section" : "sections"}.
+            </p>
+            {coverage.sections.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {coverage.sections.map((s) => (
+                  <Badge key={s} variant="outline" className="text-[10px] uppercase">
+                    {s}
+                  </Badge>
+                ))}
+              </div>
+            )}
+            <p className="mt-2 text-xs text-muted-foreground">
+              If a section is missing, re-upload a clearer scan before publishing.
+            </p>
           </div>
         )}
-        {error && !loading && (
+
+        {busy && (
+          <div className="rounded-xl border border-primary/30 bg-primary-soft p-4 text-sm text-primary">
+            {stage === "extracting"
+              ? "Reading your menu and pulling out every item, section, and ingredient…"
+              : "Writing questions from the extracted items, one item at a time…"}
+          </div>
+        )}
+        {error && !busy && (
           <div className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-sm">
             <div className="flex-1 text-destructive">{error}</div>
-            <Button size="sm" variant="outline" onClick={runGenerate} disabled={!canGenerate}>
+            <Button size="sm" variant="outline" onClick={runFullPipeline} disabled={!canRun}>
               Retry
             </Button>
           </div>
         )}
 
-        {hasDraft && !loading && (
+        {hasDraft && !busy && (
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-900 dark:text-amber-200">
               <div>
@@ -483,47 +522,64 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
   );
 }
 
-function MenuSlot({
-  label, accept, file, previewUrl, onPick,
+function MenuDropzone({
+  accept, files, onAdd, onRemove, disabled,
 }: {
-  label: string; accept: string; file: File | null; previewUrl: string | null; onPick: (f: File | null) => void;
+  accept: string;
+  files: PickedFile[];
+  onAdd: (f: FileList | File[] | null) => void;
+  onRemove: (idx: number) => void;
+  disabled?: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   return (
     <div>
-      <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Menu files</p>
       <input
         ref={inputRef}
         type="file"
         accept={accept}
+        multiple
         className="sr-only"
-        onChange={(e) => onPick(e.target.files?.[0] ?? null)}
+        onChange={(e) => {
+          onAdd(e.target.files);
+          e.target.value = "";
+        }}
       />
       <div
-        onClick={() => inputRef.current?.click()}
+        onClick={() => { if (!disabled) inputRef.current?.click(); }}
         onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; }}
-        onDrop={(e) => { e.preventDefault(); onPick(e.dataTransfer.files?.[0] ?? null); }}
+        onDrop={(e) => { e.preventDefault(); if (!disabled) onAdd(e.dataTransfer.files); }}
         className="cursor-pointer rounded-xl border-2 border-dashed border-border bg-muted/30 p-4 text-center transition-colors hover:border-primary/50 hover:bg-primary/5"
       >
-        {file ? (
-          <div className="space-y-2">
-            {previewUrl ? (
-              <img src={previewUrl} alt="" className="mx-auto max-h-32 rounded-lg border border-border object-contain" />
-            ) : (
-              <div className="mx-auto grid h-12 w-12 place-items-center rounded-lg bg-primary-soft text-primary">
-                <PdfIcon className="h-6 w-6" />
-              </div>
-            )}
-            <p className="truncate text-sm font-medium">{file.name}</p>
-            <p className="text-[11px] text-muted-foreground">{(file.size / 1024 / 1024).toFixed(2)} MB — tap to replace</p>
-          </div>
-        ) : (
-          <div className="space-y-1 py-2">
-            <p className="text-sm font-medium">Upload {label.toLowerCase()}</p>
-            <p className="text-[11px] text-muted-foreground">PDF or photo · drag &amp; drop or click</p>
-          </div>
-        )}
+        <p className="text-sm font-medium">
+          {files.length > 0 ? "Add another file or tap to replace" : "Upload your menu"}
+        </p>
+        <p className="text-[11px] text-muted-foreground">
+          PDF or photo · drag &amp; drop or click · one combined menu is fine (food, drinks and desserts are detected automatically)
+        </p>
       </div>
+
+      {files.length > 0 && (
+        <div className="mt-3 grid gap-2 sm:grid-cols-3">
+          {files.map((f, i) => (
+            <div key={`${f.file.name}-${i}`} className="rounded-xl border border-border bg-card p-3 text-center">
+              {f.previewUrl ? (
+                <img src={f.previewUrl} alt="" className="mx-auto max-h-28 rounded-lg border border-border object-contain" />
+              ) : (
+                <div className="mx-auto grid h-12 w-12 place-items-center rounded-lg bg-primary-soft text-primary">
+                  <PdfIcon className="h-6 w-6" />
+                </div>
+              )}
+              <p className="mt-2 truncate text-sm font-medium">{f.file.name}</p>
+              <p className="text-[11px] text-muted-foreground">{(f.file.size / 1024 / 1024).toFixed(2)} MB</p>
+              <Button size="sm" variant="ghost" className="mt-1 h-7 text-xs text-destructive hover:text-destructive" onClick={() => onRemove(i)} disabled={disabled}>
+                Remove
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
