@@ -613,6 +613,7 @@ export async function runPublishMenuQuiz(
     source: q.source,
     sourceItem: (q.sourceItem ?? "").slice(0, 160),
     sourceCategory: (q.sourceCategory ?? "").slice(0, 120),
+    questionType: q.questionType ?? "identify_item",
   }));
   const foodCount = questions.filter((q) => q.source === "food").length;
   const drinkCount = questions.filter((q) => q.source === "drink").length;
