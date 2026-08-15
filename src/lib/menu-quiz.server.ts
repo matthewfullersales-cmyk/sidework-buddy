@@ -27,6 +27,8 @@ import {
 } from "./menu-quiz.schemas";
 import {
   buildProvenanceIndex,
+  isSectionQuestion,
+  normalizeText,
   partitionQuestions,
   rejectionReason,
   type ProvenanceIndex,
@@ -224,10 +226,22 @@ export async function runExtractMenu(data: {
     return { ok: false, error: "The menu reader returned a malformed result. Try again." };
   }
 
+  // Fees, disclaimers, footnotes and truncated fragments are not testable items.
+  const NON_ITEM = /\b(fee|fees|surcharge|upcharge|up-charge|charge|charges|corkage|twist cap|split plate|split-plate|gratuity|service charge|market price|mkt price|\bmp\b|substitution|substitutions|add[- ]?on|allergen|allergy|consumer advisory|undercooked|disclaimer|notice|please note|tax|minimum)\b/i;
+  function isRealItem(name: string): boolean {
+    const n = name.trim();
+    if (n.length < 3) return false;
+    if (NON_ITEM.test(n)) return false;
+    // truncated fragments: a lone possessive or trailing conjunction/preposition
+    if (/^[^\s]+['\u2019]s$/i.test(n)) return false;
+    if (/(\band\b|\bwith\b|\bof\b|['\u2019]s|,|&)$/i.test(n)) return false;
+    return true;
+  }
+
   // De-duplicate by name (keep the richest record).
   const byName = new Map<string, ExtractedItem>();
   for (const item of shaped.data.items) {
-    if (!item.name) continue;
+    if (!item.name || !isRealItem(item.name)) continue;
     const key = item.name.toLowerCase();
     const prev = byName.get(key);
     if (!prev || prev.ingredients.length < item.ingredients.length) byName.set(key, item);
@@ -481,6 +495,32 @@ async function generateBatchWithRetry(
   return { ok: false, error: lastError, lost: batch.length };
 }
 
+/**
+ * "Which section is X in?" questions teach one rule and test nothing, so they
+ * are capped at 10% of the bank and one per printed section.
+ */
+function capSectionQuestions(
+  questions: MenuQuizDraftQuestion[],
+  index: ProvenanceIndex,
+): MenuQuizDraftQuestion[] {
+  const cap = Math.max(1, Math.floor(questions.length * 0.1));
+  const usedSections = new Set<string>();
+  let kept = 0;
+  const out: MenuQuizDraftQuestion[] = [];
+  for (const q of questions) {
+    if (!isSectionQuestion(q, index)) {
+      out.push(q);
+      continue;
+    }
+    const sec = normalizeText(q.options[q.answerIndex] ?? "");
+    if (kept >= cap || usedSections.has(sec)) continue;
+    usedSections.add(sec);
+    kept += 1;
+    out.push(q);
+  }
+  return out;
+}
+
 export async function runGenerateMenuQuiz(data: {
   items: ExtractedItem[];
   restaurantName?: string;
@@ -567,7 +607,7 @@ export async function runGenerateMenuQuiz(data: {
     return { ok: false, error: "Every generated question failed quality checks. Try a clearer menu scan and regenerate." };
   }
 
-  const bank = shuffled(final).slice(0, MAX_BANK_QUESTIONS);
+  const bank = capSectionQuestions(shuffled(final), index).slice(0, MAX_BANK_QUESTIONS);
   const diagnostics = {
     itemsExtracted: items.length,
     candidatesSelected: candidates.length,
