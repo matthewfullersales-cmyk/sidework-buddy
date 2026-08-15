@@ -149,6 +149,7 @@ export type ProvenanceItem = {
   section?: string;
   ingredients?: string[];
   preparation?: string;
+  menuType?: string;
 };
 
 export type ProvenanceIndex = {
@@ -158,7 +159,32 @@ export type ProvenanceIndex = {
   ownersByToken: Map<string, Set<string>>;
   /** normalized item name -> printed name */
   labelByItem: Map<string, string>;
+  /** normalized printed section names */
+  sectionKeys: Set<string>;
+  /** every significant token that appears in any printed section heading */
+  sectionTokens: Set<string>;
+  /** normalized item name -> normalized section */
+  sectionByItem: Map<string, string>;
+  /** normalized item name -> menu type */
+  menuTypeByItem: Map<string, string>;
 };
+
+/**
+ * Words a stem may use to frame a question without them being claims about the
+ * item. Anything outside this list must come from the item's own record.
+ */
+const FRAME_WORDS = new Set([
+  "which", "what", "who", "how", "where", "one", "following", "these", "those",
+  "list", "listed", "print", "printed", "guest", "server", "order", "ordered",
+  "offer", "offered", "feature", "featured", "come", "made", "make", "prepared",
+  "prepare", "topped", "top", "finished", "finish", "built", "poured", "pour",
+  "section", "category", "course", "menu", "item", "dish", "drink", "food",
+  "dessert", "beverage", "option", "choice", "kind", "type", "style", "brand",
+  "varietal", "grape", "producer", "winery", "label", "bottle", "bottled",
+  "draft", "draught", "glass", "wine", "beer", "cocktail", "appear", "appears",
+  "belong", "belongs", "from", "also", "only", "other", "another", "does",
+  "have", "has", "hold", "call", "called", "name", "named", "answer",
+]);
 
 function itemVocabulary(item: ProvenanceItem): string[] {
   return [
@@ -174,6 +200,10 @@ export function buildProvenanceIndex(items: ProvenanceItem[]): ProvenanceIndex {
   const vocabByItem = new Map<string, Set<string>>();
   const ownersByToken = new Map<string, Set<string>>();
   const labelByItem = new Map<string, string>();
+  const sectionKeys = new Set<string>();
+  const sectionTokens = new Set<string>();
+  const sectionByItem = new Map<string, string>();
+  const menuTypeByItem = new Map<string, string>();
 
   for (const item of items) {
     const key = normalizeText(item.name);
@@ -183,6 +213,14 @@ export function buildProvenanceIndex(items: ProvenanceItem[]): ProvenanceIndex {
     for (const t of itemVocabulary(item)) vocab.add(t);
     vocabByItem.set(key, vocab);
 
+    const sec = normalizeText(item.section ?? "");
+    sectionByItem.set(key, sec);
+    if (sec) {
+      sectionKeys.add(sec);
+      for (const t of significantTokens(item.section ?? "")) sectionTokens.add(t);
+    }
+    if (item.menuType) menuTypeByItem.set(key, item.menuType);
+
     for (const ing of item.ingredients ?? []) {
       for (const t of significantTokens(ing)) {
         const owners = ownersByToken.get(t) ?? new Set<string>();
@@ -191,13 +229,14 @@ export function buildProvenanceIndex(items: ProvenanceItem[]): ProvenanceIndex {
       }
     }
   }
-  return { vocabByItem, ownersByToken, labelByItem };
+  return { vocabByItem, ownersByToken, labelByItem, sectionKeys, sectionTokens, sectionByItem, menuTypeByItem };
 }
 
 /**
- * Ingredient provenance: any ingredient term cited in the stem must belong to
- * the question's own source item. A term that only exists in ANOTHER item's
- * printed record is ingredient bleed and gets rejected.
+ * Provenance: EVERY descriptive term in the stem must appear in the question's
+ * own source item record (name, section, ingredients, preparation). Terms that
+ * belong to a different item are ingredient bleed; terms that appear nowhere in
+ * the record are invented outside knowledge. Both are rejected.
  */
 export function provenanceRejection(
   q: ValidatableQuestion,
@@ -210,13 +249,52 @@ export function provenanceRejection(
     return `The question is tagged to "${q.sourceItem}", which is not an item on the extracted menu.`;
   }
   for (const token of new Set(significantTokens(q.question))) {
-    if (ownVocab.has(token)) continue;
+    if (nearMatchIn(token, ownVocab)) continue;
+    if (FRAME_WORDS.has(token)) continue;
     const owners = index.ownersByToken.get(token);
-    if (!owners || owners.size === 0) continue;
-    const other = [...owners].find((o) => o !== itemKey);
+    const other = owners ? [...owners].find((o) => o !== itemKey) : undefined;
     if (other) {
       const label = index.labelByItem.get(other) ?? other;
       return `The stem cites "${token}", which the menu prints for "${label}", not for "${q.sourceItem}".`;
+    }
+    return `The stem uses "${token}", which the menu never prints for "${q.sourceItem}". Only use words from that item's own printed record.`;
+  }
+  return null;
+}
+
+/**
+ * An identify_item stem whose ONLY qualifier is the item's section or menu type
+ * is unanswerable (every same-section distractor also satisfies it) or trivially
+ * guessable (distractors from other sections give it away).
+ */
+function sectionOnlyRejection(q: ValidatableQuestion, index: ProvenanceIndex): string | null {
+  const itemKey = normalizeText(q.sourceItem ?? "");
+  const ownVocab = index.vocabByItem.get(itemKey);
+  if (!ownVocab) return null;
+  const menuType = index.menuTypeByItem.get(itemKey) ?? "";
+  const specific = [...new Set(significantTokens(q.question))].filter(
+    (t) =>
+      !FRAME_WORDS.has(t) &&
+      !index.sectionTokens.has(t) &&
+      t !== menuType &&
+      nearMatchIn(t, ownVocab),
+  );
+  if (specific.length === 0) {
+    return "The stem only qualifies the item by its section or menu type, so the answer is either ambiguous or guessable without menu knowledge. Ask about an ingredient, preparation, or accompaniment instead.";
+  }
+  return null;
+}
+
+/** Distractors must be the same KIND of thing as the correct answer. */
+function optionKindRejection(q: ValidatableQuestion, index?: ProvenanceIndex): string | null {
+  const answerKind = classifyOption(q.options[q.answerIndex] ?? "", index);
+  if (answerKind === "other") return null;
+  for (let i = 0; i < q.options.length; i++) {
+    if (i === q.answerIndex) continue;
+    const kind = classifyOption(q.options[i], index);
+    if (kind === "other") continue;
+    if (kind !== answerKind) {
+      return `Answer choices mix kinds: the correct answer is a ${answerKind.replace("_", " ")} but "${q.options[i]}" is a ${kind.replace("_", " ")}. All four choices must be the same kind.`;
     }
   }
   return null;
@@ -230,11 +308,11 @@ export function rejectionReason(
   const answer = q.options[q.answerIndex] ?? "";
   if (!answer.trim()) return "The correct answer is empty.";
 
-  const stemTokens = new Set(significantTokens(q.question));
+  const stemTokens = [...new Set(significantTokens(q.question))];
   const answerTokens = significantTokens(answer);
-  const overlap = answerTokens.filter((t) => stemTokens.has(t));
+  const overlap = answerTokens.filter((t) => stemTokens.some((s) => nearMatch(s, t)));
   if (overlap.length > 0) {
-    return `The stem repeats word(s) from the correct answer: ${[...new Set(overlap)].join(", ")}. Ask about the item's OTHER components instead.`;
+    return `The stem repeats (or near-repeats) word(s) from the correct answer: ${[...new Set(overlap)].join(", ")}. Strip the answer term out of the stem, or ask about a different attribute of the item.`;
   }
 
   const item = (q.sourceItem ?? "").trim();
@@ -261,13 +339,35 @@ export function rejectionReason(
   if (new Set(normOpts).size !== normOpts.length) return "Two answer choices are identical.";
   if (normOpts.some((o) => banned.includes(o))) return "Uses an 'all/none of the above' option.";
 
+  // No euphemistic filler standing in for a real word.
+  const filler = ["component", "element", "option", "ingredient thing", "product"];
+  const stemNorm = ` ${normalizeText(q.question)} `;
+  for (const f of filler) {
+    if (stemNorm.includes(` ${f} `) || stemNorm.includes(` ${f}s `)) {
+      return `The stem uses vague filler ("${f}"). Write it the way a server would actually say it, or ask about a different detail.`;
+    }
+  }
+
+  const kindIssue = optionKindRejection(q, index);
+  if (kindIssue) return kindIssue;
+
   if (index) {
     const prov = provenanceRejection(q, index);
     if (prov) return prov;
+    if (q.questionType !== "identify_attribute") {
+      const secOnly = sectionOnlyRejection(q, index);
+      if (secOnly) return secOnly;
+    }
   }
 
   return null;
 }
+
+/** True when the correct answer is a printed section name (a "which section" question). */
+export function isSectionQuestion(q: ValidatableQuestion, index: ProvenanceIndex): boolean {
+  return index.sectionKeys.has(normalizeText(q.options[q.answerIndex] ?? ""));
+}
+
 
 export function partitionQuestions<T extends ValidatableQuestion>(
   questions: T[],
