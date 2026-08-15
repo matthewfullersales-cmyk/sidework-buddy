@@ -337,9 +337,26 @@ function itemLine(i: ExtractedItem): string {
 }
 
 function distractorPool(items: ExtractedItem[]): string {
-  const names = items.map((i) => i.name).slice(0, 120);
+  const names = items.map((i) => i.name).slice(0, 150);
   const ings = [...new Set(items.flatMap((i) => i.ingredients))].slice(0, 150);
-  return `Valid distractor vocabulary (real items): ${names.join(" | ")}\nValid distractor vocabulary (real ingredients): ${ings.join(" | ")}`;
+  const sections = [...new Set(items.map((i) => i.section).filter(Boolean))];
+  const wineNames = items
+    .filter((i) => i.menuType === "drink" && /wine|red|white|ros|sparkling|champagne/i.test(i.section))
+    .map((i) => i.name)
+    .slice(0, 60);
+  const beerNames = items
+    .filter((i) => i.menuType === "drink" && /beer|draft|draught|bottle|can/i.test(i.section))
+    .map((i) => i.name)
+    .slice(0, 60);
+  return [
+    `Valid distractor vocabulary (real items): ${names.join(" | ")}`,
+    `Valid distractor vocabulary (real ingredients): ${ings.join(" | ")}`,
+    `Valid distractor vocabulary (real printed sections): ${sections.join(" | ")}`,
+    wineNames.length ? `Wine list entries (source varietals/producers ONLY from these printed names): ${wineNames.join(" | ")}` : "",
+    beerNames.length ? `Beer list entries (source brands/styles ONLY from these printed names): ${beerNames.join(" | ")}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 function shuffled<T>(arr: T[]): T[] {
