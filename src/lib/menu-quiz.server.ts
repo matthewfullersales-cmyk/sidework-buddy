@@ -22,6 +22,7 @@ import {
   type MenuQuizDraftQuestion,
   type MenuSource,
   type PublishMenuQuizResult,
+  type QuestionType,
   type RegenerateQuestionResult,
 } from "./menu-quiz.schemas";
 import {
@@ -44,8 +45,11 @@ const ACCEPTED_MIME = new Set([
   "application/pdf",
 ]);
 
-const MAX_QUESTIONS_PER_TYPE = 18;
+/** Overall safety ceiling on the generated bank. */
+const MAX_BANK_QUESTIONS = 150;
 const ITEMS_PER_BATCH = 12;
+/** Max batches in flight at once (rate-limit protection). */
+const BATCH_CONCURRENCY = 2;
 
 /* --------------------------------- shared -------------------------------- */
 
@@ -260,6 +264,8 @@ const rawQuestionSchema = z
     source_category: z.string().optional(),
     sourceItem: z.string().optional(),
     sourceCategory: z.string().optional(),
+    question_type: z.enum(["identify_item", "identify_attribute"]).optional(),
+    questionType: z.enum(["identify_item", "identify_attribute"]).optional(),
   })
   .transform((q) => ({
     question: q.question,
@@ -268,6 +274,7 @@ const rawQuestionSchema = z
     source: (q.source ?? "food") as MenuSource,
     sourceItem: (q.source_item ?? q.sourceItem ?? "").trim().slice(0, 160),
     sourceCategory: (q.source_category ?? q.sourceCategory ?? "").trim().slice(0, 120),
+    questionType: (q.question_type ?? q.questionType ?? "identify_item") as QuestionType,
   }));
 
 const modelResponseSchema = z.object({
@@ -277,13 +284,23 @@ const modelResponseSchema = z.object({
 const QUALITY_RULES = `Rules:
 - You are given a STRUCTURED RECORD of the menu. Use ONLY the record. Never invent items, ingredients, or details, and never use one item's ingredients for a different item.
 - Write each question about EXACTLY ONE item, using only that item's own name, section, ingredients, and preparation.
-- An item with an empty ingredients list can only support a section/category question ("Which section is X served from?" phrased without naming X) — otherwise skip it.
 - Each question must have exactly 4 options and exactly one correct answer.
-- Mix question types: "What's in [dish/drink/dessert]?", "Which item contains [ingredient]?", "Which section does [item] belong to?", "What garnish/side comes with [item]?".
-- ANTI-SELF-ANSWERING RULE (critical): the question stem must NOT contain any significant word that also appears in the correct answer. "Significant" means any noun, ingredient name, or dish-name word. Ignore only these stop words: the, a, an, with, and, or, of, in, on, for, to, is, are, which, what, contains, includes, served, side, dish, item, menu.
+- QUESTION DIRECTION — every question MUST carry a "question_type" field with exactly one of two values:
+  - "identify_item": the correct answer IS a menu item name. Example: "Which entrée is finished with butter and chicken stock?" -> "Roasted Garlic Chicken". The stem must NOT name the item or use two or more consecutive words from its name.
+  - "identify_attribute": the correct answer is an ATTRIBUTE (varietal, producer/winery, beer style, brand, section/course, or ingredient) and the stem NAMES the item. Example: "Kendall-Jackson Vintner's Reserve — which varietal is it?" -> "Chardonnay". Naming the item is required for this shape.
+- CHOOSE THE QUESTION TYPE FROM WHAT THE ITEM ACTUALLY HAS:
+  - Item HAS ingredients or preparation -> ingredient/preparation question (either direction).
+  - WINE (menu_type "drink", section mentions wine) -> ask about varietal, producer/winery, or style (red / white / rosé / sparkling), drawn ONLY from the item name and section. Use "identify_attribute".
+  - BEER (menu_type "drink", section mentions beer) -> ask about brand, beer style, or draft vs bottled, drawn ONLY from the item name and section. Use "identify_attribute".
+  - Any OTHER drink with no ingredients -> ask which section it is served from, or its category. Use "identify_attribute".
+  - FOOD or DESSERT with no ingredients -> ask which section/course it is served from. Use "identify_attribute".
+- NEVER invent an attribute that is not present in the item name or its section heading. If an item's name and section together support no honest question, SKIP that item.
+- ANTI-SELF-ANSWERING RULE (critical, applies to BOTH types): the question stem must NOT contain any significant word that also appears in the correct answer. "Significant" means any noun, ingredient name, or dish-name word. Ignore only these stop words: the, a, an, with, and, or, of, in, on, for, to, is, are, which, what, contains, includes, served, side, dish, item, menu.
   - BAD: "Which dish contains roasted garlic?" when the correct answer is "Roasted Garlic Chicken" — the stem gives the answer away.
   - GOOD: ask about the item's OTHER components — "Which entrée is finished with butter and chicken stock?"
-  - The stem must also never contain the source item's name, or two or more consecutive words from it.
+  - For "identify_attribute": if the varietal word already appears in the item name (e.g. "Chalk Hill Chardonnay"), you CANNOT ask a varietal question for that item — ask about producer or style instead, or skip it.
+  - For "identify_item" only: the stem must also never contain the source item's name, or two or more consecutive words from it.
+- ATTRIBUTE DISTRACTORS: incorrect options for an attribute question must be REAL attributes of the same kind drawn from elsewhere in the record — other varietals actually on the wine list, other real beer styles on the beer list, other real printed section names. Never invented.
 - INGREDIENT PROVENANCE (critical): every ingredient or component term you put in the stem must come from THAT item's own record. Citing another item's ingredients is an automatic rejection.
 - DISTRACTOR QUALITY: every incorrect option must be a REAL item or a REAL ingredient that appears somewhere in the provided record. No invented options, no absurd throwaway options, and never "all of the above" or "none of the above". Prefer distractors from the SAME menu section as the correct answer. If you cannot produce three valid distractors from the record, DROP that question.
 - Keep questions concise (under 140 chars) and answers under 90 chars.
@@ -301,9 +318,9 @@ const QUALITY_RULES = `Rules:
   - COCKTAILS: listed ingredients — spirits, mixers, and garnish.
   - BEER: style and brand. WINE: varietal and producer.
   - DESSERTS: listed ingredients and components, same as food.
-- Tag every question with "source" (the item's menu_type from the record: food, drink, or dessert), "source_item" (the exact item name) and "source_category" (the item's printed section).
+- Tag every question with "source" (the item's menu_type from the record: food, drink, or dessert), "source_item" (the exact item name), "source_category" (the item's printed section) and "question_type" ("identify_item" or "identify_attribute").
 - Return STRICT JSON only, matching this shape exactly, no prose, no markdown fences:
-{"questions":[{"question":"...","options":["A","B","C","D"],"answerIndex":0,"source":"food","source_item":"...","source_category":"..."}, ...]}`;
+{"questions":[{"question":"...","options":["A","B","C","D"],"answerIndex":0,"source":"food","source_item":"...","source_category":"...","question_type":"identify_item"}, ...]}`;
 
 const GENERATION_SYSTEM = `You are a restaurant training coach building the mandatory "Menu Knowledge Test" for a restaurant's floor and kitchen staff. This is a gating test — an employee cannot be scheduled until they pass it — so every question must test genuine, on-menu knowledge drawn from the structured menu record you are given.
 
@@ -320,9 +337,26 @@ function itemLine(i: ExtractedItem): string {
 }
 
 function distractorPool(items: ExtractedItem[]): string {
-  const names = items.map((i) => i.name).slice(0, 120);
+  const names = items.map((i) => i.name).slice(0, 150);
   const ings = [...new Set(items.flatMap((i) => i.ingredients))].slice(0, 150);
-  return `Valid distractor vocabulary (real items): ${names.join(" | ")}\nValid distractor vocabulary (real ingredients): ${ings.join(" | ")}`;
+  const sections = [...new Set(items.map((i) => i.section).filter(Boolean))];
+  const wineNames = items
+    .filter((i) => i.menuType === "drink" && /wine|red|white|ros|sparkling|champagne/i.test(i.section))
+    .map((i) => i.name)
+    .slice(0, 60);
+  const beerNames = items
+    .filter((i) => i.menuType === "drink" && /beer|draft|draught|bottle|can/i.test(i.section))
+    .map((i) => i.name)
+    .slice(0, 60);
+  return [
+    `Valid distractor vocabulary (real items): ${names.join(" | ")}`,
+    `Valid distractor vocabulary (real ingredients): ${ings.join(" | ")}`,
+    `Valid distractor vocabulary (real printed sections): ${sections.join(" | ")}`,
+    wineNames.length ? `Wine list entries (source varietals/producers ONLY from these printed names): ${wineNames.join(" | ")}` : "",
+    beerNames.length ? `Beer list entries (source brands/styles ONLY from these printed names): ${beerNames.join(" | ")}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 function shuffled<T>(arr: T[]): T[] {
@@ -336,7 +370,7 @@ function shuffled<T>(arr: T[]): T[] {
 
 function clampQuestion(q: {
   question: string; options: string[]; answerIndex: number; source: MenuSource;
-  sourceItem: string; sourceCategory: string;
+  sourceItem: string; sourceCategory: string; questionType?: QuestionType;
 }): MenuQuizDraftQuestion {
   return {
     question: q.question.slice(0, 240),
@@ -345,6 +379,7 @@ function clampQuestion(q: {
     source: q.source,
     sourceItem: q.sourceItem.slice(0, 160),
     sourceCategory: q.sourceCategory.slice(0, 120),
+    questionType: q.questionType ?? "identify_item",
   };
 }
 
@@ -383,14 +418,59 @@ ${distractorPool(allItems)}${extraInstruction ? `\n\n${extraInstruction}` : ""}`
   return { ok: true, questions: shaped.data.questions.map(clampQuestion) };
 }
 
+/**
+ * Every extracted item is a candidate. Items with no printed ingredients are
+ * still usable — the prompt asks for an attribute question (varietal, brand,
+ * style, section) drawn from the item's own name and section heading.
+ * The only requirement is that the item has SOMETHING to ask about.
+ */
 function pickCandidates(items: ExtractedItem[]): ExtractedItem[] {
-  const usable = items.filter((i) => i.ingredients.length > 0 || i.preparation);
+  const usable = items.filter(
+    (i) => i.ingredients.length > 0 || Boolean(i.preparation) || Boolean(i.section) || i.name.trim().split(/\s+/).length > 1,
+  );
   const out: ExtractedItem[] = [];
   for (const type of ["food", "drink", "dessert"] as const) {
-    const ofType = shuffled(usable.filter((i) => i.menuType === type));
-    out.push(...ofType.slice(0, MAX_QUESTIONS_PER_TYPE));
+    out.push(...shuffled(usable.filter((i) => i.menuType === type)));
   }
-  return out;
+  // Interleave types so a truncation at the safety ceiling stays balanced.
+  return shuffled(out).slice(0, MAX_BANK_QUESTIONS);
+}
+
+/** Run async tasks with a bounded number in flight. */
+async function mapWithConcurrency<T, R>(
+  inputs: T[],
+  limit: number,
+  fn: (input: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(inputs.length);
+  let cursor = 0;
+  const workers = Array.from({ length: Math.min(limit, inputs.length) }, async () => {
+    while (cursor < inputs.length) {
+      const idx = cursor++;
+      results[idx] = await fn(inputs[idx], idx);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
+/** One batch, with a single retry before giving up on it. */
+async function generateBatchWithRetry(
+  key: string,
+  batch: ExtractedItem[],
+  allItems: ExtractedItem[],
+  restaurantName: string,
+  extraInstruction?: string,
+): Promise<{ ok: true; questions: MenuQuizDraftQuestion[] } | { ok: false; error: string; lost: number }> {
+  let lastError = "The AI didn't return questions for one batch.";
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const res = await generateForBatch(key, batch, allItems, restaurantName, extraInstruction);
+    if (res.ok) return res;
+    lastError = res.error;
+    console.warn(`[menu-quiz] batch attempt ${attempt + 1} failed: ${res.error}`);
+    if (attempt === 0) await new Promise((r) => setTimeout(r, 1200));
+  }
+  return { ok: false, error: lastError, lost: batch.length };
 }
 
 export async function runGenerateMenuQuiz(data: {
@@ -409,7 +489,7 @@ export async function runGenerateMenuQuiz(data: {
   if (candidates.length === 0) {
     return {
       ok: false,
-      error: "None of the extracted items list any ingredients or preparation detail, so there's nothing to test. Upload a menu with item descriptions.",
+      error: "None of the extracted items have a name or section we can honestly test. Upload a clearer menu.",
     };
   }
 
@@ -419,14 +499,23 @@ export async function runGenerateMenuQuiz(data: {
     batches.push(candidates.slice(i, i + ITEMS_PER_BATCH));
   }
 
-  const results = await Promise.all(
-    batches.map((b) => generateForBatch(lovableKey, b, items, restaurantName)),
+  const results = await mapWithConcurrency(batches, BATCH_CONCURRENCY, (b) =>
+    generateBatchWithRetry(lovableKey, b, items, restaurantName),
   );
   const produced: MenuQuizDraftQuestion[] = [];
   let lastError: string | null = null;
+  let lostToFailedBatches = 0;
+  let failedBatches = 0;
   for (const r of results) {
     if (r.ok) produced.push(...r.questions.map((q) => retagFromRecord(q, byName)));
-    else lastError = r.error;
+    else {
+      lastError = r.error;
+      lostToFailedBatches += r.lost;
+      failedBatches += 1;
+    }
+  }
+  if (failedBatches > 0) {
+    console.error(`[menu-quiz] ${failedBatches}/${batches.length} batches failed after retry (${lostToFailedBatches} items lost): ${lastError}`);
   }
   if (produced.length === 0) {
     return { ok: false, error: lastError ?? "The AI couldn't write questions from this menu. Try a clearer scan." };
@@ -450,15 +539,13 @@ export async function runGenerateMenuQuiz(data: {
       for (let i = 0; i < retryItems.length; i += ITEMS_PER_BATCH) {
         retryBatches.push(retryItems.slice(i, i + ITEMS_PER_BATCH));
       }
-      const retryResults = await Promise.all(
-        retryBatches.map((b) =>
-          generateForBatch(
-            lovableKey,
-            b,
-            items,
-            restaurantName,
-            `Your previous attempts at these items were REJECTED by an automated validator. Write clean replacements that fix the stated problems:\n${listing}`,
-          ),
+      const retryResults = await mapWithConcurrency(retryBatches, BATCH_CONCURRENCY, (b) =>
+        generateBatchWithRetry(
+          lovableKey,
+          b,
+          items,
+          restaurantName,
+          `Your previous attempts at these items were REJECTED by an automated validator. Write clean replacements that fix the stated problems:\n${listing}`,
         ),
       );
       const retried = retryResults.flatMap((r) => (r.ok ? r.questions.map((q) => retagFromRecord(q, byName)) : []));
@@ -472,13 +559,25 @@ export async function runGenerateMenuQuiz(data: {
     return { ok: false, error: "Every generated question failed quality checks. Try a clearer menu scan and regenerate." };
   }
 
+  const bank = shuffled(final).slice(0, MAX_BANK_QUESTIONS);
+  const diagnostics = {
+    itemsExtracted: items.length,
+    candidatesSelected: candidates.length,
+    questionsReturned: produced.length,
+    rejectedByQuality: rejectedCount,
+    lostToFailedBatches,
+    finalBankSize: bank.length,
+  };
+  console.info("[menu-quiz] generation diagnostics", diagnostics);
+
   return {
     ok: true,
-    questions: shuffled(final),
-    foodCount: final.filter((q) => q.source === "food").length,
-    drinkCount: final.filter((q) => q.source === "drink").length,
-    dessertCount: final.filter((q) => q.source === "dessert").length,
+    questions: bank,
+    foodCount: bank.filter((q) => q.source === "food").length,
+    drinkCount: bank.filter((q) => q.source === "drink").length,
+    dessertCount: bank.filter((q) => q.source === "dessert").length,
     rejectedCount,
+    diagnostics,
   };
 }
 
@@ -521,7 +620,7 @@ export async function runPublishMenuQuiz(
   userId: string,
   questionsIn: unknown,
 ): Promise<PublishMenuQuizResult> {
-  const parsed = z.array(questionSchema).min(1).max(120).safeParse(questionsIn);
+  const parsed = z.array(questionSchema).min(1).max(150).safeParse(questionsIn);
   if (!parsed.success) return { ok: false, error: "Those questions are malformed. Regenerate the draft." };
 
   const questions = parsed.data.map((q) => ({
@@ -531,6 +630,7 @@ export async function runPublishMenuQuiz(
     source: q.source,
     sourceItem: (q.sourceItem ?? "").slice(0, 160),
     sourceCategory: (q.sourceCategory ?? "").slice(0, 120),
+    questionType: q.questionType ?? "identify_item",
   }));
   const foodCount = questions.filter((q) => q.source === "food").length;
   const drinkCount = questions.filter((q) => q.source === "drink").length;

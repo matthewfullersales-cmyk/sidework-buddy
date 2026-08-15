@@ -11,6 +11,7 @@ import {
   publishMenuQuiz,
   regenerateMenuQuestion,
   type ExtractedItem,
+  type GenerationDiagnostics,
   type MenuCoverage,
   type MenuQuizDraftQuestion,
 } from "@/lib/menu-quiz.functions";
@@ -80,6 +81,7 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
   const [error, setError] = useState<string | null>(null);
   const [items, setItems] = useState<ExtractedItem[]>([]);
   const [coverage, setCoverage] = useState<MenuCoverage | null>(null);
+  const [diagnostics, setDiagnostics] = useState<GenerationDiagnostics | null>(null);
   // Draft questions live only in memory until the owner explicitly publishes.
   const [draft, setDraft] = useState<MenuQuizDraftQuestion[]>([]);
   const [regenIdx, setRegenIdx] = useState<number | null>(null);
@@ -90,6 +92,7 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
     setDraft([]);
     setItems([]);
     setCoverage(null);
+    setDiagnostics(null);
     setError(null);
   };
 
@@ -182,6 +185,7 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
         return;
       }
       setDraft(result.questions);
+      setDiagnostics(result.diagnostics);
       toast.success(
         result.rejectedCount > 0
           ? `Draft ready — ${result.questions.length} questions (${result.rejectedCount} rejected by quality checks).`
@@ -382,6 +386,22 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
             <p className="mt-2 text-xs text-muted-foreground">
               If a section is missing, re-upload a clearer scan before publishing.
             </p>
+          </div>
+        )}
+
+        {diagnostics && !busy && (
+          <div className="rounded-xl border border-border bg-muted/20 p-3 text-xs text-muted-foreground">
+            <p>
+              {diagnostics.itemsExtracted} items extracted · {diagnostics.candidatesSelected} candidates selected ·{" "}
+              {diagnostics.questionsReturned} questions written by AI · {diagnostics.rejectedByQuality} rejected by
+              quality checks · {diagnostics.lostToFailedBatches} lost to failed batches ·{" "}
+              <span className="font-medium text-foreground">{diagnostics.finalBankSize} in the final bank</span>.
+            </p>
+            {diagnostics.lostToFailedBatches > 0 && (
+              <p className="mt-1 text-destructive">
+                Some batches failed after a retry. Re-run generation to fill the gap.
+              </p>
+            )}
           </div>
         )}
 

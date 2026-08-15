@@ -46,6 +46,9 @@ export type ExtractMenuResult =
 
 /* ---------------------------- stage 2: generation --------------------------- */
 
+export const questionTypeSchema = z.enum(["identify_item", "identify_attribute"]);
+export type QuestionType = z.infer<typeof questionTypeSchema>;
+
 export const questionSchema = z.object({
   question: z.string().min(4),
   options: z.array(z.string().min(1)).length(4),
@@ -53,6 +56,7 @@ export const questionSchema = z.object({
   source: menuSourceSchema,
   sourceItem: z.string().trim().max(160).optional().default(""),
   sourceCategory: z.string().trim().max(120).optional().default(""),
+  questionType: questionTypeSchema.optional().default("identify_item"),
 });
 
 export type MenuQuizQuestion = z.infer<typeof questionSchema>;
@@ -66,7 +70,7 @@ export const generateInputSchema = z.object({
 });
 
 export const publishInputSchema = z.object({
-  questions: z.array(questionSchema).min(1).max(120),
+  questions: z.array(questionSchema).min(1).max(150),
 });
 
 export const regenerateInputSchema = z.object({
@@ -74,6 +78,16 @@ export const regenerateInputSchema = z.object({
   avoid: z.array(z.string().max(240)).max(120).optional().default([]),
   restaurantName: z.string().trim().max(200).optional().default(""),
 });
+
+/** Honest accounting of the generation run, surfaced to the owner. */
+export type GenerationDiagnostics = {
+  itemsExtracted: number;
+  candidatesSelected: number;
+  questionsReturned: number;
+  rejectedByQuality: number;
+  lostToFailedBatches: number;
+  finalBankSize: number;
+};
 
 export type GenerateMenuQuizResult =
   | {
@@ -83,6 +97,7 @@ export type GenerateMenuQuizResult =
       drinkCount: number;
       dessertCount: number;
       rejectedCount: number;
+      diagnostics: GenerationDiagnostics;
     }
   | { ok: false; error: string };
 
