@@ -1,6 +1,7 @@
-// Server functions for the Menu Knowledge Test: generate a question bank from
-// uploaded menus (PDF/image) via the Lovable AI Gateway, regenerate a single
-// question, and publish the owner-approved bank.
+// Server functions for the Menu Knowledge Test: a two-stage pipeline that
+// first extracts a structured record from the uploaded menu file(s), then
+// writes questions from that record only. Plus single-question regeneration
+// and publishing of the owner-approved bank.
 //
 // All runtime logic lives in ./menu-quiz.server so this module stays a thin
 // wrapper (server-fn splitting removes handler bodies from client bundles).
@@ -8,17 +9,22 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
+  extractInputSchema,
   generateInputSchema,
   publishInputSchema,
   regenerateInputSchema,
 } from "./menu-quiz.schemas";
 import type {
+  ExtractMenuResult,
   GenerateMenuQuizResult,
   PublishMenuQuizResult,
   RegenerateQuestionResult,
 } from "./menu-quiz.schemas";
 
 export type {
+  ExtractedItem,
+  ExtractMenuResult,
+  MenuCoverage,
   MenuQuizQuestion,
   MenuQuizPreviewQuestion,
   MenuQuizDraftQuestion,
@@ -26,6 +32,14 @@ export type {
   PublishMenuQuizResult,
   RegenerateQuestionResult,
 } from "./menu-quiz.schemas";
+
+export const extractMenuItems = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => extractInputSchema.parse(data))
+  .handler(async ({ data }): Promise<ExtractMenuResult> => {
+    const { runExtractMenu } = await import("./menu-quiz.server");
+    return runExtractMenu(data);
+  });
 
 export const generateMenuQuiz = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

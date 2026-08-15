@@ -55,8 +55,90 @@ export type ValidatableQuestion = {
 
 export type Rejection = { index: number; reason: string };
 
+/** Minimal shape of an extracted menu item needed for provenance checking. */
+export type ProvenanceItem = {
+  name: string;
+  section?: string;
+  ingredients?: string[];
+  preparation?: string;
+};
+
+export type ProvenanceIndex = {
+  /** normalized item name -> the item's own vocabulary of significant tokens */
+  vocabByItem: Map<string, Set<string>>;
+  /** significant ingredient token -> normalized names of items that print it */
+  ownersByToken: Map<string, Set<string>>;
+  /** normalized item name -> printed name */
+  labelByItem: Map<string, string>;
+};
+
+function itemVocabulary(item: ProvenanceItem): string[] {
+  return [
+    ...significantTokens(item.name),
+    ...significantTokens(item.section ?? ""),
+    ...significantTokens(item.preparation ?? ""),
+    ...(item.ingredients ?? []).flatMap((i) => significantTokens(i)),
+  ];
+}
+
+/** Build the lookup used by the ingredient-provenance check. */
+export function buildProvenanceIndex(items: ProvenanceItem[]): ProvenanceIndex {
+  const vocabByItem = new Map<string, Set<string>>();
+  const ownersByToken = new Map<string, Set<string>>();
+  const labelByItem = new Map<string, string>();
+
+  for (const item of items) {
+    const key = normalizeText(item.name);
+    if (!key) continue;
+    labelByItem.set(key, item.name);
+    const vocab = vocabByItem.get(key) ?? new Set<string>();
+    for (const t of itemVocabulary(item)) vocab.add(t);
+    vocabByItem.set(key, vocab);
+
+    for (const ing of item.ingredients ?? []) {
+      for (const t of significantTokens(ing)) {
+        const owners = ownersByToken.get(t) ?? new Set<string>();
+        owners.add(key);
+        ownersByToken.set(t, owners);
+      }
+    }
+  }
+  return { vocabByItem, ownersByToken, labelByItem };
+}
+
+/**
+ * Ingredient provenance: any ingredient term cited in the stem must belong to
+ * the question's own source item. A term that only exists in ANOTHER item's
+ * printed record is ingredient bleed and gets rejected.
+ */
+export function provenanceRejection(
+  q: ValidatableQuestion,
+  index: ProvenanceIndex,
+): string | null {
+  const itemKey = normalizeText(q.sourceItem ?? "");
+  if (!itemKey) return null;
+  const ownVocab = index.vocabByItem.get(itemKey);
+  if (!ownVocab) {
+    return `The question is tagged to "${q.sourceItem}", which is not an item on the extracted menu.`;
+  }
+  for (const token of new Set(significantTokens(q.question))) {
+    if (ownVocab.has(token)) continue;
+    const owners = index.ownersByToken.get(token);
+    if (!owners || owners.size === 0) continue;
+    const other = [...owners].find((o) => o !== itemKey);
+    if (other) {
+      const label = index.labelByItem.get(other) ?? other;
+      return `The stem cites "${token}", which the menu prints for "${label}", not for "${q.sourceItem}".`;
+    }
+  }
+  return null;
+}
+
 /** Returns null when the question passes, or a human-readable reason. */
-export function rejectionReason(q: ValidatableQuestion): string | null {
+export function rejectionReason(
+  q: ValidatableQuestion,
+  index?: ProvenanceIndex,
+): string | null {
   const answer = q.options[q.answerIndex] ?? "";
   if (!answer.trim()) return "The correct answer is empty.";
 
@@ -91,16 +173,22 @@ export function rejectionReason(q: ValidatableQuestion): string | null {
   if (new Set(normOpts).size !== normOpts.length) return "Two answer choices are identical.";
   if (normOpts.some((o) => banned.includes(o))) return "Uses an 'all/none of the above' option.";
 
+  if (index) {
+    const prov = provenanceRejection(q, index);
+    if (prov) return prov;
+  }
+
   return null;
 }
 
 export function partitionQuestions<T extends ValidatableQuestion>(
   questions: T[],
+  index?: ProvenanceIndex,
 ): { passed: T[]; rejected: { question: T; reason: string }[] } {
   const passed: T[] = [];
   const rejected: { question: T; reason: string }[] = [];
   for (const q of questions) {
-    const reason = rejectionReason(q);
+    const reason = rejectionReason(q, index);
     if (reason) rejected.push({ question: q, reason });
     else passed.push(q);
   }
