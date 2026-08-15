@@ -185,6 +185,7 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
         return;
       }
       setDraft(result.questions);
+      setDiagnostics(result.diagnostics);
       toast.success(
         result.rejectedCount > 0
           ? `Draft ready — ${result.questions.length} questions (${result.rejectedCount} rejected by quality checks).`
