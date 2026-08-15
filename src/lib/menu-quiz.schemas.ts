@@ -79,6 +79,16 @@ export const regenerateInputSchema = z.object({
   restaurantName: z.string().trim().max(200).optional().default(""),
 });
 
+/** Honest accounting of the generation run, surfaced to the owner. */
+export type GenerationDiagnostics = {
+  itemsExtracted: number;
+  candidatesSelected: number;
+  questionsReturned: number;
+  rejectedByQuality: number;
+  lostToFailedBatches: number;
+  finalBankSize: number;
+};
+
 export type GenerateMenuQuizResult =
   | {
       ok: true;
@@ -87,6 +97,7 @@ export type GenerateMenuQuizResult =
       drinkCount: number;
       dessertCount: number;
       rejectedCount: number;
+      diagnostics: GenerationDiagnostics;
     }
   | { ok: false; error: string };
 
