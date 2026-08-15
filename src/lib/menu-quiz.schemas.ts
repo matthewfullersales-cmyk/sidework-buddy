@@ -70,7 +70,7 @@ export const generateInputSchema = z.object({
 });
 
 export const publishInputSchema = z.object({
-  questions: z.array(questionSchema).min(1).max(120),
+  questions: z.array(questionSchema).min(1).max(150),
 });
 
 export const regenerateInputSchema = z.object({

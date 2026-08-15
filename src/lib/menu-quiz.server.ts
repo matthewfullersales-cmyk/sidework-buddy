@@ -603,7 +603,7 @@ export async function runPublishMenuQuiz(
   userId: string,
   questionsIn: unknown,
 ): Promise<PublishMenuQuizResult> {
-  const parsed = z.array(questionSchema).min(1).max(120).safeParse(questionsIn);
+  const parsed = z.array(questionSchema).min(1).max(150).safeParse(questionsIn);
   if (!parsed.success) return { ok: false, error: "Those questions are malformed. Regenerate the draft." };
 
   const questions = parsed.data.map((q) => ({
