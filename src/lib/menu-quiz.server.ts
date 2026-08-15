@@ -263,6 +263,8 @@ const rawQuestionSchema = z
     source_category: z.string().optional(),
     sourceItem: z.string().optional(),
     sourceCategory: z.string().optional(),
+    question_type: z.enum(["identify_item", "identify_attribute"]).optional(),
+    questionType: z.enum(["identify_item", "identify_attribute"]).optional(),
   })
   .transform((q) => ({
     question: q.question,
@@ -271,6 +273,7 @@ const rawQuestionSchema = z
     source: (q.source ?? "food") as MenuSource,
     sourceItem: (q.source_item ?? q.sourceItem ?? "").trim().slice(0, 160),
     sourceCategory: (q.source_category ?? q.sourceCategory ?? "").trim().slice(0, 120),
+    questionType: (q.question_type ?? q.questionType ?? "identify_item") as QuestionType,
   }));
 
 const modelResponseSchema = z.object({
