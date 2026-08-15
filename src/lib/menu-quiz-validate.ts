@@ -46,11 +46,16 @@ export function significantTokens(input: string): string[] {
     .map(singularize);
 }
 
+export type QuestionType = "identify_item" | "identify_attribute";
+
 export type ValidatableQuestion = {
   question: string;
   options: string[];
   answerIndex: number;
   sourceItem?: string;
+  /** "identify_attribute" stems are REQUIRED to name the item, so the
+   *  item-name-in-stem check is skipped for them. */
+  questionType?: QuestionType;
 };
 
 export type Rejection = { index: number; reason: string };
