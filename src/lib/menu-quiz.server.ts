@@ -318,9 +318,9 @@ const QUALITY_RULES = `Rules:
   - COCKTAILS: listed ingredients — spirits, mixers, and garnish.
   - BEER: style and brand. WINE: varietal and producer.
   - DESSERTS: listed ingredients and components, same as food.
-- Tag every question with "source" (the item's menu_type from the record: food, drink, or dessert), "source_item" (the exact item name) and "source_category" (the item's printed section).
+- Tag every question with "source" (the item's menu_type from the record: food, drink, or dessert), "source_item" (the exact item name), "source_category" (the item's printed section) and "question_type" ("identify_item" or "identify_attribute").
 - Return STRICT JSON only, matching this shape exactly, no prose, no markdown fences:
-{"questions":[{"question":"...","options":["A","B","C","D"],"answerIndex":0,"source":"food","source_item":"...","source_category":"..."}, ...]}`;
+{"questions":[{"question":"...","options":["A","B","C","D"],"answerIndex":0,"source":"food","source_item":"...","source_category":"...","question_type":"identify_item"}, ...]}`;
 
 const GENERATION_SYSTEM = `You are a restaurant training coach building the mandatory "Menu Knowledge Test" for a restaurant's floor and kitchen staff. This is a gating test — an employee cannot be scheduled until they pass it — so every question must test genuine, on-menu knowledge drawn from the structured menu record you are given.
 
