@@ -92,6 +92,7 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
     setDraft([]);
     setItems([]);
     setCoverage(null);
+    setDiagnostics(null);
     setError(null);
   };
 
