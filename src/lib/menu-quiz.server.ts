@@ -401,14 +401,59 @@ ${distractorPool(allItems)}${extraInstruction ? `\n\n${extraInstruction}` : ""}`
   return { ok: true, questions: shaped.data.questions.map(clampQuestion) };
 }
 
+/**
+ * Every extracted item is a candidate. Items with no printed ingredients are
+ * still usable — the prompt asks for an attribute question (varietal, brand,
+ * style, section) drawn from the item's own name and section heading.
+ * The only requirement is that the item has SOMETHING to ask about.
+ */
 function pickCandidates(items: ExtractedItem[]): ExtractedItem[] {
-  const usable = items.filter((i) => i.ingredients.length > 0 || i.preparation);
+  const usable = items.filter(
+    (i) => i.ingredients.length > 0 || Boolean(i.preparation) || Boolean(i.section) || i.name.trim().split(/\s+/).length > 1,
+  );
   const out: ExtractedItem[] = [];
   for (const type of ["food", "drink", "dessert"] as const) {
-    const ofType = shuffled(usable.filter((i) => i.menuType === type));
-    out.push(...ofType.slice(0, MAX_QUESTIONS_PER_TYPE));
+    out.push(...shuffled(usable.filter((i) => i.menuType === type)));
   }
-  return out;
+  // Interleave types so a truncation at the safety ceiling stays balanced.
+  return shuffled(out).slice(0, MAX_BANK_QUESTIONS);
+}
+
+/** Run async tasks with a bounded number in flight. */
+async function mapWithConcurrency<T, R>(
+  inputs: T[],
+  limit: number,
+  fn: (input: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(inputs.length);
+  let cursor = 0;
+  const workers = Array.from({ length: Math.min(limit, inputs.length) }, async () => {
+    while (cursor < inputs.length) {
+      const idx = cursor++;
+      results[idx] = await fn(inputs[idx], idx);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
+/** One batch, with a single retry before giving up on it. */
+async function generateBatchWithRetry(
+  key: string,
+  batch: ExtractedItem[],
+  allItems: ExtractedItem[],
+  restaurantName: string,
+  extraInstruction?: string,
+): Promise<{ ok: true; questions: MenuQuizDraftQuestion[] } | { ok: false; error: string; lost: number }> {
+  let lastError = "The AI didn't return questions for one batch.";
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const res = await generateForBatch(key, batch, allItems, restaurantName, extraInstruction);
+    if (res.ok) return res;
+    lastError = res.error;
+    console.warn(`[menu-quiz] batch attempt ${attempt + 1} failed: ${res.error}`);
+    if (attempt === 0) await new Promise((r) => setTimeout(r, 1200));
+  }
+  return { ok: false, error: lastError, lost: batch.length };
 }
 
 export async function runGenerateMenuQuiz(data: {
