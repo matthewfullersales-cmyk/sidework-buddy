@@ -29,6 +29,7 @@ export type {
   MenuQuizPreviewQuestion,
   MenuQuizDraftQuestion,
   GenerateMenuQuizResult,
+  GenerationDiagnostics,
   PublishMenuQuizResult,
   RegenerateQuestionResult,
 } from "./menu-quiz.schemas";
