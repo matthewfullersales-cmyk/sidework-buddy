@@ -284,13 +284,23 @@ const modelResponseSchema = z.object({
 const QUALITY_RULES = `Rules:
 - You are given a STRUCTURED RECORD of the menu. Use ONLY the record. Never invent items, ingredients, or details, and never use one item's ingredients for a different item.
 - Write each question about EXACTLY ONE item, using only that item's own name, section, ingredients, and preparation.
-- An item with an empty ingredients list can only support a section/category question ("Which section is X served from?" phrased without naming X) — otherwise skip it.
 - Each question must have exactly 4 options and exactly one correct answer.
-- Mix question types: "What's in [dish/drink/dessert]?", "Which item contains [ingredient]?", "Which section does [item] belong to?", "What garnish/side comes with [item]?".
-- ANTI-SELF-ANSWERING RULE (critical): the question stem must NOT contain any significant word that also appears in the correct answer. "Significant" means any noun, ingredient name, or dish-name word. Ignore only these stop words: the, a, an, with, and, or, of, in, on, for, to, is, are, which, what, contains, includes, served, side, dish, item, menu.
+- QUESTION DIRECTION — every question MUST carry a "question_type" field with exactly one of two values:
+  - "identify_item": the correct answer IS a menu item name. Example: "Which entrée is finished with butter and chicken stock?" -> "Roasted Garlic Chicken". The stem must NOT name the item or use two or more consecutive words from its name.
+  - "identify_attribute": the correct answer is an ATTRIBUTE (varietal, producer/winery, beer style, brand, section/course, or ingredient) and the stem NAMES the item. Example: "Kendall-Jackson Vintner's Reserve — which varietal is it?" -> "Chardonnay". Naming the item is required for this shape.
+- CHOOSE THE QUESTION TYPE FROM WHAT THE ITEM ACTUALLY HAS:
+  - Item HAS ingredients or preparation -> ingredient/preparation question (either direction).
+  - WINE (menu_type "drink", section mentions wine) -> ask about varietal, producer/winery, or style (red / white / rosé / sparkling), drawn ONLY from the item name and section. Use "identify_attribute".
+  - BEER (menu_type "drink", section mentions beer) -> ask about brand, beer style, or draft vs bottled, drawn ONLY from the item name and section. Use "identify_attribute".
+  - Any OTHER drink with no ingredients -> ask which section it is served from, or its category. Use "identify_attribute".
+  - FOOD or DESSERT with no ingredients -> ask which section/course it is served from. Use "identify_attribute".
+- NEVER invent an attribute that is not present in the item name or its section heading. If an item's name and section together support no honest question, SKIP that item.
+- ANTI-SELF-ANSWERING RULE (critical, applies to BOTH types): the question stem must NOT contain any significant word that also appears in the correct answer. "Significant" means any noun, ingredient name, or dish-name word. Ignore only these stop words: the, a, an, with, and, or, of, in, on, for, to, is, are, which, what, contains, includes, served, side, dish, item, menu.
   - BAD: "Which dish contains roasted garlic?" when the correct answer is "Roasted Garlic Chicken" — the stem gives the answer away.
   - GOOD: ask about the item's OTHER components — "Which entrée is finished with butter and chicken stock?"
-  - The stem must also never contain the source item's name, or two or more consecutive words from it.
+  - For "identify_attribute": if the varietal word already appears in the item name (e.g. "Chalk Hill Chardonnay"), you CANNOT ask a varietal question for that item — ask about producer or style instead, or skip it.
+  - For "identify_item" only: the stem must also never contain the source item's name, or two or more consecutive words from it.
+- ATTRIBUTE DISTRACTORS: incorrect options for an attribute question must be REAL attributes of the same kind drawn from elsewhere in the record — other varietals actually on the wine list, other real beer styles on the beer list, other real printed section names. Never invented.
 - INGREDIENT PROVENANCE (critical): every ingredient or component term you put in the stem must come from THAT item's own record. Citing another item's ingredients is an automatic rejection.
 - DISTRACTOR QUALITY: every incorrect option must be a REAL item or a REAL ingredient that appears somewhere in the provided record. No invented options, no absurd throwaway options, and never "all of the above" or "none of the above". Prefer distractors from the SAME menu section as the correct answer. If you cannot produce three valid distractors from the record, DROP that question.
 - Keep questions concise (under 140 chars) and answers under 90 chars.
