@@ -1,27 +1,50 @@
 // Client-safe schemas & types for the Menu Knowledge Test generation flow.
 // Kept out of the .server module because inputValidator runs on both sides.
+//
+// The pipeline is two-stage:
+//   1. extractMenuItems  -> structured record of every item on the upload(s)
+//   2. generateMenuQuiz  -> questions written from that record only
 
 import { z } from "zod";
 
 export const filePayload = z.object({
   fileBase64: z.string().min(50),
   mimeType: z.string(),
+  filename: z.string().max(200).optional().default("menu"),
 });
 export type FilePayload = z.infer<typeof filePayload>;
 
 export const menuSourceSchema = z.enum(["food", "drink", "dessert"]);
 export type MenuSource = z.infer<typeof menuSourceSchema>;
 
-export const generateInputSchema = z
-  .object({
-    food: filePayload.optional(),
-    drink: filePayload.optional(),
-    dessert: filePayload.optional(),
-    restaurantName: z.string().trim().max(200).optional().default(""),
-  })
-  .refine((v) => v.food || v.drink || v.dessert, {
-    message: "Upload at least one menu (food, drink, or dessert).",
-  });
+/* ---------------------------- stage 1: extraction --------------------------- */
+
+export const extractedItemSchema = z.object({
+  name: z.string().trim().min(1).max(160),
+  section: z.string().trim().max(120).default(""),
+  ingredients: z.array(z.string().trim().min(1).max(120)).max(40).default([]),
+  preparation: z.string().trim().max(400).default(""),
+  menuType: menuSourceSchema,
+});
+export type ExtractedItem = z.infer<typeof extractedItemSchema>;
+
+export const extractInputSchema = z.object({
+  files: z.array(filePayload).min(1).max(6),
+  restaurantName: z.string().trim().max(200).optional().default(""),
+});
+
+export type MenuCoverage = {
+  foodItems: number;
+  drinkItems: number;
+  dessertItems: number;
+  sections: string[];
+};
+
+export type ExtractMenuResult =
+  | { ok: true; items: ExtractedItem[]; coverage: MenuCoverage }
+  | { ok: false; error: string };
+
+/* ---------------------------- stage 2: generation --------------------------- */
 
 export const questionSchema = z.object({
   question: z.string().min(4),
@@ -37,16 +60,18 @@ export type MenuQuizPreviewQuestion = Pick<MenuQuizQuestion, "question" | "optio
 /** Draft returned by generateMenuQuiz — includes answerIndex for owner review. NOT persisted. */
 export type MenuQuizDraftQuestion = MenuQuizQuestion;
 
+export const generateInputSchema = z.object({
+  items: z.array(extractedItemSchema).min(1).max(400),
+  restaurantName: z.string().trim().max(200).optional().default(""),
+});
+
 export const publishInputSchema = z.object({
-  questions: z.array(questionSchema).min(1).max(80),
+  questions: z.array(questionSchema).min(1).max(120),
 });
 
 export const regenerateInputSchema = z.object({
-  file: filePayload,
-  source: menuSourceSchema,
-  sourceItem: z.string().trim().max(160).default(""),
-  sourceCategory: z.string().trim().max(120).optional().default(""),
-  avoid: z.array(z.string().max(240)).max(80).optional().default([]),
+  item: extractedItemSchema,
+  avoid: z.array(z.string().max(240)).max(120).optional().default([]),
   restaurantName: z.string().trim().max(200).optional().default(""),
 });
 
