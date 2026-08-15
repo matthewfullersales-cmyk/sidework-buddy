@@ -11,6 +11,7 @@ import {
   publishMenuQuiz,
   regenerateMenuQuestion,
   type ExtractedItem,
+  type GenerationDiagnostics,
   type MenuCoverage,
   type MenuQuizDraftQuestion,
 } from "@/lib/menu-quiz.functions";
