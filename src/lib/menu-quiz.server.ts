@@ -472,7 +472,7 @@ export async function runGenerateMenuQuiz(data: {
   if (candidates.length === 0) {
     return {
       ok: false,
-      error: "None of the extracted items list any ingredients or preparation detail, so there's nothing to test. Upload a menu with item descriptions.",
+      error: "None of the extracted items have a name or section we can honestly test. Upload a clearer menu.",
     };
   }
 
@@ -482,14 +482,23 @@ export async function runGenerateMenuQuiz(data: {
     batches.push(candidates.slice(i, i + ITEMS_PER_BATCH));
   }
 
-  const results = await Promise.all(
-    batches.map((b) => generateForBatch(lovableKey, b, items, restaurantName)),
+  const results = await mapWithConcurrency(batches, BATCH_CONCURRENCY, (b) =>
+    generateBatchWithRetry(lovableKey, b, items, restaurantName),
   );
   const produced: MenuQuizDraftQuestion[] = [];
   let lastError: string | null = null;
+  let lostToFailedBatches = 0;
+  let failedBatches = 0;
   for (const r of results) {
     if (r.ok) produced.push(...r.questions.map((q) => retagFromRecord(q, byName)));
-    else lastError = r.error;
+    else {
+      lastError = r.error;
+      lostToFailedBatches += r.lost;
+      failedBatches += 1;
+    }
+  }
+  if (failedBatches > 0) {
+    console.error(`[menu-quiz] ${failedBatches}/${batches.length} batches failed after retry (${lostToFailedBatches} items lost): ${lastError}`);
   }
   if (produced.length === 0) {
     return { ok: false, error: lastError ?? "The AI couldn't write questions from this menu. Try a clearer scan." };
