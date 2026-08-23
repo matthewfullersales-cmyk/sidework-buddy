@@ -718,8 +718,9 @@ export const listOwnerQuizAttempts = createServerFn({ method: "GET" })
       // Owner practice runs are not employee results.
       .eq("is_preview", false)
       .not("submitted_at", "is", null)
-
+      .order("created_at", { ascending: false })
       .limit(250);
+
     if (error) {
       console.error("[quiz] owner attempt list failed", error);
       return [];
