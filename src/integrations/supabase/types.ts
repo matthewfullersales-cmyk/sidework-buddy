@@ -359,14 +359,18 @@ export type Database = {
       quiz_attempts: {
         Row: {
           created_at: string
+          current_index: number
+          current_served_at: string | null
           distraction_flagged: boolean
           employee_id: string
           expires_at: string
           id: string
+          is_preview: boolean
           owner_id: string
           passed: boolean | null
           question_count: number
           questions: Json
+          responses: Json
           score: number | null
           submitted_at: string | null
           updated_at: string
@@ -374,14 +378,18 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          current_index?: number
+          current_served_at?: string | null
           distraction_flagged?: boolean
           employee_id: string
           expires_at?: string
           id?: string
+          is_preview?: boolean
           owner_id: string
           passed?: boolean | null
           question_count: number
           questions: Json
+          responses?: Json
           score?: number | null
           submitted_at?: string | null
           updated_at?: string
@@ -389,14 +397,18 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          current_index?: number
+          current_served_at?: string | null
           distraction_flagged?: boolean
           employee_id?: string
           expires_at?: string
           id?: string
+          is_preview?: boolean
           owner_id?: string
           passed?: boolean | null
           question_count?: number
           questions?: Json
+          responses?: Json
           score?: number | null
           submitted_at?: string | null
           updated_at?: string
