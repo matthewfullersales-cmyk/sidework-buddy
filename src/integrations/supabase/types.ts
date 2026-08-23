@@ -371,6 +371,7 @@ export type Database = {
           question_count: number
           questions: Json
           responses: Json
+          resume_counts: Json
           score: number | null
           submitted_at: string | null
           updated_at: string
@@ -390,6 +391,7 @@ export type Database = {
           question_count: number
           questions: Json
           responses?: Json
+          resume_counts?: Json
           score?: number | null
           submitted_at?: string | null
           updated_at?: string
@@ -409,6 +411,7 @@ export type Database = {
           question_count?: number
           questions?: Json
           responses?: Json
+          resume_counts?: Json
           score?: number | null
           submitted_at?: string | null
           updated_at?: string
