@@ -13,7 +13,7 @@ import {
   quizSizeFor,
   requiredKindsForRoles,
   shuffle,
-  MAX_QUESTIONS,
+  
   MIN_QUESTIONS,
   type BankQuestion,
 } from "@/lib/quiz-composition";
