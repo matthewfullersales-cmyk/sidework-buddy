@@ -376,7 +376,7 @@ export const startQuizAttempt = createServerFn({ method: "POST" })
     // fresh question set.
     const { data: openAttempt } = await supabaseAdmin
       .from("quiz_attempts")
-      .select("id, questions, current_index, is_preview, expires_at")
+      .select("*")
       .eq("employee_id", data.employeeId)
       .eq("video_id", data.videoId)
       .is("submitted_at", null)
@@ -387,26 +387,106 @@ export const startQuizAttempt = createServerFn({ method: "POST" })
 
     if (openAttempt) {
       const stored = storedQuestionsSchema.safeParse(openAttempt.questions);
-      const idx = openAttempt.current_index ?? 0;
-      if (stored.success && idx < stored.data.length) {
-        const q = stored.data[idx]!;
-        await supabaseAdmin
-          .from("quiz_attempts")
-          .update({ current_served_at: new Date().toISOString() })
-          .eq("id", openAttempt.id);
-        return {
-          ok: true,
-          attemptId: openAttempt.id,
-          question: { question: q.question, options: q.options },
-          index: idx,
-          total: stored.data.length,
-          secondsForQuestion: secondsForQuestion(q.question, q.options),
-          passingScore: PASS_PCT,
-          isPreview: !!openAttempt.is_preview,
-          resumed: true,
-        };
+      if (stored.success) {
+        const total = stored.data.length;
+        const idx = openAttempt.current_index ?? 0;
+        const responses = parseResponses(openAttempt.responses);
+
+        if (responses.length >= total) {
+          // Finished but never submitted: grade it now so walking away from
+          // the last question can't be a free, unrecorded do-over. Then fall
+          // through and start a fresh attempt.
+          await finalizeAttempt(supabaseAdmin, openAttempt, access.ownerId, false);
+        } else if (idx < total) {
+          const q = stored.data[idx]!;
+          const windowSec = secondsForQuestion(q.question, q.options);
+          const servedAt = openAttempt.current_served_at
+            ? new Date(openAttempt.current_served_at).getTime()
+            : Date.now();
+          const elapsedMs = Math.max(0, Date.now() - servedAt);
+          const counts = parseResumeCounts(openAttempt.resume_counts);
+          const used = counts[String(idx)] ?? 0;
+
+          if (used >= MAX_RESUMES_PER_QUESTION) {
+            // Reload-to-look-it-up: the question is forfeited, not reserved.
+            const nextResponses = appendResponse(responses, {
+              index: idx,
+              answerIndex: -1,
+              elapsedMs,
+              timedOut: true,
+            });
+            const nextIndex = idx + 1;
+            const { data: advanced } = await supabaseAdmin
+              .from("quiz_attempts")
+              .update({
+                responses: nextResponses,
+                current_index: nextIndex,
+                current_served_at: new Date().toISOString(),
+              })
+              .eq("id", openAttempt.id)
+              .is("submitted_at", null)
+              .select("*")
+              .maybeSingle();
+
+            if (nextIndex >= total) {
+              // That was the last question — the attempt is complete. Grade
+              // it and let a new attempt begin below.
+              await finalizeAttempt(
+                supabaseAdmin,
+                advanced ?? { ...openAttempt, responses: nextResponses },
+                access.ownerId,
+                false,
+              );
+            } else {
+              const next = stored.data[nextIndex]!;
+              return {
+                ok: true,
+                attemptId: openAttempt.id,
+                question: { question: next.question, options: next.options },
+                index: nextIndex,
+                total,
+                secondsForQuestion: secondsForQuestion(next.question, next.options),
+                passingScore: PASS_PCT,
+                isPreview: !!openAttempt.is_preview,
+                resumed: true,
+              };
+            }
+          } else {
+            // Genuine drop: hand back only the time that was left, with a
+            // small floor so a resume is still usable.
+            const remainingSec = Math.max(
+              MIN_RESUME_SECONDS,
+              Math.min(windowSec, Math.ceil((windowSec * 1000 - elapsedMs) / 1000)),
+            );
+            // Back-date the stamp so `window - (now - served_at)` equals the
+            // granted seconds — the answer path stays the single authority.
+            const servedStamp = new Date(
+              Date.now() - (windowSec - remainingSec) * 1000,
+            ).toISOString();
+            await supabaseAdmin
+              .from("quiz_attempts")
+              .update({
+                current_served_at: servedStamp,
+                resume_counts: { ...counts, [String(idx)]: used + 1 },
+              })
+              .eq("id", openAttempt.id)
+              .is("submitted_at", null);
+            return {
+              ok: true,
+              attemptId: openAttempt.id,
+              question: { question: q.question, options: q.options },
+              index: idx,
+              total,
+              secondsForQuestion: remainingSec,
+              passingScore: PASS_PCT,
+              isPreview: !!openAttempt.is_preview,
+              resumed: true,
+            };
+          }
+        }
       }
     }
+
 
     // Resolve question bank for this video.
     let bank: BankQuestion[] = [];
