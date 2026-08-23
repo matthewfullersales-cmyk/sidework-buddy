@@ -699,134 +699,14 @@ export const submitQuizAttempt = createServerFn({ method: "POST" })
     const access = await verifyEmployeeAccess(supabase, attempt.employee_id, userId);
     if (!access.ok) return access;
 
-    const stored = storedQuestionsSchema.safeParse(attempt.questions);
-    if (!stored.success) return { ok: false, error: "Stored quiz is malformed." };
-    const total = stored.data.length;
-
-    const responses = parseResponses(attempt.responses);
-    if (responses.length < total) {
-      return { ok: false, error: "This attempt isn't finished yet." };
-    }
-
-    const byIndex = new Map(responses.map((r) => [r.index, r]));
-    let correct = 0;
-    stored.data.forEach((q, i) => {
-      const r = byIndex.get(i);
-      if (r && !r.timedOut && r.answerIndex === q.correctIndex) correct++;
-    });
-    const score = total === 0 ? 0 : Math.round((correct / total) * 100);
-    const passed = score >= PASS_PCT;
-    const distractionFlagged = !!data.distractionFlagged;
-    // An owner trying the test out must never write a pass or a response time
-    // for an employee — that data drives scheduling decisions.
-    const isPreview = !!attempt.is_preview;
-    const responseTimes = responses
-      .slice()
-      .sort((a, b) => a.index - b.index)
-      .map((r) => ({ index: r.index, elapsedMs: r.elapsedMs, timedOut: r.timedOut }));
-
-    const { data: submittedAttempt, error: attemptUpdateErr } = await supabaseAdmin
-      .from("quiz_attempts")
-      .update({
-        score,
-        passed,
-        distraction_flagged: distractionFlagged,
-        submitted_at: new Date().toISOString(),
-      })
-      .eq("id", data.attemptId)
-      .is("submitted_at", null)
-      .select("id")
-      .maybeSingle();
-    if (attemptUpdateErr) {
-      console.error("[quiz] attempt update failed", attemptUpdateErr);
-      return { ok: false, error: "Couldn't save the quiz result. Try again." };
-    }
-    if (!submittedAttempt) return { ok: false, error: "Attempt already submitted." };
-
-    if (isPreview) {
-      return {
-        ok: true,
-        score,
-        passed,
-        attempts: 0,
-        distractionFlagged,
-        isPreview: true,
-        responseTimes,
-      };
-    }
-
-    // Upsert training_progress row. We increment attempts and only flip
-    // `passed`/`completed_at` forward — never regress a prior pass. For the
-    // menu quiz we also stamp the current bank_version so a later menu
-    // regeneration correctly invalidates this pass.
-    const { data: existing } = await supabaseAdmin
-      .from("training_progress")
-      .select("*")
-      .eq("employee_id", attempt.employee_id)
-      .eq("video_id", attempt.video_id)
-      .maybeSingle();
-
-    let bankVersion: number | undefined;
-    if (attempt.video_id === "menu-quiz") {
-      const { data: bankRow } = await supabaseAdmin
-        .from("menu_quiz_banks")
-        .select("bank_version")
-        .eq("owner_id", access.ownerId)
-        .maybeSingle();
-      bankVersion = bankRow?.bank_version ?? undefined;
-    }
-
-    const attempts = (existing?.attempts ?? 0) + 1;
-    // A prior pass only carries forward when it was earned against the same
-    // question bank. A menu republish (bank_version bump) invalidates it, so
-    // failing the new menu test must NOT be recorded as a pass.
-    const alreadyPassed =
-      !!existing?.passed &&
-      (bankVersion === undefined || existing?.bank_version === bankVersion);
-    const nextPassed = alreadyPassed || passed;
-    const completedAt = passed
-      ? new Date().toISOString()
-      : alreadyPassed
-        ? (existing?.completed_at ?? null)
-        : null;
-
-    const baseRow = {
-      owner_id: access.ownerId,
-      employee_id: attempt.employee_id,
-      video_id: attempt.video_id,
-      watched_sec: existing?.watched_sec ?? 0,
-      completed_at: completedAt,
-      quiz_score: score,
-      passed: nextPassed,
-      attempts,
-      locked_out: false,
-      distraction_flagged: distractionFlagged,
-    };
-    const upsertRow =
-      attempt.video_id === "menu-quiz" && bankVersion !== undefined
-        ? { ...baseRow, bank_version: bankVersion }
-        : baseRow;
-
-    const { error: upsertErr } = await supabaseAdmin
-      .from("training_progress")
-      .upsert(upsertRow, { onConflict: "employee_id,video_id" });
-
-    if (upsertErr) {
-      console.error("[quiz] training_progress upsert failed", upsertErr);
-      return { ok: false, error: "Couldn't save training progress. Try again." };
-    }
-
-    return {
-      ok: true,
-      score,
-      passed,
-      attempts,
-      distractionFlagged,
-      bankVersion,
-      isPreview: false,
-      responseTimes,
-    };
+    return finalizeAttempt(
+      supabaseAdmin,
+      attempt,
+      access.ownerId,
+      !!data.distractionFlagged,
+    );
   });
+
 
 export const listOwnerQuizAttempts = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
