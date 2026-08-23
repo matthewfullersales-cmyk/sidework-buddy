@@ -23,6 +23,10 @@ const QUIZ_SIZE = MIN_QUESTIONS;
 const PASS_PCT = 80;
 /** Network-latency allowance on top of the per-question window. */
 const GRACE_MS = 2000;
+/** Resumes allowed per question before it is forfeited (see startQuizAttempt). */
+const MAX_RESUMES_PER_QUESTION = 2;
+/** Floor on the time handed back by a resume, so a real drop stays usable. */
+const MIN_RESUME_SECONDS = 6;
 
 const startSchema = z.object({
   employeeId: z.string().uuid(),
