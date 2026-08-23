@@ -1,6 +1,7 @@
 // Server-side quiz orchestration. All correct-answer knowledge stays here;
-// clients only ever see shuffled question text + options + an opaque
-// attempt id. Grading happens against the stored server-side answer key.
+// clients only ever see ONE shuffled question at a time plus an opaque
+// attempt id. Grading happens against the stored server-side answer key, and
+// per-question timing is measured server-side from `current_served_at`.
 
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
@@ -19,29 +20,73 @@ import {
 
 // Per-attempt size scales with the bank (see quizSizeFor); these are bounds.
 const QUIZ_SIZE = MIN_QUESTIONS;
-const SECONDS_PER_QUESTION = 30;
 const PASS_PCT = 80;
+/** Network-latency allowance on top of the per-question window. */
+const GRACE_MS = 2000;
+
 const startSchema = z.object({
   employeeId: z.string().uuid(),
   videoId: z.string().min(1).max(80),
 });
 
+const answerSchema = z.object({
+  attemptId: z.string().uuid(),
+  answerIndex: z.number().int().min(-1).max(10),
+});
+
 const submitSchema = z.object({
   attemptId: z.string().uuid(),
-  answers: z.array(z.number().int().min(-1).max(10)).max(MAX_QUESTIONS),
   distractionFlagged: z.boolean().optional().default(false),
 });
 
 export type PublicQuestion = { question: string; options: string[] };
 
+type StoredQuestion = { question: string; options: string[]; correctIndex: number };
+
+export type QuizResponse = {
+  index: number;
+  answerIndex: number;
+  elapsedMs: number;
+  timedOut: boolean;
+};
+
+/**
+ * Allowed seconds for a single question, derived from its own content length.
+ * 8s is the recall allowance; chars/18 is a reading allowance at roughly 18
+ * characters per second. Clamped to [12, 22] so a short question gets a tight
+ * window and a long one gets proportionally more reading time — the test
+ * measures recall, not reading speed.
+ */
+export function secondsForQuestion(question: string, options: string[]): number {
+  const chars = question.length + options.join("").length;
+  const raw = 8 + Math.ceil(chars / 18);
+  return Math.min(22, Math.max(12, raw));
+}
+
 export type StartQuizResult =
   | {
       ok: true;
       attemptId: string;
-      questions: PublicQuestion[];
-      secondsPerQuestion: number;
+      question: PublicQuestion;
+      index: number;
+      total: number;
+      secondsForQuestion: number;
       passingScore: number;
+      isPreview: boolean;
+      resumed: boolean;
     }
+  | { ok: false; error: string };
+
+export type AnswerQuizResult =
+  | {
+      ok: true;
+      done: false;
+      question: PublicQuestion;
+      index: number;
+      total: number;
+      secondsForQuestion: number;
+    }
+  | { ok: true; done: true; total: number }
   | { ok: false; error: string };
 
 export type SubmitQuizResult =
@@ -52,9 +97,10 @@ export type SubmitQuizResult =
       attempts: number;
       distractionFlagged: boolean;
       bankVersion?: number;
+      isPreview: boolean;
+      responseTimes: { index: number; elapsedMs: number; timedOut: boolean }[];
     }
   | { ok: false; error: string };
-
 
 export type QuizAttemptSummary = {
   id: string;
@@ -71,14 +117,10 @@ export type QuizAttemptSummary = {
 // options shuffled per-question, and (b) the server-only answer key that
 // maps each returned question's correct index in its NEW shuffled order.
 function shuffleAndSplit(bank: BankQuestion[]): {
-  storedQuestions: {
-    question: string;
-    options: string[];
-    correctIndex: number;
-  }[];
+  storedQuestions: StoredQuestion[];
   publicQuestions: PublicQuestion[];
 } {
-  const stored: { question: string; options: string[]; correctIndex: number }[] = [];
+  const stored: StoredQuestion[] = [];
   const pub: PublicQuestion[] = [];
   for (const q of bank) {
     const indexed = q.options.map((opt, idx) => ({ opt, correct: idx === q.answerIndex }));
@@ -91,24 +133,63 @@ function shuffleAndSplit(bank: BankQuestion[]): {
   return { storedQuestions: stored, publicQuestions: pub };
 }
 
+const storedQuestionsSchema = z.array(
+  z.object({
+    question: z.string(),
+    options: z.array(z.string()),
+    correctIndex: z.number().int().min(0),
+  }),
+);
+
+const responsesSchema = z.array(
+  z.object({
+    index: z.number().int().min(0),
+    answerIndex: z.number().int().min(-1),
+    elapsedMs: z.number().int().min(0),
+    timedOut: z.boolean(),
+  }),
+);
+
+function parseResponses(value: unknown): QuizResponse[] {
+  const parsed = responsesSchema.safeParse(value ?? []);
+  return parsed.success ? parsed.data : [];
+}
+
 async function verifyEmployeeAccess(
   supabase: import("@supabase/supabase-js").SupabaseClient,
   employeeId: string,
   userId: string,
-): Promise<{ ok: true; ownerId: string; primaryRole: string | null; approvedRoles: string[] } | { ok: false; error: string }> {
+): Promise<
+  | {
+      ok: true;
+      ownerId: string;
+      primaryRole: string | null;
+      approvedRoles: string[];
+      /** Owner taking the test on an employee's behalf — never record it. */
+      isOwnerPreview: boolean;
+    }
+  | { ok: false; error: string }
+> {
   const { data, error } = await supabase
     .from("restaurant_employees")
     .select("id, owner_id, auth_user_id, primary_role, approved_roles")
     .eq("id", employeeId)
     .maybeSingle();
   if (error || !data) return { ok: false, error: "Employee not found." };
-  if (data.owner_id !== userId && data.auth_user_id !== userId) {
+  const isSelf = data.auth_user_id === userId;
+  if (data.owner_id !== userId && !isSelf) {
     return { ok: false, error: "Not authorized for this employee." };
   }
   const approved = Array.isArray(data.approved_roles)
     ? (data.approved_roles as unknown[]).filter((r): r is string => typeof r === "string")
     : [];
-  return { ok: true, ownerId: data.owner_id, primaryRole: data.primary_role ?? null, approvedRoles: approved };
+  return {
+    ok: true,
+    ownerId: data.owner_id,
+    primaryRole: data.primary_role ?? null,
+    approvedRoles: approved,
+    isOwnerPreview: !isSelf,
+  };
 }
 
 export const startQuizAttempt = createServerFn({ method: "POST" })
@@ -119,6 +200,43 @@ export const startQuizAttempt = createServerFn({ method: "POST" })
     const access = await verifyEmployeeAccess(supabase, data.employeeId, userId);
     if (!access.ok) return access;
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // RESUME: an unsubmitted, unexpired attempt is picked back up where it
+    // left off. A dropped connection must not void progress or hand out a
+    // fresh question set.
+    const { data: openAttempt } = await supabaseAdmin
+      .from("quiz_attempts")
+      .select("id, questions, current_index, is_preview, expires_at")
+      .eq("employee_id", data.employeeId)
+      .eq("video_id", data.videoId)
+      .is("submitted_at", null)
+      .gt("expires_at", new Date().toISOString())
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (openAttempt) {
+      const stored = storedQuestionsSchema.safeParse(openAttempt.questions);
+      const idx = openAttempt.current_index ?? 0;
+      if (stored.success && idx < stored.data.length) {
+        const q = stored.data[idx]!;
+        await supabaseAdmin
+          .from("quiz_attempts")
+          .update({ current_served_at: new Date().toISOString() })
+          .eq("id", openAttempt.id);
+        return {
+          ok: true,
+          attemptId: openAttempt.id,
+          question: { question: q.question, options: q.options },
+          index: idx,
+          total: stored.data.length,
+          secondsForQuestion: secondsForQuestion(q.question, q.options),
+          passingScore: PASS_PCT,
+          isPreview: !!openAttempt.is_preview,
+          resumed: true,
+        };
+      }
+    }
 
     // Resolve question bank for this video.
     let bank: BankQuestion[] = [];
@@ -206,7 +324,6 @@ export const startQuizAttempt = createServerFn({ method: "POST" })
     const chosen = shuffle(bank);
     const { storedQuestions, publicQuestions } = shuffleAndSplit(chosen);
 
-
     const { data: inserted, error: insertErr } = await supabaseAdmin
       .from("quiz_attempts")
       .insert({
@@ -215,6 +332,10 @@ export const startQuizAttempt = createServerFn({ method: "POST" })
         video_id: data.videoId,
         questions: storedQuestions,
         question_count: storedQuestions.length,
+        current_index: 0,
+        current_served_at: new Date().toISOString(),
+        responses: [],
+        is_preview: access.isOwnerPreview,
       })
       .select("id")
       .single();
@@ -223,12 +344,88 @@ export const startQuizAttempt = createServerFn({ method: "POST" })
       return { ok: false, error: "Couldn't start the quiz. Try again." };
     }
 
+    const first = publicQuestions[0]!;
     return {
       ok: true,
       attemptId: inserted.id,
-      questions: publicQuestions,
-      secondsPerQuestion: SECONDS_PER_QUESTION,
+      question: first,
+      index: 0,
+      total: publicQuestions.length,
+      secondsForQuestion: secondsForQuestion(first.question, first.options),
       passingScore: PASS_PCT,
+      isPreview: access.isOwnerPreview,
+      resumed: false,
+    };
+  });
+
+export const answerQuizQuestion = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => answerSchema.parse(data))
+  .handler(async ({ data, context }): Promise<AnswerQuizResult> => {
+    const { supabase, userId } = context;
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: attempt, error } = await supabaseAdmin
+      .from("quiz_attempts")
+      .select("*")
+      .eq("id", data.attemptId)
+      .maybeSingle();
+    if (error || !attempt) return { ok: false, error: "Attempt not found." };
+    if (attempt.submitted_at) return { ok: false, error: "Attempt already submitted." };
+    if (new Date(attempt.expires_at).getTime() <= Date.now()) {
+      return { ok: false, error: "This attempt expired. Start a new test." };
+    }
+
+    const access = await verifyEmployeeAccess(supabase, attempt.employee_id, userId);
+    if (!access.ok) return access;
+
+    const stored = storedQuestionsSchema.safeParse(attempt.questions);
+    if (!stored.success) return { ok: false, error: "Stored quiz is malformed." };
+    const total = stored.data.length;
+    const idx = attempt.current_index ?? 0;
+    if (idx >= total) return { ok: true, done: true, total };
+
+    const current = stored.data[idx]!;
+    const windowMs = secondsForQuestion(current.question, current.options) * 1000;
+    // Timing is measured server-side only; the client never reports elapsed.
+    const servedAt = attempt.current_served_at
+      ? new Date(attempt.current_served_at).getTime()
+      : Date.now();
+    const elapsedMs = Math.max(0, Date.now() - servedAt);
+    const timedOut = elapsedMs > windowMs + GRACE_MS;
+
+    const responses = parseResponses(attempt.responses).filter((r) => r.index !== idx);
+    responses.push({
+      index: idx,
+      answerIndex: timedOut ? -1 : data.answerIndex,
+      elapsedMs,
+      timedOut,
+    });
+    responses.sort((a, b) => a.index - b.index);
+
+    const nextIndex = idx + 1;
+    const { error: updErr } = await supabaseAdmin
+      .from("quiz_attempts")
+      .update({
+        responses,
+        current_index: nextIndex,
+        current_served_at: new Date().toISOString(),
+      })
+      .eq("id", data.attemptId)
+      .is("submitted_at", null);
+    if (updErr) {
+      console.error("[quiz] answer update failed", updErr);
+      return { ok: false, error: "Couldn't record that answer. Try again." };
+    }
+
+    if (nextIndex >= total) return { ok: true, done: true, total };
+    const next = stored.data[nextIndex]!;
+    return {
+      ok: true,
+      done: false,
+      question: { question: next.question, options: next.options },
+      index: nextIndex,
+      total,
+      secondsForQuestion: secondsForQuestion(next.question, next.options),
     };
   });
 
@@ -246,34 +443,37 @@ export const submitQuizAttempt = createServerFn({ method: "POST" })
     if (error || !attempt) return { ok: false, error: "Attempt not found." };
     if (attempt.submitted_at) return { ok: false, error: "Attempt already submitted." };
     if (new Date(attempt.expires_at).getTime() <= Date.now()) {
-      return { ok: false, error: "This attempt expired. Start a new quiz." };
+      return { ok: false, error: "This attempt expired. Start a new test." };
     }
 
     const access = await verifyEmployeeAccess(supabase, attempt.employee_id, userId);
     if (!access.ok) return access;
 
-    const stored = z
-      .array(
-        z.object({
-          question: z.string(),
-          options: z.array(z.string()),
-          correctIndex: z.number().int().min(0),
-        }),
-      )
-      .safeParse(attempt.questions);
+    const stored = storedQuestionsSchema.safeParse(attempt.questions);
     if (!stored.success) return { ok: false, error: "Stored quiz is malformed." };
-    if (data.answers.length !== stored.data.length) {
-      return { ok: false, error: "The submitted answers don't match this attempt." };
+    const total = stored.data.length;
+
+    const responses = parseResponses(attempt.responses);
+    if (responses.length < total) {
+      return { ok: false, error: "This attempt isn't finished yet." };
     }
 
+    const byIndex = new Map(responses.map((r) => [r.index, r]));
     let correct = 0;
     stored.data.forEach((q, i) => {
-      if (data.answers[i] === q.correctIndex) correct++;
+      const r = byIndex.get(i);
+      if (r && !r.timedOut && r.answerIndex === q.correctIndex) correct++;
     });
-    const total = stored.data.length;
     const score = total === 0 ? 0 : Math.round((correct / total) * 100);
     const passed = score >= PASS_PCT;
     const distractionFlagged = !!data.distractionFlagged;
+    // An owner trying the test out must never write a pass or a response time
+    // for an employee — that data drives scheduling decisions.
+    const isPreview = !!attempt.is_preview;
+    const responseTimes = responses
+      .slice()
+      .sort((a, b) => a.index - b.index)
+      .map((r) => ({ index: r.index, elapsedMs: r.elapsedMs, timedOut: r.timedOut }));
 
     const { data: submittedAttempt, error: attemptUpdateErr } = await supabaseAdmin
       .from("quiz_attempts")
@@ -292,6 +492,18 @@ export const submitQuizAttempt = createServerFn({ method: "POST" })
       return { ok: false, error: "Couldn't save the quiz result. Try again." };
     }
     if (!submittedAttempt) return { ok: false, error: "Attempt already submitted." };
+
+    if (isPreview) {
+      return {
+        ok: true,
+        score,
+        passed,
+        attempts: 0,
+        distractionFlagged,
+        isPreview: true,
+        responseTimes,
+      };
+    }
 
     // Upsert training_progress row. We increment attempts and only flip
     // `passed`/`completed_at` forward — never regress a prior pass. For the
@@ -354,9 +566,17 @@ export const submitQuizAttempt = createServerFn({ method: "POST" })
       return { ok: false, error: "Couldn't save training progress. Try again." };
     }
 
-    return { ok: true, score, passed, attempts, distractionFlagged, bankVersion };
+    return {
+      ok: true,
+      score,
+      passed,
+      attempts,
+      distractionFlagged,
+      bankVersion,
+      isPreview: false,
+      responseTimes,
+    };
   });
-
 
 export const listOwnerQuizAttempts = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
