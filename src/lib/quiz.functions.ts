@@ -23,6 +23,10 @@ const QUIZ_SIZE = MIN_QUESTIONS;
 const PASS_PCT = 80;
 /** Network-latency allowance on top of the per-question window. */
 const GRACE_MS = 2000;
+/** Resumes allowed per question before it is forfeited (see startQuizAttempt). */
+const MAX_RESUMES_PER_QUESTION = 2;
+/** Floor on the time handed back by a resume, so a real drop stays usable. */
+const MIN_RESUME_SECONDS = 6;
 
 const startSchema = z.object({
   employeeId: z.string().uuid(),
@@ -155,6 +159,176 @@ function parseResponses(value: unknown): QuizResponse[] {
   return parsed.success ? parsed.data : [];
 }
 
+/** Map of question index -> how many times that question has been resumed. */
+function parseResumeCounts(value: unknown): Record<string, number> {
+  const parsed = z.record(z.string(), z.number()).safeParse(value ?? {});
+  return parsed.success ? parsed.data : {};
+}
+
+/**
+ * Single place that appends (or replaces) a per-question response, so the
+ * answer path and the resume-forfeit path can never drift apart.
+ */
+function appendResponse(
+  responses: QuizResponse[],
+  entry: QuizResponse,
+): QuizResponse[] {
+  const next = responses.filter((r) => r.index !== entry.index);
+  next.push(entry);
+  next.sort((a, b) => a.index - b.index);
+  return next;
+}
+
+type AttemptRow = {
+  id: string;
+  employee_id: string;
+  video_id: string;
+  questions: unknown;
+  responses: unknown;
+  is_preview: boolean | null;
+};
+
+/**
+ * Grade and close out an attempt whose responses are complete. Shared by
+ * `submitQuizAttempt` and the abandoned-attempt path in `startQuizAttempt`
+ * so grading, the single-submission lock, preview skipping, bank_version
+ * stamping and the never-regress-a-pass rule stay identical.
+ */
+async function finalizeAttempt(
+  supabaseAdmin: import("@supabase/supabase-js").SupabaseClient,
+  attempt: AttemptRow,
+  ownerId: string,
+  distractionFlagged: boolean,
+): Promise<SubmitQuizResult> {
+  const stored = storedQuestionsSchema.safeParse(attempt.questions);
+  if (!stored.success) return { ok: false, error: "Stored quiz is malformed." };
+  const total = stored.data.length;
+
+  const responses = parseResponses(attempt.responses);
+  if (responses.length < total) {
+    return { ok: false, error: "This attempt isn't finished yet." };
+  }
+
+  const byIndex = new Map(responses.map((r) => [r.index, r]));
+  let correct = 0;
+  stored.data.forEach((q, i) => {
+    const r = byIndex.get(i);
+    if (r && !r.timedOut && r.answerIndex === q.correctIndex) correct++;
+  });
+  const score = total === 0 ? 0 : Math.round((correct / total) * 100);
+  const passed = score >= PASS_PCT;
+  // An owner trying the test out must never write a pass or a response time
+  // for an employee — that data drives scheduling decisions.
+  const isPreview = !!attempt.is_preview;
+  const responseTimes = responses
+    .slice()
+    .sort((a, b) => a.index - b.index)
+    .map((r) => ({ index: r.index, elapsedMs: r.elapsedMs, timedOut: r.timedOut }));
+
+  const { data: submittedAttempt, error: attemptUpdateErr } = await supabaseAdmin
+    .from("quiz_attempts")
+    .update({
+      score,
+      passed,
+      distraction_flagged: distractionFlagged,
+      submitted_at: new Date().toISOString(),
+    })
+    .eq("id", attempt.id)
+    .is("submitted_at", null)
+    .select("id")
+    .maybeSingle();
+  if (attemptUpdateErr) {
+    console.error("[quiz] attempt update failed", attemptUpdateErr);
+    return { ok: false, error: "Couldn't save the quiz result. Try again." };
+  }
+  if (!submittedAttempt) return { ok: false, error: "Attempt already submitted." };
+
+  if (isPreview) {
+    return {
+      ok: true,
+      score,
+      passed,
+      attempts: 0,
+      distractionFlagged,
+      isPreview: true,
+      responseTimes,
+    };
+  }
+
+  // Upsert training_progress row. We increment attempts and only flip
+  // `passed`/`completed_at` forward — never regress a prior pass. For the
+  // menu quiz we also stamp the current bank_version so a later menu
+  // regeneration correctly invalidates this pass.
+  const { data: existing } = await supabaseAdmin
+    .from("training_progress")
+    .select("*")
+    .eq("employee_id", attempt.employee_id)
+    .eq("video_id", attempt.video_id)
+    .maybeSingle();
+
+  let bankVersion: number | undefined;
+  if (attempt.video_id === "menu-quiz") {
+    const { data: bankRow } = await supabaseAdmin
+      .from("menu_quiz_banks")
+      .select("bank_version")
+      .eq("owner_id", ownerId)
+      .maybeSingle();
+    bankVersion = bankRow?.bank_version ?? undefined;
+  }
+
+  const attempts = (existing?.attempts ?? 0) + 1;
+  // A prior pass only carries forward when it was earned against the same
+  // question bank. A menu republish (bank_version bump) invalidates it, so
+  // failing the new menu test must NOT be recorded as a pass.
+  const alreadyPassed =
+    !!existing?.passed &&
+    (bankVersion === undefined || existing?.bank_version === bankVersion);
+  const nextPassed = alreadyPassed || passed;
+  const completedAt = passed
+    ? new Date().toISOString()
+    : alreadyPassed
+      ? (existing?.completed_at ?? null)
+      : null;
+
+  const baseRow = {
+    owner_id: ownerId,
+    employee_id: attempt.employee_id,
+    video_id: attempt.video_id,
+    watched_sec: existing?.watched_sec ?? 0,
+    completed_at: completedAt,
+    quiz_score: score,
+    passed: nextPassed,
+    attempts,
+    locked_out: false,
+    distraction_flagged: distractionFlagged,
+  };
+  const upsertRow =
+    attempt.video_id === "menu-quiz" && bankVersion !== undefined
+      ? { ...baseRow, bank_version: bankVersion }
+      : baseRow;
+
+  const { error: upsertErr } = await supabaseAdmin
+    .from("training_progress")
+    .upsert(upsertRow, { onConflict: "employee_id,video_id" });
+
+  if (upsertErr) {
+    console.error("[quiz] training_progress upsert failed", upsertErr);
+    return { ok: false, error: "Couldn't save training progress. Try again." };
+  }
+
+  return {
+    ok: true,
+    score,
+    passed,
+    attempts,
+    distractionFlagged,
+    bankVersion,
+    isPreview: false,
+    responseTimes,
+  };
+}
+
+
 async function verifyEmployeeAccess(
   supabase: import("@supabase/supabase-js").SupabaseClient,
   employeeId: string,
@@ -206,7 +380,7 @@ export const startQuizAttempt = createServerFn({ method: "POST" })
     // fresh question set.
     const { data: openAttempt } = await supabaseAdmin
       .from("quiz_attempts")
-      .select("id, questions, current_index, is_preview, expires_at")
+      .select("*")
       .eq("employee_id", data.employeeId)
       .eq("video_id", data.videoId)
       .is("submitted_at", null)
@@ -217,26 +391,106 @@ export const startQuizAttempt = createServerFn({ method: "POST" })
 
     if (openAttempt) {
       const stored = storedQuestionsSchema.safeParse(openAttempt.questions);
-      const idx = openAttempt.current_index ?? 0;
-      if (stored.success && idx < stored.data.length) {
-        const q = stored.data[idx]!;
-        await supabaseAdmin
-          .from("quiz_attempts")
-          .update({ current_served_at: new Date().toISOString() })
-          .eq("id", openAttempt.id);
-        return {
-          ok: true,
-          attemptId: openAttempt.id,
-          question: { question: q.question, options: q.options },
-          index: idx,
-          total: stored.data.length,
-          secondsForQuestion: secondsForQuestion(q.question, q.options),
-          passingScore: PASS_PCT,
-          isPreview: !!openAttempt.is_preview,
-          resumed: true,
-        };
+      if (stored.success) {
+        const total = stored.data.length;
+        const idx = openAttempt.current_index ?? 0;
+        const responses = parseResponses(openAttempt.responses);
+
+        if (responses.length >= total) {
+          // Finished but never submitted: grade it now so walking away from
+          // the last question can't be a free, unrecorded do-over. Then fall
+          // through and start a fresh attempt.
+          await finalizeAttempt(supabaseAdmin, openAttempt, access.ownerId, false);
+        } else if (idx < total) {
+          const q = stored.data[idx]!;
+          const windowSec = secondsForQuestion(q.question, q.options);
+          const servedAt = openAttempt.current_served_at
+            ? new Date(openAttempt.current_served_at).getTime()
+            : Date.now();
+          const elapsedMs = Math.max(0, Date.now() - servedAt);
+          const counts = parseResumeCounts(openAttempt.resume_counts);
+          const used = counts[String(idx)] ?? 0;
+
+          if (used >= MAX_RESUMES_PER_QUESTION) {
+            // Reload-to-look-it-up: the question is forfeited, not reserved.
+            const nextResponses = appendResponse(responses, {
+              index: idx,
+              answerIndex: -1,
+              elapsedMs,
+              timedOut: true,
+            });
+            const nextIndex = idx + 1;
+            const { data: advanced } = await supabaseAdmin
+              .from("quiz_attempts")
+              .update({
+                responses: nextResponses,
+                current_index: nextIndex,
+                current_served_at: new Date().toISOString(),
+              })
+              .eq("id", openAttempt.id)
+              .is("submitted_at", null)
+              .select("*")
+              .maybeSingle();
+
+            if (nextIndex >= total) {
+              // That was the last question — the attempt is complete. Grade
+              // it and let a new attempt begin below.
+              await finalizeAttempt(
+                supabaseAdmin,
+                advanced ?? { ...openAttempt, responses: nextResponses },
+                access.ownerId,
+                false,
+              );
+            } else {
+              const next = stored.data[nextIndex]!;
+              return {
+                ok: true,
+                attemptId: openAttempt.id,
+                question: { question: next.question, options: next.options },
+                index: nextIndex,
+                total,
+                secondsForQuestion: secondsForQuestion(next.question, next.options),
+                passingScore: PASS_PCT,
+                isPreview: !!openAttempt.is_preview,
+                resumed: true,
+              };
+            }
+          } else {
+            // Genuine drop: hand back only the time that was left, with a
+            // small floor so a resume is still usable.
+            const remainingSec = Math.max(
+              MIN_RESUME_SECONDS,
+              Math.min(windowSec, Math.ceil((windowSec * 1000 - elapsedMs) / 1000)),
+            );
+            // Back-date the stamp so `window - (now - served_at)` equals the
+            // granted seconds — the answer path stays the single authority.
+            const servedStamp = new Date(
+              Date.now() - (windowSec - remainingSec) * 1000,
+            ).toISOString();
+            await supabaseAdmin
+              .from("quiz_attempts")
+              .update({
+                current_served_at: servedStamp,
+                resume_counts: { ...counts, [String(idx)]: used + 1 },
+              })
+              .eq("id", openAttempt.id)
+              .is("submitted_at", null);
+            return {
+              ok: true,
+              attemptId: openAttempt.id,
+              question: { question: q.question, options: q.options },
+              index: idx,
+              total,
+              secondsForQuestion: remainingSec,
+              passingScore: PASS_PCT,
+              isPreview: !!openAttempt.is_preview,
+              resumed: true,
+            };
+          }
+        }
       }
     }
+
 
     // Resolve question bank for this video.
     let bank: BankQuestion[] = [];
@@ -449,134 +703,14 @@ export const submitQuizAttempt = createServerFn({ method: "POST" })
     const access = await verifyEmployeeAccess(supabase, attempt.employee_id, userId);
     if (!access.ok) return access;
 
-    const stored = storedQuestionsSchema.safeParse(attempt.questions);
-    if (!stored.success) return { ok: false, error: "Stored quiz is malformed." };
-    const total = stored.data.length;
-
-    const responses = parseResponses(attempt.responses);
-    if (responses.length < total) {
-      return { ok: false, error: "This attempt isn't finished yet." };
-    }
-
-    const byIndex = new Map(responses.map((r) => [r.index, r]));
-    let correct = 0;
-    stored.data.forEach((q, i) => {
-      const r = byIndex.get(i);
-      if (r && !r.timedOut && r.answerIndex === q.correctIndex) correct++;
-    });
-    const score = total === 0 ? 0 : Math.round((correct / total) * 100);
-    const passed = score >= PASS_PCT;
-    const distractionFlagged = !!data.distractionFlagged;
-    // An owner trying the test out must never write a pass or a response time
-    // for an employee — that data drives scheduling decisions.
-    const isPreview = !!attempt.is_preview;
-    const responseTimes = responses
-      .slice()
-      .sort((a, b) => a.index - b.index)
-      .map((r) => ({ index: r.index, elapsedMs: r.elapsedMs, timedOut: r.timedOut }));
-
-    const { data: submittedAttempt, error: attemptUpdateErr } = await supabaseAdmin
-      .from("quiz_attempts")
-      .update({
-        score,
-        passed,
-        distraction_flagged: distractionFlagged,
-        submitted_at: new Date().toISOString(),
-      })
-      .eq("id", data.attemptId)
-      .is("submitted_at", null)
-      .select("id")
-      .maybeSingle();
-    if (attemptUpdateErr) {
-      console.error("[quiz] attempt update failed", attemptUpdateErr);
-      return { ok: false, error: "Couldn't save the quiz result. Try again." };
-    }
-    if (!submittedAttempt) return { ok: false, error: "Attempt already submitted." };
-
-    if (isPreview) {
-      return {
-        ok: true,
-        score,
-        passed,
-        attempts: 0,
-        distractionFlagged,
-        isPreview: true,
-        responseTimes,
-      };
-    }
-
-    // Upsert training_progress row. We increment attempts and only flip
-    // `passed`/`completed_at` forward — never regress a prior pass. For the
-    // menu quiz we also stamp the current bank_version so a later menu
-    // regeneration correctly invalidates this pass.
-    const { data: existing } = await supabaseAdmin
-      .from("training_progress")
-      .select("*")
-      .eq("employee_id", attempt.employee_id)
-      .eq("video_id", attempt.video_id)
-      .maybeSingle();
-
-    let bankVersion: number | undefined;
-    if (attempt.video_id === "menu-quiz") {
-      const { data: bankRow } = await supabaseAdmin
-        .from("menu_quiz_banks")
-        .select("bank_version")
-        .eq("owner_id", access.ownerId)
-        .maybeSingle();
-      bankVersion = bankRow?.bank_version ?? undefined;
-    }
-
-    const attempts = (existing?.attempts ?? 0) + 1;
-    // A prior pass only carries forward when it was earned against the same
-    // question bank. A menu republish (bank_version bump) invalidates it, so
-    // failing the new menu test must NOT be recorded as a pass.
-    const alreadyPassed =
-      !!existing?.passed &&
-      (bankVersion === undefined || existing?.bank_version === bankVersion);
-    const nextPassed = alreadyPassed || passed;
-    const completedAt = passed
-      ? new Date().toISOString()
-      : alreadyPassed
-        ? (existing?.completed_at ?? null)
-        : null;
-
-    const baseRow = {
-      owner_id: access.ownerId,
-      employee_id: attempt.employee_id,
-      video_id: attempt.video_id,
-      watched_sec: existing?.watched_sec ?? 0,
-      completed_at: completedAt,
-      quiz_score: score,
-      passed: nextPassed,
-      attempts,
-      locked_out: false,
-      distraction_flagged: distractionFlagged,
-    };
-    const upsertRow =
-      attempt.video_id === "menu-quiz" && bankVersion !== undefined
-        ? { ...baseRow, bank_version: bankVersion }
-        : baseRow;
-
-    const { error: upsertErr } = await supabaseAdmin
-      .from("training_progress")
-      .upsert(upsertRow, { onConflict: "employee_id,video_id" });
-
-    if (upsertErr) {
-      console.error("[quiz] training_progress upsert failed", upsertErr);
-      return { ok: false, error: "Couldn't save training progress. Try again." };
-    }
-
-    return {
-      ok: true,
-      score,
-      passed,
-      attempts,
-      distractionFlagged,
-      bankVersion,
-      isPreview: false,
-      responseTimes,
-    };
+    return finalizeAttempt(
+      supabaseAdmin,
+      attempt,
+      access.ownerId,
+      !!data.distractionFlagged,
+    );
   });
+
 
 export const listOwnerQuizAttempts = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -585,9 +719,12 @@ export const listOwnerQuizAttempts = createServerFn({ method: "GET" })
       .from("quiz_attempts")
       .select("id, employee_id, video_id, score, passed, distraction_flagged, submitted_at, created_at")
       .eq("owner_id", context.userId)
+      // Owner practice runs are not employee results.
+      .eq("is_preview", false)
       .not("submitted_at", "is", null)
       .order("created_at", { ascending: false })
       .limit(250);
+
     if (error) {
       console.error("[quiz] owner attempt list failed", error);
       return [];
