@@ -1,6 +1,7 @@
 // Direct knowledge test. No video, no watching prerequisite — the employee
-// starts the test straight away. Questions are drawn, shuffled and graded
-// entirely server-side (see src/lib/quiz.functions.ts).
+// starts the test straight away. Questions are served ONE AT A TIME by the
+// server, which also measures how long each answer took (see
+// src/lib/quiz.functions.ts). The client never holds the full question set.
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Button } from "@/components/ui/button";
@@ -10,11 +11,11 @@ import { Badge } from "@/components/ui/badge";
 import type { VideoProgress } from "@/lib/sidework-store";
 import {
   startQuizAttempt,
+  answerQuizQuestion,
   submitQuizAttempt,
   type PublicQuestion,
 } from "@/lib/quiz.functions";
 
-const DEFAULT_SECONDS_PER_Q = 30;
 const DEFAULT_PASS_PCT = 80;
 
 export type QuizAttemptOutcome = {
@@ -68,7 +69,7 @@ export function KnowledgeTest({
           ) : retakeRequired ? (
             <Badge variant="destructive">Retake required</Badge>
           ) : attempts > 0 ? (
-            <Badge variant="secondary">Attempt {attempts} · unlimited retakes</Badge>
+            <Badge variant="secondary">Attempt {attempts}</Badge>
           ) : (
             <Badge variant="secondary">Not started</Badge>
           )}
@@ -86,6 +87,8 @@ export function KnowledgeTest({
   );
 }
 
+type Outcome = QuizAttemptOutcome & { isPreview: boolean };
+
 function QuizSection({
   videoId, employeeId, passed, attempts, onSubmit,
 }: {
@@ -96,24 +99,29 @@ function QuizSection({
   onSubmit: (result: QuizAttemptOutcome) => void;
 }) {
   const start = useServerFn(startQuizAttempt);
+  const answer = useServerFn(answerQuizQuestion);
   const submit = useServerFn(submitQuizAttempt);
 
   const [starting, setStarting] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+  const [checking, setChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Set when the failure is recoverable — offers resume instead of restart. */
+  const [canResume, setCanResume] = useState(false);
   const [attemptId, setAttemptId] = useState<string | null>(null);
-  const [questions, setQuestions] = useState<PublicQuestion[]>([]);
-  const [secondsPerQ, setSecondsPerQ] = useState(DEFAULT_SECONDS_PER_Q);
-  const [passPct, setPassPct] = useState(DEFAULT_PASS_PCT);
+  const [question, setQuestion] = useState<PublicQuestion | null>(null);
   const [idx, setIdx] = useState(0);
-  const [answers, setAnswers] = useState<number[]>([]);
-  const [timeLeft, setTimeLeft] = useState(DEFAULT_SECONDS_PER_Q);
-  const [done, setDone] = useState<QuizAttemptOutcome | null>(null);
+  const [total, setTotal] = useState(0);
+  const [seconds, setSeconds] = useState(20);
+  const [passPct, setPassPct] = useState(DEFAULT_PASS_PCT);
+  const [isPreview, setIsPreview] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(20);
+  const [done, setDone] = useState<Outcome | null>(null);
   // Anti-cheat: flip true if user backgrounds tab or window blurs during
   // an active attempt. We don't fail them — just surface it to the manager.
   const [distractionFlagged, setDistractionFlagged] = useState(false);
   const distractionRef = useRef(false);
-  const active = attemptId !== null && !done;
+  const busyRef = useRef(false);
+  const active = attemptId !== null && question !== null && !done;
 
   // Watch for tab/app switches while the test is active.
   useEffect(() => {
@@ -133,45 +141,69 @@ function QuizSection({
     };
   }, [active]);
 
-  const finishAttempt = async (finalAnswers: number[]) => {
-    if (!attemptId || submitting) return;
-    setSubmitting(true);
+  const finalize = async (id: string) => {
+    const res = await submit({
+      data: { attemptId: id, distractionFlagged: distractionRef.current },
+    });
+    if (!res.ok) {
+      setError(res.error);
+      setCanResume(false);
+      return;
+    }
+    const outcome: Outcome = {
+      score: res.score,
+      passed: res.passed,
+      attempts: res.attempts,
+      distractionFlagged: res.distractionFlagged,
+      bankVersion: res.bankVersion,
+      isPreview: res.isPreview,
+    };
+    setDone(outcome);
+    setAttemptId(null);
+    setQuestion(null);
+    // An owner preview is never recorded — don't push it into the store.
+    if (!res.isPreview) onSubmit(outcome);
+  };
+
+  const sendAnswer = async (answerIndex: number) => {
+    if (!attemptId || busyRef.current) return;
+    busyRef.current = true;
+    setChecking(true);
+    setError(null);
     try {
-      const res = await submit({
-        data: {
-          attemptId,
-          answers: finalAnswers,
-          distractionFlagged: distractionRef.current,
-        },
-      });
+      const res = await answer({ data: { attemptId, answerIndex } });
       if (!res.ok) {
         setError(res.error);
-        setSubmitting(false);
+        setCanResume(false);
         return;
       }
-      const outcome: QuizAttemptOutcome = {
-        score: res.score,
-        passed: res.passed,
-        attempts: res.attempts,
-        distractionFlagged: res.distractionFlagged,
-        bankVersion: res.bankVersion,
-      };
-      setDone(outcome);
-      setAttemptId(null);
-      onSubmit(outcome);
+      if (res.done) {
+        await finalize(attemptId);
+        return;
+      }
+      setQuestion(res.question);
+      setIdx(res.index);
+      setTotal(res.total);
+      setSeconds(res.secondsForQuestion);
+      setTimeLeft(res.secondsForQuestion);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Couldn't submit the test.");
+      setError(e instanceof Error ? e.message : "Connection lost.");
+      setCanResume(true);
     } finally {
-      setSubmitting(false);
+      busyRef.current = false;
+      setChecking(false);
     }
   };
 
-  const beginQuiz = async () => {
+  const beginQuiz = async (resume = false) => {
     setError(null);
-    setDone(null);
+    setCanResume(false);
+    if (!resume) {
+      setDone(null);
+      setDistractionFlagged(false);
+      distractionRef.current = false;
+    }
     setStarting(true);
-    setDistractionFlagged(false);
-    distractionRef.current = false;
     try {
       const res = await start({ data: { employeeId, videoId } });
       if (!res.ok) {
@@ -179,52 +211,53 @@ function QuizSection({
         return;
       }
       setAttemptId(res.attemptId);
-      setQuestions(res.questions);
-      setSecondsPerQ(res.secondsPerQuestion);
+      setQuestion(res.question);
+      setIdx(res.index);
+      setTotal(res.total);
+      setSeconds(res.secondsForQuestion);
+      setTimeLeft(res.secondsForQuestion);
       setPassPct(res.passingScore);
-      setIdx(0);
-      setAnswers(new Array(res.questions.length).fill(-1));
-      setTimeLeft(res.secondsPerQuestion);
+      setIsPreview(res.isPreview);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't start the test.");
+      setCanResume(true);
     } finally {
       setStarting(false);
     }
   };
 
-  // Countdown timer per question (no going back).
+  // Countdown for the current question. The server is the authority on
+  // timing — this just mirrors the window it granted.
   useEffect(() => {
-    if (!active) return;
+    if (!active || checking) return;
     if (timeLeft <= 0) {
-      if (idx + 1 >= questions.length) {
-        finishAttempt(answers);
-      } else {
-        setIdx((i) => i + 1);
-        setTimeLeft(secondsPerQ);
-      }
+      // -1 = unanswered. The server decides whether it counts as timed out.
+      void sendAnswer(-1);
       return;
     }
     const t = window.setTimeout(() => setTimeLeft((s) => s - 1), 1000);
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, timeLeft, idx]);
-
-  const pickAnswer = (j: number) => {
-    if (!active) return;
-    const next = [...answers];
-    next[idx] = j;
-    setAnswers(next);
-    if (idx + 1 >= questions.length) {
-      finishAttempt(next);
-    } else {
-      setIdx((i) => i + 1);
-      setTimeLeft(secondsPerQ);
-    }
-  };
+  }, [active, checking, timeLeft, idx]);
 
   // --- Gates ---
   // A pass that just happened in this session wins over the parent's
   // (not-yet-updated) props, so the employee never sees "retake" after passing.
+  if (done?.isPreview && !active) {
+    return (
+      <div className="space-y-3">
+        <div className="rounded-xl border border-border bg-muted/40 p-4 text-sm">
+          <p className="font-semibold">Preview result: {done.score}% · {done.passed ? "would pass" : "would not pass"}</p>
+          <p className="mt-1 text-muted-foreground">
+            This was a manager preview — nothing was recorded for this employee.
+          </p>
+        </div>
+        <Button variant="outline" onClick={() => beginQuiz()} disabled={starting}>
+          {starting ? "Starting…" : "Preview again"}
+        </Button>
+      </div>
+    );
+  }
   if ((done?.passed || passed) && !active) {
     return (
       <div className="flex items-center gap-3 rounded-xl border border-success/30 bg-success/10 p-4 text-sm font-medium text-success">
@@ -240,10 +273,13 @@ function QuizSection({
           <div>
             <p className="font-semibold">Ready for the test?</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Randomized questions · 30s per question · pass at {passPct}%.
+              Each question is timed and shown one at a time. You can't go back or
+              change an answer once it's submitted. Pass at {passPct}%.
             </p>
             <p className="mt-2 text-xs text-muted-foreground">
-              Unlimited retakes — retry immediately if you don't pass. {attempts > 0 && <>Attempts so far: <span className="font-semibold text-foreground">{attempts}</span></>}
+              Your score and how quickly you answered each question are recorded and
+              visible to management.
+              {attempts > 0 && <> Attempts so far: <span className="font-semibold text-foreground">{attempts}</span></>}
             </p>
             {done && !done.passed && (
               <p className="mt-2 text-xs text-destructive">Last attempt: {done.score}% — try again.</p>
@@ -252,8 +288,8 @@ function QuizSection({
               <p className="mt-2 text-xs text-destructive">{error}</p>
             )}
           </div>
-          <Button onClick={beginQuiz} disabled={starting}>
-            {starting ? "Starting…" : "Start test"}
+          <Button onClick={() => beginQuiz(canResume)} disabled={starting}>
+            {starting ? (canResume ? "Resuming…" : "Starting…") : canResume ? "Resume test" : "Start test"}
           </Button>
         </div>
       </div>
@@ -261,8 +297,8 @@ function QuizSection({
   }
 
   // Active test
-  const q = questions[idx];
-  const timerPct = Math.round((timeLeft / secondsPerQ) * 100);
+  const q = question!;
+  const timerPct = Math.round((timeLeft / Math.max(1, seconds)) * 100);
   return (
     <div
       className="rounded-xl border border-primary/30 bg-primary-soft p-4 sm:p-5 select-none"
@@ -271,7 +307,7 @@ function QuizSection({
       onContextMenu={(e) => e.preventDefault()}
     >
       <div className="mb-3 flex items-center justify-between text-xs font-semibold text-primary">
-        <span>Question {idx + 1} of {questions.length}</span>
+        <span>Question {idx + 1} of {total}{isPreview ? " · preview" : ""}</span>
         <span className={timeLeft <= 5 ? "text-destructive" : ""}>⏱ {timeLeft}s</span>
       </div>
       <Progress value={timerPct} className="h-1.5" />
@@ -282,14 +318,27 @@ function QuizSection({
             key={j}
             type="button"
             variant="outline"
-            onClick={() => pickAnswer(j)}
-            disabled={submitting}
+            onClick={() => void sendAnswer(j)}
+            disabled={checking}
             className="h-auto min-h-10 justify-start whitespace-normal px-3 py-2.5 text-left text-sm hover:border-primary hover:bg-primary/5 active:bg-primary-soft"
           >
             {opt}
           </Button>
         ))}
       </div>
+      {checking && (
+        <p className="mt-3 text-xs font-medium text-primary">Checking…</p>
+      )}
+      {error && (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <p className="text-xs text-destructive">{error}</p>
+          {canResume && (
+            <Button size="sm" variant="outline" onClick={() => beginQuiz(true)} disabled={starting}>
+              {starting ? "Resuming…" : "Retry"}
+            </Button>
+          )}
+        </div>
+      )}
       <p className="mt-3 text-xs text-muted-foreground">
         No going back. Don't Google — answer from memory.
         {distractionFlagged && (
