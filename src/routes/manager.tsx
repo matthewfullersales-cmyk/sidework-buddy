@@ -82,12 +82,20 @@ function ManagerPage() {
   const { setupCompleted, restaurantProfile, resetSetup, currentUser, setCurrentUser } = useStore();
   const [tab, setTab] = useState("dashboard");
   const [showSetupWizard, setShowSetupWizard] = useState(false);
-  useRequireManagerAccess("/login");
+  const { checking } = useRequireManagerAccess("/login");
   useEffect(() => {
     if (currentUser.type !== "manager") {
       setCurrentUser({ type: "manager", id: "owner" });
     }
   }, [currentUser, setCurrentUser]);
+
+  if (checking) {
+    return (
+      <AppShell nav={nav}>
+        <div className="grid min-h-[40vh] place-items-center text-sm text-muted-foreground">Loading…</div>
+      </AppShell>
+    );
+  }
 
   if (showSetupWizard) {
     return (
