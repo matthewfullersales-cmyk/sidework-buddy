@@ -97,19 +97,7 @@ function JoinPage() {
       setSubmitting(false);
       return toast.error(signUpErr.message);
     }
-    const uid = signUpData.user?.id;
-    if (uid) {
-      const { error: pErr } = await supabase.from("profiles").insert({
-        id: uid,
-        role: "employee",
-        full_name: `${parsed.data.firstName} ${parsed.data.lastName}`,
-        employee_id: empId,
-      });
-      if (pErr) {
-        setSubmitting(false);
-        return toast.error(pErr.message);
-      }
-    }
+    // Profile row is created by the `on_auth_user_created` database trigger.
 
     setSubmitting(false);
     setDone({ firstName: parsed.data.firstName });
