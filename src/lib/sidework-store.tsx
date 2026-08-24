@@ -1093,88 +1093,6 @@ export function trainingProgressFor(
 
 
 
-function seedEmployees(): Employee[] {
-  type Seed = {
-    first: string; last: string; position: Position; section: Section; role: Role;
-    seniority: number; availability?: string;
-    weekly?: Partial<WeeklyAvailability>;
-  };
-  const dinnerOnly: DayAvailability = { kind: "partial", meals: ["Dinner"] };
-  const lunchOnly: DayAvailability = { kind: "partial", meals: ["Lunch"] };
-  const notAvailable: DayAvailability = { kind: "none" };
-
-  const seeds: Seed[] = [
-    // FOH
-    { first: "Maria", last: "Santos", position: "Hostess", section: "FOH", role: "Host", seniority: 4 },
-    { first: "Jenny", last: "Torres", position: "Hostess", section: "FOH", role: "Host", seniority: 3 },
-    { first: "Cara", last: "Mitchell", position: "Hostess", section: "FOH", role: "Host", seniority: 2, weekly: { Mon: notAvailable } },
-    { first: "Mike", last: "Reynolds", position: "Bartender", section: "FOH", role: "Bartender", seniority: 5, availability: "Full shifts" },
-    { first: "Danny", last: "Kim", position: "Bartender", section: "FOH", role: "Bartender", seniority: 3, availability: "Swing 4hr", weekly: { Mon: notAvailable, Tue: notAvailable, Wed: dinnerOnly, Thu: dinnerOnly, Fri: dinnerOnly, Sat: dinnerOnly, Sun: dinnerOnly } },
-    { first: "Anthony", last: "Bianchi", position: "Server", section: "FOH", role: "Server", seniority: 5 },
-    { first: "Sofia", last: "Lopez", position: "Server", section: "FOH", role: "Server", seniority: 5 },
-    { first: "James", last: "Walker", position: "Server", section: "FOH", role: "Server", seniority: 4 },
-    { first: "Nina", last: "Patel", position: "Server", section: "FOH", role: "Server", seniority: 4, weekly: { Sun: notAvailable } },
-    { first: "Chris", last: "Thompson", position: "Server", section: "FOH", role: "Server", seniority: 4 },
-    { first: "Amanda", last: "Rivera", position: "Server", section: "FOH", role: "Server", seniority: 3 },
-    { first: "Joe", last: "DeLuca", position: "Server", section: "FOH", role: "Server", seniority: 3 },
-    { first: "Lisa", last: "Martinez", position: "Server", section: "FOH", role: "Server", seniority: 2, weekly: { Sun: notAvailable, Mon: notAvailable } },
-    { first: "Kevin", last: "Stone", position: "Server", section: "FOH", role: "Server", seniority: 2 },
-    { first: "Carlos", last: "Mendez", position: "Busser", section: "FOH", role: "Busser", seniority: 3 },
-    { first: "Pedro", last: "Ruiz", position: "Busser", section: "FOH", role: "Busser", seniority: 2 },
-    { first: "Tommy", last: "Hall", position: "Bar Back", section: "FOH", role: "Bar Back", seniority: 3 },
-    { first: "Rico", last: "Vasquez", position: "Bar Back", section: "FOH", role: "Bar Back", seniority: 2 },
-    { first: "Sarah", last: "Klein", position: "Manager", section: "FOH", role: "Manager", seniority: 5 },
-    { first: "Frank", last: "D'Amato", position: "Assistant Manager", section: "FOH", role: "Assistant Manager", seniority: 4 },
-    { first: "Luis", last: "Garcia", position: "Busser", section: "FOH", role: "Busser", seniority: 2 },
-    { first: "Mario", last: "Tessaro", position: "Busser", section: "FOH", role: "Busser", seniority: 2 },
-    // BOH
-    { first: "Marco", last: "Bianchi", position: "Chef", section: "BOH", role: "Chef", seniority: 5 },
-    { first: "Tony", last: "Romano", position: "Sous Chef", section: "BOH", role: "Sous Chef", seniority: 5 },
-    { first: "Alex", last: "Park", position: "Line Cook", section: "BOH", role: "Line Cook", seniority: 4 },
-    { first: "Ramon", last: "Silva", position: "Line Cook", section: "BOH", role: "Line Cook", seniority: 4 },
-    { first: "Diego", last: "Morales", position: "Line Cook", section: "BOH", role: "Line Cook", seniority: 3 },
-    { first: "Chris", last: "Lin", position: "Line Cook", section: "BOH", role: "Line Cook", seniority: 3 },
-    { first: "Pat", last: "O'Brien", position: "Line Cook", section: "BOH", role: "Line Cook", seniority: 2, weekly: { Mon: lunchOnly, Tue: lunchOnly, Wed: lunchOnly, Thu: lunchOnly, Fri: lunchOnly, Sat: notAvailable, Sun: notAvailable } },
-    { first: "Juan", last: "Castro", position: "Dishwasher", section: "BOH", role: "Dishwasher", seniority: 3 },
-    { first: "Mike", last: "Tran", position: "Dishwasher", section: "BOH", role: "Dishwasher", seniority: 2 },
-    { first: "Sam", last: "Reyes", position: "Dishwasher", section: "BOH", role: "Dishwasher", seniority: 2 },
-    { first: "Ana", last: "Gomez", position: "Prep Cook", section: "BOH", role: "Prep", seniority: 4 },
-    { first: "Luis", last: "Mejia", position: "Prep Cook", section: "BOH", role: "Prep", seniority: 3 },
-  ];
-  const relPool: Relationship[] = ["Spouse", "Parent", "Sibling", "Friend", "Other"];
-  return seeds.map((s, i) => {
-    const name = `${s.first} ${s.last}`;
-    const handle = `${s.first}.${s.last}`.toLowerCase().replace(/[^a-z.]/g, "");
-    const phoneTail = String(2000 + i).padStart(4, "0");
-    const weekly = { ...defaultWeeklyAvailability(), ...(s.weekly ?? {}) };
-    return {
-      id: `e${i + 1}`,
-      name,
-      firstName: s.first,
-      lastName: s.last,
-      email: `${handle}@perlos.com`,
-      phone: `(555) 412-${phoneTail}`,
-      primaryRole: s.role,
-      approvedRoles: [s.role],
-      autoApproveRoles: s.seniority >= 4 ? [s.role] : [],
-      availability: s.availability ?? "Flexible",
-      weeklyAvailability: weekly,
-      emergencyContact: {
-        firstName: ["Sam","Jordan","Alex","Taylor","Chris"][i % 5],
-        lastName: s.last,
-        phone: `(555) 887-${phoneTail}`,
-        relationship: relPool[i % relPool.length],
-      },
-      invitedAt: "2026-05-01",
-      onboardingStarted: true,
-      personalInfoComplete: true,
-      progress: [],
-      position: s.position,
-      section: s.section,
-      seniority: s.seniority,
-    };
-  });
-}
 
 function seedShifts(): Shift[] {
   return [];
@@ -1192,24 +1110,8 @@ function seedApplications(): JobApplication[] {
   return [];
 }
 
-function seedTimeOff(): TimeOffRequest[] {
-  const d = (offset: number) => {
-    const x = new Date(); x.setDate(x.getDate() + offset);
-    const y = x.getFullYear();
-    const m = String(x.getMonth() + 1).padStart(2, "0");
-    const day = String(x.getDate()).padStart(2, "0");
-    return `${y}-${m}-${day}`;
-  };
-  return [
-    {
-      id: "to1", employeeId: "e2", startDate: d(14), endDate: d(18),
-      reason: "Family wedding out of state.", status: "pending",
-      createdAt: new Date().toISOString(),
-    },
-  ];
-}
 
-const STORAGE_KEY = "sidework-store-v9";
+const STORAGE_KEY = "sidework-store-v10";
 
 // Defensively strip any legacy "Porter" role from persisted data and remap to Busser.
 function sanitizePorter<T>(input: T): T {
@@ -1238,12 +1140,12 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
   const [state, setState] = useState(() => ({
     currentUser: { type: "manager", id: "owner" } as Store["currentUser"],
-    employees: seedEmployees(),
+    employees: [] as Employee[],
     shifts: seedShifts(),
     trades: seedTrades(),
     jobs: seedJobs(),
     applications: seedApplications(),
-    timeOff: seedTimeOff(),
+    timeOff: [] as TimeOffRequest[],
     menu: null as MenuUpload | null,
     drinkMenu: null as MenuUpload | null,
     dessertMenu: null as MenuUpload | null,
@@ -1268,7 +1170,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     try {
       // Clear any prior versions that may contain "Porter" seed data.
-      for (let i = 1; i <= 8; i++) {
+      for (let i = 1; i <= 9; i++) {
         try { localStorage.removeItem(`sidework-store-v${i}`); } catch {}
       }
       const raw = localStorage.getItem(STORAGE_KEY);
