@@ -100,6 +100,8 @@ function StaffInvitePage() {
   const email = invite?.email ?? "";
 
   const submit = async () => {
+    if (submitting) return;
+
     const parsed = claimSchema.safeParse({ firstName, lastName, phone, ecFirstName, ecLastName, ecPhone });
     if (!parsed.success) {
       const first = parsed.error.issues[0];
@@ -110,44 +112,91 @@ function StaffInvitePage() {
     if (password !== confirmPassword) return toast.error("Passwords don't match");
 
     setSubmitting(true);
-    const redirectTo = typeof window !== "undefined" ? window.location.origin : undefined;
-    const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: redirectTo,
-        data: { full_name: `${parsed.data.firstName} ${parsed.data.lastName}`, role: "employee" },
-      },
-    });
-    if (signUpErr) { setSubmitting(false); return toast.error(signUpErr.message); }
-    const uid = signUpData.user?.id;
-    if (!uid) { setSubmitting(false); return toast.error("Signup failed — please try again"); }
-
-    // Profile row is created by the `on_auth_user_created` database trigger.
-
 
     try {
-      await claimStaffInvite(token, uid, {
-        first_name: parsed.data.firstName,
-        last_name: parsed.data.lastName,
-        phone: parsed.data.phone,
-        primary_role: role,
-        weekly_availability: availability,
-        emergency_contact: {
-          firstName: parsed.data.ecFirstName,
-          lastName: parsed.data.ecLastName,
-          phone: parsed.data.ecPhone,
-          relationship: ecRel,
-        },
-      });
-    } catch (e) {
-      console.error("[claimStaffInvite]", e);
-      setSubmitting(false);
-      return toast.error("Couldn't claim invite — it may already be used");
-    }
+      let uid: string | undefined;
 
-    setSubmitting(false);
-    setDone({ firstName: parsed.data.firstName });
+      // 1. Existing session for this invite email — use it without re-signing up.
+      const { data: sessionData } = await supabase.auth.getSession();
+      const sessionUser = sessionData.session?.user;
+      if (sessionUser && sessionUser.email?.toLowerCase() === email.toLowerCase()) {
+        uid = sessionUser.id;
+      } else {
+        // 2. Otherwise sign up.
+        const redirectTo = typeof window !== "undefined" ? window.location.origin : undefined;
+        const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: redirectTo,
+            data: { full_name: `${parsed.data.firstName} ${parsed.data.lastName}`, role: "employee" },
+          },
+        });
+
+        if (signUpErr) {
+          const errMsg = signUpErr.message.toLowerCase();
+          if (errMsg.includes("already registered") || errMsg.includes("already exists")) {
+            // 3. Account exists — sign in with the password they just typed.
+            const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
+              email,
+              password,
+            });
+            if (signInErr || !signInData.user) {
+              setSubmitting(false);
+              return toast.error(
+                "An account already exists for this email, and that password doesn't match. Sign in at the employee sign-in page or reset your password."
+              );
+            }
+            uid = signInData.user.id;
+          } else {
+            setSubmitting(false);
+            return toast.error(signUpErr.message);
+          }
+        } else {
+          uid = signUpData.user?.id;
+          if (!uid) {
+            setSubmitting(false);
+            return toast.error("Signup failed — please try again");
+          }
+        }
+      }
+
+      // Profile row is created by the `on_auth_user_created` database trigger.
+
+      try {
+        await claimStaffInvite(token, uid, {
+          first_name: parsed.data.firstName,
+          last_name: parsed.data.lastName,
+          phone: parsed.data.phone,
+          primary_role: role,
+          weekly_availability: availability,
+          emergency_contact: {
+            firstName: parsed.data.ecFirstName,
+            lastName: parsed.data.ecLastName,
+            phone: parsed.data.ecPhone,
+            relationship: ecRel,
+          },
+        });
+      } catch (claimErr: any) {
+        setSubmitting(false);
+        const claimMsg = String(claimErr?.message ?? claimErr).toLowerCase();
+        if (claimMsg.includes("already claimed")) {
+          return toast.error("This invite has already been used. Please sign in at the employee sign-in page.");
+        }
+        if (claimMsg.includes("invite not found")) {
+          return toast.error("This invite link is invalid or expired. Ask your manager for a new one.");
+        }
+        return toast.error(
+          "The final step didn't finish, but your account was created successfully. Press the button again to complete your invite."
+        );
+      }
+
+      setSubmitting(false);
+      setDone({ firstName: parsed.data.firstName });
+    } catch (e) {
+      setSubmitting(false);
+      toast.error("Something went wrong. Your account may already exist—press the button again or sign in at the employee sign-in page.");
+    }
   };
 
   if (loading) {
