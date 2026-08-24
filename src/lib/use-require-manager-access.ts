@@ -15,10 +15,14 @@ export function useRequireManagerAccess(redirectTo = "/login") {
   useEffect(() => {
     if (loading) return;
     if (!session) { navigate({ to: redirectTo }); return; }
-    if (!profile) return; // wait for profile to hydrate
+    if (!profile) return; // wait for profile to hydrate; caller must gate UI on `checking`
     if (profile.role !== "owner") { navigate({ to: "/employee" }); return; }
     if (profile.subscription_status !== "active") {
       navigate({ to: "/pricing" });
     }
   }, [loading, session, profile, redirectTo, navigate]);
+
+  // True while we are still waiting to know who the user is.
+  const checking = loading || (!!session && !profile);
+  return { checking };
 }

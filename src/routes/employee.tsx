@@ -133,13 +133,12 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
   };
 
   const save = () => {
-    if (!firstName.trim() || !email.trim() || !phone.trim()) return toast.error("Please fill name, email, and phone.");
+    if (!firstName.trim() || !phone.trim()) return toast.error("Please fill name and phone.");
     if (!ec.firstName.trim() || !ec.lastName.trim() || !ec.phone.trim()) return toast.error("Please add an emergency contact.");
     updateEmployee(me.id, {
       firstName: firstName.trim(),
       lastName: lastName.trim(),
       name: `${firstName.trim()} ${lastName.trim()}`.trim(),
-      email: email.trim(),
       phone: phone.trim(),
       weeklyAvailability: weekly,
       emergencyContact: { ...ec, firstName: ec.firstName.trim(), lastName: ec.lastName.trim() },
@@ -179,7 +178,11 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="grid gap-2"><Label>First name</Label><Input value={firstName} onChange={(e) => setFirstName(e.target.value)} /></div>
             <div className="grid gap-2"><Label>Last name</Label><Input value={lastName} onChange={(e) => setLastName(e.target.value)} /></div>
-            <div className="grid gap-2"><Label>Email</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+            <div className="grid gap-2">
+              <Label>Email</Label>
+              <Input type="email" disabled value={email} />
+              <p className="text-xs text-muted-foreground">This is the address you sign in with. Your manager can change it.</p>
+            </div>
             <div className="grid gap-2"><Label>Phone number</Label><PhoneInput value={phone} onChange={setPhone} /></div>
           </div>
           <div className="grid gap-2"><Label>Role</Label><Input disabled value={me.primaryRole} /></div>
@@ -565,35 +568,6 @@ function TradesTab({ employeeId }: { employeeId: string }) {
         </CardContent>
       </Card>
 
-
-      <Card>
-        <CardHeader><CardTitle className="text-base">Open trades you can pick up</CardTitle></CardHeader>
-        <CardContent className="space-y-2">
-          {openTrades.length === 0 && <p className="text-sm text-muted-foreground">Nothing available right now.</p>}
-          {openTrades.map((t) => {
-            const shift = shifts.find((s) => s.id === t.shiftId)!;
-            const from = employees.find((e) => e.id === t.postedBy);
-            const eligible = me.approvedRoles.includes(shift.role);
-            const auto = me.autoApproveRoles.includes(shift.role);
-            return (
-              <div key={t.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-background p-3">
-                <div>
-                  <p className="text-sm font-medium">{new Date(shift.date).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })} · {shift.start}–{shift.end}</p>
-                  <p className="text-xs text-muted-foreground">{shift.role} · from {from?.name}{t.note ? ` · "${t.note}"` : ""}</p>
-                </div>
-                {eligible ? (
-                  <Button size="sm" onClick={() => {
-                    claimTrade(t.id, me.id);
-                    toast.success(auto ? "Picked up — auto-approved" : "Picked up — awaiting manager approval");
-                  }}>{auto ? "Pick up" : "Request pickup"}</Button>
-                ) : (
-                  <Badge variant="secondary">Not approved for {shift.role}</Badge>
-                )}
-              </div>
-            );
-          })}
-        </CardContent>
-      </Card>
 
       <Card>
         <CardHeader><CardTitle className="text-base">My trade history</CardTitle></CardHeader>
