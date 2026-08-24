@@ -52,16 +52,9 @@ function SignupPage() {
     });
     if (error) { setBusy(false); return toast.error(error.message); }
 
+    // The profile row is created by the `on_auth_user_created` database
+    // trigger from the signUp metadata above — no client-side insert.
     const uid = data.user?.id;
-    if (uid) {
-      const { error: pErr } = await supabase.from("profiles").insert({
-        id: uid,
-        role: "owner",
-        full_name: fullName.trim(),
-        restaurant_name: restaurantName.trim(),
-      });
-      if (pErr) { setBusy(false); return toast.error(pErr.message); }
-    }
 
     // If Supabase issued a session immediately, send them straight to Stripe
     // Checkout. Otherwise they must confirm email first, then subscribe on

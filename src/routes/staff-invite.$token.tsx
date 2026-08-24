@@ -123,11 +123,8 @@ function StaffInvitePage() {
     const uid = signUpData.user?.id;
     if (!uid) { setSubmitting(false); return toast.error("Signup failed — please try again"); }
 
-    const { error: pErr } = await supabase.from("profiles").insert({
-      id: uid, role: "employee",
-      full_name: `${parsed.data.firstName} ${parsed.data.lastName}`,
-    });
-    if (pErr) { setSubmitting(false); return toast.error(pErr.message); }
+    // Profile row is created by the `on_auth_user_created` database trigger.
+
 
     try {
       await claimStaffInvite(token, uid, {
