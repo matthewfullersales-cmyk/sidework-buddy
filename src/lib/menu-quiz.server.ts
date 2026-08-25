@@ -168,6 +168,7 @@ const rawExtractedItemSchema = z
       .slice(0, 40)
       .map((x) => x.slice(0, 120)),
     preparation: (i.preparation ?? "").trim().slice(0, 400),
+    description: (i.description ?? "").trim().slice(0, 400),
     menuType: (i.menu_type ?? i.menuType ?? "food") as MenuSource,
   }));
 
