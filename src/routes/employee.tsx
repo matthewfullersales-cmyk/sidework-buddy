@@ -51,10 +51,12 @@ function EmployeePage() {
   const menuBankVersion = menuBankMeta;
   const targetId = employeeContext?.employeeId ?? profile?.employee_id ?? null;
   const selectedTargetRef = useRef<string | null>(null);
+  const setCurrentUserRef = useRef(setCurrentUser);
+  setCurrentUserRef.current = setCurrentUser;
   useEffect(() => {
     if (!targetId || selectedTargetRef.current === targetId) return;
     selectedTargetRef.current = targetId;
-    setCurrentUser({ type: "employee", id: targetId });
+    setCurrentUserRef.current({ type: "employee", id: targetId });
   }, [targetId]);
   const me = targetId
     ? employees.find((employee) => employee.id === targetId)
@@ -62,7 +64,7 @@ function EmployeePage() {
       ? employees.find((employee) => employee.id === currentUser.id)
       : undefined;
   const targetResolved = Boolean(targetId && employeeHydratedTargetId === targetId);
-  const stillLoading = authLoading || Boolean(targetId && !targetResolved && employeeHydrating);
+  const stillLoading = authLoading || Boolean(targetId && !targetResolved && !employeeHydrationError);
   const status = useMemo(() => (me ? onboardingStatus(me, customRoles, menuBankVersion, menuTestConfig, uploadedMenuTypes) : null), [me, customRoles, menuBankVersion, menuTestConfig, uploadedMenuTypes]);
 
   useEffect(() => {
@@ -80,7 +82,7 @@ function EmployeePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [me?.id, status?.total, status?.passed]);
 
-  if (currentUser.type === "manager") return <Navigate to="/manager" />;
+  if (!authLoading && profile?.role === "owner") return <Navigate to="/manager" />;
   if (me && isPendingJoin(me)) {
     return (
       <AppShell nav={nav}>
