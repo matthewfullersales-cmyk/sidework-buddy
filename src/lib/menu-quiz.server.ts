@@ -155,6 +155,7 @@ const rawExtractedItemSchema = z
     section: z.string().optional(),
     ingredients: z.union([z.array(z.string()), z.string()]).optional(),
     preparation: z.string().optional(),
+    description: z.string().optional(),
     menu_type: z.enum(["food", "drink", "dessert"]).optional(),
     menuType: z.enum(["food", "drink", "dessert"]).optional(),
   })
