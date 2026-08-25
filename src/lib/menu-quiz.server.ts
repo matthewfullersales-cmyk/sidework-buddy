@@ -360,6 +360,7 @@ function itemLine(i: ExtractedItem): string {
     menu_type: i.menuType,
     ingredients: i.ingredients,
     preparation: i.preparation,
+    description: i.description,
   });
 }
 
