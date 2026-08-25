@@ -94,9 +94,22 @@ function JoinPage() {
 
     setSubmitting(true);
     try {
-      // 1. Resolve an auth user: existing session, else sign up, else sign in.
+      // 1. Resolve an auth user: reuse only a matching session, else sign up/sign in.
       const { data: sessData } = await supabase.auth.getSession();
-      let userId = sessData.session?.user?.id ?? null;
+      const activeSession = sessData.session;
+      const enteredEmail = parsed.data.email.trim().toLowerCase();
+      const activeEmail = activeSession?.user.email?.trim().toLowerCase() ?? null;
+      let userId = activeSession && activeEmail === enteredEmail ? activeSession.user.id : null;
+
+      if (activeSession && activeEmail !== enteredEmail) {
+        const confirmed = window.confirm(
+          `You're signed in as ${activeSession.user.email ?? "another account"}. Continuing will sign you out and create an account for ${parsed.data.email.trim()}.`,
+        );
+        if (!confirmed) return;
+
+        const { error: signOutErr } = await supabase.auth.signOut();
+        if (signOutErr) throw new Error("Couldn't sign out the current account. Please try again.");
+      }
 
       if (!userId) {
         const redirectTo = typeof window !== "undefined" ? window.location.origin : undefined;
@@ -118,7 +131,10 @@ function JoinPage() {
         } else if (signUpErr) {
           throw new Error(signUpErr.message);
         } else {
-          userId = signUpData.user?.id ?? null;
+          if (!signUpData.session) {
+            throw new Error("Confirm your email, then reopen this join link to finish joining.");
+          }
+          userId = signUpData.session.user.id;
         }
       }
 
