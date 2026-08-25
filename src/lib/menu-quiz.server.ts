@@ -224,14 +224,37 @@ const rawExtractedItemSchema = z
     menuType: (i.menu_type ?? i.menuType ?? "food") as MenuSource,
   }));
 
-const extractResponseSchema = z
-  .union([
-    z.object({ items: z.array(z.unknown()) }),
-    // Gemini occasionally honors the item schema but omits the requested
-    // wrapper object. Preserve that otherwise-valid collection.
-    z.array(z.unknown()),
-  ])
-  .transform((value) => (Array.isArray(value) ? { items: value } : value));
+const extractResponseSchema = z.object({
+  items: z.array(z.unknown()),
+});
+
+function normalizeExtractionRoot(raw: unknown): { items: unknown[] } | null {
+  if (Array.isArray(raw)) {
+    console.warn("[menu-quiz] non-standard extraction shape: bare root array", { itemCount: raw.length });
+    return { items: raw };
+  }
+  if (typeof raw !== "object" || raw === null) return null;
+
+  const record = raw as Record<string, unknown>;
+  if (Array.isArray(record.items)) return { items: record.items };
+
+  const entries = Object.entries(record);
+  if (entries.length === 1 && Array.isArray(entries[0]?.[1])) {
+    const [key, items] = entries[0];
+    console.warn("[menu-quiz] non-standard extraction shape: single-key array wrapper", {
+      key,
+      itemCount: items.length,
+    });
+    return { items };
+  }
+
+  if (typeof record.name === "string") {
+    console.warn("[menu-quiz] non-standard extraction shape: unwrapped single item object");
+    return { items: [record] };
+  }
+
+  return null;
+}
 
 const EXTRACTION_PROMPT = `You are a menu data extractor. You read restaurant menu files (PDF or photo) and return STRUCTURED JSON ONLY. You do NOT write questions.
 
@@ -280,7 +303,8 @@ export async function runExtractMenu(data: {
   const res = await callGateway(lovableKey, EXTRACTION_PROMPT, userContent);
   if (!res.ok) return { ok: false, error: res.error };
 
-  const shaped = extractResponseSchema.safeParse(res.raw);
+  const normalizedRoot = normalizeExtractionRoot(res.raw);
+  const shaped = extractResponseSchema.safeParse(normalizedRoot ?? res.raw);
   if (!shaped.success) {
     console.error("[menu-quiz] extraction shape mismatch", shaped.error.issues.slice(0, 5));
     console.error("[menu-quiz] extraction raw response", {
@@ -295,13 +319,6 @@ export async function runExtractMenu(data: {
       ok: false,
       error: `The menu reader returned a malformed result (${where}: ${first?.message ?? "unknown error"}). Try again.`,
     };
-  }
-
-  if (Array.isArray(res.raw)) {
-    console.warn("[menu-quiz] extraction returned a root array; accepted it as the items collection", {
-      itemCount: res.raw.length,
-      length: res.rawTextLength,
-    });
   }
 
   if (res.usedBraceFallback || res.nearOutputCeiling !== null) {
