@@ -192,6 +192,7 @@ function itemVocabulary(item: ProvenanceItem): string[] {
     ...significantTokens(item.name),
     ...significantTokens(item.section ?? ""),
     ...significantTokens(item.preparation ?? ""),
+    ...significantTokens(item.description ?? ""),
     ...(item.ingredients ?? []).flatMap((i) => significantTokens(i)),
   ];
 }
