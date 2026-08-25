@@ -16,7 +16,7 @@ import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { KnowledgeTest } from "@/components/sidework/KnowledgeTest";
 import { AvailabilityEditor } from "@/components/sidework/AvailabilityEditor";
-import { onboardingStatus, useStore, testIdsForEmployee, menuTestStatus, MENU_MODULE_ID, MENU_TEST_TITLE, type Relationship, type WeeklyAvailability } from "@/lib/sidework-store";
+import { onboardingStatus, useStore, isPendingJoin, testIdsForEmployee, menuTestStatus, MENU_MODULE_ID, MENU_TEST_TITLE, type Relationship, type WeeklyAvailability } from "@/lib/sidework-store";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatPhone } from "@/lib/format-phone";
 import { toast } from "sonner";
