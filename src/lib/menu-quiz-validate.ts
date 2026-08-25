@@ -345,6 +345,13 @@ export function rejectionReason(
   const answer = q.options[q.answerIndex] ?? "";
   if (!answer.trim()) return "The correct answer is empty.";
 
+  // Whole-string check: short answers ("N/A", "IPA") produce no significant
+  // tokens, so the token overlap check below would silently pass them.
+  const answerNorm = normalizeText(answer);
+  if (answerNorm && ` ${normalizeText(q.question)} `.includes(` ${answerNorm} `)) {
+    return `The stem contains the correct answer verbatim ("${answer}"). Strip the answer out of the stem, or ask about a different attribute of the item.`;
+  }
+
   const stemTokens = [...new Set(significantTokens(q.question))];
   const answerTokens = significantTokens(answer);
   const overlap = answerTokens.filter((t) => stemTokens.some((s) => nearMatch(s, t)));
