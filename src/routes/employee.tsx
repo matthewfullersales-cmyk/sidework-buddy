@@ -16,7 +16,7 @@ import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { KnowledgeTest } from "@/components/sidework/KnowledgeTest";
 import { AvailabilityEditor } from "@/components/sidework/AvailabilityEditor";
-import { onboardingStatus, useStore, testIdsForEmployee, menuTestStatus, MENU_MODULE_ID, MENU_TEST_TITLE, type Relationship, type WeeklyAvailability } from "@/lib/sidework-store";
+import { onboardingStatus, useStore, isPendingJoin, testIdsForEmployee, menuTestStatus, MENU_MODULE_ID, MENU_TEST_TITLE, type Relationship, type WeeklyAvailability } from "@/lib/sidework-store";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatPhone } from "@/lib/format-phone";
 import { toast } from "sonner";
@@ -72,6 +72,21 @@ function EmployeePage() {
     );
   }
   if (!me || !status) return <Navigate to="/" />;
+  if (isPendingJoin(me)) {
+    return (
+      <AppShell nav={nav}>
+        <div className="mx-auto max-w-md px-4 py-16 text-center">
+          <h1 className="text-2xl font-bold">Waiting on approval</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Your manager needs to approve your join request before you can see the schedule or start your Menu
+            Knowledge Test. Check back soon.
+          </p>
+        </div>
+      </AppShell>
+    );
+  }
+
+
 
 
   return (

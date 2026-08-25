@@ -269,9 +269,11 @@ export type Database = {
           full_name: string
           id: string
           menu_test_config: Json
+          prior_slugs: string[]
           restaurant_hours: Json | null
           restaurant_name: string | null
           role: Database["public"]["Enums"]["user_role"]
+          slug: string | null
           stripe_customer_id: string | null
           stripe_subscription_id: string | null
           subscription_current_period_end: string | null
@@ -285,9 +287,11 @@ export type Database = {
           full_name?: string
           id: string
           menu_test_config?: Json
+          prior_slugs?: string[]
           restaurant_hours?: Json | null
           restaurant_name?: string | null
           role: Database["public"]["Enums"]["user_role"]
+          slug?: string | null
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
           subscription_current_period_end?: string | null
@@ -301,9 +305,11 @@ export type Database = {
           full_name?: string
           id?: string
           menu_test_config?: Json
+          prior_slugs?: string[]
           restaurant_hours?: Json | null
           restaurant_name?: string | null
           role?: Database["public"]["Enums"]["user_role"]
+          slug?: string | null
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
           subscription_current_period_end?: string | null
@@ -443,6 +449,8 @@ export type Database = {
           id: string
           invite_token: string | null
           invited_at: string
+          join_status: string
+          joined_via: string | null
           last_name: string | null
           local_id: string | null
           name: string
@@ -476,6 +484,8 @@ export type Database = {
           id?: string
           invite_token?: string | null
           invited_at?: string
+          join_status?: string
+          joined_via?: string | null
           last_name?: string | null
           local_id?: string | null
           name?: string
@@ -509,6 +519,8 @@ export type Database = {
           id?: string
           invite_token?: string | null
           invited_at?: string
+          join_status?: string
+          joined_via?: string | null
           last_name?: string | null
           local_id?: string | null
           name?: string
@@ -801,6 +813,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      allocate_restaurant_slug: {
+        Args: { p_base: string; p_owner_id: string }
+        Returns: string
+      }
       applicant_confirm_interview_slot: {
         Args: { p_application_id: string; p_slot: string }
         Returns: undefined
@@ -830,6 +846,7 @@ export type Database = {
         Args: { p_owner_id: string; p_role: string }
         Returns: boolean
       }
+      ensure_my_restaurant_slug: { Args: never; Returns: string }
       get_effective_owner: {
         Args: never
         Returns: {
@@ -906,6 +923,13 @@ export type Database = {
           stage: string
         }[]
       }
+      get_public_join_restaurant: {
+        Args: { p_slug: string }
+        Returns: {
+          owner_id: string
+          restaurant_name: string
+        }[]
+      }
       get_public_shadow_shift: {
         Args: { p_application_id: string }
         Returns: {
@@ -932,6 +956,10 @@ export type Database = {
         Args: { p_application_id: string; p_notes: string }
         Returns: undefined
       }
+      join_restaurant_by_slug: {
+        Args: { p_auth_user_id: string; p_patch: Json; p_slug: string }
+        Returns: string
+      }
       search_restaurants: {
         Args: { q: string }
         Returns: {
@@ -940,6 +968,7 @@ export type Database = {
           slug: string
         }[]
       }
+      set_restaurant_slug: { Args: { p_slug: string }; Returns: string }
       shift_is_on_trade_board: {
         Args: { p_owner_id: string; p_shift_id: string }
         Returns: boolean

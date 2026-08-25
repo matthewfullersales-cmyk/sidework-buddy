@@ -6,15 +6,64 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useStore } from "@/lib/sidework-store";
 import { slugify } from "@/lib/slug";
+import { loadMyJoinSlug, setMyJoinSlug } from "@/lib/restaurant-slug";
 import { toast } from "sonner";
 import { Copy, Download, QrCode, Printer } from "lucide-react";
 
-function useJoinUrl() {
+/**
+ * The join slug lives in the database (profiles.slug) so an unauthenticated
+ * visitor can resolve it. There is deliberately no local fallback: a restaurant
+ * with no name gets no join link at all.
+ */
+export function useJoinUrl() {
   const { restaurantProfile } = useStore();
-  const slug = restaurantProfile?.slug ?? (restaurantProfile?.name ? slugify(restaurantProfile.name) : "team");
-  const origin = typeof window !== "undefined" ? window.location.origin : "https://86paper.app";
-  return { slug, url: `${origin}/join/${slug}`, restaurantName: restaurantProfile?.name ?? "your restaurant" };
+  const [slug, setSlug] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [restaurantName, setRestaurantName] = useState<string | null>(restaurantProfile?.name ?? null);
+
+  const refresh = async () => {
+    setLoading(true);
+    try {
+      const s = await loadMyJoinSlug();
+      setSlug(s.slug);
+      setRestaurantName(s.restaurantName ?? restaurantProfile?.name ?? null);
+    } catch (e) {
+      console.error("[useJoinUrl]", e);
+      setSlug(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const s = await loadMyJoinSlug();
+        if (cancelled) return;
+        setSlug(s.slug);
+        setRestaurantName(s.restaurantName ?? restaurantProfile?.name ?? null);
+      } catch (e) {
+        if (!cancelled) console.error("[useJoinUrl]", e);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [restaurantProfile?.name]);
+
+  const origin = typeof window !== "undefined" ? window.location.origin : "https://86paper.com";
+  return {
+    slug,
+    loading,
+    ready: Boolean(slug),
+    url: slug ? `${origin}/join/${slug}` : "",
+    restaurantName: restaurantName ?? restaurantProfile?.name ?? "your restaurant",
+    setSlug,
+    refresh,
+  };
 }
+
 
 function useQrDataUrl(value: string, size = 512) {
   const [src, setSrc] = useState<string>("");
@@ -37,13 +86,14 @@ function useQrDataUrl(value: string, size = 512) {
 }
 
 export function StaffOnboardingCard() {
-  const { restaurantProfile, updateRestaurantSlug } = useStore();
-  const { slug, url, restaurantName } = useJoinUrl();
-  const qr = useQrDataUrl(url, 512);
-  const [editSlug, setEditSlug] = useState(slug);
+  const { restaurantProfile } = useStore();
+  const { slug, url, restaurantName, ready, loading, setSlug } = useJoinUrl();
+  const qr = useQrDataUrl(ready ? url : "", 512);
+  const [editSlug, setEditSlug] = useState(slug ?? "");
   const [showPrint, setShowPrint] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  useEffect(() => { setEditSlug(slug); }, [slug]);
+  useEffect(() => { setEditSlug(slug ?? ""); }, [slug]);
 
   const copy = async () => {
     try {
@@ -64,21 +114,56 @@ export function StaffOnboardingCard() {
     a.remove();
   };
 
-  const saveSlug = () => {
+  const saveSlug = async () => {
     const next = slugify(editSlug);
     if (!next) return toast.error("Slug can't be empty");
     if (next === slug) return;
-    updateRestaurantSlug(next);
-    toast.success(`Slug updated to /join/${next}`);
+    setSaving(true);
+    try {
+      const applied = await setMyJoinSlug(next);
+      setSlug(applied);
+      toast.success(`Slug updated to /join/${applied}`, { description: "Your old link still works." });
+    } catch (e) {
+      toast.error("Couldn't update slug", { description: e instanceof Error ? e.message : undefined });
+    } finally {
+      setSaving(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <Card>
+        <CardHeader><CardTitle className="text-base">Staff Onboarding</CardTitle></CardHeader>
+        <CardContent><div className="h-24 animate-pulse rounded bg-muted" /></CardContent>
+      </Card>
+    );
+  }
+
+  if (!ready) {
+    return (
+      <Card className="border-amber-500/40 bg-amber-500/5">
+        <CardHeader>
+          <CardTitle className="text-base">Staff Onboarding</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <p className="text-sm">Set your restaurant name before you can share a join link.</p>
+          <p className="text-xs text-muted-foreground">
+            Your join link and QR code are built from your restaurant name. Add it under Settings → Restaurant info
+            and the link will appear here.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-base">Staff Onboarding</CardTitle>
-        <p className="mt-1 text-xs text-muted-foreground">Share this link with your staff to let them join {restaurantName} on 86Paper.</p>
+        <p className="mt-1 text-xs text-muted-foreground">Share this link with your staff to let them join {restaurantName} on 86Paper. New joins wait for your approval before they can be scheduled.</p>
       </CardHeader>
       <CardContent className="space-y-5">
+
         <div className="grid gap-2">
           <Label className="text-sm">Your join link</Label>
           <div className="flex flex-wrap items-center gap-2">
@@ -92,8 +177,10 @@ export function StaffOnboardingCard() {
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm text-muted-foreground">/join/</span>
             <Input value={editSlug} onChange={(e) => setEditSlug(e.target.value)} className="max-w-xs" maxLength={40} />
-            <Button size="sm" variant="outline" onClick={saveSlug} disabled={slugify(editSlug) === slug}>Save</Button>
+            <Button size="sm" variant="outline" onClick={saveSlug} disabled={saving || slugify(editSlug) === slug}>Save</Button>
           </div>
+          <p className="text-[11px] text-muted-foreground">Changing this keeps your old link working, so printed QR codes stay valid.</p>
+
         </div>
 
         <div className="grid gap-3 sm:grid-cols-[auto,1fr] sm:items-center">
@@ -123,7 +210,7 @@ export function StaffOnboardingCard() {
 }
 
 export function StaffJoinBanner({ onShowQr }: { onShowQr: () => void }) {
-  const { url } = useJoinUrl();
+  const { url, ready, loading } = useJoinUrl();
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(url);
@@ -132,7 +219,19 @@ export function StaffJoinBanner({ onShowQr }: { onShowQr: () => void }) {
       toast.message("Copy this link", { description: url });
     }
   };
+  if (loading) return null;
+  if (!ready) {
+    return (
+      <Card className="border-amber-500/40 bg-amber-500/5">
+        <CardContent className="p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400">Join link unavailable</p>
+          <p className="mt-1 text-sm text-muted-foreground">Add your restaurant name in Settings to generate a staff join link and QR code.</p>
+        </CardContent>
+      </Card>
+    );
+  }
   return (
+
     <Card className="border-primary/30 bg-primary/5">
       <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
         <div className="min-w-0">

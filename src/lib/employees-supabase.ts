@@ -40,7 +40,10 @@ type EmployeeRow = {
   applied_at: string | null;
   work_experience: unknown;
   special_talents: string | null;
+  join_status?: string | null;
+  joined_via?: string | null;
 };
+
 
 export function employeeFromRow(r: EmployeeRow): Employee {
   return {
@@ -69,8 +72,21 @@ export function employeeFromRow(r: EmployeeRow): Employee {
     appliedAt: r.applied_at ?? undefined,
     workExperience: (r.work_experience as WorkExperience[] | null) ?? undefined,
     specialTalents: r.special_talents ?? undefined,
+    // Fail closed: anything that isn't explicitly "active" is treated as pending.
+    joinStatus: r.join_status === "active" ? "active" : "pending",
+    joinedVia: r.joined_via ?? undefined,
   };
 }
+
+/** Owner/manager approves a pending self-join. */
+export async function approveEmployeeRow(id: string): Promise<void> {
+  const { error } = await supabase
+    .from("restaurant_employees")
+    .update({ join_status: "active" } as never)
+    .eq("id", id);
+  if (error) throw error;
+}
+
 
 /** Build the DB-shaped payload from an Employee. */
 function employeeToInsert(ownerId: string, e: Employee, opts?: { localId?: string | null }) {

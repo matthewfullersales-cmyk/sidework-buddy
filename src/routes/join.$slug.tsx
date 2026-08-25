@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
 import { Logo } from "@/components/sidework/Logo";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,9 +10,9 @@ import { Label } from "@/components/ui/label";
 import { PhoneInput } from "@/components/ui/phone-input";
 
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useStore, type Role, type Relationship, type WeeklyAvailability, type DayKey, DAY_KEYS, defaultWeeklyAvailability } from "@/lib/sidework-store";
+import { type Role, type Relationship, type WeeklyAvailability, type DayKey, DAY_KEYS, defaultWeeklyAvailability } from "@/lib/sidework-store";
 import { supabase } from "@/integrations/supabase/client";
-import { slugify } from "@/lib/slug";
+import { resolveJoinRestaurant } from "@/lib/join.functions";
 import { formatPhone } from "@/lib/format-phone";
 import { toast } from "sonner";
 import { CheckCircle2, Share, Plus } from "lucide-react";
@@ -41,10 +41,25 @@ type AvKind = "full" | "partial" | "none";
 
 function JoinPage() {
   const { slug } = Route.useParams();
-  const { restaurantProfile, joinStaff } = useStore();
-  const restaurantName = restaurantProfile?.name ?? "the team";
-  const restaurantSlug = restaurantProfile?.slug ?? (restaurantProfile?.name ? slugify(restaurantProfile.name) : null);
-  const slugMatches = !restaurantSlug || restaurantSlug === slug;
+  const [resolved, setResolved] = useState<{ ownerId: string; restaurantName: string } | null>(null);
+  const [resolving, setResolving] = useState(true);
+  const restaurantName = resolved?.restaurantName ?? "the team";
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await resolveJoinRestaurant({ data: { slug } });
+        if (!cancelled) setResolved(r);
+      } catch (e) {
+        console.error("[join] resolve", e);
+        if (!cancelled) setResolved(null);
+      } finally {
+        if (!cancelled) setResolving(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [slug]);
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -75,35 +90,82 @@ function JoinPage() {
     }
     if (password.length < 8) return toast.error("Password must be at least 8 characters");
     if (password !== confirmPassword) return toast.error("Passwords don't match");
+    if (!resolved) return toast.error("This join link isn't valid");
 
     setSubmitting(true);
-    const empId = joinStaff({
-      firstName: parsed.data.firstName,
-      lastName: parsed.data.lastName,
-      email: parsed.data.email,
-      phone: parsed.data.phone,
-      role,
-      weeklyAvailability: availability,
-      emergencyContact: { firstName: parsed.data.ecFirstName, lastName: parsed.data.ecLastName, phone: parsed.data.ecPhone, relationship: ecRel },
-    });
+    try {
+      // 1. Resolve an auth user: existing session, else sign up, else sign in.
+      const { data: sessData } = await supabase.auth.getSession();
+      let userId = sessData.session?.user?.id ?? null;
 
-    const redirectTo = typeof window !== "undefined" ? window.location.origin : undefined;
-    const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
-      email: parsed.data.email,
-      password,
-      options: { emailRedirectTo: redirectTo, data: { full_name: `${parsed.data.firstName} ${parsed.data.lastName}`, role: "employee" } },
-    });
-    if (signUpErr) {
+      if (!userId) {
+        const redirectTo = typeof window !== "undefined" ? window.location.origin : undefined;
+        const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
+          email: parsed.data.email,
+          password,
+          options: {
+            emailRedirectTo: redirectTo,
+            data: { full_name: `${parsed.data.firstName} ${parsed.data.lastName}`, role: "employee" },
+          },
+        });
+        if (signUpErr && /already registered|already exists/i.test(signUpErr.message)) {
+          const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
+            email: parsed.data.email,
+            password,
+          });
+          if (signInErr) throw new Error("An account already exists for that email. Check your password and try again.");
+          userId = signInData.user?.id ?? null;
+        } else if (signUpErr) {
+          throw new Error(signUpErr.message);
+        } else {
+          userId = signUpData.user?.id ?? null;
+        }
+      }
+
+      if (!userId) {
+        throw new Error("Check your email to confirm your account, then open this link again to finish joining.");
+      }
+
+      // 2. Server resolves the slug again and inserts a PENDING roster row.
+      const { error: joinErr } = await supabase.rpc("join_restaurant_by_slug", {
+        p_slug: slug,
+        p_auth_user_id: userId,
+        p_patch: {
+          first_name: parsed.data.firstName,
+          last_name: parsed.data.lastName,
+          email: parsed.data.email,
+          phone: parsed.data.phone,
+          primary_role: role,
+          weekly_availability: availability,
+          emergency_contact: {
+            firstName: parsed.data.ecFirstName,
+            lastName: parsed.data.ecLastName,
+            phone: parsed.data.ecPhone,
+            relationship: ecRel,
+          },
+        } as never,
+      });
+      if (joinErr) throw new Error(joinErr.message);
+
+      setDone({ firstName: parsed.data.firstName });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't complete your join request");
+    } finally {
       setSubmitting(false);
-      return toast.error(signUpErr.message);
     }
-    // Profile row is created by the `on_auth_user_created` database trigger.
-
-    setSubmitting(false);
-    setDone({ firstName: parsed.data.firstName });
   };
 
-  if (!slugMatches) {
+  if (resolving) {
+    return (
+      <Shell>
+        <div className="mx-auto max-w-md px-4 py-16">
+          <div className="h-24 animate-pulse rounded-xl bg-muted" />
+        </div>
+      </Shell>
+    );
+  }
+
+  if (!resolved) {
     return (
       <Shell>
         <div className="mx-auto max-w-md px-4 py-16 text-center">
@@ -116,6 +178,7 @@ function JoinPage() {
   }
 
   if (done) return <SuccessScreen firstName={done.firstName} restaurantName={restaurantName} />;
+
 
   return (
     <Shell>
@@ -255,8 +318,9 @@ function SuccessScreen({ firstName, restaurantName }: { firstName: string; resta
           <CheckCircle2 className="h-12 w-12 text-success" />
         </div>
         <h1 className="mt-6 text-3xl font-bold">Welcome to {restaurantName}, {firstName}!</h1>
-        <p className="mt-3 text-base text-muted-foreground">You're all set on 86Paper.</p>
-        <p className="mt-1 text-sm text-muted-foreground">Your manager has been notified.</p>
+        <p className="mt-3 text-base text-muted-foreground">Your request has been sent to your manager for approval.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Once they approve you, you'll show up on the schedule.</p>
+
 
         <Card className="mt-8 border-2 text-left">
           <CardContent className="space-y-3 p-5">
@@ -297,13 +361,15 @@ function SuccessScreen({ firstName, restaurantName }: { firstName: string; resta
         </Card>
 
         <div className="mt-8 rounded-xl border border-primary/30 bg-primary/5 p-4 text-left">
-          <p className="font-semibold text-primary">Welcome to 86Paper!</p>
+          <p className="font-semibold text-primary">Next up: your Menu Knowledge Test</p>
           <p className="mt-1 text-sm text-foreground/90">
-            Your training starts here. Complete your videos and quizzes before your first shift.
+            Once your manager approves you, you'll take the Menu Knowledge Test. You need to pass it before you can be
+            scheduled — you can retake it as many times as you need.
           </p>
           <Button asChild className="mt-3 w-full">
-            <Link to="/employee">Open my training</Link>
+            <Link to="/employee">Open my 86Paper</Link>
           </Button>
+
         </div>
       </div>
     </Shell>
