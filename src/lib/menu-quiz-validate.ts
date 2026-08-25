@@ -149,6 +149,7 @@ export type ProvenanceItem = {
   section?: string;
   ingredients?: string[];
   preparation?: string;
+  description?: string;
   menuType?: string;
 };
 
