@@ -269,18 +269,37 @@ export function provenanceRejection(
  * is unanswerable (every same-section distractor also satisfies it) or trivially
  * guessable (distractors from other sections give it away).
  */
+function discriminatingTokens(q: ValidatableQuestion, index: ProvenanceIndex): string[] {
+  const itemKey = normalizeText(q.sourceItem ?? "");
+  const menuType = index.menuTypeByItem.get(itemKey) ?? "";
+  return [...new Set(significantTokens(q.question))].filter(
+    (t) => !FRAME_WORDS.has(t) && !index.sectionTokens.has(t) && t !== menuType,
+  );
+}
+
+/**
+ * An identify_item question is ambiguous when a distractor is itself a menu item
+ * whose own vocabulary satisfies every discriminating token in the stem.
+ */
+function ambiguityRejection(q: ValidatableQuestion, index: ProvenanceIndex): string | null {
+  const disc = discriminatingTokens(q, index);
+  if (disc.length === 0) return null;
+  for (let i = 0; i < q.options.length; i++) {
+    if (i === q.answerIndex) continue;
+    const vocab = index.vocabByItem.get(normalizeText(q.options[i] ?? ""));
+    if (!vocab) continue;
+    if (disc.every((t) => nearMatchIn(t, vocab))) {
+      return `Ambiguous: "${q.options[i]}" also satisfies this stem, so the question has more than one correct answer.`;
+    }
+  }
+  return null;
+}
+
 function sectionOnlyRejection(q: ValidatableQuestion, index: ProvenanceIndex): string | null {
   const itemKey = normalizeText(q.sourceItem ?? "");
   const ownVocab = index.vocabByItem.get(itemKey);
   if (!ownVocab) return null;
-  const menuType = index.menuTypeByItem.get(itemKey) ?? "";
-  const specific = [...new Set(significantTokens(q.question))].filter(
-    (t) =>
-      !FRAME_WORDS.has(t) &&
-      !index.sectionTokens.has(t) &&
-      t !== menuType &&
-      nearMatchIn(t, ownVocab),
-  );
+  const specific = discriminatingTokens(q, index).filter((t) => nearMatchIn(t, ownVocab));
   if (specific.length === 0) {
     return "The stem only qualifies the item by its section or menu type, so the answer is either ambiguous or guessable without menu knowledge. Ask about an ingredient, preparation, or accompaniment instead.";
   }
