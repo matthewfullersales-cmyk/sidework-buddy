@@ -39,6 +39,7 @@ export type MenuCoverage = {
   drinkItems: number;
   dessertItems: number;
   sections: string[];
+  skippedItems: number;
 };
 
 export type ExtractMenuResult =
