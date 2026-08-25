@@ -183,6 +183,7 @@ For EVERY item printed on the file(s), return one object:
 - "section": the section heading exactly as printed above that item (e.g. "APPETIZERS", "DESSERTS", "COCKTAILS", "DRAFT BEER"). If there is no heading, use "".
 - "ingredients": an array of the components/ingredients EXACTLY AS PRINTED in that item's own description, split into individual terms. If the menu prints NO description for the item, return an empty array. NEVER infer, guess, or invent ingredients, and never copy another item's ingredients.
 - "preparation": any preparation/cooking/method detail as printed (e.g. "wood-fired", "slow braised"), or "".
+- "description": the item's printed description EXACTLY as written on the menu, verbatim — same words, same order, same prepositions and verbs ("served over", "topped with", "tossed in"). Do NOT rewrite, summarize, reorder, or paraphrase it. If the menu prints no description, return "".
 - "menu_type": one of "food" | "drink" | "dessert", derived from the SECTION HEADING:
   - Desserts, pastries, ice cream, cakes -> "dessert" even when printed on a food menu.
   - Cocktails, beer, wine, spirits, coffee, soda, and any other beverage -> "drink".
