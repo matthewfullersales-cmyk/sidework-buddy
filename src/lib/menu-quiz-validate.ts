@@ -309,7 +309,23 @@ function sectionOnlyRejection(q: ValidatableQuestion, index: ProvenanceIndex): s
 /** Distractors must be the same KIND of thing as the correct answer. */
 function optionKindRejection(q: ValidatableQuestion, index?: ProvenanceIndex): string | null {
   const answerKind = classifyOption(q.options[q.answerIndex] ?? "", index);
-  if (answerKind === "other") return null;
+  if (answerKind === "other") {
+    // A vague/unclassifiable answer sitting among options that clearly share a
+    // specific kind (e.g. "N/A" among three beer styles) is a mixed-kind set.
+    const counts = new Map<OptionKind, number>();
+    for (let i = 0; i < q.options.length; i++) {
+      if (i === q.answerIndex) continue;
+      const kind = classifyOption(q.options[i], index);
+      if (kind === "other") continue;
+      counts.set(kind, (counts.get(kind) ?? 0) + 1);
+    }
+    for (const [kind, n] of counts) {
+      if (n >= 2) {
+        return `Answer choices mix kinds: "${q.options[q.answerIndex]}" is not a ${kind.replace("_", " ")} but the other choices are. All four choices must be the same kind.`;
+      }
+    }
+    return null;
+  }
   for (let i = 0; i < q.options.length; i++) {
     if (i === q.answerIndex) continue;
     const kind = classifyOption(q.options[i], index);
