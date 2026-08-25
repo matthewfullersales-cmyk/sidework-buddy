@@ -152,17 +152,23 @@ async function callGateway(
 const rawExtractedItemSchema = z
   .object({
     name: z.string().min(1),
-    section: z.string().optional(),
-    ingredients: z.union([z.array(z.string()), z.string()]).optional(),
-    preparation: z.string().optional(),
-    description: z.string().optional(),
-    menu_type: z.enum(["food", "drink", "dessert"]).optional(),
-    menuType: z.enum(["food", "drink", "dessert"]).optional(),
+    section: z.string().nullish(),
+    ingredients: z
+      .union([z.array(z.union([z.string(), z.number()])), z.string(), z.number()])
+      .nullish(),
+    preparation: z.string().nullish(),
+    description: z.string().nullish(),
+    menu_type: z.enum(["food", "drink", "dessert"]).nullish(),
+    menuType: z.enum(["food", "drink", "dessert"]).nullish(),
   })
   .transform((i) => ({
     name: i.name.trim().slice(0, 160),
     section: (i.section ?? "").trim().slice(0, 120),
-    ingredients: (Array.isArray(i.ingredients) ? i.ingredients : i.ingredients ? [i.ingredients] : [])
+    ingredients: (Array.isArray(i.ingredients)
+      ? i.ingredients
+      : i.ingredients === null || i.ingredients === undefined || i.ingredients === ""
+        ? []
+        : [i.ingredients])
       .map((x) => String(x).trim())
       .filter(Boolean)
       .slice(0, 40)
@@ -226,7 +232,12 @@ export async function runExtractMenu(data: {
   const shaped = extractResponseSchema.safeParse(res.raw);
   if (!shaped.success) {
     console.error("[menu-quiz] extraction shape mismatch", shaped.error.issues.slice(0, 5));
-    return { ok: false, error: "The menu reader returned a malformed result. Try again." };
+    const first = shaped.error.issues[0];
+    const where = first?.path?.length ? first.path.join(".") : "response";
+    return {
+      ok: false,
+      error: `The menu reader returned a malformed result (${where}: ${first?.message ?? "unknown error"}). Try again.`,
+    };
   }
 
   // Fees, disclaimers, footnotes and truncated fragments are not testable items.
