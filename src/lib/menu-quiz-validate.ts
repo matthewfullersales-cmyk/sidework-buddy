@@ -398,7 +398,11 @@ export function rejectionReason(
   if (index) {
     const prov = provenanceRejection(q, index);
     if (prov) return prov;
-    if (q.questionType !== "identify_attribute") {
+    // Don't trust the model's self-declared question_type: derive the effective
+    // type from the shape of the correct answer. If the answer is a known menu
+    // item name, this is an identify_item question no matter what it claims.
+    const answerIsItem = classifyOption(answer, index) === "item";
+    if (answerIsItem || q.questionType !== "identify_attribute") {
       const secOnly = sectionOnlyRejection(q, index);
       if (secOnly) return secOnly;
       const ambiguous = ambiguityRejection(q, index);
