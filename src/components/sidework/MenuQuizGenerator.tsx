@@ -384,7 +384,9 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
               </div>
             )}
             <p className="mt-2 text-xs text-muted-foreground">
-              If a section is missing, re-upload a clearer scan before publishing.
+              {coverage.skippedItems > 0
+                ? `${coverage.skippedItems} malformed ${coverage.skippedItems === 1 ? "item was" : "items were"} skipped. Review the totals and re-upload a clearer scan if anything is missing.`
+                : "If a section is missing, re-upload a clearer scan before publishing."}
             </p>
           </div>
         )}
@@ -397,6 +399,11 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
               quality checks · {diagnostics.lostToFailedBatches} lost to failed batches ·{" "}
               <span className="font-medium text-foreground">{diagnostics.finalBankSize} in the final bank</span>.
             </p>
+            {coverage && coverage.skippedItems > 0 && (
+              <p className="mt-1 text-destructive">
+                Extraction skipped {coverage.skippedItems} malformed {coverage.skippedItems === 1 ? "item" : "items"}.
+              </p>
+            )}
             {diagnostics.lostToFailedBatches > 0 && (
               <p className="mt-1 text-destructive">
                 Some batches failed after a retry. Re-run generation to fill the gap.

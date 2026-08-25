@@ -69,19 +69,21 @@ function fileBlocks(label: string, filename: string, payload: FilePayload): User
   return [intro, { type: "image_url", image_url: { url: dataUrl } }];
 }
 
-function extractJson(raw: string): unknown {
+type ExtractedJson = { value: unknown; usedBraceFallback: boolean };
+
+function extractJson(raw: string): ExtractedJson {
   const trimmed = raw.trim();
   try {
-    return JSON.parse(trimmed);
+    return { value: JSON.parse(trimmed), usedBraceFallback: false };
   } catch {
     const fenced = trimmed.match(/```(?:json)?\s*([\s\S]+?)\s*```/);
     if (fenced) {
-      try { return JSON.parse(fenced[1]); } catch { /* fall through */ }
+      try { return { value: JSON.parse(fenced[1]), usedBraceFallback: false }; } catch { /* fall through */ }
     }
     const first = trimmed.indexOf("{");
     const last = trimmed.lastIndexOf("}");
     if (first !== -1 && last > first) {
-      try { return JSON.parse(trimmed.slice(first, last + 1)); } catch { /* fall through */ }
+      try { return { value: JSON.parse(trimmed.slice(first, last + 1)), usedBraceFallback: true }; } catch { /* fall through */ }
     }
     throw new Error("Model did not return valid JSON.");
   }
@@ -97,7 +99,23 @@ function validatePayload(p: FilePayload | undefined, label: string): string | nu
   return null;
 }
 
-type RawResult = { ok: true; raw: unknown } | { ok: false; error: string };
+type RawResult =
+  | {
+      ok: true;
+      raw: unknown;
+      rawTextLength: number;
+      rawTextPreview: string;
+      usedBraceFallback: boolean;
+      nearOutputCeiling: number | null;
+    }
+  | { ok: false; error: string };
+
+function apparentOutputCeiling(length: number): number | null {
+  // JSON responses commonly stop near one of these character boundaries when
+  // the model reaches its output-token allowance.
+  const likelyCeilings = [8_192, 16_384, 32_768, 65_536, 131_072];
+  return likelyCeilings.find((ceiling) => length >= ceiling * 0.95 && length <= ceiling * 1.05) ?? null;
+}
 
 async function callGateway(
   key: string,
@@ -140,7 +158,17 @@ async function callGateway(
     return { ok: false, error: "AI returned an empty response. Try again with a clearer menu." };
   }
 
-  try { return { ok: true, raw: extractJson(raw) }; }
+  try {
+    const extracted = extractJson(raw);
+    return {
+      ok: true,
+      raw: extracted.value,
+      rawTextLength: raw.length,
+      rawTextPreview: raw.slice(0, 800),
+      usedBraceFallback: extracted.usedBraceFallback,
+      nearOutputCeiling: apparentOutputCeiling(raw.length),
+    };
+  }
   catch {
     console.error("[menu-quiz] json parse failed", raw.slice(0, 400));
     return { ok: false, error: "AI couldn't produce a valid result from this file. Try a clearer scan." };
@@ -154,7 +182,7 @@ const rawExtractedItemSchema = z
     name: z.string().min(1),
     section: z.string().nullish(),
     ingredients: z
-      .union([z.array(z.union([z.string(), z.number()])), z.string(), z.number()])
+      .union([z.array(z.unknown()), z.string(), z.number(), z.boolean()])
       .nullish(),
     preparation: z.string().nullish(),
     description: z.string().nullish(),
@@ -169,7 +197,14 @@ const rawExtractedItemSchema = z
       : i.ingredients === null || i.ingredients === undefined || i.ingredients === ""
         ? []
         : [i.ingredients])
-      .map((x) => String(x).trim())
+      .map((x) => {
+        if (typeof x === "object" && x !== null && !Array.isArray(x)) {
+          const record = x as Record<string, unknown>;
+          const candidate = record.name ?? record.text ?? record.value;
+          return typeof candidate === "string" ? candidate.trim() : "";
+        }
+        return String(x).trim();
+      })
       .filter(Boolean)
       .slice(0, 40)
       .map((x) => x.slice(0, 120)),
@@ -179,7 +214,7 @@ const rawExtractedItemSchema = z
   }));
 
 const extractResponseSchema = z.object({
-  items: z.array(rawExtractedItemSchema).max(400),
+  items: z.array(z.unknown()),
 });
 
 const EXTRACTION_PROMPT = `You are a menu data extractor. You read restaurant menu files (PDF or photo) and return STRUCTURED JSON ONLY. You do NOT write questions.
@@ -232,11 +267,57 @@ export async function runExtractMenu(data: {
   const shaped = extractResponseSchema.safeParse(res.raw);
   if (!shaped.success) {
     console.error("[menu-quiz] extraction shape mismatch", shaped.error.issues.slice(0, 5));
+    console.error("[menu-quiz] extraction raw response", {
+      length: res.rawTextLength,
+      preview: res.rawTextPreview,
+      usedBraceFallback: res.usedBraceFallback,
+      nearOutputCeiling: res.nearOutputCeiling,
+    });
     const first = shaped.error.issues[0];
     const where = first?.path?.length ? first.path.join(".") : "response";
     return {
       ok: false,
       error: `The menu reader returned a malformed result (${where}: ${first?.message ?? "unknown error"}). Try again.`,
+    };
+  }
+
+  if (res.usedBraceFallback || res.nearOutputCeiling !== null) {
+    console.warn("[menu-quiz] extraction response may have involved truncation", {
+      length: res.rawTextLength,
+      usedBraceFallback: res.usedBraceFallback,
+      nearOutputCeiling: res.nearOutputCeiling,
+    });
+  }
+
+  const parsedItems: ExtractedItem[] = [];
+  const itemFailures: Array<{ index: number; path: string; message: string; rawItem: string }> = [];
+  shaped.data.items.forEach((rawItem, index) => {
+    const parsed = rawExtractedItemSchema.safeParse(rawItem);
+    if (parsed.success) {
+      if (parsedItems.length < 400) parsedItems.push(parsed.data);
+      return;
+    }
+    const first = parsed.error.issues[0];
+    let rawItemJson = "[unserializable item]";
+    try { rawItemJson = JSON.stringify(rawItem); } catch { /* keep fallback */ }
+    itemFailures.push({
+      index,
+      path: first?.path?.length ? first.path.join(".") : "item",
+      message: first?.message ?? "unknown error",
+      rawItem: rawItemJson.slice(0, 300),
+    });
+  });
+
+  if (itemFailures.length > 0) {
+    console.warn(`[menu-quiz] skipped ${itemFailures.length} malformed extracted item(s)`, itemFailures.slice(0, 3));
+  }
+
+  if (parsedItems.length === 0) {
+    const first = itemFailures[0];
+    const detail = first ? `item ${first.index}.${first.path}: ${first.message}` : "items: no valid menu items";
+    return {
+      ok: false,
+      error: `The menu reader returned a malformed result (${detail}). Try again.`,
     };
   }
 
@@ -254,7 +335,7 @@ export async function runExtractMenu(data: {
 
   // De-duplicate by name (keep the richest record).
   const byName = new Map<string, ExtractedItem>();
-  for (const item of shaped.data.items) {
+  for (const item of parsedItems) {
     if (!item.name || !isRealItem(item.name)) continue;
     const key = item.name.toLowerCase();
     const prev = byName.get(key);
@@ -278,6 +359,7 @@ export async function runExtractMenu(data: {
       drinkItems: items.filter((i) => i.menuType === "drink").length,
       dessertItems: items.filter((i) => i.menuType === "dessert").length,
       sections,
+      skippedItems: itemFailures.length,
     },
   };
 }
