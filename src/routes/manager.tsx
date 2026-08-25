@@ -488,9 +488,13 @@ function TeamTab() {
     return sorted;
   }, [employees, customRoles, menuBankMetaObj, filters, sortKey]);
 
-  const joinSlug = restaurantProfile?.slug ?? (restaurantProfile?.name ? slugify(restaurantProfile.name) : "team");
+  const { url: joinUrl, ready: joinReady } = useJoinUrl();
   const copyJoinLink = () => {
-    copyLinkWithToast(`${window.location.origin}/join/${joinSlug}`, "Join link copied");
+    if (!joinReady) {
+      toast.error("Set your restaurant name first", { description: "Your join link is generated from it." });
+      return;
+    }
+    copyLinkWithToast(joinUrl, "Join link copied");
   };
 
 
@@ -498,6 +502,11 @@ function TeamTab() {
   return (
     <div className="space-y-4">
       <StaffJoinBanner onShowQr={() => setShowQr(true)} />
+      <PendingJoinRequestsQueue
+        employees={pendingJoins}
+        onApprove={(id) => { approveJoinRequest(id); toast.success("Approved — they're on your team"); }}
+        onDecline={(id) => { declineJoinRequest(id); toast.success("Join request declined"); }}
+      />
       <PendingRoleAssignmentQueue
         employees={employees}
         activeRoles={activeRoles}
@@ -507,6 +516,7 @@ function TeamTab() {
           toast.success(`Role assigned — training track kicked off`);
         }}
       />
+
 
       <div className="flex flex-wrap justify-end gap-2">
         <Popover open={sfOpen} onOpenChange={setSfOpen}>
