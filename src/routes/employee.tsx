@@ -1,5 +1,5 @@
 import { createFileRoute, Navigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { useRequireRole } from "@/lib/use-require-role";
 import { AppShell, PageHeader } from "@/components/sidework/AppShell";
@@ -36,16 +36,33 @@ export const Route = createFileRoute("/employee")({
 function EmployeePage() {
   useRequireRole("employee", "/employee-login");
   const { profile, employeeContext, loading: authLoading } = useAuth();
-  const { currentUser, setCurrentUser, employees, customRoles, employeeHydrating, menuBankMeta, menuTestConfig, uploadedMenuTypes } = useStore();
+  const {
+    currentUser,
+    setCurrentUser,
+    employees,
+    customRoles,
+    employeeHydrating,
+    employeeHydratedTargetId,
+    employeeHydrationError,
+    menuBankMeta,
+    menuTestConfig,
+    uploadedMenuTypes,
+  } = useStore();
   const menuBankVersion = menuBankMeta;
   const targetId = employeeContext?.employeeId ?? profile?.employee_id ?? null;
+  const selectedTargetRef = useRef<string | null>(null);
   useEffect(() => {
-    if (targetId && (currentUser.type !== "employee" || currentUser.id !== targetId)) {
-      setCurrentUser({ type: "employee", id: targetId });
-    }
-  }, [targetId, currentUser, setCurrentUser]);
-  const stillLoading = authLoading || employeeHydrating || (targetId && employees.length === 0);
-  const me = currentUser.type === "employee" ? employees.find((e) => e.id === currentUser.id) : undefined;
+    if (!targetId || selectedTargetRef.current === targetId) return;
+    selectedTargetRef.current = targetId;
+    setCurrentUser({ type: "employee", id: targetId });
+  }, [targetId]);
+  const me = targetId
+    ? employees.find((employee) => employee.id === targetId)
+    : currentUser.type === "employee"
+      ? employees.find((employee) => employee.id === currentUser.id)
+      : undefined;
+  const targetResolved = Boolean(targetId && employeeHydratedTargetId === targetId);
+  const stillLoading = authLoading || Boolean(targetId && !targetResolved && employeeHydrating);
   const status = useMemo(() => (me ? onboardingStatus(me, customRoles, menuBankVersion, menuTestConfig, uploadedMenuTypes) : null), [me, customRoles, menuBankVersion, menuTestConfig, uploadedMenuTypes]);
 
   useEffect(() => {
@@ -64,15 +81,7 @@ function EmployeePage() {
   }, [me?.id, status?.total, status?.passed]);
 
   if (currentUser.type === "manager") return <Navigate to="/manager" />;
-  if (stillLoading) {
-    return (
-      <AppShell nav={nav}>
-        <div className="grid min-h-[40vh] place-items-center text-sm text-muted-foreground">Loading your account…</div>
-      </AppShell>
-    );
-  }
-  if (!me || !status) return <Navigate to="/" />;
-  if (isPendingJoin(me)) {
+  if (me && isPendingJoin(me)) {
     return (
       <AppShell nav={nav}>
         <div className="mx-auto max-w-md px-4 py-16 text-center">
@@ -81,6 +90,26 @@ function EmployeePage() {
             Your manager needs to approve your join request before you can see the schedule or start your Menu
             Knowledge Test. Check back soon.
           </p>
+        </div>
+      </AppShell>
+    );
+  }
+  if (stillLoading) {
+    return (
+      <AppShell nav={nav}>
+        <div className="grid min-h-[40vh] place-items-center text-sm text-muted-foreground">Loading your account…</div>
+      </AppShell>
+    );
+  }
+  if (!targetId || !me || !status || employeeHydrationError) {
+    return (
+      <AppShell nav={nav}>
+        <div className="mx-auto max-w-md px-4 py-16 text-center">
+          <h1 className="text-2xl font-bold">We couldn’t load your account</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {employeeHydrationError ?? "Your staff profile could not be matched to this login. Please try again or ask your manager to check your invitation."}
+          </p>
+          <Button className="mt-6" onClick={() => window.location.reload()}>Try again</Button>
         </div>
       </AppShell>
     );
