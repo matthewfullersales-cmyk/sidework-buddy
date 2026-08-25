@@ -155,6 +155,7 @@ const rawExtractedItemSchema = z
     section: z.string().optional(),
     ingredients: z.union([z.array(z.string()), z.string()]).optional(),
     preparation: z.string().optional(),
+    description: z.string().optional(),
     menu_type: z.enum(["food", "drink", "dessert"]).optional(),
     menuType: z.enum(["food", "drink", "dessert"]).optional(),
   })
@@ -167,6 +168,7 @@ const rawExtractedItemSchema = z
       .slice(0, 40)
       .map((x) => x.slice(0, 120)),
     preparation: (i.preparation ?? "").trim().slice(0, 400),
+    description: (i.description ?? "").trim().slice(0, 400),
     menuType: (i.menu_type ?? i.menuType ?? "food") as MenuSource,
   }));
 
@@ -181,6 +183,7 @@ For EVERY item printed on the file(s), return one object:
 - "section": the section heading exactly as printed above that item (e.g. "APPETIZERS", "DESSERTS", "COCKTAILS", "DRAFT BEER"). If there is no heading, use "".
 - "ingredients": an array of the components/ingredients EXACTLY AS PRINTED in that item's own description, split into individual terms. If the menu prints NO description for the item, return an empty array. NEVER infer, guess, or invent ingredients, and never copy another item's ingredients.
 - "preparation": any preparation/cooking/method detail as printed (e.g. "wood-fired", "slow braised"), or "".
+- "description": the item's printed description EXACTLY as written on the menu, verbatim — same words, same order, same prepositions and verbs ("served over", "topped with", "tossed in"). Do NOT rewrite, summarize, reorder, or paraphrase it. If the menu prints no description, return "".
 - "menu_type": one of "food" | "drink" | "dessert", derived from the SECTION HEADING:
   - Desserts, pastries, ice cream, cakes -> "dessert" even when printed on a food menu.
   - Cocktails, beer, wine, spirits, coffee, soda, and any other beverage -> "drink".
@@ -193,7 +196,7 @@ Rules:
 - Do not include prices. Do not include seasonal/market-price placeholders as ingredients.
 - Skip unreadable or non-menu pages. If nothing is readable, return {"items": []}.
 - Return STRICT JSON only, no prose, no markdown fences:
-{"items":[{"name":"...","section":"...","ingredients":["...","..."],"preparation":"","menu_type":"food"}]}`;
+{"items":[{"name":"...","section":"...","ingredients":["...","..."],"preparation":"","description":"","menu_type":"food"}]}`;
 
 export async function runExtractMenu(data: {
   files: FilePayload[];
@@ -319,6 +322,8 @@ const QUALITY_RULES = `Rules:
 - STRIP THE ANSWER TERM OUT OF THE ITEM NAME (identify_attribute, critical): when the item name already contains the answer, remove that word from the name before writing the stem. BAD: "SHADES OF BLUE REISLING is what varietal?" -> "Riesling". GOOD: "SHADES OF BLUE is what varietal?" -> options Riesling / Chardonnay / Pinot Grigio / Sauvignon Blanc. GOOD: "Caposaldo is a brand of which varietal?" -> "Moscato". Do the same for producer and style questions. If stripping the answer term leaves nothing meaningful to name (the item name IS just the varietal or style), SKIP that item.
 - SECTION / CATEGORY QUESTIONS ARE RARE: at most a handful per menu and never more than one per section. Only ask one when the answer is genuinely non-obvious — if every plausible distractor section would be obviously wrong to someone who has never read the menu, do not write the question. NEVER write an "identify_item" question whose only qualifier is the section or menu type ("Which sweet treat is served from the dessert menu?", "Which product is offered from the BOTTLED BEER section?") — those are unanswerable or guessable and are always rejected.
 - ANSWERABILITY: for "identify_item", the three distractors must NOT satisfy the condition in the stem. If the stem's qualifier is true of a distractor too, the question is wrong — add the specific detail that only the correct item has, or skip.
+- UNIQUENESS SELF-CHECK (mandatory): before returning any "identify_item" question, re-read the record for each of the three distractors and confirm that NONE of them also satisfies the stem. If any distractor is also a truthful answer, either add the detail that only the correct item has, or drop the question entirely.
+- PRINTED RELATIONSHIPS ARE PART OF THE FACT: when the description states an ingredient's relationship to the dish (served over / topped with / stuffed with / tossed in / on the side / drizzled with), the stem MUST use that exact printed relationship. Never substitute a different preposition or verb — "served over marinara" and "topped with marinara" are different claims and must not be swapped.
 - SAME-KIND OPTIONS: all four choices must be the same kind of thing. Wine colors/styles with wine colors/styles (red / white / rosé / sparkling), varietals with varietals, producers with producers, section names with section names, ingredients with ingredients, menu items with menu items. BAD: correct answer "Red" with distractors Pinot Grigio, Chardonnay, Rosé.
 - NO INVENTED ATTRIBUTES: every descriptive word in the stem must literally appear in that item's record (name, section, ingredients, preparation). If the menu does not print "light lager" or "Neapolitan", you may not write it.
 - NATURAL PHRASING: the stem must read like something a server or manager would actually say out loud. If avoiding a word from the correct answer forces unnatural phrasing, do NOT invent a euphemism ("middle neck components", "cheese and ricotta components") — pick a DIFFERENT angle on the same item (another ingredient, the preparation, the accompaniment) or skip the item. Never use vague filler like "components", "elements", or "options" in place of a real word.
@@ -355,6 +360,7 @@ function itemLine(i: ExtractedItem): string {
     menu_type: i.menuType,
     ingredients: i.ingredients,
     preparation: i.preparation,
+    description: i.description,
   });
 }
 

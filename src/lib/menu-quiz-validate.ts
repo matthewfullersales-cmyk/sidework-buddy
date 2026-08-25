@@ -149,6 +149,7 @@ export type ProvenanceItem = {
   section?: string;
   ingredients?: string[];
   preparation?: string;
+  description?: string;
   menuType?: string;
 };
 
@@ -191,6 +192,7 @@ function itemVocabulary(item: ProvenanceItem): string[] {
     ...significantTokens(item.name),
     ...significantTokens(item.section ?? ""),
     ...significantTokens(item.preparation ?? ""),
+    ...significantTokens(item.description ?? ""),
     ...(item.ingredients ?? []).flatMap((i) => significantTokens(i)),
   ];
 }
@@ -267,18 +269,37 @@ export function provenanceRejection(
  * is unanswerable (every same-section distractor also satisfies it) or trivially
  * guessable (distractors from other sections give it away).
  */
+function discriminatingTokens(q: ValidatableQuestion, index: ProvenanceIndex): string[] {
+  const itemKey = normalizeText(q.sourceItem ?? "");
+  const menuType = index.menuTypeByItem.get(itemKey) ?? "";
+  return [...new Set(significantTokens(q.question))].filter(
+    (t) => !FRAME_WORDS.has(t) && !index.sectionTokens.has(t) && t !== menuType,
+  );
+}
+
+/**
+ * An identify_item question is ambiguous when a distractor is itself a menu item
+ * whose own vocabulary satisfies every discriminating token in the stem.
+ */
+function ambiguityRejection(q: ValidatableQuestion, index: ProvenanceIndex): string | null {
+  const disc = discriminatingTokens(q, index);
+  if (disc.length === 0) return null;
+  for (let i = 0; i < q.options.length; i++) {
+    if (i === q.answerIndex) continue;
+    const vocab = index.vocabByItem.get(normalizeText(q.options[i] ?? ""));
+    if (!vocab) continue;
+    if (disc.every((t) => nearMatchIn(t, vocab))) {
+      return `Ambiguous: "${q.options[i]}" also satisfies this stem, so the question has more than one correct answer.`;
+    }
+  }
+  return null;
+}
+
 function sectionOnlyRejection(q: ValidatableQuestion, index: ProvenanceIndex): string | null {
   const itemKey = normalizeText(q.sourceItem ?? "");
   const ownVocab = index.vocabByItem.get(itemKey);
   if (!ownVocab) return null;
-  const menuType = index.menuTypeByItem.get(itemKey) ?? "";
-  const specific = [...new Set(significantTokens(q.question))].filter(
-    (t) =>
-      !FRAME_WORDS.has(t) &&
-      !index.sectionTokens.has(t) &&
-      t !== menuType &&
-      nearMatchIn(t, ownVocab),
-  );
+  const specific = discriminatingTokens(q, index).filter((t) => nearMatchIn(t, ownVocab));
   if (specific.length === 0) {
     return "The stem only qualifies the item by its section or menu type, so the answer is either ambiguous or guessable without menu knowledge. Ask about an ingredient, preparation, or accompaniment instead.";
   }
@@ -288,7 +309,23 @@ function sectionOnlyRejection(q: ValidatableQuestion, index: ProvenanceIndex): s
 /** Distractors must be the same KIND of thing as the correct answer. */
 function optionKindRejection(q: ValidatableQuestion, index?: ProvenanceIndex): string | null {
   const answerKind = classifyOption(q.options[q.answerIndex] ?? "", index);
-  if (answerKind === "other") return null;
+  if (answerKind === "other") {
+    // A vague/unclassifiable answer sitting among options that clearly share a
+    // specific kind (e.g. "N/A" among three beer styles) is a mixed-kind set.
+    const counts = new Map<OptionKind, number>();
+    for (let i = 0; i < q.options.length; i++) {
+      if (i === q.answerIndex) continue;
+      const kind = classifyOption(q.options[i], index);
+      if (kind === "other") continue;
+      counts.set(kind, (counts.get(kind) ?? 0) + 1);
+    }
+    for (const [kind, n] of counts) {
+      if (n >= 2) {
+        return `Answer choices mix kinds: "${q.options[q.answerIndex]}" is not a ${kind.replace("_", " ")} but the other choices are. All four choices must be the same kind.`;
+      }
+    }
+    return null;
+  }
   for (let i = 0; i < q.options.length; i++) {
     if (i === q.answerIndex) continue;
     const kind = classifyOption(q.options[i], index);
@@ -307,6 +344,13 @@ export function rejectionReason(
 ): string | null {
   const answer = q.options[q.answerIndex] ?? "";
   if (!answer.trim()) return "The correct answer is empty.";
+
+  // Whole-string check: short answers ("N/A", "IPA") produce no significant
+  // tokens, so the token overlap check below would silently pass them.
+  const answerNorm = normalizeText(answer);
+  if (answerNorm && ` ${normalizeText(q.question)} `.includes(` ${answerNorm} `)) {
+    return `The stem contains the correct answer verbatim ("${answer}"). Strip the answer out of the stem, or ask about a different attribute of the item.`;
+  }
 
   const stemTokens = [...new Set(significantTokens(q.question))];
   const answerTokens = significantTokens(answer);
@@ -357,6 +401,8 @@ export function rejectionReason(
     if (q.questionType !== "identify_attribute") {
       const secOnly = sectionOnlyRejection(q, index);
       if (secOnly) return secOnly;
+      const ambiguous = ambiguityRejection(q, index);
+      if (ambiguous) return ambiguous;
     }
   }
 
