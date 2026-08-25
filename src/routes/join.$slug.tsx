@@ -361,13 +361,15 @@ function SuccessScreen({ firstName, restaurantName }: { firstName: string; resta
         </Card>
 
         <div className="mt-8 rounded-xl border border-primary/30 bg-primary/5 p-4 text-left">
-          <p className="font-semibold text-primary">Welcome to 86Paper!</p>
+          <p className="font-semibold text-primary">Next up: your Menu Knowledge Test</p>
           <p className="mt-1 text-sm text-foreground/90">
-            Your training starts here. Complete your videos and quizzes before your first shift.
+            Once your manager approves you, you'll take the Menu Knowledge Test. You need to pass it before you can be
+            scheduled — you can retake it as many times as you need.
           </p>
           <Button asChild className="mt-3 w-full">
-            <Link to="/employee">Open my training</Link>
+            <Link to="/employee">Open my 86Paper</Link>
           </Button>
+
         </div>
       </div>
     </Shell>
