@@ -45,11 +45,26 @@ export function pickRandom<T>(items: T[], count: number): T[] {
   return shuffle(items).slice(0, count);
 }
 
-/** FOH -> every available menu kind; BOH -> food + dessert; Dishwasher -> none. */
-export function defaultMenuKindsForRole(role: string, available: MenuKind[]): MenuKind[] {
+/** Intrinsic role requirements, independent of the restaurant's current bank. */
+export function intrinsicMenuKindsForRole(role: string): MenuKind[] {
   if (MENU_EXEMPT_ROLES.has(role.trim())) return [];
-  if (isBohRole(role)) return available.filter((k) => k !== "drink");
-  return available.slice();
+  if (isBohRole(role)) return ["food", "dessert"];
+  return MENU_KINDS.slice();
+}
+
+/** Explicit owner configuration wins; a missing key uses intrinsic defaults. */
+export function configuredMenuKindsForRoles(
+  roles: string[],
+  config: Record<string, MenuKind[]>,
+): MenuKind[] {
+  const wanted = new Set<MenuKind>();
+  for (const role of roles) {
+    const kinds = Object.prototype.hasOwnProperty.call(config, role)
+      ? config[role]
+      : intrinsicMenuKindsForRole(role);
+    for (const kind of kinds) wanted.add(kind);
+  }
+  return MENU_KINDS.filter((kind) => wanted.has(kind));
 }
 
 export function normalizeMenuTestConfig(raw: unknown): Record<string, MenuKind[]> {
@@ -83,14 +98,8 @@ export function requiredKindsForRoles(
 ): MenuKind[] {
   const available = MENU_KINDS.filter((k) => pools[k].length > 0);
   if (available.length === 0 || roles.length === 0) return [];
-  const set = new Set<MenuKind>();
-  for (const role of roles) {
-    const kinds = Object.prototype.hasOwnProperty.call(config, role)
-      ? config[role]
-      : defaultMenuKindsForRole(role, available);
-    for (const k of kinds) if (available.includes(k)) set.add(k);
-  }
-  return MENU_KINDS.filter((k) => set.has(k));
+  const configured = configuredMenuKindsForRoles(roles, config);
+  return configured.filter((kind) => available.includes(kind));
 }
 
 /** Anti-cheat sizing: bigger tests drawn from a bigger bank. */

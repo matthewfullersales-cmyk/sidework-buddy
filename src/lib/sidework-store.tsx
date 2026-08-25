@@ -899,18 +899,17 @@ export const MENU_KIND_LABEL: Record<MenuKind, string> = {
 const MENU_EXEMPT_ROLES: Role[] = ["Dishwasher"];
 
 /**
- * Defaults so the owner mostly just confirms:
- * FOH -> every uploaded menu type; BOH -> food + dessert (no drink);
- * Dishwasher -> nothing.
+ * Intrinsic defaults, independent of what the restaurant has uploaded:
+ * FOH -> food + drink + dessert; BOH -> food + dessert; Dishwasher -> nothing.
  */
 export function defaultMenuKindsForRole(
   role: Role,
-  available: MenuKind[],
+  _available: MenuKind[] = MENU_KINDS,
   customRoles: CustomRole[] = [],
 ): MenuKind[] {
   if (MENU_EXEMPT_ROLES.includes(role)) return [];
-  if (sectionForRole(role, customRoles) === "FOH") return available.slice();
-  return available.filter((k) => k !== "drink");
+  if (sectionForRole(role, customRoles) === "FOH") return MENU_KINDS.slice();
+  return ["food", "dessert"];
 }
 
 export function defaultMenuTestConfig(
@@ -967,7 +966,9 @@ function hasCurrentMenuPass(
 /**
  * Menu kinds this employee must pass, from the owner's per-role configuration
  * (union across their approved roles), intersected with what the bank has.
- * Empty array => never gated.
+  * Empty array means there are currently no testable required kinds. Callers
+  * must check `menuTestBlockedFor` first; only an explicit configured empty
+  * array means the role is genuinely not gated.
  */
 export function requiredMenuKindsFor(
   emp: Pick<Employee, "primaryRole" | "approvedRoles">,
@@ -976,7 +977,7 @@ export function requiredMenuKindsFor(
   config?: MenuTestConfig | null,
   uploadedMenuTypes: MenuKind[] = [],
 ): MenuKind[] {
-  const available = availableMenuKinds(meta, uploadedMenuTypes.length ? uploadedMenuTypes : ["food", "drink", "dessert"]);
+  const available = availableMenuKinds(meta, uploadedMenuTypes);
   if (available.length === 0) return [];
   const roles = emp.approvedRoles && emp.approvedRoles.length > 0 ? emp.approvedRoles : (emp.primaryRole ? [emp.primaryRole] : []);
   if (roles.length === 0) return [];
@@ -992,7 +993,7 @@ export function requiredMenuKindsFor(
 
 /**
  * Kinds a role is CONFIGURED to require, BEFORE intersecting with what the
- * bank can actually test. `available` is only used to resolve defaults.
+ * bank can actually test. Intrinsic defaults never depend on `available`.
  */
 export function configuredMenuKindsForRole(
   role: Role,
@@ -1002,7 +1003,7 @@ export function configuredMenuKindsForRole(
 ): MenuKind[] {
   return config && Object.prototype.hasOwnProperty.call(config, role)
     ? config[role]
-    : defaultMenuKindsForRole(role, available, customRoles);
+    : defaultMenuKindsForRole(role, MENU_KINDS, customRoles);
 }
 
 /**
@@ -1022,16 +1023,15 @@ export function menuTestConfigWarnings(
     if (wanted.length === 0) continue; // deliberate opt-out — no warning
     const missing = MENU_KINDS.filter((k) => wanted.includes(k) && !available.includes(k));
     if (missing.length === 0) continue;
-    out.push({ role, missing, blocked: wanted.every((k) => !available.includes(k)) });
+    out.push({ role, missing, blocked: true });
   }
   return out;
 }
 
 /**
- * True when an employee's roles require menu knowledge, but NONE of the
- * required menu types have questions available. Fails closed: the employee is
- * blocked from the schedule until the owner uploads that menu or changes the
- * role's requirements.
+ * True when any required menu type has no questions available. Intrinsic
+ * defaults are used for missing config keys; only an explicit empty array is
+ * an opt-out.
  */
 export function menuTestBlockedFor(
   emp: Pick<Employee, "primaryRole" | "approvedRoles">,
@@ -1046,7 +1046,7 @@ export function menuTestBlockedFor(
   const wanted = new Set<MenuKind>();
   for (const r of roles) for (const k of configuredMenuKindsForRole(r, available, config, customRoles)) wanted.add(k);
   if (wanted.size === 0) return false; // deliberate opt-out
-  return MENU_KINDS.filter((k) => wanted.has(k) && available.includes(k)).length === 0;
+  return MENU_KINDS.some((k) => wanted.has(k) && !available.includes(k));
 }
 
 /** Is the Menu Knowledge Test required for this employee at all? */

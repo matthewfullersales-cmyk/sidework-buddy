@@ -200,8 +200,9 @@ function OverviewTab() {
       const s = menuTestStatus(e, menuBankMetaObj, customRoles, menuTestConfig, uploadedMenuTypes);
       return s === "never" || s === "in-progress";
     }).length;
-    return { onboarded, total: employees.length, pending, newApps, pendingTO, shifts: shifts.length, menuStale, menuNever };
-  }, [employees, customRoles, trades, shifts, applications, timeOff, menuBankMetaObj]);
+    const menuBlocked = employees.filter((e) => menuTestStatus(e, menuBankMetaObj, customRoles, menuTestConfig, uploadedMenuTypes) === "blocked").length;
+    return { onboarded, total: employees.length, pending, newApps, pendingTO, shifts: shifts.length, menuStale, menuNever, menuBlocked };
+  }, [employees, customRoles, trades, shifts, applications, timeOff, menuBankMetaObj, menuTestConfig, uploadedMenuTypes]);
 
   return (
     <div className="grid gap-6">
@@ -211,13 +212,14 @@ function OverviewTab() {
         <Stat label="New applications" value={stats.newApps} hint="Awaiting review" tone={stats.newApps > 0 ? "warn" : undefined} />
         <Stat label="Time off pending" value={stats.pendingTO} hint="Need a decision" tone={stats.pendingTO > 0 ? "warn" : undefined} />
       </div>
-      {(stats.menuStale > 0 || stats.menuNever > 0) && (
+      {(stats.menuBlocked > 0 || stats.menuStale > 0 || stats.menuNever > 0) && (
         <Card className="border-amber-500/40 bg-amber-500/10">
           <CardContent className="p-4 text-sm">
             <p className="font-semibold text-amber-900 dark:text-amber-200">Menu Knowledge Test — schedule gate</p>
             <p className="mt-1 text-amber-900/80 dark:text-amber-200/80">
               {stats.menuStale > 0 && <>{stats.menuStale} of {stats.total} staff need to <b>retake</b> the updated menu test. </>}
               {stats.menuNever > 0 && <>{stats.menuNever} of {stats.total} staff have <b>never passed</b> the menu test. </>}
+              {stats.menuBlocked > 0 && <>{stats.menuBlocked} of {stats.total} staff are <b>blocked until all required menus are uploaded and have test questions</b>. </>}
               These employees can't be scheduled until they pass at 80%.
             </p>
           </CardContent>
