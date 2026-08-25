@@ -1,43 +1,72 @@
-## Scope clarification (please confirm before I build)
+# Fix the public join link (`/join/$slug`)
 
-Before writing code I want to flag mismatches between the request and the current codebase, and confirm the plan.
+Today the join page is pure browser state: a new hire opening the link on their own phone sees "the team", the slug guard can never fail, and the employee they create is written into their own device's local store — never to the owner's roster. The auth user that gets created belongs to no restaurant. This plan makes the whole flow server-resolved and tenant-correct.
 
-### What actually exists in the code today
+## 1. Slugs become real data
 
-- **Twilio SMS is only used in two places**: `src/lib/staff-invite.functions.ts` (new-hire signup link) and `src/lib/applicant-notifications.functions.ts` (interview offer, shadow invite, hire signup). All three are in the "email-only" bucket you want to keep.
-- **There is no SMS being sent** for schedule publish, schedule change, shift-trade posts, or time-off decisions. Those triggers don't currently notify anyone — there's nothing to "swap from Twilio to push"; the notification hooks need to be built from scratch.
-- **There is no "Yes, notify me" opt-in toggle** in the codebase. I searched (`opt-in`, `notify`, `notificationsEnabled`, etc.) — nothing exists. This needs to be built too.
-- **There is no push notification infrastructure**: no VAPID keys, no `push_subscriptions` table, no `push` event handler in the service worker, no subscription API. The PWA today only caches assets.
+Add a `slug` column to the restaurant profile row (`profiles`), unique across all tenants, case-insensitive, and required for any owner account.
 
-### Proposed implementation
+- Generated from the restaurant name using the existing normalization rules (lowercase, strip accents/punctuation, hyphenate, trim to 40 chars).
+- **Collision strategy:** if the base slug is taken, append `-2`, `-3`, … until free, allocated inside a database function that holds a lock so two simultaneous signups can't grab the same one. Owners can still edit their slug; the same uniqueness check runs and the UI reports "that link is taken" instead of silently keeping the old one (today it silently only updates local state).
+- **Empty-name fallback:** never fall back to the shared literal `team`. If a restaurant has no usable name, allocate `restaurant-<short random suffix>`. That is the bug behind every restaurant sharing `/join/team`.
+- The owner's Staff Onboarding card reads the slug from the database, not from `slugify(name)` in the browser, so the QR code and printed poster always match reality.
 
-**Part A — Remove Twilio entirely (fast, low risk)**
-1. Strip the SMS branch from `staff-invite.functions.ts` and `applicant-notifications.functions.ts` — Resend email only, return type collapses to `{ email: {...} }`.
-2. Update call sites in `src/routes/manager.tsx` (toast copy, "SMS failed" branches, "Twilio A2P" banner) to say "Email sent" / "Email failed".
-3. Update `src/routes/privacy.tsx` and `src/routes/terms.tsx` — remove SMS/opt-in language, replace with push notification language.
-4. `TWILIO_API_KEY` / `TWILIO_FROM_NUMBER` become unused; leave the secrets in place (harmless) and note the connector can be disconnected.
+## 2. Public slug resolution
 
-**Part B — Web push infrastructure (the real work)**
-1. **VAPID keys**: generate a keypair, store `VAPID_PUBLIC_KEY` (also exposed as `VITE_VAPID_PUBLIC_KEY`) and `VAPID_PRIVATE_KEY` as project secrets. VAPID subject email hardcoded to `mailto:hello@86paper.com`.
-2. **DB migration** — new tables:
-   - `push_subscriptions` (id, employee_id fk, endpoint unique, p256dh, auth, user_agent, created_at) with RLS: employee inserts/deletes own; owner reads own restaurant's employees'.
-   - `notification_prefs` on `profiles` or a new column on employees: `push_opt_in boolean default false`. This is the "Yes, notify me" toggle.
-3. **Custom service worker** — switch from `generateSW` to `injectManifest` in `vite.config.ts` so I can add a `push` + `notificationclick` handler (workbox precache stays).
-4. **Client subscription flow**:
-   - New `src/lib/push-client.ts`: `enablePush()` = request permission → subscribe with VAPID public key → POST subscription to server fn → flip `push_opt_in=true`.
-   - New UI in `src/routes/employee.tsx` (Settings tab / banner): "Get notified about schedule changes, open shifts, and time-off decisions" with an Enable button. Show current state (Enabled / Disabled / Blocked by browser).
-5. **Server send helper** — `src/lib/push.server.ts` using the `web-push` npm package (Node-compatible on the Worker with nodejs_compat; if it fails at runtime I'll switch to a hand-rolled fetch to the endpoint using `@negrel/webpush` or the raw WebPush protocol via `crypto.subtle`).
-6. **Trigger wiring** — hook the four events. Since the app currently persists schedule/trade/time-off changes optimistically from the client via Supabase directly (no server fn), I'll add thin server fns:
-   - `notifyScheduleChanged({ employeeIds, kind: "published" | "adjusted", weekLabel })` — called from `ScheduleSection.tsx` after publish/save. "Published" fans out to everyone on the schedule; "adjusted" targets affected employees.
-   - `notifyTradePosted({ shiftId })` — fans out to all eligible role-matched employees (excluding the poster).
-   - `notifyTimeOffResolved({ requestId, approved })` — targets the requester.
-   Each helper: load opted-in subscriptions → send push with title/body/url → prune dead 410/404 subscriptions.
-7. **Preview safety**: skip push registration in dev/preview (same host guard as `register-sw.ts`); the button in the employee settings will say "Available on the published site."
+A `SECURITY DEFINER` database function `get_public_join_restaurant(slug)` returns **exactly two values**: `owner_id` and `restaurant_name`. Nothing else — no email, address, phone, subscription status, business info, menu config, employee counts.
 
-### What I need from you
-- Confirm I should proceed with **building the notify-me toggle and the schedule/trade/time-off trigger points from scratch** (they don't exist yet). This is the majority of the work.
-- Confirm the "Enable notifications" prompt should live on the **employee dashboard** as a persistent banner + settings toggle (not an on-login modal), since modals on install are widely ignored.
-- Confirm using **`web-push` npm** on the server (Worker+nodejs_compat should support it; I'll fall back to a raw implementation if it doesn't bundle).
-- OK to remove the SMS/opt-in paragraphs from Privacy/Terms and replace with push language?
+The join page becomes server-resolved: a public server function calls that resolver and the page renders the real restaurant name to a signed-out visitor.
 
-Once you confirm, I'll ship Part A immediately (Twilio removal — 10 min) then Part B in one pass.
+### Why this doesn't leak or enable enumeration
+
+- No broad `TO anon` SELECT policy is added to `profiles`. The function is the only public read path, and it projects two columns.
+- It only accepts an exact slug match — no prefix, wildcard, or list mode, so it can't be used to walk the tenant list. (The existing `search_restaurants` function is a separate, already-shipped surface and is out of scope here.)
+- `owner_id` is a UUID that is already effectively public in invite links; it is needed to attach the new hire and is not sensitive on its own, since every table keyed on it is protected by owner-scoped policies.
+- Unknown slug returns zero rows — indistinguishable from any other miss.
+
+## 3. Unrecognized slug renders "Join link not found"
+
+The page has three states instead of today's always-pass guard: resolving, resolved (show the form), not-found (show the existing "Join link not found" screen). The `slugMatches` comparison against local store data is deleted outright.
+
+## 4. Writing the new hire to the right owner
+
+The join submission stops writing to the visitor's local store. Instead, mirroring the working `staff-invite` claim flow:
+
+1. Client validates the form (unchanged zod rules, split First/Last name, `(585) 555-5555` phone formatting kept).
+2. Resolve the auth user through the same three paths the invite claim now uses — existing session for that email, else sign up, else sign in if the account already exists — so a half-finished join is resumable rather than bricked.
+3. Call a `SECURITY DEFINER` function `join_restaurant_by_slug(slug, auth_user_id, profile_json)` that resolves the slug to `owner_id` server-side and inserts the `restaurant_employees` row with that `owner_id`, `auth_user_id`, name, email, phone, primary role, weekly availability and emergency contact.
+
+Key points: the client never supplies `owner_id` (it can't forge a tenant), the insert is idempotent per `(owner_id, auth_user_id)` so a retry doesn't duplicate the hire, and role/approval columns are set to the safe defaults the invite flow uses — a self-joining employee still cannot grant themselves approved roles.
+
+The new hire then appears on the owner's Team tab through the existing roster query, and the owner gets the existing "just joined" notification.
+
+## 5. Backfill
+
+One-time migration: allocate a slug for every existing owner profile from its restaurant name, resolving collisions with the numeric suffix rule and using the random-suffix fallback for blank names. Verified against current data — 7 owner accounts.
+
+## 6. Auth users orphaned by the broken flow
+
+Current state, measured: 7 employee-role profiles, **6 of which have no `restaurant_employees` row** (5 of them created in one batch with blank names — likely test accounts, one is `Matt Fuller`).
+
+Recommended handling, for your call:
+
+- Do **not** auto-attach them to a restaurant. There is no reliable record of which tenant they meant to join, so any guess risks putting a stranger on someone's roster.
+- Leave the auth users in place and let them recover organically: once the join page works, the same person can re-open the correct link, sign in with their existing password (path 2 above handles this), and get attached properly.
+- Separately, I can give you a short admin list of orphaned employee accounts so you can delete the obvious test rows. Deleting real users is not something I'd do without you naming them.
+
+## Flagged, not fixed
+
+The join success screen still says "Complete your videos and quizzes before your first shift." There are no videos in this product; that block should point at the Menu Knowledge Test instead. Not touching it in this pass — say the word and I'll fold it in.
+
+## Risks and decisions for you
+
+1. **Should the public join link stay open?** Anyone with the slug can create an account on your roster. That is how a QR poster on the wall is supposed to work, but it means a stranger who photographs the poster lands on your Team tab. Options: leave it open (current intent), or mark self-joins as "pending" and require owner approval before they count as staff. I lean toward pending-approval, but it changes the owner's workflow, so I want your call.
+2. **Slug editing.** Changing a slug breaks previously printed QR posters. I'd keep the old slug working as an alias rather than hard-breaking it — say if you'd rather keep it simple and let old links 404.
+3. **Blank-name tenants** get a random-suffix slug that looks ugly on a poster. Alternative is to block sharing the join link until the restaurant name is set.
+
+## Technical notes
+
+- New: `profiles.slug` (unique, case-insensitive index), slug allocation function, `get_public_join_restaurant`, `join_restaurant_by_slug`, backfill — one migration.
+- New public (unauthenticated) server function for slug resolution; the join submission calls the claim function through the browser client after auth, matching the existing invite pattern.
+- Changed: `src/routes/join.$slug.tsx` (server resolution, three render states, real submit path), `src/components/sidework/StaffOnboarding.tsx` and the manager join-link display (read slug from the database), `src/lib/sidework-store.tsx` (`joinStaff` local-only write and `updateRestaurantSlug` become database-backed), `src/lib/slug.ts` (drop the shared `"team"` fallback).
+- Untouched: Menu Knowledge Test, quiz gating, Stripe checkout, Stripe webhook, `/signup`, `/dev-signup`.
