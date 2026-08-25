@@ -177,8 +177,10 @@ export function StaffOnboardingCard() {
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm text-muted-foreground">/join/</span>
             <Input value={editSlug} onChange={(e) => setEditSlug(e.target.value)} className="max-w-xs" maxLength={40} />
-            <Button size="sm" variant="outline" onClick={saveSlug} disabled={slugify(editSlug) === slug}>Save</Button>
+            <Button size="sm" variant="outline" onClick={saveSlug} disabled={saving || slugify(editSlug) === slug}>Save</Button>
           </div>
+          <p className="text-[11px] text-muted-foreground">Changing this keeps your old link working, so printed QR codes stay valid.</p>
+
         </div>
 
         <div className="grid gap-3 sm:grid-cols-[auto,1fr] sm:items-center">
