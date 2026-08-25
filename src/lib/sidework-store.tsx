@@ -16,7 +16,10 @@ import {
   hasSupabaseSession,
   insertEmployee,
   updateEmployeeRow,
+  approveEmployeeRow,
+  deleteEmployeeRow,
   deleteAllOwnerEmployees,
+
   fetchRestaurantHours,
   saveRestaurantHours,
   fetchBusinessInfo,
@@ -539,7 +542,17 @@ export interface Employee {
   appliedAt?: string;
   workExperience?: WorkExperience[];
   specialTalents?: string;
+  /** "pending" = joined via the public link and awaiting owner approval. */
+  joinStatus?: "active" | "pending";
+  /** How this person got onto the roster ("join_link" for public self-joins). */
+  joinedVia?: string;
 }
+
+/** Fail closed: only an explicit "active" (or a locally-created row) counts as staff. */
+export function isPendingJoin(e: Pick<Employee, "joinStatus">): boolean {
+  return e.joinStatus === "pending";
+}
+
 
 export interface Shift {
   id: string;
@@ -781,6 +794,11 @@ interface Store {
   updateRestaurantSlug: (slug: string) => void;
   updateEmployee: (id: string, patch: Partial<Employee>) => void;
   clearAllEmployees: () => void;
+  /** Approve a pending public self-join so they count as staff. */
+  approveJoinRequest: (id: string) => void;
+  /** Decline a pending self-join: removes the roster row only (auth user stays). */
+  declineJoinRequest: (id: string) => void;
+
   /**
    * Apply a quiz attempt result graded by the server. Only updates local
    * state — the server function (submitQuizAttempt) has already persisted
@@ -1540,6 +1558,18 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
       const oid = ownerIdRef.current;
       if (oid) deleteAllOwnerEmployees(oid).catch((e) => console.error("[clearAllEmployees]", e));
     },
+    approveJoinRequest: (id) => {
+      setState((s) => ({
+        ...s,
+        employees: s.employees.map((e) => (e.id === id ? { ...e, joinStatus: "active" as const } : e)),
+      }));
+      approveEmployeeRow(id).catch((e) => console.error("[approveJoinRequest]", e));
+    },
+    declineJoinRequest: (id) => {
+      setState((s) => ({ ...s, employees: s.employees.filter((e) => e.id !== id) }));
+      deleteEmployeeRow(id).catch((e) => console.error("[declineJoinRequest]", e));
+    },
+
     inviteEmployee: async ({ firstName, lastName, email, phone, role }) => {
       const localId = newUuid();
       const fullName = `${firstName} ${lastName}`.trim() || email || "New staff";

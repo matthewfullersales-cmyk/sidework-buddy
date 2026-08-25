@@ -186,10 +186,13 @@ function ManagerTabs({ tab, setTab, onOpenSetup }: { tab: string; setTab: (v: st
 
 
 function OverviewTab() {
-  const { employees, customRoles, trades, shifts, applications, timeOff, menuBankMeta, menuTestConfig, uploadedMenuTypes } = useStore();
+  const { employees: allEmployees, customRoles, trades, shifts, applications, timeOff, menuBankMeta, menuTestConfig, uploadedMenuTypes } = useStore();
+  // Pending self-joins don't count as staff until the owner approves them.
+  const employees = useMemo(() => allEmployees.filter((e) => !isPendingJoin(e)), [allEmployees]);
   const menuBankMetaObj = menuBankMeta;
   const stats = useMemo(() => {
     const onboarded = employees.filter((e) => onboardingStatus(e, customRoles, menuBankMetaObj, menuTestConfig, uploadedMenuTypes).fullyOnboarded).length;
+
     const pending = trades.filter((t) => t.status === "pending_approval").length;
     const newApps = applications.filter((a) => a.status === "new").length;
     const pendingTO = timeOff.filter((t) => t.status === "pending").length;
@@ -342,9 +345,67 @@ function PendingRoleAssignmentQueue({
   );
 }
 
+
+function PendingJoinRequestsQueue({
+  employees,
+  onApprove,
+  onDecline,
+}: {
+  employees: Employee[];
+  onApprove: (id: string) => void;
+  onDecline: (id: string) => void;
+}) {
+  const pending = employees.filter(isPendingJoin);
+  if (pending.length === 0) return null;
+  return (
+    <Card className="border-primary/40 bg-primary/5">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base">
+          Join requests
+          <span className="ml-2 text-xs font-normal text-muted-foreground">{pending.length} waiting</span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-xs text-muted-foreground">
+          These people signed up through your public join link. They can't be scheduled and don't count toward your
+          team until you approve them.
+        </p>
+        {pending.map((e) => {
+          const fullName = e.firstName && e.lastName ? `${e.firstName} ${e.lastName}` : e.name;
+          return (
+            <div key={e.id} className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-background p-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold">{fullName}</p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {e.email}{e.phone ? ` · ${e.phone}` : ""}
+                </p>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">Wants to join as {e.primaryRole}</p>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" onClick={() => onApprove(e.id)}>Approve</Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-destructive hover:border-destructive/50 hover:bg-destructive/5 hover:text-destructive"
+                  onClick={() => onDecline(e.id)}
+                >
+                  Decline
+                </Button>
+              </div>
+            </div>
+          );
+        })}
+      </CardContent>
+    </Card>
+  );
+}
+
 function TeamTab() {
-  const { employees, inviteEmployee, restaurantProfile, activeRoles, customRoles, shifts, trades, timeOff, clearAllEmployees, updateEmployee, menuBankMeta, menuTestConfig, uploadedMenuTypes } = useStore();
+  const { employees: allEmployees, inviteEmployee, restaurantProfile, activeRoles, customRoles, shifts, trades, timeOff, clearAllEmployees, updateEmployee, approveJoinRequest, declineJoinRequest, menuBankMeta, menuTestConfig, uploadedMenuTypes } = useStore();
+  const pendingJoins = useMemo(() => allEmployees.filter(isPendingJoin), [allEmployees]);
+  const employees = useMemo(() => allEmployees.filter((e) => !isPendingJoin(e)), [allEmployees]);
   const menuBankMetaObj = menuBankMeta;
+
   const fohActive = fohRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r));
   const bohActive = bohRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r));
   const [open, setOpen] = useState(false);

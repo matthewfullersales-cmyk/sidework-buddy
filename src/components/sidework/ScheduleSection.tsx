@@ -12,7 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { useStore, type Role, type Shift, type Position, type Section, type WeeklyAvailability, type MealPeriods, type Meal, DAY_KEYS, isAvailableFor, isAvailableForRange, mealForShiftStart, suggestedShiftTimes, hoursConfigured, isScheduleEligible, isPendingRoleAssignment, trainingProgressFor, menuTestStatus } from "@/lib/sidework-store";
+import { useStore, isPendingJoin, type Role, type Shift, type Position, type Section, type WeeklyAvailability, type MealPeriods, type Meal, DAY_KEYS, isAvailableFor, isAvailableForRange, mealForShiftStart, suggestedShiftTimes, hoursConfigured, isScheduleEligible, isPendingRoleAssignment, trainingProgressFor, menuTestStatus } from "@/lib/sidework-store";
 import { toast } from "sonner";
 import { notifyScheduleChanged } from "@/lib/notifications.functions";
 
@@ -114,7 +114,10 @@ function staffingFor(dayIdx: number): Partial<Record<Position, number>> {
 }
 
 export function ScheduleSection() {
-  const { shifts, employees, timeOff, restaurantHours, mealPeriods, upsertShift, deleteShift, applyRemoteShiftUpsert, applyRemoteShiftDelete } = useStore();
+  const { shifts, employees: allEmployees, timeOff, restaurantHours, mealPeriods, upsertShift, deleteShift, applyRemoteShiftUpsert, applyRemoteShiftDelete } = useStore();
+  // Pending self-joins are not staff yet — never schedulable.
+  const employees = useMemo(() => allEmployees.filter((e) => !isPendingJoin(e)), [allEmployees]);
+
   const { effectiveOwner } = useAuth();
   const ownerId = effectiveOwner?.ownerId ?? null;
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date()));
