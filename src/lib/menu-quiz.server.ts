@@ -232,7 +232,12 @@ export async function runExtractMenu(data: {
   const shaped = extractResponseSchema.safeParse(res.raw);
   if (!shaped.success) {
     console.error("[menu-quiz] extraction shape mismatch", shaped.error.issues.slice(0, 5));
-    return { ok: false, error: "The menu reader returned a malformed result. Try again." };
+    const first = shaped.error.issues[0];
+    const where = first?.path?.length ? first.path.join(".") : "response";
+    return {
+      ok: false,
+      error: `The menu reader returned a malformed result (${where}: ${first?.message ?? "unknown error"}). Try again.`,
+    };
   }
 
   // Fees, disclaimers, footnotes and truncated fragments are not testable items.
