@@ -318,8 +318,9 @@ function SuccessScreen({ firstName, restaurantName }: { firstName: string; resta
           <CheckCircle2 className="h-12 w-12 text-success" />
         </div>
         <h1 className="mt-6 text-3xl font-bold">Welcome to {restaurantName}, {firstName}!</h1>
-        <p className="mt-3 text-base text-muted-foreground">You're all set on 86Paper.</p>
-        <p className="mt-1 text-sm text-muted-foreground">Your manager has been notified.</p>
+        <p className="mt-3 text-base text-muted-foreground">Your request has been sent to your manager for approval.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Once they approve you, you'll show up on the schedule.</p>
+
 
         <Card className="mt-8 border-2 text-left">
           <CardContent className="space-y-3 p-5">
