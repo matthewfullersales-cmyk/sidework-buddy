@@ -401,6 +401,8 @@ export function rejectionReason(
     if (q.questionType !== "identify_attribute") {
       const secOnly = sectionOnlyRejection(q, index);
       if (secOnly) return secOnly;
+      const ambiguous = ambiguityRejection(q, index);
+      if (ambiguous) return ambiguous;
     }
   }
 
