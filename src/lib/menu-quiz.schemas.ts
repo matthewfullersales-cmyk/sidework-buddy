@@ -24,6 +24,7 @@ export const extractedItemSchema = z.object({
   section: z.string().trim().max(120).default(""),
   ingredients: z.array(z.string().trim().min(1).max(120)).max(40).default([]),
   preparation: z.string().trim().max(400).default(""),
+  description: z.string().trim().max(400).default(""),
   menuType: menuSourceSchema,
 });
 export type ExtractedItem = z.infer<typeof extractedItemSchema>;
