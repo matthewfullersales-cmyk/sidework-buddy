@@ -35,6 +35,7 @@ export const Route = createFileRoute("/employee")({
 
 function EmployeePage() {
   useRequireRole("employee", "/employee-login");
+  const [loadingTimedOut, setLoadingTimedOut] = useState(false);
   const { profile, employeeContext, loading: authLoading } = useAuth();
   const {
     currentUser,
@@ -58,13 +59,17 @@ function EmployeePage() {
     selectedTargetRef.current = targetId;
     setCurrentUserRef.current({ type: "employee", id: targetId });
   }, [targetId]);
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setLoadingTimedOut(true), 15_000);
+    return () => window.clearTimeout(timeout);
+  }, []);
   const me = targetId
     ? employees.find((employee) => employee.id === targetId)
     : currentUser.type === "employee"
       ? employees.find((employee) => employee.id === currentUser.id)
       : undefined;
   const targetResolved = Boolean(targetId && employeeHydratedTargetId === targetId);
-  const stillLoading = authLoading || Boolean(targetId && !targetResolved && !employeeHydrationError);
+  const stillLoading = !loadingTimedOut && (authLoading || Boolean(targetId && !targetResolved && !employeeHydrationError));
   const status = useMemo(() => (me ? onboardingStatus(me, customRoles, menuBankVersion, menuTestConfig, uploadedMenuTypes) : null), [me, customRoles, menuBankVersion, menuTestConfig, uploadedMenuTypes]);
 
   useEffect(() => {
@@ -103,13 +108,15 @@ function EmployeePage() {
       </AppShell>
     );
   }
-  if (!targetId || !me || !status || employeeHydrationError) {
+  if (loadingTimedOut || !targetId || !me || !status || employeeHydrationError) {
     return (
       <AppShell nav={nav}>
         <div className="mx-auto max-w-md px-4 py-16 text-center">
           <h1 className="text-2xl font-bold">We couldn’t load your account</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            {employeeHydrationError ?? "Your staff profile could not be matched to this login. Please try again or ask your manager to check your invitation."}
+            {employeeHydrationError ?? (loadingTimedOut
+              ? "Loading took too long. Check your connection, then try again."
+              : "Your staff profile could not be matched to this login. Please try again or ask your manager to check your invitation.")}
           </p>
           <Button className="mt-6" onClick={() => window.location.reload()}>Try again</Button>
         </div>
