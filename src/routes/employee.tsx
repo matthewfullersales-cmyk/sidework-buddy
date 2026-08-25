@@ -72,6 +72,21 @@ function EmployeePage() {
     );
   }
   if (!me || !status) return <Navigate to="/" />;
+  if (isPendingJoin(me)) {
+    return (
+      <AppShell nav={nav}>
+        <div className="mx-auto max-w-md px-4 py-16 text-center">
+          <h1 className="text-2xl font-bold">Waiting on approval</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Your manager needs to approve your join request before you can see the schedule or start your Menu
+            Knowledge Test. Check back soon.
+          </p>
+        </div>
+      </AppShell>
+    );
+  }
+
+
 
 
   return (
