@@ -170,7 +170,18 @@ async function callGateway(
     };
   }
   catch {
-    console.error("[menu-quiz] json parse failed", raw.slice(0, 400));
+    const nearOutputCeiling = apparentOutputCeiling(raw.length);
+    console.error("[menu-quiz] json parse failed", {
+      length: raw.length,
+      preview: raw.slice(0, 800),
+      nearOutputCeiling,
+    });
+    if (nearOutputCeiling !== null) {
+      console.warn("[menu-quiz] unparseable extraction response was near an apparent output ceiling", {
+        length: raw.length,
+        nearOutputCeiling,
+      });
+    }
     return { ok: false, error: "AI couldn't produce a valid result from this file. Try a clearer scan." };
   }
 }
@@ -179,7 +190,7 @@ async function callGateway(
 
 const rawExtractedItemSchema = z
   .object({
-    name: z.string().min(1),
+    name: z.string().trim().min(1),
     section: z.string().nullish(),
     ingredients: z
       .union([z.array(z.unknown()), z.string(), z.number(), z.boolean()])
