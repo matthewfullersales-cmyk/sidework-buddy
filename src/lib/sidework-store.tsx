@@ -725,6 +725,8 @@ interface Store {
   currentUser: { type: "manager"; id: "owner" } | { type: "employee"; id: string };
   setCurrentUser: (u: Store["currentUser"]) => void;
   employeeHydrating: boolean;
+  employeeHydratedTargetId: string | null;
+  employeeHydrationError: string | null;
   employees: Employee[];
   shifts: Shift[];
   trades: Trade[];
@@ -1404,17 +1406,34 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
   const employeeCtxOwnerId = employeeContext?.ownerId ?? null;
   const employeeCtxEmployeeId = employeeContext?.employeeId ?? null;
   const [employeeHydrating, setEmployeeHydrating] = useState(false);
+  const [employeeHydratedTargetId, setEmployeeHydratedTargetId] = useState<string | null>(null);
+  const [employeeHydrationError, setEmployeeHydrationError] = useState<string | null>(null);
   useEffect(() => {
     if (!hydrated || authLoading) return;
     if (effectiveOwnerId) return; // owner/manager branch already handled it
     if (!employeeCtxOwnerId || !employeeCtxEmployeeId) return;
     let cancelled = false;
     setEmployeeHydrating(true);
+    setEmployeeHydratedTargetId(null);
+    setEmployeeHydrationError(null);
     ownerIdRef.current = employeeCtxOwnerId;
     (async () => {
       try {
-        const [me, myShifts, openTrades, myTimeOff, coworkers, myProgress, menuBankMeta, remoteMenuTestConfig] = await Promise.all([
-          fetchMyEmployeeRow(employeeCtxEmployeeId),
+        // Resolve and publish the caller's own row first. Pending employees
+        // need no secondary dashboard data to reach their approval screen.
+        const me = await fetchMyEmployeeRow(employeeCtxEmployeeId);
+        if (cancelled) return;
+        if (!me) throw new Error("Your staff profile could not be found for this login.");
+        setState((s) => ({
+          ...s,
+          employees: [me],
+          currentUser: { type: "employee", id: employeeCtxEmployeeId },
+          jobs: [],
+          applications: [],
+        }));
+        if (isPendingJoin(me)) return;
+
+        const [myShifts, openTrades, myTimeOff, coworkers, myProgress, menuBankMeta, remoteMenuTestConfig] = await Promise.all([
           fetchMyShifts(employeeCtxEmployeeId),
           fetchOwnerOpenTrades(employeeCtxOwnerId),
           fetchMyTimeOff(employeeCtxEmployeeId),
@@ -1459,12 +1478,10 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
             personalInfoComplete: false,
             progress: [] as VideoProgress[],
           }));
-        const meWithProgress = me
-          ? { ...me, progress: myProgress.length > 0 ? myProgress : me.progress }
-          : null;
+        const meWithProgress = { ...me, progress: myProgress.length > 0 ? myProgress : me.progress };
         setState((s) => ({
           ...s,
-          employees: meWithProgress ? [meWithProgress, ...coworkerStubs] : coworkerStubs,
+          employees: [meWithProgress, ...coworkerStubs],
           shifts: [...myShifts, ...boardShifts],
           trades: openTrades,
           timeOff: myTimeOff,
@@ -1482,8 +1499,14 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
         }));
       } catch (e) {
         console.error("[employee-sync] failed to load", e);
+        if (!cancelled) {
+          setEmployeeHydrationError(e instanceof Error ? e.message : "Your staff account could not be loaded.");
+        }
       } finally {
-        if (!cancelled) setEmployeeHydrating(false);
+        if (!cancelled) {
+          setEmployeeHydratedTargetId(employeeCtxEmployeeId);
+          setEmployeeHydrating(false);
+        }
       }
     })();
     return () => { cancelled = true; };
@@ -1499,6 +1522,8 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
   const store: Store = {
     ...state,
     employeeHydrating,
+    employeeHydratedTargetId,
+    employeeHydrationError,
     setRestaurantHours: (h) => {
       setState((s) => ({ ...s, restaurantHours: h }));
       const oid = ownerIdRef.current;
