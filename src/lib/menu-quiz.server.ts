@@ -196,7 +196,7 @@ Rules:
 - Do not include prices. Do not include seasonal/market-price placeholders as ingredients.
 - Skip unreadable or non-menu pages. If nothing is readable, return {"items": []}.
 - Return STRICT JSON only, no prose, no markdown fences:
-{"items":[{"name":"...","section":"...","ingredients":["...","..."],"preparation":"","menu_type":"food"}]}`;
+{"items":[{"name":"...","section":"...","ingredients":["...","..."],"preparation":"","description":"","menu_type":"food"}]}`;
 
 export async function runExtractMenu(data: {
   files: FilePayload[];
