@@ -31,7 +31,6 @@ import { notifyTimeOffResolved, notifyScheduleChanged } from "@/lib/notification
 import { AvailabilityEditor, RestaurantHoursEditor, MealPeriodsEditor, BusinessInfoEditor } from "@/components/sidework/AvailabilityEditor";
 import { StaffJoinBanner, FullscreenQrDialog, StaffOnboardingCard, useJoinUrl } from "@/components/sidework/StaffOnboarding";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { slugify } from "@/lib/slug";
 import { toast } from "sonner";
 import { ChevronDown, Check, CalendarIcon } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
