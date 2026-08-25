@@ -210,7 +210,7 @@ export function StaffOnboardingCard() {
 }
 
 export function StaffJoinBanner({ onShowQr }: { onShowQr: () => void }) {
-  const { url } = useJoinUrl();
+  const { url, ready, loading } = useJoinUrl();
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(url);
@@ -219,7 +219,19 @@ export function StaffJoinBanner({ onShowQr }: { onShowQr: () => void }) {
       toast.message("Copy this link", { description: url });
     }
   };
+  if (loading) return null;
+  if (!ready) {
+    return (
+      <Card className="border-amber-500/40 bg-amber-500/5">
+        <CardContent className="p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400">Join link unavailable</p>
+          <p className="mt-1 text-sm text-muted-foreground">Add your restaurant name in Settings to generate a staff join link and QR code.</p>
+        </CardContent>
+      </Card>
+    );
+  }
   return (
+
     <Card className="border-primary/30 bg-primary/5">
       <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
         <div className="min-w-0">
