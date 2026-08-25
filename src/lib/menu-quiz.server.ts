@@ -456,6 +456,7 @@ const QUALITY_RULES = `Rules:
 - SECTION / CATEGORY QUESTIONS ARE RARE: at most a handful per menu and never more than one per section. Only ask one when the answer is genuinely non-obvious — if every plausible distractor section would be obviously wrong to someone who has never read the menu, do not write the question. NEVER write an "identify_item" question whose only qualifier is the section or menu type ("Which sweet treat is served from the dessert menu?", "Which product is offered from the BOTTLED BEER section?") — those are unanswerable or guessable and are always rejected.
 - BANNED SHAPE (no matter which question_type you assign): a question whose correct answer is a MENU ITEM NAME and whose only qualifier is the section, menu type, or format (bottled / draft / on the list / from the wine list). Labeling it "identify_attribute" does not make it valid. BAD: "Which brand of bottled beer is served?" / "Which brand is served from the BOTTLED BEER section?" — every listed beer is a correct answer. For sections that print no descriptions (bottled beer, draft lists, wine lists), use the REVERSE direction: name the item and ask for its style, brand, or varietal — e.g. "SOUTHERN TIER is what style of beverage?" -> "IPA", "FAT TIRE is a brand of which style?" -> "Amber Ale".
 - ANSWERABILITY: for "identify_item", the three distractors must NOT satisfy the condition in the stem. If the stem's qualifier is true of a distractor too, the question is wrong — add the specific detail that only the correct item has, or skip.
+- ONE SUBJECT, ONE ANSWER: before writing an attribute question about a producer, winery, or brewery, scan the whole record for other items from that same producer or brand. If it appears more than once with different varietals or styles, you CANNOT ask "X is a producer of which varietal?" because more than one answer is true. Either ask about the full printed item name (only if the answer is not already contained in that name) or SKIP the item. Apply the same rule to breweries with multiple styles on the list.
 - UNIQUENESS SELF-CHECK (mandatory): before returning any "identify_item" question, re-read the record for each of the three distractors and confirm that NONE of them also satisfies the stem. If any distractor is also a truthful answer, either add the detail that only the correct item has, or drop the question entirely.
 - PRINTED RELATIONSHIPS ARE PART OF THE FACT: when the description states an ingredient's relationship to the dish (served over / topped with / stuffed with / tossed in / on the side / drizzled with), the stem MUST use that exact printed relationship. Never substitute a different preposition or verb — "served over marinara" and "topped with marinara" are different claims and must not be swapped.
 - SAME-KIND OPTIONS: all four choices must be the same kind of thing. Wine colors/styles with wine colors/styles (red / white / rosé / sparkling), varietals with varietals, producers with producers, section names with section names, ingredients with ingredients, menu items with menu items. BAD: correct answer "Red" with distractors Pinot Grigio, Chardonnay, Rosé.
@@ -661,6 +662,29 @@ function capSectionQuestions(
   return out;
 }
 
+export function dropConflictingStemQuestions<T extends MenuQuizDraftQuestion>(questions: T[]): {
+  questions: T[];
+  droppedCount: number;
+  conflictingStems: string[];
+} {
+  const groups = new Map<string, T[]>();
+  for (const question of questions) {
+    const stem = normalizeText(question.question);
+    groups.set(stem, [...(groups.get(stem) ?? []), question]);
+  }
+
+  const conflictingStems = [...groups.entries()]
+    .filter(([, group]) => new Set(group.map((q) => normalizeText(q.options[q.answerIndex] ?? ""))).size > 1)
+    .map(([stem]) => stem);
+  const conflicts = new Set(conflictingStems);
+  const survivors = questions.filter((question) => !conflicts.has(normalizeText(question.question)));
+  return {
+    questions: survivors,
+    droppedCount: questions.length - survivors.length,
+    conflictingStems,
+  };
+}
+
 export async function runGenerateMenuQuiz(data: {
   items: ExtractedItem[];
   restaurantName?: string;
@@ -747,12 +771,23 @@ export async function runGenerateMenuQuiz(data: {
     return { ok: false, error: "Every generated question failed quality checks. Try a clearer menu scan and regenerate." };
   }
 
-  const bank = capSectionQuestions(shuffled(final), index).slice(0, MAX_BANK_QUESTIONS);
+  const conflictPass = dropConflictingStemQuestions(final);
+  if (conflictPass.droppedCount > 0) {
+    console.warn("[menu-quiz] dropped questions with conflicting answers for the same stem", {
+      droppedCount: conflictPass.droppedCount,
+      conflictingStems: conflictPass.conflictingStems,
+    });
+  }
+  if (conflictPass.questions.length === 0) {
+    return { ok: false, error: "Every generated question failed quality checks. Try a clearer menu scan and regenerate." };
+  }
+  const bank = capSectionQuestions(shuffled(conflictPass.questions), index).slice(0, MAX_BANK_QUESTIONS);
   const diagnostics = {
     itemsExtracted: items.length,
     candidatesSelected: candidates.length,
     questionsReturned: produced.length,
     rejectedByQuality: rejectedCount,
+    droppedAsConflicting: conflictPass.droppedCount,
     lostToFailedBatches,
     finalBankSize: bank.length,
   };

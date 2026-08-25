@@ -110,6 +110,12 @@ const BEER_STYLES = new Set([
   "double ipa", "hazy ipa", "kolsch", "bock",
 ]);
 
+const ATTRIBUTE_VALUES = {
+  wine_color: WINE_COLORS,
+  varietal: VARIETALS,
+  beer_style: BEER_STYLES,
+} as const;
+
 export type OptionKind =
   | "item" | "section" | "wine_color" | "varietal" | "beer_style" | "ingredient" | "other";
 
@@ -295,6 +301,66 @@ function ambiguityRejection(q: ValidatableQuestion, index: ProvenanceIndex): str
   return null;
 }
 
+type AmbiguousAttributeKind = keyof typeof ATTRIBUTE_VALUES;
+
+function attributeValuesIn(text: string, kind: AmbiguousAttributeKind): string[] {
+  const normalized = normalizeText(text);
+  const matches = [...ATTRIBUTE_VALUES[kind]]
+    .filter((value) => ` ${normalized} `.includes(` ${value} `))
+    .sort((a, b) => b.length - a.length);
+  return matches.filter(
+    (value, index) => !matches.slice(0, index).some((longer) => ` ${longer} `.includes(` ${value} `)),
+  );
+}
+
+function subjectLabel(q: ValidatableQuestion, answer: string): string {
+  const answerWords = new Set(words(answer).map(singularize));
+  const subjectWords = words(q.question).filter((word) => {
+    const token = singularize(word);
+    return !STOP_WORDS.has(word) && !FRAME_WORDS.has(token) && !answerWords.has(token);
+  });
+  return subjectWords
+    .map((word) => (word.length <= 2 ? word : `${word[0]?.toUpperCase() ?? ""}${word.slice(1)}`))
+    .join(" ");
+}
+
+/** Reject producer/brand questions when that subject maps to multiple attributes. */
+function attributeAmbiguityRejection(q: ValidatableQuestion, index: ProvenanceIndex): string | null {
+  const answer = q.options[q.answerIndex] ?? "";
+  const kind = classifyOption(answer, index);
+  if (kind !== "varietal" && kind !== "beer_style" && kind !== "wine_color") return null;
+
+  const answerTokens = significantTokens(answer);
+  const subjectTokens = [...new Set(significantTokens(q.question))].filter(
+    (token) =>
+      !FRAME_WORDS.has(token) &&
+      !index.sectionTokens.has(token) &&
+      !answerTokens.some((answerToken) => nearMatch(token, answerToken)),
+  );
+  if (subjectTokens.length < 1) return null;
+
+  const values = new Map<string, string>();
+  for (const [itemName, printedName] of index.labelByItem) {
+    const nameTokens = significantTokens(itemName);
+    if (!subjectTokens.every((subject) => nameTokens.some((nameToken) => nearMatch(subject, nameToken)))) continue;
+    const section = index.sectionByItem.get(itemName) ?? "";
+    for (const value of attributeValuesIn(`${itemName} ${section}`, kind)) {
+      values.set(normalizeText(value), value);
+    }
+  }
+  if (values.size < 2) return null;
+
+  const printedValues = [...values.values()].map((value) =>
+    value.replace(/\b\w/g, (letter) => letter.toUpperCase()),
+  );
+  const label = subjectLabel(q, answer) || q.sourceItem || "This subject";
+  const last = printedValues.pop() ?? "";
+  const joined = printedValues.length === 1
+    ? `${printedValues[0]}" and "${last}`
+    : `${printedValues.join('", "')}" and "${last}`;
+  return `Ambiguous: "${label}" appears on this menu as both "${joined}", so this question has more than one correct answer.`;
+}
+
 function sectionOnlyRejection(q: ValidatableQuestion, index: ProvenanceIndex): string | null {
   const itemKey = normalizeText(q.sourceItem ?? "");
   const ownVocab = index.vocabByItem.get(itemKey);
@@ -398,6 +464,8 @@ export function rejectionReason(
   if (index) {
     const prov = provenanceRejection(q, index);
     if (prov) return prov;
+    const attributeAmbiguity = attributeAmbiguityRejection(q, index);
+    if (attributeAmbiguity) return attributeAmbiguity;
     // Don't trust the model's self-declared question_type: derive the effective
     // type from the shape of the correct answer. If the answer is a known menu
     // item name, this is an identify_item question no matter what it claims.
