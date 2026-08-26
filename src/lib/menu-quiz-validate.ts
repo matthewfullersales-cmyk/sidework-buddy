@@ -489,6 +489,28 @@ function optionKindRejection(q: ValidatableQuestion, index?: ProvenanceIndex): s
   return null;
 }
 
+/** Content-free strings that can never be a legitimate answer choice. */
+const PLACEHOLDER_OPTIONS = new Set([
+  "n a", "na", "none", "not applicable", "unknown", "other", "n/a",
+  "no answer", "nothing", "tbd", "none of these", "not listed",
+]);
+
+/**
+ * A placeholder in ANY option slot (correct or distractor) invalidates the
+ * question. These strings also produce zero significant tokens, which would
+ * make every token-based check below pass vacuously.
+ */
+function placeholderOptionRejection(q: ValidatableQuestion): string | null {
+  for (const option of q.options) {
+    const norm = normalizeText(option ?? "");
+    if (!norm) return "One of the answer choices is empty.";
+    if (PLACEHOLDER_OPTIONS.has(norm) || significantTokens(option).length === 0) {
+      return `"${option}" is a placeholder, not a real answer choice. Every option must be a concrete, menu-plausible value.`;
+    }
+  }
+  return null;
+}
+
 /** Returns null when the question passes, or a human-readable reason. */
 export function rejectionReason(
   q: ValidatableQuestion,
@@ -496,6 +518,10 @@ export function rejectionReason(
 ): string | null {
   const answer = q.options[q.answerIndex] ?? "";
   if (!answer.trim()) return "The correct answer is empty.";
+
+  const placeholder = placeholderOptionRejection(q);
+  if (placeholder) return placeholder;
+
 
   // Whole-string check: short answers ("N/A", "IPA") produce no significant
   // tokens, so the token overlap check below would silently pass them.
