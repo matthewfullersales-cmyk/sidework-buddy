@@ -418,6 +418,8 @@ const rawQuestionSchema = z
     sourceCategory: z.string().optional(),
     question_type: z.enum(["identify_item", "identify_attribute"]).optional(),
     questionType: z.enum(["identify_item", "identify_attribute"]).optional(),
+    fact_source: z.enum(["menu", "general_beverage_knowledge"]).optional(),
+    factSource: z.enum(["menu", "general_beverage_knowledge"]).optional(),
   })
   .transform((q) => ({
     question: q.question,
@@ -427,6 +429,7 @@ const rawQuestionSchema = z
     sourceItem: (q.source_item ?? q.sourceItem ?? "").trim().slice(0, 160),
     sourceCategory: (q.source_category ?? q.sourceCategory ?? "").trim().slice(0, 120),
     questionType: (q.question_type ?? q.questionType ?? "identify_item") as QuestionType,
+    factSource: (q.fact_source ?? q.factSource ?? "menu") as FactSource,
   }));
 
 const modelResponseSchema = z.object({
@@ -482,9 +485,12 @@ const QUALITY_RULES = `Rules:
   - COCKTAILS: listed ingredients — spirits, mixers, and garnish.
   - BEER: style and brand. WINE: varietal and producer.
   - DESSERTS: listed ingredients and components, same as food.
-- Tag every question with "source" (the item's menu_type from the record: food, drink, or dessert), "source_item" (the exact item name), "source_category" (the item's printed section) and "question_type" ("identify_item" or "identify_attribute").
+- FACT SOURCE (mandatory): set "fact_source" to "menu" when the correct answer is stated or directly derivable from the item's own printed record. Set it to "general_beverage_knowledge" ONLY when the answer is a widely-known fact about a commercially branded beverage (beer style, wine varietal/region, spirit category, alcoholic/non-alcoholic status) that the menu does not print. Example: the menu prints "STELLA ARTOIS" with no style — "STELLA is a brand of which style of beer?" -> "Lager" is "general_beverage_knowledge". "SOUTHERN TIER IPA is what style?" -> "IPA" is "menu".
+- NEVER use general knowledge for FOOD. Every food question must be answerable from the item's own printed description. Do not supply ingredients, preparations, sauces, or "traditional" recipe details that the menu does not state. House versions differ from restaurant to restaurant and a generic recipe is a WRONG answer about this kitchen. The same applies to cocktail recipes and desserts.
+- SKIP RATHER THAN GUESS: if you are not confident about a branded beverage fact, write no question for that item. A missing question costs nothing; a wrong one is served to staff as truth.
+- Tag every question with "source" (the item's menu_type from the record: food, drink, or dessert), "source_item" (the exact item name), "source_category" (the item's printed section) "question_type" ("identify_item" or "identify_attribute") and "fact_source" ("menu" or "general_beverage_knowledge").
 - Return STRICT JSON only, matching this shape exactly, no prose, no markdown fences:
-{"questions":[{"question":"...","options":["A","B","C","D"],"answerIndex":0,"source":"food","source_item":"...","source_category":"...","question_type":"identify_item"}, ...]}`;
+{"questions":[{"question":"...","options":["A","B","C","D"],"answerIndex":0,"source":"food","source_item":"...","source_category":"...","question_type":"identify_item","fact_source":"menu"}, ...]}`;
 
 const GENERATION_SYSTEM = `You are a restaurant training coach building the mandatory "Menu Knowledge Test" for a restaurant's floor and kitchen staff. This is a gating test — an employee cannot be scheduled until they pass it — so every question must test genuine, on-menu knowledge drawn from the structured menu record you are given.
 
@@ -535,7 +541,7 @@ function shuffled<T>(arr: T[]): T[] {
 
 function clampQuestion(q: {
   question: string; options: string[]; answerIndex: number; source: MenuSource;
-  sourceItem: string; sourceCategory: string; questionType?: QuestionType;
+  sourceItem: string; sourceCategory: string; questionType?: QuestionType; factSource?: FactSource;
 }): MenuQuizDraftQuestion {
   return {
     question: q.question.slice(0, 240),
@@ -545,6 +551,7 @@ function clampQuestion(q: {
     sourceItem: q.sourceItem.slice(0, 160),
     sourceCategory: q.sourceCategory.slice(0, 120),
     questionType: q.questionType ?? "identify_item",
+    factSource: q.factSource ?? "menu",
   };
 }
 
@@ -817,6 +824,7 @@ export async function runGenerateMenuQuiz(data: {
     questionsReturned: produced.length,
     rejectedByQuality: rejectedCount,
     repairedOnRetry,
+    generalKnowledgeQuestions: bank.filter((q) => q.factSource === "general_beverage_knowledge").length,
     droppedAsConflicting: conflictPass.droppedCount,
     droppedBySectionCap,
     lostToFailedBatches,
@@ -896,6 +904,7 @@ export async function runPublishMenuQuiz(
     sourceItem: (q.sourceItem ?? "").slice(0, 160),
     sourceCategory: (q.sourceCategory ?? "").slice(0, 120),
     questionType: q.questionType ?? "identify_item",
+    factSource: q.factSource ?? "menu",
   }));
   const foodCount = questions.filter((q) => q.source === "food").length;
   const drinkCount = questions.filter((q) => q.source === "drink").length;
