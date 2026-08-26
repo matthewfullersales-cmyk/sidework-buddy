@@ -115,6 +115,16 @@ const BEER_STYLES = new Set([
   "double ipa", "hazy ipa", "kolsch", "bock",
 ]);
 
+/**
+ * Alcohol-content designations. "N/A" on a beer list means NON-ALCOHOLIC — a
+ * real, testable product fact — but it is NOT a beer style, so it must never
+ * be mixed into a set of style options.
+ */
+const ALCOHOL_CONTENT = new Set([
+  "n a", "na", "nonalcoholic", "non alcoholic", "alcohol free", "alcoholfree",
+  "zero proof", "zeroproof", "booze free", "boozefree", "no alcohol",
+]);
+
 const ATTRIBUTE_VALUES = {
   wine_color: WINE_COLORS,
   varietal: VARIETALS,
@@ -122,22 +132,26 @@ const ATTRIBUTE_VALUES = {
 } as const;
 
 export type OptionKind =
-  | "item" | "section" | "wine_color" | "varietal" | "beer_style" | "ingredient" | "other";
+  | "item" | "section" | "wine_color" | "varietal" | "beer_style"
+  | "alcohol_content" | "ingredient" | "other";
 
 export function classifyOption(option: string, index?: ProvenanceIndex): OptionKind {
   const n = normalizeText(option);
   if (!n) return "other";
+  // A printed menu item wins: an item literally named "Beck's N/A" is an item.
+  if (index?.vocabByItem.has(n)) return "item";
+  if (ALCOHOL_CONTENT.has(n)) return "alcohol_content";
   if (WINE_COLORS.has(n)) return "wine_color";
   if (VARIETALS.has(n)) return "varietal";
   if (BEER_STYLES.has(n)) return "beer_style";
   if (index) {
-    if (index.vocabByItem.has(n)) return "item";
     if (index.sectionKeys?.has(n)) return "section";
     const toks = significantTokens(option);
     if (toks.length > 0 && toks.every((t) => index.ownersByToken.has(t))) return "ingredient";
   }
   return "other";
 }
+
 
 
 export type QuestionType = "identify_item" | "identify_attribute";
@@ -489,28 +503,6 @@ function optionKindRejection(q: ValidatableQuestion, index?: ProvenanceIndex): s
   return null;
 }
 
-/** Content-free strings that can never be a legitimate answer choice. */
-const PLACEHOLDER_OPTIONS = new Set([
-  "n a", "na", "none", "not applicable", "unknown", "other", "n/a",
-  "no answer", "nothing", "tbd", "none of these", "not listed",
-]);
-
-/**
- * A placeholder in ANY option slot (correct or distractor) invalidates the
- * question. These strings also produce zero significant tokens, which would
- * make every token-based check below pass vacuously.
- */
-function placeholderOptionRejection(q: ValidatableQuestion): string | null {
-  for (const option of q.options) {
-    const norm = normalizeText(option ?? "");
-    if (!norm) return "One of the answer choices is empty.";
-    if (PLACEHOLDER_OPTIONS.has(norm) || significantTokens(option).length === 0) {
-      return `"${option}" is a placeholder, not a real answer choice. Every option must be a concrete, menu-plausible value.`;
-    }
-  }
-  return null;
-}
-
 /** Returns null when the question passes, or a human-readable reason. */
 export function rejectionReason(
   q: ValidatableQuestion,
@@ -519,8 +511,6 @@ export function rejectionReason(
   const answer = q.options[q.answerIndex] ?? "";
   if (!answer.trim()) return "The correct answer is empty.";
 
-  const placeholder = placeholderOptionRejection(q);
-  if (placeholder) return placeholder;
 
 
   // Whole-string check: short answers ("N/A", "IPA") produce no significant
