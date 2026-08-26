@@ -101,7 +101,12 @@ const VARIETALS = new Set([
   "grenache", "sangiovese", "tempranillo", "chianti", "gewurztraminer",
   "viognier", "albarino", "nebbiolo", "barbera", "montepulciano",
   "chenin blanc", "vermentino", "primitivo", "cava", "champagne", "verdejo",
+  // Non-grape wine designations that menus ask about the same way.
+  "super tuscan", "chianti classico", "barolo", "barbaresco", "brunello",
+  "valpolicella", "amarone", "rioja", "bordeaux", "burgundy", "port",
+  "sancerre", "chablis", "soave",
 ]);
+
 
 const BEER_STYLES = new Set([
   "lager", "light lager", "pilsner", "ipa", "india pale ale", "pale ale",
