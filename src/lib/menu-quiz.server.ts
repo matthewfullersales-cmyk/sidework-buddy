@@ -801,7 +801,16 @@ export async function runGenerateMenuQuiz(data: {
   if (conflictPass.questions.length === 0) {
     return { ok: false, error: "Every generated question failed quality checks. Try a clearer menu scan and regenerate." };
   }
-  const bank = capSectionQuestions(shuffled(conflictPass.questions), index).slice(0, MAX_BANK_QUESTIONS);
+  const capPass = capSectionQuestions(shuffled(conflictPass.questions), index);
+  const bank = capPass.questions.slice(0, MAX_BANK_QUESTIONS);
+  const droppedBySectionCap = conflictPass.questions.length - bank.length;
+  const cappedSections = Object.entries(capPass.cappedBySection);
+  if (cappedSections.length > 0) {
+    console.info(
+      "[menu-quiz] section-cap removals",
+      cappedSections.map(([section, count]) => `${count}x ${section}`),
+    );
+  }
   const diagnostics = {
     itemsExtracted: items.length,
     candidatesSelected: candidates.length,
@@ -809,6 +818,7 @@ export async function runGenerateMenuQuiz(data: {
     rejectedByQuality: rejectedCount,
     repairedOnRetry,
     droppedAsConflicting: conflictPass.droppedCount,
+    droppedBySectionCap,
     lostToFailedBatches,
     finalBankSize: bank.length,
   };
@@ -816,10 +826,12 @@ export async function runGenerateMenuQuiz(data: {
     diagnostics.questionsReturned -
     diagnostics.rejectedByQuality -
     diagnostics.droppedAsConflicting -
+    diagnostics.droppedBySectionCap -
     diagnostics.lostToFailedBatches;
   if (expected !== diagnostics.finalBankSize) {
     console.warn("[menu-quiz] diagnostics identity does not hold", { expected, ...diagnostics });
   }
+
   console.info("[menu-quiz] generation diagnostics", diagnostics);
 
 
