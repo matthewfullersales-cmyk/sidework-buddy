@@ -155,6 +155,7 @@ export function classifyOption(option: string, index?: ProvenanceIndex): OptionK
 
 
 export type QuestionType = "identify_item" | "identify_attribute";
+export type FactSource = "menu" | "general_beverage_knowledge";
 
 export type ValidatableQuestion = {
   question: string;
@@ -164,6 +165,8 @@ export type ValidatableQuestion = {
   /** "identify_attribute" stems are REQUIRED to name the item, so the
    *  item-name-in-stem check is skipped for them. */
   questionType?: QuestionType;
+  /** Provenance of the correct answer. Defaults to "menu" when absent. */
+  factSource?: FactSource;
 };
 
 export type Rejection = { index: number; reason: string };
@@ -460,6 +463,56 @@ export function intraItemIngredientAmbiguityRejection(
   return `Ambiguous: ${joined} ${verb} of this dish, so this question has more than one correct answer.`;
 }
 
+/** Is the correct answer derivable from the source item's own printed record? */
+export function answerDerivableFromItem(
+  answer: string,
+  itemKey: string,
+  index: ProvenanceIndex,
+): boolean {
+  const vocab = index.vocabByItem.get(itemKey);
+  if (!vocab) return false;
+  const tokens = significantTokens(answer);
+  if (tokens.length > 0) return tokens.every((t) => nearMatchIn(t, vocab));
+  const norm = normalizeText(answer);
+  if (!norm) return false;
+  const haystack = ` ${itemKey} ${index.sectionByItem.get(itemKey) ?? ""} ${
+    index.recordTextByItem.get(itemKey) ?? ""
+  } ${(index.ingredientsByItem.get(itemKey) ?? []).map((i) => normalizeText(i)).join(" ")} `;
+  return haystack.includes(` ${norm} `);
+}
+
+/**
+ * Provenance tagging enforcement.
+ *
+ * General knowledge is allowed ONLY for branded beverages: a lager is a lager
+ * everywhere on earth, but a dish's recipe is specific to this kitchen. A
+ * question claiming "menu" provenance whose answer is nowhere in the item's own
+ * record is a silent backfill wearing the wrong label.
+ */
+export function factSourceRejection(
+  q: ValidatableQuestion,
+  index: ProvenanceIndex,
+): string | null {
+  const itemKey = normalizeText(q.sourceItem ?? "");
+  if (!itemKey) return null;
+  if (!index.vocabByItem.has(itemKey)) return null;
+  const answer = q.options[q.answerIndex] ?? "";
+  const factSource: FactSource = q.factSource ?? "menu";
+
+  if (factSource === "general_beverage_knowledge") {
+    const menuType = index.menuTypeByItem.get(itemKey) ?? "";
+    if (menuType && menuType !== "drink") {
+      return `General knowledge is only allowed for branded beverages, but "${q.sourceItem}" is a ${menuType} item. Every food and dessert question must be answerable from the item's own printed record.`;
+    }
+    return null;
+  }
+
+  if (!answerDerivableFromItem(answer, itemKey, index)) {
+    return `Tagged as menu-derived, but "${answer}" is nowhere in the printed record for "${q.sourceItem}". Either ask about something the menu prints, or tag it as general beverage knowledge (branded drinks only).`;
+  }
+  return null;
+}
+
 function sectionOnlyRejection(q: ValidatableQuestion, index: ProvenanceIndex): string | null {
 
   const itemKey = normalizeText(q.sourceItem ?? "");
@@ -570,6 +623,8 @@ export function rejectionReason(
     if (attributeAmbiguity) return attributeAmbiguity;
     const intraItem = intraItemIngredientAmbiguityRejection(q, index);
     if (intraItem) return intraItem;
+    const factIssue = factSourceRejection(q, index);
+    if (factIssue) return factIssue;
 
     // Don't trust the model's self-declared question_type: derive the effective
     // type from the shape of the correct answer. If the answer is a known menu
