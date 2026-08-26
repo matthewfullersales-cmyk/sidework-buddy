@@ -174,7 +174,12 @@ export type ProvenanceIndex = {
   sectionByItem: Map<string, string>;
   /** normalized item name -> menu type */
   menuTypeByItem: Map<string, string>;
+  /** normalized item name -> its own printed ingredient strings */
+  ingredientsByItem: Map<string, string[]>;
+  /** normalized item name -> normalized preparation + description text */
+  recordTextByItem: Map<string, string>;
 };
+
 
 /**
  * Words a stem may use to frame a question without them being claims about the
