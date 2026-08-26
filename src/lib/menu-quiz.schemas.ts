@@ -90,6 +90,7 @@ export type GenerationDiagnostics = {
   repairedOnRetry?: number;
 
   droppedAsConflicting: number;
+  droppedBySectionCap?: number;
   lostToFailedBatches: number;
   finalBankSize: number;
 };
