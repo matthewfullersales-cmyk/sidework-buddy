@@ -101,6 +101,7 @@ export type GenerationDiagnostics = {
   rejectedByQuality: number;
   repairedOnRetry?: number;
 
+  generalKnowledgeQuestions?: number;
   droppedAsConflicting: number;
   droppedBySectionCap?: number;
   lostToFailedBatches: number;
