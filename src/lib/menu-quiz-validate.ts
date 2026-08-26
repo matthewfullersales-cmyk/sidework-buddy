@@ -11,7 +11,7 @@ export const STOP_WORDS = new Set([
   "the", "a", "an", "with", "and", "or", "of", "in", "on", "for", "to", "is",
   "are", "which", "what", "contains", "includes", "served", "side", "dish",
   "item", "menu", "this", "thi", "that", "these", "those", "guest", "order",
-  "orders", "asking", "ask",
+  "orders", "asking", "ask", "they", "them", "their", "you", "your",
 ]);
 
 /** lowercase, strip punctuation, collapse whitespace */
