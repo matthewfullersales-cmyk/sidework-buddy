@@ -87,6 +87,8 @@ export type GenerationDiagnostics = {
   candidatesSelected: number;
   questionsReturned: number;
   rejectedByQuality: number;
+  repairedOnRetry?: number;
+
   droppedAsConflicting: number;
   lostToFailedBatches: number;
   finalBankSize: number;
