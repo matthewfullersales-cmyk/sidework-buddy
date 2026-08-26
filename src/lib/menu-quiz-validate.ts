@@ -115,6 +115,16 @@ const BEER_STYLES = new Set([
   "double ipa", "hazy ipa", "kolsch", "bock",
 ]);
 
+/**
+ * Alcohol-content designations. "N/A" on a beer list means NON-ALCOHOLIC — a
+ * real, testable product fact — but it is NOT a beer style, so it must never
+ * be mixed into a set of style options.
+ */
+const ALCOHOL_CONTENT = new Set([
+  "n a", "na", "nonalcoholic", "non alcoholic", "alcohol free", "alcoholfree",
+  "zero proof", "zeroproof", "booze free", "boozefree", "no alcohol",
+]);
+
 const ATTRIBUTE_VALUES = {
   wine_color: WINE_COLORS,
   varietal: VARIETALS,
@@ -122,22 +132,26 @@ const ATTRIBUTE_VALUES = {
 } as const;
 
 export type OptionKind =
-  | "item" | "section" | "wine_color" | "varietal" | "beer_style" | "ingredient" | "other";
+  | "item" | "section" | "wine_color" | "varietal" | "beer_style"
+  | "alcohol_content" | "ingredient" | "other";
 
 export function classifyOption(option: string, index?: ProvenanceIndex): OptionKind {
   const n = normalizeText(option);
   if (!n) return "other";
+  // A printed menu item wins: an item literally named "Beck's N/A" is an item.
+  if (index?.vocabByItem.has(n)) return "item";
+  if (ALCOHOL_CONTENT.has(n)) return "alcohol_content";
   if (WINE_COLORS.has(n)) return "wine_color";
   if (VARIETALS.has(n)) return "varietal";
   if (BEER_STYLES.has(n)) return "beer_style";
   if (index) {
-    if (index.vocabByItem.has(n)) return "item";
     if (index.sectionKeys?.has(n)) return "section";
     const toks = significantTokens(option);
     if (toks.length > 0 && toks.every((t) => index.ownersByToken.has(t))) return "ingredient";
   }
   return "other";
 }
+
 
 
 export type QuestionType = "identify_item" | "identify_attribute";
