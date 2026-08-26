@@ -736,8 +736,12 @@ export async function runGenerateMenuQuiz(data: {
   }
 
   const { passed, rejected } = partitionQuestions(produced, index);
-  let rejectedCount = rejected.length;
+  const firstPassRejected = rejected.length;
+  let repairedOnRetry = 0;
   const final = [...passed];
+
+  const reasonCounts = new Map<string, number>();
+  for (const r of rejected) reasonCounts.set(r.reason, (reasonCounts.get(r.reason) ?? 0) + 1);
 
   if (rejected.length > 0) {
     console.warn(`[menu-quiz] validator rejected ${rejected.length}/${produced.length} questions on first pass`);
@@ -764,10 +768,19 @@ export async function runGenerateMenuQuiz(data: {
       );
       const retried = retryResults.flatMap((r) => (r.ok ? r.questions.map((q) => retagFromRecord(q, byName)) : []));
       const { passed: retryPassed, rejected: retryRejected } = partitionQuestions(retried, index);
-      rejectedCount += retryRejected.length;
+      for (const r of retryRejected) reasonCounts.set(r.reason, (reasonCounts.get(r.reason) ?? 0) + 1);
+      // A retry question only "repairs" a first-pass failure; extra passes beyond
+      // the number of failures are still net-new questions in the bank.
+      repairedOnRetry = Math.min(retryPassed.length, firstPassRejected);
       final.push(...retryPassed);
     }
   }
+
+  // Questions ultimately discarded by quality checks (failures that were never repaired).
+  const rejectedCount = firstPassRejected - repairedOnRetry;
+  const topReasons = [...reasonCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+  console.info("[menu-quiz] top rejection reasons", topReasons.map(([reason, count]) => `${count}x ${reason}`));
+
 
   if (final.length === 0) {
     return { ok: false, error: "Every generated question failed quality checks. Try a clearer menu scan and regenerate." };
