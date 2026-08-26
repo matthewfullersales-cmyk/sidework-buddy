@@ -370,27 +370,43 @@ function attributeAmbiguityRejection(q: ValidatableQuestion, index: ProvenanceIn
   );
   if (subjectTokens.length < 1) return null;
 
-  const values = new Map<string, string>();
+  // Fail safe: when the subject names 2+ distinct menu items, every one of
+  // them must resolve to the SAME attribute value. An item that resolves to no
+  // recognized value is NOT evidence of safety — it is an unresolved answer.
+  const matched: { label: string; values: string[] }[] = [];
   for (const [itemName, printedName] of index.labelByItem) {
     const nameTokens = significantTokens(itemName);
     if (!subjectTokens.every((subject) => nameTokens.some((nameToken) => nearMatch(subject, nameToken)))) continue;
     const section = index.sectionByItem.get(itemName) ?? "";
-    for (const value of attributeValuesIn(`${itemName} ${section}`, kind)) {
-      values.set(normalizeText(value), value);
-    }
+    matched.push({ label: printedName, values: attributeValuesIn(`${itemName} ${section}`, kind) });
   }
-  if (values.size < 2) return null;
+  if (matched.length < 2) return null;
 
-  const printedValues = [...values.values()].map((value) =>
+  const label = subjectLabel(q, answer) || q.sourceItem || "This subject";
+  const resolved = new Set<string>();
+  let unresolved = false;
+  for (const m of matched) {
+    if (m.values.length === 0) unresolved = true;
+    for (const value of m.values) resolved.add(normalizeText(value));
+  }
+  if (resolved.size <= 1 && !unresolved) return null;
+
+  if (unresolved && resolved.size <= 1) {
+    return `Ambiguous: "${label}" appears on this menu on ${matched.length} different items (${matched
+      .map((m) => m.label)
+      .join(", ")}), and their values cannot be resolved to a single answer.`;
+  }
+
+  const printedValues = [...resolved].map((value) =>
     value.replace(/\b\w/g, (letter) => letter.toUpperCase()),
   );
-  const label = subjectLabel(q, answer) || q.sourceItem || "This subject";
   const last = printedValues.pop() ?? "";
   const joined = printedValues.length === 1
     ? `${printedValues[0]}" and "${last}`
     : `${printedValues.join('", "')}" and "${last}`;
   return `Ambiguous: "${label}" appears on this menu as both "${joined}", so this question has more than one correct answer.`;
 }
+
 
 /**
  * A distractor that is itself an ingredient of the SAME dish is equally correct.
