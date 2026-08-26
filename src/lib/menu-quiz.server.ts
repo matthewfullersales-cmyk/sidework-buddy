@@ -457,7 +457,9 @@ const QUALITY_RULES = `Rules:
 - BANNED SHAPE (no matter which question_type you assign): a question whose correct answer is a MENU ITEM NAME and whose only qualifier is the section, menu type, or format (bottled / draft / on the list / from the wine list). Labeling it "identify_attribute" does not make it valid. BAD: "Which brand of bottled beer is served?" / "Which brand is served from the BOTTLED BEER section?" — every listed beer is a correct answer. For sections that print no descriptions (bottled beer, draft lists, wine lists), use the REVERSE direction: name the item and ask for its style, brand, or varietal — e.g. "SOUTHERN TIER is what style of beverage?" -> "IPA", "FAT TIRE is a brand of which style?" -> "Amber Ale".
 - ANSWERABILITY: for "identify_item", the three distractors must NOT satisfy the condition in the stem. If the stem's qualifier is true of a distractor too, the question is wrong — add the specific detail that only the correct item has, or skip.
 - ONE SUBJECT, ONE ANSWER: before writing an attribute question about a producer, winery, or brewery, scan the whole record for other items from that same producer or brand. If it appears more than once with different varietals or styles, you CANNOT ask "X is a producer of which varietal?" because more than one answer is true. Either ask about the full printed item name (only if the answer is not already contained in that name) or SKIP the item. Apply the same rule to breweries with multiple styles on the list.
+- NEVER draw a distractor from the source item's own ingredient list. If you ask which ingredient is prepared a certain way, the three wrong answers must be ingredients that do NOT appear anywhere in that item's own printed description. Drawing distractors from the same dish guarantees multiple correct answers. Pull distractors from other items on the menu, or skip the question.
 - UNIQUENESS SELF-CHECK (mandatory): before returning any "identify_item" question, re-read the record for each of the three distractors and confirm that NONE of them also satisfies the stem. If any distractor is also a truthful answer, either add the detail that only the correct item has, or drop the question entirely.
+
 - PRINTED RELATIONSHIPS ARE PART OF THE FACT: when the description states an ingredient's relationship to the dish (served over / topped with / stuffed with / tossed in / on the side / drizzled with), the stem MUST use that exact printed relationship. Never substitute a different preposition or verb — "served over marinara" and "topped with marinara" are different claims and must not be swapped.
 - SAME-KIND OPTIONS: all four choices must be the same kind of thing. Wine colors/styles with wine colors/styles (red / white / rosé / sparkling), varietals with varietals, producers with producers, section names with section names, ingredients with ingredients, menu items with menu items. BAD: correct answer "Red" with distractors Pinot Grigio, Chardonnay, Rosé.
 - NO INVENTED ATTRIBUTES: every descriptive word in the stem must literally appear in that item's record (name, section, ingredients, preparation). If the menu does not print "light lager" or "Neapolitan", you may not write it.
@@ -734,8 +736,12 @@ export async function runGenerateMenuQuiz(data: {
   }
 
   const { passed, rejected } = partitionQuestions(produced, index);
-  let rejectedCount = rejected.length;
+  const firstPassRejected = rejected.length;
+  let repairedOnRetry = 0;
   const final = [...passed];
+
+  const reasonCounts = new Map<string, number>();
+  for (const r of rejected) reasonCounts.set(r.reason, (reasonCounts.get(r.reason) ?? 0) + 1);
 
   if (rejected.length > 0) {
     console.warn(`[menu-quiz] validator rejected ${rejected.length}/${produced.length} questions on first pass`);
@@ -762,10 +768,19 @@ export async function runGenerateMenuQuiz(data: {
       );
       const retried = retryResults.flatMap((r) => (r.ok ? r.questions.map((q) => retagFromRecord(q, byName)) : []));
       const { passed: retryPassed, rejected: retryRejected } = partitionQuestions(retried, index);
-      rejectedCount += retryRejected.length;
+      for (const r of retryRejected) reasonCounts.set(r.reason, (reasonCounts.get(r.reason) ?? 0) + 1);
+      // A retry question only "repairs" a first-pass failure; extra passes beyond
+      // the number of failures are still net-new questions in the bank.
+      repairedOnRetry = Math.min(retryPassed.length, firstPassRejected);
       final.push(...retryPassed);
     }
   }
+
+  // Questions ultimately discarded by quality checks (failures that were never repaired).
+  const rejectedCount = firstPassRejected - repairedOnRetry;
+  const topReasons = [...reasonCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+  console.info("[menu-quiz] top rejection reasons", topReasons.map(([reason, count]) => `${count}x ${reason}`));
+
 
   if (final.length === 0) {
     return { ok: false, error: "Every generated question failed quality checks. Try a clearer menu scan and regenerate." };
@@ -787,11 +802,21 @@ export async function runGenerateMenuQuiz(data: {
     candidatesSelected: candidates.length,
     questionsReturned: produced.length,
     rejectedByQuality: rejectedCount,
+    repairedOnRetry,
     droppedAsConflicting: conflictPass.droppedCount,
     lostToFailedBatches,
     finalBankSize: bank.length,
   };
+  const expected =
+    diagnostics.questionsReturned -
+    diagnostics.rejectedByQuality -
+    diagnostics.droppedAsConflicting -
+    diagnostics.lostToFailedBatches;
+  if (expected !== diagnostics.finalBankSize) {
+    console.warn("[menu-quiz] diagnostics identity does not hold", { expected, ...diagnostics });
+  }
   console.info("[menu-quiz] generation diagnostics", diagnostics);
+
 
   return {
     ok: true,

@@ -174,7 +174,12 @@ export type ProvenanceIndex = {
   sectionByItem: Map<string, string>;
   /** normalized item name -> menu type */
   menuTypeByItem: Map<string, string>;
+  /** normalized item name -> its own printed ingredient strings */
+  ingredientsByItem: Map<string, string[]>;
+  /** normalized item name -> normalized preparation + description text */
+  recordTextByItem: Map<string, string>;
 };
+
 
 /**
  * Words a stem may use to frame a question without them being claims about the
@@ -212,6 +217,8 @@ export function buildProvenanceIndex(items: ProvenanceItem[]): ProvenanceIndex {
   const sectionTokens = new Set<string>();
   const sectionByItem = new Map<string, string>();
   const menuTypeByItem = new Map<string, string>();
+  const ingredientsByItem = new Map<string, string[]>();
+  const recordTextByItem = new Map<string, string>();
 
   for (const item of items) {
     const key = normalizeText(item.name);
@@ -229,6 +236,14 @@ export function buildProvenanceIndex(items: ProvenanceItem[]): ProvenanceIndex {
     }
     if (item.menuType) menuTypeByItem.set(key, item.menuType);
 
+    const priorIngredients = ingredientsByItem.get(key) ?? [];
+    ingredientsByItem.set(key, [...priorIngredients, ...(item.ingredients ?? [])]);
+    const priorText = recordTextByItem.get(key) ?? "";
+    recordTextByItem.set(
+      key,
+      `${priorText} ${normalizeText(`${item.preparation ?? ""} ${item.description ?? ""}`)}`.trim(),
+    );
+
     for (const ing of item.ingredients ?? []) {
       for (const t of significantTokens(ing)) {
         const owners = ownersByToken.get(t) ?? new Set<string>();
@@ -237,8 +252,19 @@ export function buildProvenanceIndex(items: ProvenanceItem[]): ProvenanceIndex {
       }
     }
   }
-  return { vocabByItem, ownersByToken, labelByItem, sectionKeys, sectionTokens, sectionByItem, menuTypeByItem };
+  return {
+    vocabByItem,
+    ownersByToken,
+    labelByItem,
+    sectionKeys,
+    sectionTokens,
+    sectionByItem,
+    menuTypeByItem,
+    ingredientsByItem,
+    recordTextByItem,
+  };
 }
+
 
 /**
  * Provenance: EVERY descriptive term in the stem must appear in the question's
@@ -361,7 +387,46 @@ function attributeAmbiguityRejection(q: ValidatableQuestion, index: ProvenanceIn
   return `Ambiguous: "${label}" appears on this menu as both "${joined}", so this question has more than one correct answer.`;
 }
 
+/**
+ * A distractor that is itself an ingredient of the SAME dish is equally correct.
+ * Only applies when the correct answer is an ingredient.
+ */
+export function intraItemIngredientAmbiguityRejection(
+  q: ValidatableQuestion,
+  index: ProvenanceIndex,
+): string | null {
+  const answer = q.options[q.answerIndex] ?? "";
+  if (classifyOption(answer, index) !== "ingredient") return null;
+
+  const itemKey = normalizeText(q.sourceItem ?? "");
+  if (!itemKey) return null;
+  const ownIngredients = (index.ingredientsByItem.get(itemKey) ?? []).map((i) => normalizeText(i));
+  const ownText = index.recordTextByItem.get(itemKey) ?? "";
+  if (ownIngredients.length === 0 && !ownText) return null;
+
+  const offenders: string[] = [];
+  for (let i = 0; i < q.options.length; i++) {
+    if (i === q.answerIndex) continue;
+    const option = q.options[i] ?? "";
+    const norm = normalizeText(option);
+    if (!norm) continue;
+    const tokens = significantTokens(option);
+    const matchesIngredient = ownIngredients.some(
+      (ing) => nearMatch(ing, norm) || (tokens.length > 0 && tokens.every((t) => nearMatchIn(t, significantTokens(ing)))),
+    );
+    const inText = ownText ? tokens.length > 0 && tokens.every((t) => nearMatchIn(t, significantTokens(ownText))) : false;
+    if (matchesIngredient || inText) offenders.push(option);
+  }
+  if (offenders.length === 0) return null;
+
+  const last = offenders.pop() ?? "";
+  const joined = offenders.length === 0 ? `"${last}"` : `"${offenders.join('", "')}" and "${last}"`;
+  const verb = offenders.length === 0 ? "is also an ingredient" : "are also ingredients";
+  return `Ambiguous: ${joined} ${verb} of this dish, so this question has more than one correct answer.`;
+}
+
 function sectionOnlyRejection(q: ValidatableQuestion, index: ProvenanceIndex): string | null {
+
   const itemKey = normalizeText(q.sourceItem ?? "");
   const ownVocab = index.vocabByItem.get(itemKey);
   if (!ownVocab) return null;
@@ -466,6 +531,9 @@ export function rejectionReason(
     if (prov) return prov;
     const attributeAmbiguity = attributeAmbiguityRejection(q, index);
     if (attributeAmbiguity) return attributeAmbiguity;
+    const intraItem = intraItemIngredientAmbiguityRejection(q, index);
+    if (intraItem) return intraItem;
+
     // Don't trust the model's self-declared question_type: derive the effective
     // type from the shape of the correct answer. If the answer is a known menu
     // item name, this is an identify_item question no matter what it claims.
