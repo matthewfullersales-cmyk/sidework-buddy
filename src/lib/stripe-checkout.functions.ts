@@ -16,9 +16,9 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
     }) => {
       if (!input.origin || !/^https?:\/\//.test(input.origin))
         throw new Error("Invalid origin");
-      if (!input.plan || !(input.plan in PLAN_PRICE_IDS))
+      if (input.plan !== "growth")
         throw new Error(
-          `Invalid plan: expected "starter" or "growth", got "${String(input.plan)}"`,
+          `Invalid plan: expected "growth", got "${String(input.plan)}"`,
         );
       return input;
     },
@@ -34,7 +34,7 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
 
     const body = new URLSearchParams({
       mode: "subscription",
-      "line_items[0][price]": PLAN_PRICE_IDS[data.plan],
+      "line_items[0][price]": FOUNDING_PRICE_ID,
       "line_items[0][quantity]": "1",
       success_url: `${data.origin}/onboarding?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${data.origin}/pricing`,
