@@ -645,9 +645,10 @@ async function generateBatchWithRetry(
 function capSectionQuestions(
   questions: MenuQuizDraftQuestion[],
   index: ProvenanceIndex,
-): MenuQuizDraftQuestion[] {
+): { questions: MenuQuizDraftQuestion[]; cappedBySection: Record<string, number> } {
   const cap = Math.max(1, Math.floor(questions.length * 0.1));
   const usedSections = new Set<string>();
+  const cappedBySection: Record<string, number> = {};
   let kept = 0;
   const out: MenuQuizDraftQuestion[] = [];
   for (const q of questions) {
@@ -656,13 +657,17 @@ function capSectionQuestions(
       continue;
     }
     const sec = normalizeText(q.options[q.answerIndex] ?? "");
-    if (kept >= cap || usedSections.has(sec)) continue;
+    if (kept >= cap || usedSections.has(sec)) {
+      cappedBySection[sec || "(unknown section)"] = (cappedBySection[sec || "(unknown section)"] ?? 0) + 1;
+      continue;
+    }
     usedSections.add(sec);
     kept += 1;
     out.push(q);
   }
-  return out;
+  return { questions: out, cappedBySection };
 }
+
 
 export function dropConflictingStemQuestions<T extends MenuQuizDraftQuestion>(questions: T[]): {
   questions: T[];
