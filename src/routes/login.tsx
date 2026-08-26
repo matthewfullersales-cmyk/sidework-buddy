@@ -11,13 +11,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { createCheckoutSession } from "@/lib/stripe-checkout.functions";
 import { toast } from "sonner";
 
-type PlanParam = "starter" | "growth";
+type PlanParam = "growth";
 
 export const Route = createFileRoute("/login")({
   ssr: false,
   validateSearch: (search: Record<string, unknown>): { plan?: PlanParam } => {
     const plan = search['plan'];
-    return plan === "starter" || plan === "growth" ? { plan } : {};
+    return plan === "growth" || plan === "starter" ? { plan: "growth" } : {};
   },
   head: () => ({ meta: [{ title: "Sign in — 86Paper" }] }),
   component: LoginPage,
