@@ -10,7 +10,8 @@
 export const STOP_WORDS = new Set([
   "the", "a", "an", "with", "and", "or", "of", "in", "on", "for", "to", "is",
   "are", "which", "what", "contains", "includes", "served", "side", "dish",
-  "item", "menu",
+  "item", "menu", "this", "thi", "that", "these", "those", "guest", "order",
+  "orders", "asking", "ask", "they", "them", "their", "you", "your",
 ]);
 
 /** lowercase, strip punctuation, collapse whitespace */
@@ -556,6 +557,20 @@ function optionKindRejection(q: ValidatableQuestion, index?: ProvenanceIndex): s
   return null;
 }
 
+/**
+ * Tokens belonging to the leading possessive ("vanity") part of an item name —
+ * "BOB & LOUANN'S HOMEMADE TIRAMISU" -> ["bob", "louann"]. Empty when the name
+ * has no leading possessive.
+ */
+export function vanityPrefixTokens(itemName: string): string[] {
+  const raw = itemName.trim();
+  if (!raw) return [];
+  const parts = raw.split(/\s+/);
+  const end = parts.findIndex((w) => /['\u2019]s[.,]?$/i.test(w) || /s['\u2019][.,]?$/i.test(w));
+  if (end < 0 || end > 4) return [];
+  return significantTokens(parts.slice(0, end + 1).join(" "));
+}
+
 /** Returns null when the question passes, or a human-readable reason. */
 export function rejectionReason(
   q: ValidatableQuestion,
@@ -573,9 +588,18 @@ export function rejectionReason(
     return `The stem contains the correct answer verbatim ("${answer}"). Strip the answer out of the stem, or ask about a different attribute of the item.`;
   }
 
+  // Vanity-name allowance: menus that name dishes after people ("BOB & LOUANN'S
+  // HOMEMADE TIRAMISU") support a legitimate question — "which dessert is 'Bob &
+  // LouAnn's'?" — whose stem must quote the proprietary part of the answer.
+  // Those tokens are exempt from the self-answering checks; every other token is
+  // still enforced exactly as before.
+  const vanityTokens = new Set(vanityPrefixTokens(q.sourceItem ?? ""));
+
   const stemTokens = [...new Set(significantTokens(q.question))];
   const answerTokens = significantTokens(answer);
-  const overlap = answerTokens.filter((t) => stemTokens.some((s) => nearMatch(s, t)));
+  const overlap = answerTokens.filter(
+    (t) => !vanityTokens.has(t) && stemTokens.some((s) => nearMatch(s, t)),
+  );
   if (overlap.length > 0) {
     return `The stem repeats (or near-repeats) word(s) from the correct answer: ${[...new Set(overlap)].join(", ")}. Strip the answer term out of the stem, or ask about a different attribute of the item.`;
   }
@@ -590,12 +614,16 @@ export function rejectionReason(
       return `The stem names the menu item it is asking about ("${item}").`;
     }
     for (let i = 0; i + 1 < itemWords.length; i++) {
-      const pair = `${itemWords[i]} ${itemWords[i + 1]}`;
+      const a = itemWords[i];
+      const b = itemWords[i + 1];
+      if (vanityTokens.has(a) && vanityTokens.has(b)) continue;
+      const pair = `${a} ${b}`;
       if (stemJoined.includes(` ${pair} `)) {
         return `The stem repeats two consecutive words from the item name ("${pair}").`;
       }
     }
   }
+
 
   // Distractor sanity: no "all/none of the above", no duplicate/empty options.
   const banned = ["all of the above", "none of the above"];
