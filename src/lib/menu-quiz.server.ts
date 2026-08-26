@@ -802,11 +802,21 @@ export async function runGenerateMenuQuiz(data: {
     candidatesSelected: candidates.length,
     questionsReturned: produced.length,
     rejectedByQuality: rejectedCount,
+    repairedOnRetry,
     droppedAsConflicting: conflictPass.droppedCount,
     lostToFailedBatches,
     finalBankSize: bank.length,
   };
+  const expected =
+    diagnostics.questionsReturned -
+    diagnostics.rejectedByQuality -
+    diagnostics.droppedAsConflicting -
+    diagnostics.lostToFailedBatches;
+  if (expected !== diagnostics.finalBankSize) {
+    console.warn("[menu-quiz] diagnostics identity does not hold", { expected, ...diagnostics });
+  }
   console.info("[menu-quiz] generation diagnostics", diagnostics);
+
 
   return {
     ok: true,
