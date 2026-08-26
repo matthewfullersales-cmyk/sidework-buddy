@@ -217,6 +217,8 @@ export function buildProvenanceIndex(items: ProvenanceItem[]): ProvenanceIndex {
   const sectionTokens = new Set<string>();
   const sectionByItem = new Map<string, string>();
   const menuTypeByItem = new Map<string, string>();
+  const ingredientsByItem = new Map<string, string[]>();
+  const recordTextByItem = new Map<string, string>();
 
   for (const item of items) {
     const key = normalizeText(item.name);
@@ -234,6 +236,14 @@ export function buildProvenanceIndex(items: ProvenanceItem[]): ProvenanceIndex {
     }
     if (item.menuType) menuTypeByItem.set(key, item.menuType);
 
+    const priorIngredients = ingredientsByItem.get(key) ?? [];
+    ingredientsByItem.set(key, [...priorIngredients, ...(item.ingredients ?? [])]);
+    const priorText = recordTextByItem.get(key) ?? "";
+    recordTextByItem.set(
+      key,
+      `${priorText} ${normalizeText(`${item.preparation ?? ""} ${item.description ?? ""}`)}`.trim(),
+    );
+
     for (const ing of item.ingredients ?? []) {
       for (const t of significantTokens(ing)) {
         const owners = ownersByToken.get(t) ?? new Set<string>();
@@ -242,8 +252,19 @@ export function buildProvenanceIndex(items: ProvenanceItem[]): ProvenanceIndex {
       }
     }
   }
-  return { vocabByItem, ownersByToken, labelByItem, sectionKeys, sectionTokens, sectionByItem, menuTypeByItem };
+  return {
+    vocabByItem,
+    ownersByToken,
+    labelByItem,
+    sectionKeys,
+    sectionTokens,
+    sectionByItem,
+    menuTypeByItem,
+    ingredientsByItem,
+    recordTextByItem,
+  };
 }
+
 
 /**
  * Provenance: EVERY descriptive term in the stem must appear in the question's
