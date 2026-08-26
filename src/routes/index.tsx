@@ -164,7 +164,7 @@ function Marketing() {
             <FeatureCard
               icon={<GraduationCap className="h-6 w-6" />}
               title="They prove the menu before they touch a table."
-              body="AI-generated menu knowledge test on your actual menu — allergens, preparations, wine pairings. New hires pass before they hit the floor."
+              body="AI-generated menu knowledge test built from your actual menu — ingredients, preparations, and your wine and beer list. New hires prove they know it before they're eligible to be scheduled."
               tag="Testing"
             />
             <FeatureCard
