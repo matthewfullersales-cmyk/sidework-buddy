@@ -457,6 +457,7 @@ const QUALITY_RULES = `Rules:
 - BANNED SHAPE (no matter which question_type you assign): a question whose correct answer is a MENU ITEM NAME and whose only qualifier is the section, menu type, or format (bottled / draft / on the list / from the wine list). Labeling it "identify_attribute" does not make it valid. BAD: "Which brand of bottled beer is served?" / "Which brand is served from the BOTTLED BEER section?" — every listed beer is a correct answer. For sections that print no descriptions (bottled beer, draft lists, wine lists), use the REVERSE direction: name the item and ask for its style, brand, or varietal — e.g. "SOUTHERN TIER is what style of beverage?" -> "IPA", "FAT TIRE is a brand of which style?" -> "Amber Ale".
 - ANSWERABILITY: for "identify_item", the three distractors must NOT satisfy the condition in the stem. If the stem's qualifier is true of a distractor too, the question is wrong — add the specific detail that only the correct item has, or skip.
 - ONE SUBJECT, ONE ANSWER: before writing an attribute question about a producer, winery, or brewery, scan the whole record for other items from that same producer or brand. If it appears more than once with different varietals or styles, you CANNOT ask "X is a producer of which varietal?" because more than one answer is true. Either ask about the full printed item name (only if the answer is not already contained in that name) or SKIP the item. Apply the same rule to breweries with multiple styles on the list.
+- NO PLACEHOLDER OPTIONS: every one of the four choices must be a real, concrete, menu-plausible value. Never use "N/A", "None", "Unknown", "Other", or any filler as an option — not as the correct answer and not as a distractor. If you cannot write three real distractors, skip the question.
 - NEVER draw a distractor from the source item's own ingredient list. If you ask which ingredient is prepared a certain way, the three wrong answers must be ingredients that do NOT appear anywhere in that item's own printed description. Drawing distractors from the same dish guarantees multiple correct answers. Pull distractors from other items on the menu, or skip the question.
 - UNIQUENESS SELF-CHECK (mandatory): before returning any "identify_item" question, re-read the record for each of the three distractors and confirm that NONE of them also satisfies the stem. If any distractor is also a truthful answer, either add the detail that only the correct item has, or drop the question entirely.
 
@@ -645,9 +646,10 @@ async function generateBatchWithRetry(
 function capSectionQuestions(
   questions: MenuQuizDraftQuestion[],
   index: ProvenanceIndex,
-): MenuQuizDraftQuestion[] {
+): { questions: MenuQuizDraftQuestion[]; cappedBySection: Record<string, number> } {
   const cap = Math.max(1, Math.floor(questions.length * 0.1));
   const usedSections = new Set<string>();
+  const cappedBySection: Record<string, number> = {};
   let kept = 0;
   const out: MenuQuizDraftQuestion[] = [];
   for (const q of questions) {
@@ -656,13 +658,17 @@ function capSectionQuestions(
       continue;
     }
     const sec = normalizeText(q.options[q.answerIndex] ?? "");
-    if (kept >= cap || usedSections.has(sec)) continue;
+    if (kept >= cap || usedSections.has(sec)) {
+      cappedBySection[sec || "(unknown section)"] = (cappedBySection[sec || "(unknown section)"] ?? 0) + 1;
+      continue;
+    }
     usedSections.add(sec);
     kept += 1;
     out.push(q);
   }
-  return out;
+  return { questions: out, cappedBySection };
 }
+
 
 export function dropConflictingStemQuestions<T extends MenuQuizDraftQuestion>(questions: T[]): {
   questions: T[];
@@ -796,7 +802,16 @@ export async function runGenerateMenuQuiz(data: {
   if (conflictPass.questions.length === 0) {
     return { ok: false, error: "Every generated question failed quality checks. Try a clearer menu scan and regenerate." };
   }
-  const bank = capSectionQuestions(shuffled(conflictPass.questions), index).slice(0, MAX_BANK_QUESTIONS);
+  const capPass = capSectionQuestions(shuffled(conflictPass.questions), index);
+  const bank = capPass.questions.slice(0, MAX_BANK_QUESTIONS);
+  const droppedBySectionCap = conflictPass.questions.length - bank.length;
+  const cappedSections = Object.entries(capPass.cappedBySection);
+  if (cappedSections.length > 0) {
+    console.info(
+      "[menu-quiz] section-cap removals",
+      cappedSections.map(([section, count]) => `${count}x ${section}`),
+    );
+  }
   const diagnostics = {
     itemsExtracted: items.length,
     candidatesSelected: candidates.length,
@@ -804,6 +819,7 @@ export async function runGenerateMenuQuiz(data: {
     rejectedByQuality: rejectedCount,
     repairedOnRetry,
     droppedAsConflicting: conflictPass.droppedCount,
+    droppedBySectionCap,
     lostToFailedBatches,
     finalBankSize: bank.length,
   };
@@ -811,10 +827,12 @@ export async function runGenerateMenuQuiz(data: {
     diagnostics.questionsReturned -
     diagnostics.rejectedByQuality -
     diagnostics.droppedAsConflicting -
+    diagnostics.droppedBySectionCap -
     diagnostics.lostToFailedBatches;
   if (expected !== diagnostics.finalBankSize) {
     console.warn("[menu-quiz] diagnostics identity does not hold", { expected, ...diagnostics });
   }
+
   console.info("[menu-quiz] generation diagnostics", diagnostics);
 
 
