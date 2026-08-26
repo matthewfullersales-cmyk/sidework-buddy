@@ -531,6 +531,9 @@ export function rejectionReason(
     if (prov) return prov;
     const attributeAmbiguity = attributeAmbiguityRejection(q, index);
     if (attributeAmbiguity) return attributeAmbiguity;
+    const intraItem = intraItemIngredientAmbiguityRejection(q, index);
+    if (intraItem) return intraItem;
+
     // Don't trust the model's self-declared question_type: derive the effective
     // type from the shape of the correct answer. If the answer is a known menu
     // item name, this is an identify_item question no matter what it claims.
