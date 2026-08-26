@@ -396,7 +396,8 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
             <p>
               {diagnostics.itemsExtracted} items extracted · {diagnostics.candidatesSelected} candidates selected ·{" "}
               {diagnostics.questionsReturned} questions written by AI · {diagnostics.rejectedByQuality} rejected by
-              quality checks · {diagnostics.droppedAsConflicting} dropped as conflicting · {diagnostics.lostToFailedBatches} lost to failed batches ·{" "}
+              quality checks · {diagnostics.repairedOnRetry ?? 0} repaired on retry · {diagnostics.droppedAsConflicting} dropped as conflicting · {diagnostics.lostToFailedBatches} lost to failed batches ·{" "}
+
               <span className="font-medium text-foreground">{diagnostics.finalBankSize} in the final bank</span>.
             </p>
             {coverage && coverage.skippedItems > 0 && (
