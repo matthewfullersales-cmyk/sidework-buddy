@@ -556,6 +556,20 @@ function optionKindRejection(q: ValidatableQuestion, index?: ProvenanceIndex): s
   return null;
 }
 
+/**
+ * Tokens belonging to the leading possessive ("vanity") part of an item name —
+ * "BOB & LOUANN'S HOMEMADE TIRAMISU" -> ["bob", "louann"]. Empty when the name
+ * has no leading possessive.
+ */
+export function vanityPrefixTokens(itemName: string): string[] {
+  const raw = itemName.trim();
+  if (!raw) return [];
+  const parts = raw.split(/\s+/);
+  const end = parts.findIndex((w) => /['\u2019]s[.,]?$/i.test(w) || /s['\u2019][.,]?$/i.test(w));
+  if (end < 0 || end > 4) return [];
+  return significantTokens(parts.slice(0, end + 1).join(" "));
+}
+
 /** Returns null when the question passes, or a human-readable reason. */
 export function rejectionReason(
   q: ValidatableQuestion,
