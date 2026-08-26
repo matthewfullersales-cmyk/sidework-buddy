@@ -14,20 +14,20 @@ import { Button } from "@/components/ui/button";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "86Paper — 20 years of restaurant expertise. Starting at $49/month" },
+      { title: "86Paper — 20 years of restaurant expertise. $99/month founding rate" },
       {
         name: "description",
         content:
-          "Testing and screening software for independent restaurants. Menu knowledge tests, staff accountability, and hiring insight. Three plans, starting at $49/month.",
+          "Testing and screening software for independent restaurants. Menu knowledge tests, staff accountability, and hiring insight. One price — $99/month founding rate.",
       },
       {
         property: "og:title",
-        content: "86Paper — 20 years of restaurant expertise. Starting at $49/month",
+        content: "86Paper — 20 years of restaurant expertise. $99/month founding rate",
       },
       {
         property: "og:description",
         content:
-          "Testing and screening software for independent restaurants. Menu knowledge tests, staff accountability, and hiring insight. Three plans, starting at $49/month.",
+          "Testing and screening software for independent restaurants. Menu knowledge tests, staff accountability, and hiring insight. One price — $99/month founding rate.",
       },
     ],
   }),
@@ -75,10 +75,13 @@ function Marketing() {
             <h1 className="mt-6 text-5xl font-bold leading-[1.02] tracking-tight md:text-7xl">
               20 years of restaurant
               <br />
-              expertise. <span className="italic text-amber-800">Starting at $49 a month.</span>
+              expertise. <span className="italic text-amber-800">$99 a month, locked for life.</span>
             </h1>
             <p className="mt-6 max-w-2xl text-lg text-stone-700 md:text-xl">
               86Paper isn't another scheduling app. It's how you find out who your people really are — before their first shift. Menu tests they can't fake, onboarding they complete themselves, and a clear record of who did the work and who didn't.
+            </p>
+            <p className="mt-3 text-sm font-semibold text-amber-800">
+              Founding rate for the first 25 restaurants. Regular price $149/month.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link to="/pricing">
@@ -100,7 +103,7 @@ function Marketing() {
               </a>
             </div>
             <p className="mt-4 text-sm text-stone-500">
-              Three plans. No contracts. Cancel anytime.
+              One price. No contracts. Cancel anytime.
             </p>
           </div>
         </div>
@@ -194,7 +197,7 @@ function Marketing() {
         <div className="mx-auto grid max-w-6xl gap-8 px-6 py-16 text-center md:grid-cols-3">
           <Stat n="20 yrs" label="of floor experience baked in" />
           <Stat n="1 app" label="replacing 5 tools + a paper binder" />
-          <Stat n="$99" label="a month. Not per seat." />
+          <Stat n="$99" label="a month. Unlimited staff, not per seat." />
         </div>
       </section>
 

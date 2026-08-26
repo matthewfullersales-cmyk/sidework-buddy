@@ -10,13 +10,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { createCheckoutSession } from "@/lib/stripe-checkout.functions";
 import { toast } from "sonner";
 
-type PlanParam = "starter" | "growth";
+type PlanParam = "growth";
 
 export const Route = createFileRoute("/signup")({
   ssr: false,
   validateSearch: (search: Record<string, unknown>): { plan?: PlanParam } => {
     const plan = search['plan'];
-    return plan === "starter" || plan === "growth" ? { plan } : {};
+    return plan === "growth" || plan === "starter" ? { plan: "growth" } : {};
   },
   head: () => ({ meta: [{ title: "Create account — 86Paper" }] }),
   component: SignupPage,
@@ -35,7 +35,7 @@ function SignupPage() {
   const [busy, setBusy] = useState(false);
 
   const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
-  const planLabel = planParam === "starter" ? "$49/mo" : "$99/mo";
+  const planLabel = "$99/mo";
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
