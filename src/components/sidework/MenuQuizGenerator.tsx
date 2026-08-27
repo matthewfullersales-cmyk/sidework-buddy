@@ -696,14 +696,16 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
 }
 
 function MenuDropzone({
-  accept, files, onAdd, onRemove, disabled,
+  accept, files, statuses, onAdd, onRemove, disabled,
 }: {
   accept: string;
   files: PickedFile[];
+  statuses: FileStatus[];
   onAdd: (f: FileList | File[] | null) => void;
   onRemove: (idx: number) => void;
   disabled?: boolean;
 }) {
+
   const inputRef = useRef<HTMLInputElement | null>(null);
   return (
     <div>
