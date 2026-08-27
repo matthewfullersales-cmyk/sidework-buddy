@@ -38,7 +38,11 @@ import {
 import { z } from "zod";
 
 const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const MODEL = "google/gemini-2.5-flash";
+// Extraction runs ONCE per menu upload, so the stronger (pricier) model costs
+// almost nothing under the per-upload-only AI cost constraint. Generation is
+// batched across many calls and validated downstream, so it stays on Flash.
+const EXTRACTION_MODEL = "google/gemini-3.1-pro-preview";
+const GENERATION_MODEL = "google/gemini-2.5-flash";
 
 const MAX_FILE_BYTES = 20 * 1024 * 1024;
 const ACCEPTED_MIME = new Set([
@@ -121,6 +125,7 @@ function apparentOutputCeiling(length: number): number | null {
 
 async function callGateway(
   key: string,
+  model: string,
   systemPrompt: string,
   userContent: UserBlock[],
 ): Promise<RawResult> {
@@ -130,7 +135,7 @@ async function callGateway(
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
       body: JSON.stringify({
-        model: MODEL,
+        model,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userContent },
@@ -302,7 +307,7 @@ export async function runExtractMenu(data: {
     userContent.push(...fileBlocks(`Menu file ${i + 1} (${f.filename || "menu"}):`, f.filename || `menu-${i + 1}`, f));
   });
 
-  const res = await callGateway(lovableKey, EXTRACTION_PROMPT, userContent);
+  const res = await callGateway(lovableKey, EXTRACTION_MODEL, EXTRACTION_PROMPT, userContent);
   if (!res.ok) return { ok: false, error: res.error };
 
   const normalizedRoot = normalizeExtractionRoot(res.raw);
@@ -393,6 +398,12 @@ export async function runExtractMenu(data: {
   }
 
   const sections = [...new Set(items.map((i) => i.section).filter(Boolean))];
+  console.info("[menu-quiz] extraction diagnostics", {
+    model: EXTRACTION_MODEL,
+    itemsExtracted: items.length,
+    sections: sections.length,
+    skippedItems: itemFailures.length,
+  });
   return {
     ok: true,
     items,
@@ -573,6 +584,7 @@ function retagFromRecord(q: MenuQuizDraftQuestion, byName: Map<string, Extracted
 
 async function generateForBatch(
   key: string,
+  model: string,
   batch: ExtractedItem[],
   allItems: ExtractedItem[],
   restaurantName: string,
@@ -589,7 +601,7 @@ ${batch.map(itemLine).join("\n")}
 ${distractorPool(allItems)}${extraInstruction ? `\n\n${extraInstruction}` : ""}`,
     },
   ];
-  const res = await callGateway(key, GENERATION_SYSTEM, userContent);
+  const res = await callGateway(key, model, GENERATION_SYSTEM, userContent);
   if (!res.ok) return { ok: false, error: res.error };
   const shaped = modelResponseSchema.safeParse(res.raw);
   if (!shaped.success) {
@@ -638,6 +650,7 @@ async function mapWithConcurrency<T, R>(
 /** One batch, with a single retry before giving up on it. */
 async function generateBatchWithRetry(
   key: string,
+  model: string,
   batch: ExtractedItem[],
   allItems: ExtractedItem[],
   restaurantName: string,
@@ -645,7 +658,7 @@ async function generateBatchWithRetry(
 ): Promise<{ ok: true; questions: MenuQuizDraftQuestion[] } | { ok: false; error: string; lost: number }> {
   let lastError = "The AI didn't return questions for one batch.";
   for (let attempt = 0; attempt < 2; attempt++) {
-    const res = await generateForBatch(key, batch, allItems, restaurantName, extraInstruction);
+    const res = await generateForBatch(key, model, batch, allItems, restaurantName, extraInstruction);
     if (res.ok) return res;
     lastError = res.error;
     console.warn(`[menu-quiz] batch attempt ${attempt + 1} failed: ${res.error}`);
@@ -735,7 +748,7 @@ export async function runGenerateMenuQuiz(data: {
   }
 
   const results = await mapWithConcurrency(batches, BATCH_CONCURRENCY, (b) =>
-    generateBatchWithRetry(lovableKey, b, items, restaurantName),
+    generateBatchWithRetry(lovableKey, GENERATION_MODEL, b, items, restaurantName),
   );
   const produced: MenuQuizDraftQuestion[] = [];
   let lastError: string | null = null;
@@ -781,6 +794,7 @@ export async function runGenerateMenuQuiz(data: {
       const retryResults = await mapWithConcurrency(retryBatches, BATCH_CONCURRENCY, (b) =>
         generateBatchWithRetry(
           lovableKey,
+          GENERATION_MODEL,
           b,
           items,
           restaurantName,
@@ -853,7 +867,7 @@ export async function runGenerateMenuQuiz(data: {
     console.warn("[menu-quiz] diagnostics identity does not hold", { expected, ...diagnostics });
   }
 
-  console.info("[menu-quiz] generation diagnostics", diagnostics);
+  console.info("[menu-quiz] generation diagnostics", { model: GENERATION_MODEL, ...diagnostics });
 
 
   return {
@@ -884,6 +898,7 @@ export async function runRegenerateOne(data: {
   for (let attempt = 0; attempt < 2; attempt++) {
     const res = await generateForBatch(
       lovableKey,
+      GENERATION_MODEL,
       [rec],
       [rec],
       data.restaurantName ?? "",
