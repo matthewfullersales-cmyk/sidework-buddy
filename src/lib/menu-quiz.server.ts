@@ -838,6 +838,10 @@ export async function runGenerateMenuQuiz(data: {
     droppedBySectionCap,
     lostToFailedBatches,
     finalBankSize: bank.length,
+    topRejectionReasons: topReasons.map(([reason, count]) => ({
+      reason: reason.slice(0, 200),
+      count,
+    })),
   };
   const expected =
     diagnostics.questionsReturned -
