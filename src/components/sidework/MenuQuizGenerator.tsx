@@ -748,6 +748,25 @@ function MenuDropzone({
               )}
               <p className="mt-2 truncate text-sm font-medium">{f.file.name}</p>
               <p className="text-[11px] text-muted-foreground">{(f.file.size / 1024 / 1024).toFixed(2)} MB</p>
+              {statuses[i] && (
+                <p
+                  className={
+                    "mt-1 text-[11px] font-medium " +
+                    (statuses[i]!.status === "failed"
+                      ? "text-destructive"
+                      : statuses[i]!.status === "read"
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : "text-muted-foreground")
+                  }
+                >
+                  {statuses[i]!.status === "queued" && "Waiting"}
+                  {statuses[i]!.status === "reading" && "Reading…"}
+                  {statuses[i]!.status === "read" &&
+                    `Read · ${statuses[i]!.itemCount ?? 0} ${statuses[i]!.itemCount === 1 ? "item" : "items"}`}
+                  {statuses[i]!.status === "failed" && "Couldn't be read"}
+                </p>
+              )}
+
               <Button size="sm" variant="ghost" className="mt-1 h-7 text-xs text-destructive hover:text-destructive" onClick={() => onRemove(i)} disabled={disabled}>
                 Remove
               </Button>
