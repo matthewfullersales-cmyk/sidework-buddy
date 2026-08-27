@@ -98,7 +98,11 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
     setCoverage(null);
     setDiagnostics(null);
     setError(null);
+    setFileStatus([]);
+    setProgress(null);
+    resultsRef.current.clear();
   };
+
 
   const addFiles = async (picked: FileList | File[] | null) => {
     if (!picked) return;
