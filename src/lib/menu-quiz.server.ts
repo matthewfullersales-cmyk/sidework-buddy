@@ -38,7 +38,11 @@ import {
 import { z } from "zod";
 
 const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const MODEL = "google/gemini-2.5-flash";
+// Extraction runs ONCE per menu upload, so the stronger (pricier) model costs
+// almost nothing under the per-upload-only AI cost constraint. Generation is
+// batched across many calls and validated downstream, so it stays on Flash.
+const EXTRACTION_MODEL = "google/gemini-3.1-pro-preview";
+const GENERATION_MODEL = "google/gemini-2.5-flash";
 
 const MAX_FILE_BYTES = 20 * 1024 * 1024;
 const ACCEPTED_MIME = new Set([
