@@ -379,11 +379,17 @@ export const startQuizAttempt = createServerFn({ method: "POST" })
     // RESUME: an unsubmitted, unexpired attempt is picked back up where it
     // left off. A dropped connection must not void progress or hand out a
     // fresh question set.
+    // CRITICAL: a manager's preview and the employee's real test must never
+    // resume each other. Preview attempts are not recorded, so resuming one as
+    // a real attempt would silently discard the employee's pass; resuming a
+    // real attempt as a preview would let a manager grade it on the employee's
+    // behalf. Match only attempts of the same kind as this caller.
     const { data: openAttempt } = await supabaseAdmin
       .from("quiz_attempts")
       .select("*")
       .eq("employee_id", data.employeeId)
       .eq("video_id", data.videoId)
+      .eq("is_preview", access.isOwnerPreview)
       .is("submitted_at", null)
       .gt("expires_at", new Date().toISOString())
       .order("created_at", { ascending: false })
