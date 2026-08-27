@@ -558,10 +558,13 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
         {busy && (
           <div className="rounded-xl border border-primary/30 bg-primary-soft p-4 text-sm text-primary">
             {stage === "extracting"
-              ? "Reading your menu and pulling out every item, section, and ingredient…"
+              ? progress
+                ? `Reading menu ${Math.min(progress.done + 1, progress.total)} of ${progress.total} — ${progress.current}`
+                : "Reading your menu and pulling out every item, section, and ingredient…"
               : "Writing questions from the extracted items, one item at a time…"}
           </div>
         )}
+
         {error && !busy && (
           <div className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-sm">
             <div className="flex-1 text-destructive">{error}</div>
