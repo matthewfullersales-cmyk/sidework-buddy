@@ -51,16 +51,6 @@ export type ExtractMenuResult =
 export const questionTypeSchema = z.enum(["identify_item", "identify_attribute"]);
 export type QuestionType = z.infer<typeof questionTypeSchema>;
 
-/**
- * Where the correct answer comes from.
- *  - "menu": derivable from the item's own extracted record.
- *  - "general_beverage_knowledge": a widely-known branded-beverage fact the
- *    menu does not print (beer style, wine varietal/region, spirit category,
- *    alcoholic vs non-alcoholic). Never allowed for food.
- */
-export const factSourceSchema = z.enum(["menu", "general_beverage_knowledge"]);
-export type FactSource = z.infer<typeof factSourceSchema>;
-
 export const questionSchema = z.object({
   question: z.string().min(4),
   options: z.array(z.string().min(1)).length(4),
@@ -69,7 +59,6 @@ export const questionSchema = z.object({
   sourceItem: z.string().trim().max(160).optional().default(""),
   sourceCategory: z.string().trim().max(120).optional().default(""),
   questionType: questionTypeSchema.optional().default("identify_item"),
-  factSource: factSourceSchema.default("menu"),
 });
 
 
@@ -101,7 +90,6 @@ export type GenerationDiagnostics = {
   rejectedByQuality: number;
   repairedOnRetry?: number;
 
-  generalKnowledgeQuestions?: number;
   droppedAsConflicting: number;
   droppedBySectionCap?: number;
   lostToFailedBatches: number;
