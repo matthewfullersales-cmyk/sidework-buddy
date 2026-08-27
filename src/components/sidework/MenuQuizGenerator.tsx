@@ -135,40 +135,115 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
     });
   };
 
-  const payloads = async () =>
-    Promise.all(
-      files.map(async ({ file }) => ({
-        fileBase64: await readFileAsBase64(file),
-        mimeType: file.type,
-        filename: file.name.slice(0, 200),
-      })),
-    );
+  const payloadFor = async (picked: PickedFile) => ({
+    fileBase64: await readFileAsBase64(picked.file),
+    mimeType: picked.file.type,
+    filename: picked.file.name.slice(0, 200),
+  });
+
+  const setStatus = (idx: number, patch: Partial<FileStatus>) => {
+    setFileStatus((prev) => prev.map((s, i) => (i === idx ? { ...s, ...patch } : s)));
+  };
+
+  // One menu file per request. Big uploads used to be sent together and could
+  // run long enough to be cut off, so each file is read on its own now.
+  const extractOne = async (idx: number): Promise<FileExtraction | null> => {
+    const picked = files[idx];
+    if (!picked) return null;
+    const attempt = async () => {
+      const result = await extract({
+        data: { files: [await payloadFor(picked)], restaurantName: restaurantProfile?.name ?? "" },
+      });
+      if (!result.ok) throw new Error(result.error);
+      return { filename: picked.file.name, items: result.items, coverage: result.coverage };
+    };
+    setStatus(idx, { status: "reading", error: undefined });
+    try {
+      let out: FileExtraction;
+      try {
+        out = await attempt();
+      } catch {
+        await new Promise((r) => setTimeout(r, 1200));
+        out = await attempt();
+      }
+      resultsRef.current.set(idx, out);
+      setStatus(idx, {
+        status: "read",
+        itemCount: out.items.length,
+        counts: countByKind(out.items),
+        error: undefined,
+      });
+      return out;
+    } catch (e) {
+      resultsRef.current.delete(idx);
+      setStatus(idx, {
+        status: "failed",
+        error: e instanceof Error ? e.message : "Couldn't read this menu.",
+      });
+      return null;
+    }
+  };
+
+  const applyMerge = (): ExtractedItem[] => {
+    const collected = files.map((_, i) => resultsRef.current.get(i)).filter(Boolean) as FileExtraction[];
+    if (collected.length === 0) {
+      setItems([]);
+      setCoverage(null);
+      return [];
+    }
+    const merged = mergeExtractions(collected);
+    setItems(merged.items);
+    setCoverage(merged.coverage);
+    return merged.items;
+  };
 
   const runExtract = async (): Promise<ExtractedItem[] | null> => {
     setStage("extracting");
     setError(null);
     setDraft([]);
-    try {
-      const result = await extract({
-        data: { files: await payloads(), restaurantName: restaurantProfile?.name ?? "" },
-      });
-      if (!result.ok) {
-        setError(result.error);
-        toast.error(result.error);
-        return null;
+    resultsRef.current.clear();
+    setFileStatus(files.map(() => ({ status: "queued" as const })));
+    const total = files.length;
+    let done = 0;
+    setProgress({ done: 0, total, current: files[0]?.file.name ?? "" });
+
+    const queue = files.map((_, i) => i);
+    const worker = async () => {
+      for (;;) {
+        const idx = queue.shift();
+        if (idx === undefined) return;
+        const picked = files[idx];
+        setProgress({ done, total, current: picked?.file.name ?? "" });
+        await extractOne(idx);
+        done += 1;
+        setProgress({ done, total, current: picked?.file.name ?? "" });
       }
-      setItems(result.items);
-      setCoverage(result.coverage);
-      return result.items;
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "Something went wrong reading the menu.";
+    };
+    // Two menus are read side by side; more than that risks a slow read.
+    await Promise.all([worker(), worker()].slice(0, Math.max(1, Math.min(2, total))));
+
+    setProgress(null);
+    setStage("idle");
+    const mergedItems = applyMerge();
+    if (mergedItems.length === 0) {
+      const msg = "None of your menu files could be read. Try clearer scans and upload again.";
       setError(msg);
       toast.error(msg);
       return null;
-    } finally {
-      setStage("idle");
     }
+    return mergedItems;
   };
+
+  const retryFile = async (idx: number) => {
+    if (busy) return;
+    setStage("extracting");
+    setProgress({ done: 0, total: 1, current: files[idx]?.file.name ?? "" });
+    await extractOne(idx);
+    setProgress(null);
+    setStage("idle");
+    applyMerge();
+  };
+
 
   const runGenerate = async (extracted?: ExtractedItem[]) => {
     const source = extracted ?? items;
