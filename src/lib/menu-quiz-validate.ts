@@ -557,7 +557,53 @@ export function vanityPrefixTokens(itemName: string): string[] {
   return significantTokens(parts.slice(0, end + 1).join(" "));
 }
 
+/**
+ * Narrow exemption to the stem/answer overlap check: an overlapping token is
+ * NOT a leak when it only appears in the stem as part of a multi-word
+ * ingredient phrase printed in that question's own source item record.
+ */
+function multiWordIngredientExempt(
+  token: string,
+  q: ValidatableQuestion,
+  answerTokens: string[],
+  index?: ProvenanceIndex,
+): boolean {
+  if (!index) return false;
+  const itemKey = normalizeText(q.sourceItem ?? "");
+  if (!itemKey) return false;
+  const ownText = index.recordTextByItem.get(itemKey) ?? "";
+  const phrases = (index.ingredientsByItem.get(itemKey) ?? [])
+    .map((i) => normalizeText(i))
+    .filter((p) => p.split(" ").filter(Boolean).length >= 2);
+  if (phrases.length === 0) return false;
+
+  const stemNorm = ` ${normalizeText(q.question)} `;
+  for (const phrase of phrases) {
+    // (i) phrase is printed for this item and appears verbatim in the stem
+    if (!stemNorm.includes(` ${phrase} `)) continue;
+    const printed =
+      (index.ingredientsByItem.get(itemKey) ?? []).some((i) => normalizeText(i) === phrase) ||
+      ` ${ownText} `.includes(` ${phrase} `);
+    if (!printed) continue;
+    const phraseTokens = significantTokens(phrase);
+    if (!phraseTokens.some((p) => nearMatch(p, token))) continue;
+
+    // (ii) the token must not also stand alone outside the phrase
+    const stripped = stemNorm.split(` ${phrase} `).join(" ");
+    const strippedTokens = significantTokens(stripped);
+    if (strippedTokens.some((s) => nearMatch(s, token))) continue;
+
+    // (iii) the answer must still hold something the phrase does not contain
+    const extra = answerTokens.some((a) => !phraseTokens.some((p) => nearMatch(p, a)));
+    if (!extra) continue;
+
+    return true;
+  }
+  return false;
+}
+
 /** Returns null when the question passes, or a human-readable reason. */
+
 export function rejectionReason(
   q: ValidatableQuestion,
   index?: ProvenanceIndex,
