@@ -15,16 +15,24 @@ import {
   type MenuCoverage,
   type MenuQuizDraftQuestion,
 } from "@/lib/menu-quiz.functions";
+import { countByKind, mergeExtractions, type FileExtraction } from "@/lib/menu-quiz.merge";
 import { useStore } from "@/lib/sidework-store";
 
 const ACCEPT = "application/pdf,image/png,image/jpeg,image/webp";
 const MAX_PDF_MB = 20;
 const MAX_IMAGE_INPUT_MB = 40;
-const MAX_FILES = 6;
+const MAX_FILES = 10;
 const COMPRESS_MAX_EDGE = 2000;
 const COMPRESS_QUALITY = 0.8;
 
 type PickedFile = { file: File; previewUrl: string | null };
+type FileStatus = {
+  status: "queued" | "reading" | "read" | "failed";
+  itemCount?: number;
+  counts?: { foodItems: number; drinkItems: number; dessertItems: number };
+  error?: string;
+};
+
 
 function readFileAsBase64(file: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -76,6 +84,9 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
   const regenerateOne = useServerFn(regenerateMenuQuestion);
 
   const [files, setFiles] = useState<PickedFile[]>([]);
+  const [fileStatus, setFileStatus] = useState<FileStatus[]>([]);
+  const [progress, setProgress] = useState<{ done: number; total: number; current: string } | null>(null);
+  const resultsRef = useRef<Map<number, FileExtraction>>(new Map());
   const [stage, setStage] = useState<"idle" | "extracting" | "generating" | null>("idle");
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -88,13 +99,18 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
 
   const busy = stage === "extracting" || stage === "generating";
 
+
   const resetDownstream = () => {
     setDraft([]);
     setItems([]);
     setCoverage(null);
     setDiagnostics(null);
     setError(null);
+    setFileStatus([]);
+    setProgress(null);
+    resultsRef.current.clear();
   };
+
 
   const addFiles = async (picked: FileList | File[] | null) => {
     if (!picked) return;
@@ -135,40 +151,115 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
     });
   };
 
-  const payloads = async () =>
-    Promise.all(
-      files.map(async ({ file }) => ({
-        fileBase64: await readFileAsBase64(file),
-        mimeType: file.type,
-        filename: file.name.slice(0, 200),
-      })),
-    );
+  const payloadFor = async (picked: PickedFile) => ({
+    fileBase64: await readFileAsBase64(picked.file),
+    mimeType: picked.file.type,
+    filename: picked.file.name.slice(0, 200),
+  });
+
+  const setStatus = (idx: number, patch: Partial<FileStatus>) => {
+    setFileStatus((prev) => prev.map((s, i) => (i === idx ? { ...s, ...patch } : s)));
+  };
+
+  // One menu file per request. Big uploads used to be sent together and could
+  // run long enough to be cut off, so each file is read on its own now.
+  const extractOne = async (idx: number): Promise<FileExtraction | null> => {
+    const picked = files[idx];
+    if (!picked) return null;
+    const attempt = async () => {
+      const result = await extract({
+        data: { files: [await payloadFor(picked)], restaurantName: restaurantProfile?.name ?? "" },
+      });
+      if (!result.ok) throw new Error(result.error);
+      return { filename: picked.file.name, items: result.items, coverage: result.coverage };
+    };
+    setStatus(idx, { status: "reading", error: undefined });
+    try {
+      let out: FileExtraction;
+      try {
+        out = await attempt();
+      } catch {
+        await new Promise((r) => setTimeout(r, 1200));
+        out = await attempt();
+      }
+      resultsRef.current.set(idx, out);
+      setStatus(idx, {
+        status: "read",
+        itemCount: out.items.length,
+        counts: countByKind(out.items),
+        error: undefined,
+      });
+      return out;
+    } catch (e) {
+      resultsRef.current.delete(idx);
+      setStatus(idx, {
+        status: "failed",
+        error: e instanceof Error ? e.message : "Couldn't read this menu.",
+      });
+      return null;
+    }
+  };
+
+  const applyMerge = (): ExtractedItem[] => {
+    const collected = files.map((_, i) => resultsRef.current.get(i)).filter(Boolean) as FileExtraction[];
+    if (collected.length === 0) {
+      setItems([]);
+      setCoverage(null);
+      return [];
+    }
+    const merged = mergeExtractions(collected);
+    setItems(merged.items);
+    setCoverage(merged.coverage);
+    return merged.items;
+  };
 
   const runExtract = async (): Promise<ExtractedItem[] | null> => {
     setStage("extracting");
     setError(null);
     setDraft([]);
-    try {
-      const result = await extract({
-        data: { files: await payloads(), restaurantName: restaurantProfile?.name ?? "" },
-      });
-      if (!result.ok) {
-        setError(result.error);
-        toast.error(result.error);
-        return null;
+    resultsRef.current.clear();
+    setFileStatus(files.map(() => ({ status: "queued" as const })));
+    const total = files.length;
+    let done = 0;
+    setProgress({ done: 0, total, current: files[0]?.file.name ?? "" });
+
+    const queue = files.map((_, i) => i);
+    const worker = async () => {
+      for (;;) {
+        const idx = queue.shift();
+        if (idx === undefined) return;
+        const picked = files[idx];
+        setProgress({ done, total, current: picked?.file.name ?? "" });
+        await extractOne(idx);
+        done += 1;
+        setProgress({ done, total, current: picked?.file.name ?? "" });
       }
-      setItems(result.items);
-      setCoverage(result.coverage);
-      return result.items;
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "Something went wrong reading the menu.";
+    };
+    // Two menus are read side by side; more than that risks a slow read.
+    await Promise.all([worker(), worker()].slice(0, Math.max(1, Math.min(2, total))));
+
+    setProgress(null);
+    setStage("idle");
+    const mergedItems = applyMerge();
+    if (mergedItems.length === 0) {
+      const msg = "None of your menu files could be read. Try clearer scans and upload again.";
       setError(msg);
       toast.error(msg);
       return null;
-    } finally {
-      setStage("idle");
     }
+    return mergedItems;
   };
+
+  const retryFile = async (idx: number) => {
+    if (busy) return;
+    setStage("extracting");
+    setProgress({ done: 0, total: 1, current: files[idx]?.file.name ?? "" });
+    await extractOne(idx);
+    setProgress(null);
+    setStage("idle");
+    applyMerge();
+  };
+
 
   const runGenerate = async (extracted?: ExtractedItem[]) => {
     const source = extracted ?? items;
@@ -312,6 +403,13 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
 
   const hasDraft = draft.length > 0;
   const canRun = files.length > 0 && !busy && !publishing;
+  const failedFiles = fileStatus
+    .map((s, idx) => ({ idx, name: files[idx]?.file.name ?? "", status: s.status }))
+    .filter((f) => f.status === "failed" && f.name);
+  const readFiles = fileStatus
+    .map((s, idx) => ({ name: files[idx]?.file.name ?? "", counts: s.counts, status: s.status }))
+    .filter((f) => f.status === "read" && f.name);
+
 
   return (
     <Card className="border-border">
@@ -336,7 +434,28 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        <MenuDropzone accept={ACCEPT} files={files} onAdd={addFiles} onRemove={removeFile} disabled={busy || publishing} />
+        <MenuDropzone accept={ACCEPT} files={files} statuses={fileStatus} onAdd={addFiles} onRemove={removeFile} disabled={busy || publishing} />
+
+        {failedFiles.length > 0 && !busy && (
+          <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm">
+            <p className="font-medium text-destructive">
+              {failedFiles.length === 1 ? "One menu couldn't be read" : `${failedFiles.length} menus couldn't be read`}:{" "}
+              {failedFiles.map(({ name }) => name).join(", ")}.
+            </p>
+            <p className="mt-1 text-xs text-destructive/90">
+              Nothing from {failedFiles.length === 1 ? "that menu" : "those menus"} is covered by the test. You can carry
+              on with the menus that read fine, or try again.
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {failedFiles.map(({ idx, name }) => (
+                <Button key={idx} size="sm" variant="outline" onClick={() => retryFile(idx)} disabled={publishing}>
+                  Retry {name}
+                </Button>
+              ))}
+            </div>
+          </div>
+        )}
+
 
         {menuBankMeta && (
           <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-900 dark:text-amber-200">
@@ -368,7 +487,22 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
 
         {coverage && (
           <div className="rounded-xl border border-border bg-muted/30 p-3 text-sm">
+            {readFiles.length > 0 && (
+              <div className="mb-3 space-y-1">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">What each menu gave us</p>
+                {readFiles.map((f) => (
+                  <p key={f.name} className="flex flex-wrap justify-between gap-2 text-xs">
+                    <span className="truncate font-medium">{f.name}</span>
+                    <span className="text-muted-foreground">
+                      {f.counts?.foodItems ?? 0} food · {f.counts?.drinkItems ?? 0} drink ·{" "}
+                      {f.counts?.dessertItems ?? 0} dessert
+                    </span>
+                  </p>
+                ))}
+              </div>
+            )}
             <p className="font-medium">
+
               Found {coverage.foodItems} food {coverage.foodItems === 1 ? "item" : "items"}, {coverage.drinkItems} drink{" "}
               {coverage.drinkItems === 1 ? "item" : "items"}, {coverage.dessertItems} dessert{" "}
               {coverage.dessertItems === 1 ? "item" : "items"} across {coverage.sections.length}{" "}
@@ -424,10 +558,13 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
         {busy && (
           <div className="rounded-xl border border-primary/30 bg-primary-soft p-4 text-sm text-primary">
             {stage === "extracting"
-              ? "Reading your menu and pulling out every item, section, and ingredient…"
+              ? progress
+                ? `Reading menu ${Math.min(progress.done + 1, progress.total)} of ${progress.total} — ${progress.current}`
+                : "Reading your menu and pulling out every item, section, and ingredient…"
               : "Writing questions from the extracted items, one item at a time…"}
           </div>
         )}
+
         {error && !busy && (
           <div className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-sm">
             <div className="flex-1 text-destructive">{error}</div>
@@ -559,14 +696,16 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
 }
 
 function MenuDropzone({
-  accept, files, onAdd, onRemove, disabled,
+  accept, files, statuses, onAdd, onRemove, disabled,
 }: {
   accept: string;
   files: PickedFile[];
+  statuses: FileStatus[];
   onAdd: (f: FileList | File[] | null) => void;
   onRemove: (idx: number) => void;
   disabled?: boolean;
 }) {
+
   const inputRef = useRef<HTMLInputElement | null>(null);
   return (
     <div>
@@ -609,6 +748,25 @@ function MenuDropzone({
               )}
               <p className="mt-2 truncate text-sm font-medium">{f.file.name}</p>
               <p className="text-[11px] text-muted-foreground">{(f.file.size / 1024 / 1024).toFixed(2)} MB</p>
+              {statuses[i] && (
+                <p
+                  className={
+                    "mt-1 text-[11px] font-medium " +
+                    (statuses[i]!.status === "failed"
+                      ? "text-destructive"
+                      : statuses[i]!.status === "read"
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : "text-muted-foreground")
+                  }
+                >
+                  {statuses[i]!.status === "queued" && "Waiting"}
+                  {statuses[i]!.status === "reading" && "Reading…"}
+                  {statuses[i]!.status === "read" &&
+                    `Read · ${statuses[i]!.itemCount ?? 0} ${statuses[i]!.itemCount === 1 ? "item" : "items"}`}
+                  {statuses[i]!.status === "failed" && "Couldn't be read"}
+                </p>
+              )}
+
               <Button size="sm" variant="ghost" className="mt-1 h-7 text-xs text-destructive hover:text-destructive" onClick={() => onRemove(i)} disabled={disabled}>
                 Remove
               </Button>
