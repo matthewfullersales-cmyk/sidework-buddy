@@ -487,7 +487,22 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
 
         {coverage && (
           <div className="rounded-xl border border-border bg-muted/30 p-3 text-sm">
+            {readFiles.length > 0 && (
+              <div className="mb-3 space-y-1">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">What each menu gave us</p>
+                {readFiles.map((f) => (
+                  <p key={f.name} className="flex flex-wrap justify-between gap-2 text-xs">
+                    <span className="truncate font-medium">{f.name}</span>
+                    <span className="text-muted-foreground">
+                      {f.counts?.foodItems ?? 0} food · {f.counts?.drinkItems ?? 0} drink ·{" "}
+                      {f.counts?.dessertItems ?? 0} dessert
+                    </span>
+                  </p>
+                ))}
+              </div>
+            )}
             <p className="font-medium">
+
               Found {coverage.foodItems} food {coverage.foodItems === 1 ? "item" : "items"}, {coverage.drinkItems} drink{" "}
               {coverage.drinkItems === 1 ? "item" : "items"}, {coverage.dessertItems} dessert{" "}
               {coverage.dessertItems === 1 ? "item" : "items"} across {coverage.sections.length}{" "}
