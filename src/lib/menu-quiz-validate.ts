@@ -156,7 +156,6 @@ export function classifyOption(option: string, index?: ProvenanceIndex): OptionK
 
 
 export type QuestionType = "identify_item" | "identify_attribute";
-export type FactSource = "menu" | "general_beverage_knowledge";
 
 export type ValidatableQuestion = {
   question: string;
@@ -166,8 +165,6 @@ export type ValidatableQuestion = {
   /** "identify_attribute" stems are REQUIRED to name the item, so the
    *  item-name-in-stem check is skipped for them. */
   questionType?: QuestionType;
-  /** Provenance of the correct answer. Defaults to "menu" when absent. */
-  factSource?: FactSource;
 };
 
 export type Rejection = { index: number; reason: string };
@@ -483,12 +480,10 @@ export function answerDerivableFromItem(
 }
 
 /**
- * Provenance tagging enforcement.
+ * Menu-only provenance enforcement.
  *
- * General knowledge is allowed ONLY for branded beverages: a lager is a lager
- * everywhere on earth, but a dish's recipe is specific to this kitchen. A
- * question claiming "menu" provenance whose answer is nowhere in the item's own
- * record is a silent backfill wearing the wrong label.
+ * Every question — food, drink, or dessert — must be answerable from the item's
+ * own printed record. General knowledge is never allowed.
  */
 export function factSourceRejection(
   q: ValidatableQuestion,
@@ -498,18 +493,9 @@ export function factSourceRejection(
   if (!itemKey) return null;
   if (!index.vocabByItem.has(itemKey)) return null;
   const answer = q.options[q.answerIndex] ?? "";
-  const factSource: FactSource = q.factSource ?? "menu";
-
-  if (factSource === "general_beverage_knowledge") {
-    const menuType = index.menuTypeByItem.get(itemKey) ?? "";
-    if (menuType && menuType !== "drink") {
-      return `General knowledge is only allowed for branded beverages, but "${q.sourceItem}" is a ${menuType} item. Every food and dessert question must be answerable from the item's own printed record.`;
-    }
-    return null;
-  }
 
   if (!answerDerivableFromItem(answer, itemKey, index)) {
-    return `Tagged as menu-derived, but "${answer}" is nowhere in the printed record for "${q.sourceItem}". Either ask about something the menu prints, or tag it as general beverage knowledge (branded drinks only).`;
+    return `The correct answer "${answer}" is nowhere in the printed record for "${q.sourceItem}". Every question must be answerable from what the menu prints.`;
   }
   return null;
 }
