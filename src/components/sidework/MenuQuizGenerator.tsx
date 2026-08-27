@@ -15,16 +15,24 @@ import {
   type MenuCoverage,
   type MenuQuizDraftQuestion,
 } from "@/lib/menu-quiz.functions";
+import { countByKind, mergeExtractions, type FileExtraction } from "@/lib/menu-quiz.merge";
 import { useStore } from "@/lib/sidework-store";
 
 const ACCEPT = "application/pdf,image/png,image/jpeg,image/webp";
 const MAX_PDF_MB = 20;
 const MAX_IMAGE_INPUT_MB = 40;
-const MAX_FILES = 6;
+const MAX_FILES = 10;
 const COMPRESS_MAX_EDGE = 2000;
 const COMPRESS_QUALITY = 0.8;
 
 type PickedFile = { file: File; previewUrl: string | null };
+type FileStatus = {
+  status: "queued" | "reading" | "read" | "failed";
+  itemCount?: number;
+  counts?: { foodItems: number; drinkItems: number; dessertItems: number };
+  error?: string;
+};
+
 
 function readFileAsBase64(file: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
