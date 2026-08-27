@@ -396,7 +396,7 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
             <p>
               {diagnostics.itemsExtracted} items extracted · {diagnostics.candidatesSelected} candidates selected ·{" "}
               {diagnostics.questionsReturned} questions written by AI · {diagnostics.rejectedByQuality} rejected by
-              quality checks · {diagnostics.repairedOnRetry ?? 0} repaired on retry · {diagnostics.droppedAsConflicting} dropped as conflicting · {diagnostics.droppedBySectionCap ?? 0} dropped by section cap · {diagnostics.generalKnowledgeQuestions ?? 0} general beverage knowledge · {diagnostics.lostToFailedBatches} lost to failed batches ·{" "}
+              quality checks · {diagnostics.repairedOnRetry ?? 0} repaired on retry · {diagnostics.droppedAsConflicting} dropped as conflicting · {diagnostics.droppedBySectionCap ?? 0} dropped by section cap · {diagnostics.lostToFailedBatches} lost to failed batches ·{" "}
 
               <span className="font-medium text-foreground">{diagnostics.finalBankSize} in the final bank</span>.
             </p>
@@ -467,9 +467,6 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
                     <span className="font-mono text-xs text-muted-foreground">Q{i + 1}</span>
                     <Badge variant="outline" className="text-[10px] uppercase">
                       {q.source}
-                    </Badge>
-                    <Badge variant="outline" className="border-dashed text-[10px] font-normal normal-case text-muted-foreground">
-                      {q.factSource === "general_beverage_knowledge" ? "General beverage knowledge" : "From your menu"}
                     </Badge>
                     {q.sourceItem && (
                       <span className="truncate text-[11px] text-muted-foreground">
