@@ -76,6 +76,9 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
   const regenerateOne = useServerFn(regenerateMenuQuestion);
 
   const [files, setFiles] = useState<PickedFile[]>([]);
+  const [fileStatus, setFileStatus] = useState<FileStatus[]>([]);
+  const [progress, setProgress] = useState<{ done: number; total: number; current: string } | null>(null);
+  const resultsRef = useRef<Map<number, FileExtraction>>(new Map());
   const [stage, setStage] = useState<"idle" | "extracting" | "generating" | null>("idle");
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -87,6 +90,7 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
   const [regenIdx, setRegenIdx] = useState<number | null>(null);
 
   const busy = stage === "extracting" || stage === "generating";
+
 
   const resetDownstream = () => {
     setDraft([]);
