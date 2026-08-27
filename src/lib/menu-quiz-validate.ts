@@ -583,12 +583,16 @@ export function rejectionReason(
 
   const stemTokens = [...new Set(significantTokens(q.question))];
   const answerTokens = significantTokens(answer);
-  const overlap = answerTokens.filter(
+  const rawOverlap = answerTokens.filter(
     (t) => !vanityTokens.has(t) && stemTokens.some((s) => nearMatch(s, t)),
+  );
+  const overlap = rawOverlap.filter(
+    (t) => !multiWordIngredientExempt(t, q, answerTokens, index),
   );
   if (overlap.length > 0) {
     return `The stem repeats (or near-repeats) word(s) from the correct answer: ${[...new Set(overlap)].join(", ")}. Strip the answer term out of the stem, or ask about a different attribute of the item.`;
   }
+
 
   const item = (q.sourceItem ?? "").trim();
   if (item && q.questionType !== "identify_attribute") {
