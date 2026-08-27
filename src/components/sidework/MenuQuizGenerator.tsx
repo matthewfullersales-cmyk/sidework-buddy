@@ -400,6 +400,14 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
 
               <span className="font-medium text-foreground">{diagnostics.finalBankSize} in the final bank</span>.
             </p>
+            {diagnostics.topRejectionReasons && diagnostics.topRejectionReasons.length > 0 && (
+              <p className="mt-1">
+                Top rejection reasons:{" "}
+                {diagnostics.topRejectionReasons
+                  .map((r) => `${r.count}x ${r.reason}`)
+                  .join(" · ")}
+              </p>
+            )}
             {coverage && coverage.skippedItems > 0 && (
               <p className="mt-1 text-destructive">
                 Extraction skipped {coverage.skippedItems} malformed {coverage.skippedItems === 1 ? "item" : "items"}.

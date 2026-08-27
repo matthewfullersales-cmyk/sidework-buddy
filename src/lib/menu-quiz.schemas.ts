@@ -106,6 +106,7 @@ export type GenerationDiagnostics = {
   droppedBySectionCap?: number;
   lostToFailedBatches: number;
   finalBankSize: number;
+  topRejectionReasons?: Array<{ reason: string; count: number }>;
 };
 
 export type GenerateMenuQuizResult =
