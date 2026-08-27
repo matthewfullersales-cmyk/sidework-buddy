@@ -403,6 +403,13 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
 
   const hasDraft = draft.length > 0;
   const canRun = files.length > 0 && !busy && !publishing;
+  const failedFiles = fileStatus
+    .map((s, idx) => ({ idx, name: files[idx]?.file.name ?? "", status: s.status }))
+    .filter((f) => f.status === "failed" && f.name);
+  const readFiles = fileStatus
+    .map((s, idx) => ({ name: files[idx]?.file.name ?? "", counts: s.counts, status: s.status }))
+    .filter((f) => f.status === "read" && f.name);
+
 
   return (
     <Card className="border-border">
