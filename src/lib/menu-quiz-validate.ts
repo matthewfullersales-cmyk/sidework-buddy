@@ -588,10 +588,20 @@ function multiWordIngredientExempt(
     const phraseTokens = significantTokens(phrase);
     if (!phraseTokens.some((p) => nearMatch(p, token))) continue;
 
-    // (ii) the token must not also stand alone outside the phrase
+    // (ii) the token must not also stand alone outside the phrase. A bare use
+    // that is simply this item's own printed SECTION heading ("which chicken
+    // dish...") is a category framing, not a leak.
+    const sectionTokensForItem = new Set(
+      significantTokens(index.sectionByItem.get(itemKey) ?? ""),
+    );
     const stripped = stemNorm.split(` ${phrase} `).join(" ");
     const strippedTokens = significantTokens(stripped);
-    if (strippedTokens.some((s) => nearMatch(s, token))) continue;
+    if (
+      strippedTokens.some((s) => nearMatch(s, token)) &&
+      ![...sectionTokensForItem].some((s) => nearMatch(s, token))
+    ) {
+      continue;
+    }
 
     // (iii) the answer must still hold something the phrase does not contain
     const extra = answerTokens.some((a) => !phraseTokens.some((p) => nearMatch(p, a)));
@@ -599,8 +609,30 @@ function multiWordIngredientExempt(
 
     return true;
   }
+
+  // Companion case: the correct ANSWER is itself a multi-word printed
+  // ingredient of this item ("white wine butter sauce") and the stem only uses
+  // its generic head noun ("...tossed in which sauce?"). The distinguishing
+  // words of the answer are absent from the stem, so nothing is given away.
+  const answerNormPhrase = normalizeText(q.options[q.answerIndex] ?? "");
+  const answerIsPrintedIngredient =
+    answerNormPhrase.split(" ").filter(Boolean).length >= 2 &&
+    ((index.ingredientsByItem.get(itemKey) ?? []).some(
+      (i) => normalizeText(i) === answerNormPhrase,
+    ) ||
+      ` ${ownText} `.includes(` ${answerNormPhrase} `));
+  if (answerIsPrintedIngredient) {
+    const phraseTokens = significantTokens(answerNormPhrase);
+    const head = phraseTokens[phraseTokens.length - 1];
+    const stemSet = significantTokens(q.question);
+    const onlyHeadShared = phraseTokens.every(
+      (p) => p === head || !stemSet.some((s) => nearMatch(s, p)),
+    );
+    if (head && nearMatch(head, token) && onlyHeadShared) return true;
+  }
   return false;
 }
+
 
 /** Returns null when the question passes, or a human-readable reason. */
 
