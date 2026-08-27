@@ -427,7 +427,28 @@ export function MenuQuizGenerator({ menuName: _menuName }: { menuName?: string }
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        <MenuDropzone accept={ACCEPT} files={files} onAdd={addFiles} onRemove={removeFile} disabled={busy || publishing} />
+        <MenuDropzone accept={ACCEPT} files={files} statuses={fileStatus} onAdd={addFiles} onRemove={removeFile} disabled={busy || publishing} />
+
+        {failedFiles.length > 0 && !busy && (
+          <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm">
+            <p className="font-medium text-destructive">
+              {failedFiles.length === 1 ? "One menu couldn't be read" : `${failedFiles.length} menus couldn't be read`}:{" "}
+              {failedFiles.map(({ name }) => name).join(", ")}.
+            </p>
+            <p className="mt-1 text-xs text-destructive/90">
+              Nothing from {failedFiles.length === 1 ? "that menu" : "those menus"} is covered by the test. You can carry
+              on with the menus that read fine, or try again.
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {failedFiles.map(({ idx, name }) => (
+                <Button key={idx} size="sm" variant="outline" onClick={() => retryFile(idx)} disabled={publishing}>
+                  Retry {name}
+                </Button>
+              ))}
+            </div>
+          </div>
+        )}
+
 
         {menuBankMeta && (
           <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-900 dark:text-amber-200">
