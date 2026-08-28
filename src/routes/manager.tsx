@@ -25,6 +25,7 @@ import { roleStyle, fohRolesWithCustom, bohRolesWithCustom, allRolesWithCustom }
 import { PhoneInput } from "@/components/ui/phone-input";
 import { copyLinkWithToast } from "@/lib/copy-to-clipboard";
 import { sendStaffInvite } from "@/lib/staff-invite.functions";
+import { loadMyJoinSlug } from "@/lib/restaurant-slug";
 import { sendApplicantNotification } from "@/lib/applicant-notifications.functions";
 import { notifyTimeOffResolved, notifyScheduleChanged } from "@/lib/notifications.functions";
 
@@ -673,7 +674,11 @@ function TeamTab() {
                       phone: form.phone.trim(),
                       role: form.role,
                     });
-                    const restaurantName = restaurantProfile?.name ?? "your team";
+                    // Prefer the store's name, but fall back to the owner's persisted
+                    // restaurant profile — the local store can be empty after a reset
+                    // or on a new device, which previously sent "your team" as the name.
+                    const restaurantName =
+                      restaurantProfile?.name ?? (await loadMyJoinSlug()).restaurantName ?? "";
                     let emailOk = false;
                     let emailErr: string | undefined;
                     try {

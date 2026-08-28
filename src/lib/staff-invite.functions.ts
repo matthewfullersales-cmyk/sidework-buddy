@@ -10,7 +10,9 @@ const GATEWAY_URL = "https://connector-gateway.lovable.dev";
 const payloadSchema = z.object({
   inviteUrl: z.string().url(),
   firstName: z.string().trim().max(120).optional().default(""),
-  restaurantName: z.string().trim().max(200).optional().default("your team"),
+  // No fake placeholder: empty means "no name", and the copy falls back to
+  // generic wording that never renders "your team" as if it were a name.
+  restaurantName: z.string().trim().max(200).optional().default(""),
   email: z.string().trim().email().optional().or(z.literal("").optional()),
   // Kept for backward compat with existing callers; ignored.
   phoneDigits: z.string().regex(/^\d{0,15}$/).optional().default(""),
@@ -21,25 +23,56 @@ export type SendResult = {
   email: { attempted: boolean; ok: boolean; error?: string };
 };
 
+/** Escape interpolated values before injecting them into the HTML body. */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function buildBody(firstName: string, restaurantName: string, inviteUrl: string) {
+  const hasName = restaurantName.length > 0;
   const hi = firstName ? `Hi ${firstName},` : "Hi,";
-  return {
-    text:
+  const contextLine = hasName
+    ? `${restaurantName} uses 86Paper to manage schedules, shift pickup, and time off.`
+    : `86Paper is how your restaurant manages schedules, shift pickup, and time off.`;
+  const addedLine = hasName
+    ? `You've been added to the team at ${restaurantName} on 86Paper.`
+    : `You've been added to your team on 86Paper.`;
+
+  const text =
 `${hi}
 
-You've been added to the team at ${restaurantName} on 86Paper.
+${contextLine}
+
+${addedLine}
 
 Finish setting up your account here:
 ${inviteUrl}
 
-If you weren't expecting this, you can ignore this message.`,
-    html:
-`<p>${hi}</p>
-<p>You've been added to the team at <strong>${restaurantName}</strong> on 86Paper.</p>
-<p>Finish setting up your account here:<br>
-<a href="${inviteUrl}">${inviteUrl}</a></p>
-<p style="color:#888;font-size:12px">If you weren't expecting this, you can ignore this message.</p>`,
-  };
+If you weren't expecting this, you can ignore this message.`;
+
+  const hiHtml = escapeHtml(hi);
+  const contextHtml = escapeHtml(contextLine);
+  const addedHtml = escapeHtml(addedLine);
+  const urlHtml = escapeHtml(inviteUrl);
+  const buttonStyle =
+    "display:inline-block;background-color:#14532d;color:#ffffff;font-size:14px;" +
+    "padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;";
+  const html =
+`<p>${hiHtml}</p>
+<p>${contextHtml}</p>
+<p>${addedHtml}</p>
+<p style="text-align:center;margin:28px 0;">
+  <a href="${urlHtml}" style="${buttonStyle}">Finish setting up your account</a>
+</p>
+<p style="color:#888;font-size:12px;word-break:break-all;">${urlHtml}</p>
+<p style="color:#888;font-size:12px">If you weren't expecting this, you can ignore this message.</p>`;
+
+  return { text, html };
 }
 
 async function sendEmailViaResend(args: {
@@ -64,7 +97,9 @@ async function sendEmailViaResend(args: {
       body: JSON.stringify({
         from,
         to: [args.to],
-        subject: `You're invited to ${args.restaurantName} on 86Paper`,
+        subject: args.restaurantName
+          ? `You're invited to join ${args.restaurantName} on 86Paper`
+          : `Your 86Paper invite`,
         text: body.text,
         html: body.html,
       }),
@@ -95,9 +130,9 @@ export const sendStaffInvite = createServerFn({ method: "POST" })
       ? await sendEmailViaResend({
           to: email,
           firstName: data.firstName ?? "",
-          restaurantName: data.restaurantName ?? "your team",
+          restaurantName: (data.restaurantName ?? "").trim(),
           inviteUrl: data.inviteUrl,
-          senderName: data.senderName ?? "86Paper",
+          senderName: (data.senderName ?? "").trim() || "86Paper",
         })
       : { ok: false, error: "no email" };
 
