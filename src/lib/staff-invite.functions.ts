@@ -130,7 +130,7 @@ export const sendStaffInvite = createServerFn({ method: "POST" })
       ? await sendEmailViaResend({
           to: email,
           firstName: data.firstName ?? "",
-          restaurantName: data.restaurantName ?? "your team",
+          restaurantName: (data.restaurantName ?? "").trim(),
           inviteUrl: data.inviteUrl,
           senderName: data.senderName ?? "86Paper",
         })
