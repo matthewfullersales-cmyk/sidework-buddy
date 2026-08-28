@@ -97,7 +97,9 @@ async function sendEmailViaResend(args: {
       body: JSON.stringify({
         from,
         to: [args.to],
-        subject: `You're invited to ${args.restaurantName} on 86Paper`,
+        subject: args.restaurantName
+          ? `You're invited to join ${args.restaurantName} on 86Paper`
+          : `Your 86Paper invite`,
         text: body.text,
         html: body.html,
       }),
