@@ -677,8 +677,10 @@ function TeamTab() {
                     // Prefer the store's name, but fall back to the owner's persisted
                     // restaurant profile — the local store can be empty after a reset
                     // or on a new device, which previously sent "your team" as the name.
+                    const storeName = restaurantProfile?.name?.trim();
+                    const slug = storeName ? undefined : await loadMyJoinSlug();
                     const restaurantName =
-                      restaurantProfile?.name ?? (await loadMyJoinSlug()).restaurantName ?? "";
+                      storeName || slug?.restaurantName?.trim() || "";
                     let emailOk = false;
                     let emailErr: string | undefined;
                     try {
