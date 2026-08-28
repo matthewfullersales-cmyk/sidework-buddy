@@ -132,7 +132,7 @@ export const sendStaffInvite = createServerFn({ method: "POST" })
           firstName: data.firstName ?? "",
           restaurantName: (data.restaurantName ?? "").trim(),
           inviteUrl: data.inviteUrl,
-          senderName: data.senderName ?? "86Paper",
+          senderName: (data.senderName ?? "").trim() || "86Paper",
         })
       : { ok: false, error: "no email" };
 
