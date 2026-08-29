@@ -8,11 +8,8 @@ import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { PhoneInput } from "@/components/ui/phone-input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import {
-  type Role,
   type Relationship,
   type WeeklyAvailability,
   type DayKey,
@@ -25,17 +22,13 @@ import {
   claimStaffInvite,
   type PublicStaffInviteInfo,
 } from "@/lib/employees-supabase";
-import { formatPhone } from "@/lib/format-phone";
 import { toast } from "sonner";
 import { CheckCircle2, Loader2 } from "lucide-react";
 
-const FOH_ROLES: Role[] = ["Host", "Busser", "Server Assistant", "Bar Back", "Bartender", "Server", "Manager", "Assistant Manager"];
-const BOH_ROLES: Role[] = ["Chef", "Sous Chef", "Line Cook", "Fry Cook", "Saute", "Grill", "Pizza", "Garde Manger", "Dishwasher", "Prep"];
 const RELATIONSHIPS: Relationship[] = ["Spouse", "Parent", "Sibling", "Child", "Friend", "Other"];
 
 const claimSchema = z.object({
-  firstName: z.string().trim().min(1, "First name required").max(60),
-  lastName: z.string().trim().min(1, "Last name required").max(60),
+  email: z.string().trim().email("Valid email required").max(255),
   phone: z.string().trim().min(7, "Phone number required").max(30),
   ecFirstName: z.string().trim().min(1, "Emergency contact first name required").max(60),
   ecLastName: z.string().trim().min(1, "Emergency contact last name required").max(60),
@@ -57,10 +50,8 @@ function StaffInvitePage() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [role, setRole] = useState<Role>("Server");
   const [availability, setAvailability] = useState<WeeklyAvailability>(() => defaultWeeklyAvailability());
   const [ecFirstName, setEcFirstName] = useState("");
   const [ecLastName, setEcLastName] = useState("");
@@ -78,12 +69,6 @@ function StaffInvitePage() {
         if (cancelled) return;
         if (!res) { setNotFound(true); return; }
         setInvite(res);
-        setFirstName(res.firstName ?? res.name.split(" ")[0] ?? "");
-        setLastName(res.lastName ?? res.name.split(" ").slice(1).join(" ") ?? "");
-        setPhone(res.phone ? formatPhone(res.phone) : "");
-        if (res.primaryRole && res.primaryRole.trim()) {
-          setRole(res.primaryRole as Role);
-        }
       })
       .catch((e) => { console.error("[staff-invite]", e); if (!cancelled) setNotFound(true); })
       .finally(() => { if (!cancelled) setLoading(false); });
@@ -97,17 +82,17 @@ function StaffInvitePage() {
     }));
 
   const restaurantName = invite?.restaurantName ?? "the team";
-  const email = invite?.email ?? "";
+  const inviteName = `${invite?.firstName ?? ""} ${invite?.lastName ?? ""}`.trim();
+  const inviteRole = invite?.primaryRole ?? "";
 
   const submit = async () => {
     if (submitting) return;
 
-    const parsed = claimSchema.safeParse({ firstName, lastName, phone, ecFirstName, ecLastName, ecPhone });
+    const parsed = claimSchema.safeParse({ email, phone, ecFirstName, ecLastName, ecPhone });
     if (!parsed.success) {
       const first = parsed.error.issues[0];
       return toast.error(first?.message ?? "Please complete the form");
     }
-    if (!email) return toast.error("Missing email on invite — ask your manager to re-send it");
     if (password.length < 8) return toast.error("Password must be at least 8 characters");
     if (password !== confirmPassword) return toast.error("Passwords don't match");
 
@@ -119,17 +104,18 @@ function StaffInvitePage() {
       // 1. Existing session for this invite email — use it without re-signing up.
       const { data: sessionData } = await supabase.auth.getSession();
       const sessionUser = sessionData.session?.user;
-      if (sessionUser && sessionUser.email?.toLowerCase() === email.toLowerCase()) {
+      const claimEmail = parsed.data.email;
+      if (sessionUser && sessionUser.email?.toLowerCase() === claimEmail.toLowerCase()) {
         uid = sessionUser.id;
       } else {
         // 2. Otherwise sign up.
         const redirectTo = typeof window !== "undefined" ? window.location.origin : undefined;
         const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
-          email,
+          email: claimEmail,
           password,
           options: {
             emailRedirectTo: redirectTo,
-            data: { full_name: `${parsed.data.firstName} ${parsed.data.lastName}`, role: "employee" },
+            data: { full_name: inviteName, role: "employee" },
           },
         });
 
@@ -138,7 +124,7 @@ function StaffInvitePage() {
           if (errMsg.includes("already registered") || errMsg.includes("already exists")) {
             // 3. Account exists — sign in with the password they just typed.
             const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
-              email,
+              email: claimEmail,
               password,
             });
             if (signInErr || !signInData.user) {
@@ -164,11 +150,9 @@ function StaffInvitePage() {
       // Profile row is created by the `on_auth_user_created` database trigger.
 
       try {
-        await claimStaffInvite(token, uid, {
-          first_name: parsed.data.firstName,
-          last_name: parsed.data.lastName,
+        void uid;
+        await claimStaffInvite(token, {
           phone: parsed.data.phone,
-          primary_role: role,
           weekly_availability: availability,
           emergency_contact: {
             firstName: parsed.data.ecFirstName,
@@ -192,7 +176,7 @@ function StaffInvitePage() {
       }
 
       setSubmitting(false);
-      setDone({ firstName: parsed.data.firstName });
+      setDone({ firstName: invite?.firstName ?? "" });
     } catch (e) {
       setSubmitting(false);
       toast.error("Something went wrong. Your account may already exist—press the button again or sign in at the employee sign-in page.");
@@ -211,7 +195,18 @@ function StaffInvitePage() {
     return (
       <Centered>
         <h1 className="text-2xl font-bold">Invite not found</h1>
-        <p className="mt-2 text-muted-foreground">This invite link may have expired or already been used.</p>
+        <p className="mt-2 text-muted-foreground">We couldn't find an invite for this link. Double-check the link your manager sent you.</p>
+        <Button asChild className="mt-6"><Link to="/">Go home</Link></Button>
+      </Centered>
+    );
+  }
+  if (invite.expired) {
+    return (
+      <Centered>
+        <h1 className="text-2xl font-bold">This invite has expired</h1>
+        <p className="mt-2 text-muted-foreground">
+          Ask your manager to send you a new invite link.
+        </p>
         <Button asChild className="mt-6"><Link to="/">Go home</Link></Button>
       </Centered>
     );
@@ -253,40 +248,28 @@ function StaffInvitePage() {
       <section className="mx-auto max-w-2xl px-4 py-6">
         <Card className="border-2">
           <CardContent className="grid gap-5 p-5">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="First name"><Input value={firstName} onChange={(e) => setFirstName(e.target.value)} maxLength={60} autoComplete="given-name" /></Field>
-              <Field label="Last name"><Input value={lastName} onChange={(e) => setLastName(e.target.value)} maxLength={60} autoComplete="family-name" /></Field>
+            <div className="rounded-lg border border-border bg-muted/30 p-3">
+              <p className="text-sm font-medium">
+                You're joining {restaurantName}
+                {inviteRole ? <> as <span className="font-semibold">{inviteRole}</span></> : null}
+                {inviteName ? <>, {inviteName}.</> : "."}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                If your name or role is wrong, ask your manager to fix it — you can't change it here.
+              </p>
             </div>
+
             <Field label="Email">
-              <Input type="email" value={email} disabled readOnly />
+              <Input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                maxLength={255}
+                autoComplete="email"
+                placeholder="you@example.com"
+              />
             </Field>
             <Field label="Phone"><PhoneInput value={phone} onChange={setPhone} /></Field>
-
-            <Field label="Primary role">
-              <Select value={role} onValueChange={(v: Role) => setRole(v)}>
-                <SelectTrigger className="h-12"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {role && ![...FOH_ROLES, ...BOH_ROLES].includes(role) && (
-                    <>
-                      <SelectGroup>
-                        <SelectLabel>Assigned role</SelectLabel>
-                        <SelectItem value={role}>{role}</SelectItem>
-                      </SelectGroup>
-                      <SelectSeparator />
-                    </>
-                  )}
-                  <SelectGroup>
-                    <SelectLabel>Front of House</SelectLabel>
-                    {FOH_ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-                  </SelectGroup>
-                  <SelectSeparator />
-                  <SelectGroup>
-                    <SelectLabel>Back of House</SelectLabel>
-                    {BOH_ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </Field>
 
             <div className="grid gap-2">
               <Label className="text-sm font-medium">Weekly availability</Label>

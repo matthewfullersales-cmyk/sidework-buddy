@@ -12,7 +12,6 @@ import {
 } from "@/lib/hiring-supabase";
 import {
   fetchOwnerEmployees,
-  bootstrapLocalEmployees,
   hasSupabaseSession,
   insertEmployee,
   updateEmployeeRow,
@@ -42,7 +41,6 @@ import {
   fetchOwnerTrades,
   insertTradeRow,
   updateTradeRow,
-  bootstrapLocalSchedule,
 } from "@/lib/schedule-supabase";
 import {
   fetchMyEmployeeRow,
@@ -785,6 +783,7 @@ interface Store {
   }) => Promise<{ id: string; inviteUrl: string; inviteToken: string }>;
 
   joinStaff: (data: {
+    slug?: string;
     firstName: string;
     lastName: string;
     email: string;
@@ -792,7 +791,7 @@ interface Store {
     role: Role;
     weeklyAvailability: WeeklyAvailability;
     emergencyContact: EmergencyContact;
-  }) => string;
+  }) => Promise<string>;
   updateRestaurantSlug: (slug: string) => void;
   updateEmployee: (id: string, patch: Partial<Employee>) => void;
   clearAllEmployees: () => void;
@@ -1277,64 +1276,6 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
         let remoteTrades = remoteTradesInitial;
         const local = latestStateRef.current;
         const alreadyBootstrapped = bootstrappedOwnersRef.current.has(effectiveOwnerId);
-        if (
-          remoteEmployees.length === 0 &&
-          acting === "owner" &&
-          local.employees.length > 0 &&
-          !alreadyBootstrapped &&
-          // Signed-out/public pages: no-op silently before issuing any request.
-          (await hasSupabaseSession())
-        ) {
-          bootstrappedOwnersRef.current.add(effectiveOwnerId);
-          try {
-            remoteEmployees = await bootstrapLocalEmployees(effectiveOwnerId, local.employees);
-            if (cancelled) return;
-            // Build local→cloud id map to translate FKs on shifts/trades/time-off.
-            const idMap = new Map<string, string>();
-            for (const e of remoteEmployees) {
-              // The bootstrap stored the old id in local_id; refetch that mapping.
-              // fetchOwnerEmployees doesn't return local_id, but we know 1:1 by
-              // matching name+email+phone+invitedAt against the local list. We
-              // instead re-derive the map by matching each local employee to
-              // the cloud row created for the same name (safe for our data).
-            }
-            // Fetch local_id map directly.
-            const { supabase } = await import("@/integrations/supabase/client");
-            const { data: mapRows } = await supabase
-              .from("restaurant_employees")
-              .select("id, local_id")
-              .eq("owner_id", effectiveOwnerId)
-              .not("local_id", "is", null);
-            for (const r of (mapRows ?? []) as Array<{ id: string; local_id: string | null }>) {
-              if (r.local_id) idMap.set(r.local_id, r.id);
-            }
-            // Wave B: also bootstrap schedule/time-off/trades.
-            if (local.shifts.length > 0 || local.timeOff.length > 0 || local.trades.length > 0) {
-              try {
-                const { shifts: bs, timeOff: bt, trades: btr } = await bootstrapLocalSchedule(
-                  effectiveOwnerId,
-                  {
-                    shifts: local.shifts,
-                    timeOff: local.timeOff,
-                    trades: local.trades,
-                    localToCloudEmployeeId: idMap,
-                  },
-                );
-                remoteShifts = bs;
-                remoteTimeOff = bt;
-                remoteTrades = btr;
-              } catch (e) {
-                console.error("[schedule-bootstrap] failed", e);
-              }
-            }
-          } catch (e) {
-            // Roll back the guard so a transient failure can retry next mount.
-            bootstrappedOwnersRef.current.delete(effectiveOwnerId);
-            // Non-fatal: keep the local roster and continue hydrating.
-            console.warn("[employees-bootstrap] failed", e);
-            remoteEmployees = [];
-          }
-        }
 
         // Hours: normalize v1/v2/v3 shapes; if nothing remote, seed the current
         // local defaults up. If we upgraded from an older version, write v3 back.
@@ -1608,7 +1549,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
       if (oid) {
         try {
           const row = await createStaffInviteRow(oid, {
-            firstName, lastName, email, phone, role, localId,
+            firstName, lastName, email, phone, role,
           });
           dbId = row.id;
           inviteToken = row.inviteToken;
@@ -1654,9 +1595,34 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
       return { id: dbId, inviteToken, inviteUrl: `${origin}/staff-invite/${inviteToken}` };
     },
 
-    joinStaff: (data) => {
-      const empId = newUuid();
+    joinStaff: async (data) => {
       const fullName = `${data.firstName} ${data.lastName}`.trim();
+      if (!data.slug) throw new Error("This join link isn't valid");
+
+      const { supabase } = await import("@/integrations/supabase/client");
+      const { data: personId, error } = await supabase.rpc("join_restaurant_by_slug_v2" as never, {
+        p_slug: data.slug,
+        p_first_name: data.firstName,
+        p_last_name: data.lastName,
+        p_email: data.email,
+        p_phone: data.phone,
+        p_primary_role: data.role,
+      } as never);
+      if (error) throw new Error(error.message);
+      const empId = (typeof personId === "string" ? personId : newUuid());
+
+      // Self-editable fields go in a normal follow-up update.
+      const { error: upErr } = await supabase
+        .from("people")
+        .update({
+          weekly_availability: data.weeklyAvailability as never,
+          emergency_contact: data.emergencyContact as never,
+          personal_info_complete: true,
+          onboarding_started: true,
+        } as never)
+        .eq("id", empId);
+      if (upErr) console.error("[joinStaff] profile details", upErr);
+
       const employee: Employee = {
         id: empId,
         name: fullName,
@@ -1674,7 +1640,8 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
         onboardingStarted: true,
         personalInfoComplete: true,
         progress: [],
-        seniority: 1,
+        joinStatus: "pending",
+        joinedVia: "self_join",
       };
       setState((s) => ({
         ...s,
@@ -1683,7 +1650,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           {
             id: uid("n"),
             type: "training_passed",
-            message: `${fullName} just joined 86Paper!`,
+            message: `${fullName} just requested to join 86Paper!`,
             employeeId: empId,
             createdAt: new Date().toISOString(),
             read: false,
@@ -1691,12 +1658,6 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           ...s.notifications,
         ],
       }));
-      const oid = ownerIdRef.current;
-      if (oid) {
-        insertEmployee(oid, employee, { localId: empId }).catch((e) =>
-          console.error("[joinStaff]", e),
-        );
-      }
       return empId;
     },
     updateRestaurantSlug: (slug) =>
