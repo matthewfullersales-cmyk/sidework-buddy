@@ -78,8 +78,8 @@ export async function createShadowShift(input: {
     p_role: input.role,
     p_shift_date: input.shiftDate,
     p_arrival_time: input.arrivalTime,
-    p_trainer_person_id: input.trainerPersonId ?? null,
-    p_note: input.note ?? null,
+    p_trainer_person_id: input.trainerPersonId ?? undefined,
+    p_note: input.note ?? undefined,
   });
   if (error) throw error;
   return mapShadowShift(data as unknown as ShadowShiftRow);
@@ -100,8 +100,8 @@ export async function updateShadowShift(input: {
     p_id: input.id,
     p_shift_date: input.shiftDate,
     p_arrival_time: input.arrivalTime,
-    p_trainer_person_id: input.trainerPersonId ?? null,
-    p_note: input.note ?? null,
+    p_trainer_person_id: input.trainerPersonId ?? undefined,
+    p_note: input.note ?? undefined,
   });
   if (error) throw error;
   return mapShadowShift(data as unknown as ShadowShiftRow);
