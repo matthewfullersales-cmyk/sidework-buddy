@@ -100,10 +100,14 @@ export type Position =
 export type DayKey = "Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat" | "Sun";
 export const DAY_KEYS: DayKey[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 export type Meal = "Breakfast" | "Lunch" | "Dinner";
+/** Half of the day a Partial availability covers. Literal "Day"/"Night" at
+ * every restaurant — deliberately NOT derived from configured meal periods,
+ * so it stays meaningful on days the restaurant is closed to the public. */
+export type DayHalf = "day" | "night";
 export type DayAvailability =
   | { kind: "full" }
   | { kind: "none" }
-  | { kind: "partial"; meals: Meal[] };
+  | { kind: "partial"; meals?: Meal[]; half?: DayHalf };
 export type WeeklyAvailability = Record<DayKey, DayAvailability>;
 
 export type Relationship = "Spouse" | "Parent" | "Sibling" | "Child" | "Friend" | "Other";
