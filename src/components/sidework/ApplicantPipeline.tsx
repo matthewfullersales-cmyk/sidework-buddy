@@ -490,7 +490,15 @@ export function ApplicantPipeline() {
                           </div>
                           <div className="mt-3 flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
                             {next && p.state !== "applicant" && (
-                              <Button size="sm" disabled={busy} onClick={() => void move(p, next)}>
+                              <Button
+                                size="sm"
+                                disabled={busy}
+                                onClick={() =>
+                                  next === "shadow"
+                                    ? openShadowDialog(p, shadowShifts[p.id] ?? null)
+                                    : void move(p, next)
+                                }
+                              >
                                 Move to {STATE_LABEL[next]}
                               </Button>
                             )}
