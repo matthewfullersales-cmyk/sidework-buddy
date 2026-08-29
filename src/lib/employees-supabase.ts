@@ -443,6 +443,7 @@ export async function fetchPublicStaffInvite(
 export async function claimStaffInvite(
   token: string,
   patch: {
+    email?: string;
     phone?: string;
     weekly_availability?: unknown;
     emergency_contact?: unknown;
@@ -457,13 +458,17 @@ export async function claimStaffInvite(
     throw new Error("Couldn't finish claiming this invite. Please ask your manager to send a new link.");
   }
 
+  const cleanEmail = patch.email?.trim().toLowerCase();
   const hasSelfFields =
+    (cleanEmail !== undefined && cleanEmail !== "") ||
     patch.phone !== undefined ||
     patch.weekly_availability !== undefined ||
     patch.emergency_contact !== undefined;
   if (hasSelfFields) {
 
     const row: Record<string, unknown> = { personal_info_complete: true };
+    // The person owns their own email: blank leaves the stored value alone.
+    if (cleanEmail) row.email = cleanEmail;
     if (patch.phone !== undefined) row.phone = patch.phone || null;
     if (patch.weekly_availability !== undefined) row.weekly_availability = patch.weekly_availability;
     if (patch.emergency_contact !== undefined) row.emergency_contact = patch.emergency_contact;
