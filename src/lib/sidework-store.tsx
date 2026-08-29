@@ -1609,7 +1609,10 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
         p_primary_role: data.role,
       } as never);
       if (error) throw new Error(error.message);
-      const empId = (typeof personId === "string" ? personId : newUuid());
+      const empId = typeof personId === "string" ? personId : "";
+      if (!empId) {
+        throw new Error("Couldn't complete your join request. Please try again or contact the restaurant.");
+      }
 
       // Self-editable fields go in a normal follow-up update.
       const { error: upErr } = await supabase
@@ -1621,7 +1624,8 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           onboarding_started: true,
         } as never)
         .eq("id", empId);
-      if (upErr) console.error("[joinStaff] profile details", upErr);
+      if (upErr) throw new Error(upErr.message);
+
 
       const employee: Employee = {
         id: empId,
