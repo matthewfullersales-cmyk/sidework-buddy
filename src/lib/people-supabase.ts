@@ -219,6 +219,18 @@ export async function setPersonState(id: string, state: PersonState): Promise<Pe
   return mapPerson(data as unknown as PersonRow);
 }
 
+/** Manager-only hire: sets state to hired and records the role. Authorization is enforced inside the RPC. */
+export async function hirePerson(id: string, primaryRole: string): Promise<Person> {
+  const { data, error } = await supabase.rpc("hire_person", {
+    p_person_id: id,
+    p_primary_role: primaryRole,
+  });
+  if (error) throw error;
+  return mapPerson(data as unknown as PersonRow);
+}
+
+
+
 export async function archivePerson(id: string, archived = true): Promise<Person> {
   const { data, error } = await supabase
     .from("people")
