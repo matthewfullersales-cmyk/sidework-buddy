@@ -65,7 +65,7 @@ function summarizeAvailability(weekly?: WeeklyAvailability): string {
     if (!av || av.kind === "full") continue;
     const label = av.kind === "none"
       ? "Off"
-      : `${av.meals.join(" & ")} only`;
+      : `${(av.meals ?? []).join(" & ")} only`;
     const last = groups[groups.length - 1];
     if (last && last.label === label && last.endIdx === i - 1) {
       last.endIdx = i;
@@ -284,7 +284,7 @@ export function ScheduleSection() {
                 const [eh, em] = ds.end.split(":").map(Number);
                 return ((eh ?? 0) * 60 + (em ?? 0)) - ((sh ?? 0) * 60 + (sm ?? 0));
               })();
-              for (const meal of av.meals) {
+              for (const meal of av.meals ?? []) {
                 const period = mealPeriods[meal];
                 if (!period.enabled) continue;
                 const [ph, pm] = period.start.split(":").map(Number);
@@ -860,7 +860,7 @@ function ShiftDetailsDialog({
     if (!availDay || availDay.kind === "full") return null;
     if (availDay.kind === "none") return { kind: "none" };
     const r = isAvailableForRange(availDay, start, end, mealPeriods);
-    if (!r.ok) return { kind: "partial", meals: availDay.meals, violating: r.violating, touched: r.touched };
+    if (!r.ok) return { kind: "partial", meals: availDay.meals ?? [], violating: r.violating, touched: r.touched };
     return null;
   })();
   const needsOverride = !!availConflict && !overrideAvailability;
