@@ -617,7 +617,7 @@ export function ApplicantPipeline() {
                     </p>
                     <p className="text-sm">
                       {longDate(shadowShifts[openPerson.id]!.shiftDate)} · arrive{" "}
-                      {shadowShifts[openPerson.id]!.arrivalTime.slice(0, 5)}
+                      {formatTime12h(shadowShifts[openPerson.id]!.arrivalTime)}
                     </p>
                     <p className="text-sm text-muted-foreground">
                       {personName(shadowShifts[openPerson.id]!.trainerPersonId) ?? "No trainer assigned"}
