@@ -98,11 +98,8 @@ function HiredPage() {
     return () => { cancelled = true; };
   }, [id]);
 
-  const setDayKind = (day: DayKey, kind: AvKind) =>
-    setAvailability((prev) => ({
-      ...prev,
-      [day]: kind === "partial" ? { kind: "partial", meals: ["Lunch", "Dinner"] } : { kind },
-    }));
+
+
 
   const restaurantName = invite?.restaurantName ?? "the team";
   const alreadyClaimed = !!invite?.hiredEmployeeId && !/^e_/.test(invite.hiredEmployeeId);
