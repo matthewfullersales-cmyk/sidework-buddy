@@ -389,7 +389,12 @@ function StaffInvitePage() {
               <Field label="Confirm password"><PasswordInput autoComplete="new-password" minLength={8} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} /></Field>
             </div>
 
-            <Button size="lg" className="h-14 text-base shadow-elegant" onClick={submit} disabled={submitting}>
+            <Button
+              size="lg"
+              className="h-14 text-base shadow-elegant"
+              onClick={submit}
+              disabled={submitting || !availabilityCheck.complete}
+            >
               {submitting ? "Setting up…" : `Join ${restaurantName}`}
             </Button>
           </CardContent>
