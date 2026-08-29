@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { PersonAvatar } from "@/components/sidework/PersonAvatar";
 import { InterviewOfferDialog } from "@/components/sidework/InterviewOfferDialog";
 import { formatPhone } from "@/lib/format-phone";
@@ -26,6 +27,12 @@ import {
 } from "@/lib/interviews-supabase";
 import { useStore } from "@/lib/sidework-store";
 import { allRolesWithCustom } from "@/lib/role-colors";
+import {
+  fetchShadowShiftsForPeople,
+  createShadowShift,
+  updateShadowShift,
+  type ShadowShift,
+} from "@/lib/shadow-shifts-supabase";
 import {
   fetchPeople,
   setPersonState,
@@ -84,6 +91,7 @@ export function ApplicantPipeline() {
 
   const [people, setPeople] = useState<Person[]>([]);
   const [jobTitles, setJobTitles] = useState<Record<string, string>>({});
+  const [jobRoles, setJobRoles] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [showArchived, setShowArchived] = useState(false);
@@ -93,9 +101,17 @@ export function ApplicantPipeline() {
   const [offerFor, setOfferFor] = useState<Person | null>(null);
   const [hireFor, setHireFor] = useState<Person | null>(null);
   const [hireRole, setHireRole] = useState<string>("");
+  const [shadowShifts, setShadowShifts] = useState<Record<string, ShadowShift>>({});
+  const [shadowFor, setShadowFor] = useState<Person | null>(null);
+  const [shadowEditing, setShadowEditing] = useState<ShadowShift | null>(null);
+  const [shRole, setShRole] = useState<string>("");
+  const [shDate, setShDate] = useState<string>("");
+  const [shTime, setShTime] = useState<string>("");
+  const [shTrainer, setShTrainer] = useState<string>("");
+  const [shNote, setShNote] = useState<string>("");
 
   // Single source of truth for roles: the restaurant's configured role list.
-  const { customRoles, activeRoles } = useStore();
+  const { customRoles, activeRoles, shifts } = useStore();
   const roleChoices = useMemo(
     () => allRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r)),
     [customRoles, activeRoles],
@@ -117,12 +133,28 @@ export function ApplicantPipeline() {
     }
   };
 
+  // Newest non-cancelled shadow shift per person.
+  const loadShadowShifts = async (rows: Person[]) => {
+    try {
+      const list = await fetchShadowShiftsForPeople(rows.map((p) => p.id));
+      const map: Record<string, ShadowShift> = {};
+      for (const ss of list) {
+        if (ss.status === "cancelled") continue;
+        if (!map[ss.personId]) map[ss.personId] = ss;
+      }
+      setShadowShifts(map);
+    } catch (e) {
+      console.error("[pipeline] shadow shifts load failed", e);
+    }
+  };
+
   const load = async (oid: string) => {
     setLoading(true);
     try {
       const rows = await fetchPeople(oid, { archived: showArchived ? undefined : false });
       setPeople(rows);
       await loadInterviews(rows);
+      await loadShadowShifts(rows);
     } catch (e) {
       console.error("[pipeline] load failed", e);
       toast.error("Couldn't load applicants.");
@@ -143,11 +175,16 @@ export function ApplicantPipeline() {
     void (async () => {
       const { data } = await supabase
         .from("job_postings")
-        .select("id, title")
+        .select("id, title, role")
         .eq("owner_id", ownerId);
       const map: Record<string, string> = {};
-      for (const j of (data ?? []) as { id: string; title: string }[]) map[j.id] = j.title;
+      const roles: Record<string, string> = {};
+      for (const j of (data ?? []) as { id: string; title: string; role: string | null }[]) {
+        map[j.id] = j.title;
+        if (j.role) roles[j.id] = j.role;
+      }
       setJobTitles(map);
+      setJobRoles(roles);
     })();
   }, [ownerId]);
 
