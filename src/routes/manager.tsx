@@ -2507,8 +2507,8 @@ function SettingsTab({ onOpenSetup }: { onOpenSetup: () => void }) {
 }
 
 function ShadowPacketCard() {
-  const { user } = useAuth();
-  const ownerId = user?.id ?? null;
+  const { effectiveOwner } = useAuth();
+  const ownerId = effectiveOwner?.ownerId ?? null;
   const [packet, setPacket] = useState<ShadowPacket>(emptyShadowPacket);
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
