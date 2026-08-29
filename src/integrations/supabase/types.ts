@@ -433,6 +433,7 @@ export type Database = {
           restaurant_hours: Json | null
           restaurant_name: string | null
           role: Database["public"]["Enums"]["user_role"]
+          shadow_packet: Json | null
           slug: string | null
           stripe_customer_id: string | null
           stripe_subscription_id: string | null
@@ -451,6 +452,7 @@ export type Database = {
           restaurant_hours?: Json | null
           restaurant_name?: string | null
           role: Database["public"]["Enums"]["user_role"]
+          shadow_packet?: Json | null
           slug?: string | null
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
@@ -469,6 +471,7 @@ export type Database = {
           restaurant_hours?: Json | null
           restaurant_name?: string | null
           role?: Database["public"]["Enums"]["user_role"]
+          shadow_packet?: Json | null
           slug?: string | null
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
