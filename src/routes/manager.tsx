@@ -31,6 +31,7 @@ import { sendApplicantNotification } from "@/lib/applicant-notifications.functio
 import { notifyTimeOffResolved, notifyScheduleChanged } from "@/lib/notifications.functions";
 
 import { AvailabilityEditor, RestaurantHoursEditor, MealPeriodsEditor, BusinessInfoEditor } from "@/components/sidework/AvailabilityEditor";
+import { fetchShadowPacket, saveShadowPacket, emptyShadowPacket, type ShadowPacket } from "@/lib/employees-supabase";
 import { StaffJoinBanner, FullscreenQrDialog, StaffOnboardingCard, useJoinUrl } from "@/components/sidework/StaffOnboarding";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
@@ -2484,6 +2485,7 @@ function SettingsTab({ onOpenSetup }: { onOpenSetup: () => void }) {
           <BusinessInfoEditor value={businessInfo} onChange={setBusinessInfo} />
         </CardContent>
       </Card>
+      <ShadowPacketCard />
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Menu test requirements</CardTitle>
