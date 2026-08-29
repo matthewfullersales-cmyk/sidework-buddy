@@ -9,36 +9,18 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { PhoneInput } from "@/components/ui/phone-input";
 
-import {
-  Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import {
-  useStore,
-  type Role,
-  type Relationship,
-  type WeeklyAvailability,
-  type DayKey,
-  DAY_KEYS,
-  defaultWeeklyAvailability,
-} from "@/lib/sidework-store";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchPublicHireInvite, claimHireInvite, type PublicHireInviteInfo } from "@/lib/hiring-supabase";
 import { formatPhone } from "@/lib/format-phone";
 import { toast } from "sonner";
 import { CheckCircle2, Loader2, Share, Plus } from "lucide-react";
 
-const FOH_ROLES: Role[] = ["Host", "Busser", "Server Assistant", "Bar Back", "Bartender", "Server", "Manager", "Assistant Manager"];
-const BOH_ROLES: Role[] = ["Chef", "Sous Chef", "Line Cook", "Fry Cook", "Saute", "Grill", "Pizza", "Garde Manger", "Dishwasher", "Prep"];
-const RELATIONSHIPS: Relationship[] = ["Spouse", "Parent", "Sibling", "Child", "Friend", "Other"];
 
 const hiredSchema = z.object({
   firstName: z.string().trim().min(1, "First name required").max(60),
   lastName: z.string().trim().min(1, "Last name required").max(60),
   email: z.string().trim().email("Valid email required").max(255),
   phone: z.string().trim().min(7, "Phone number required").max(30),
-  ecFirstName: z.string().trim().min(1, "Emergency contact first name required").max(60),
-  ecLastName: z.string().trim().min(1, "Emergency contact last name required").max(60),
-  ecPhone: z.string().trim().min(7, "Emergency contact phone required").max(30),
 });
 
 export const Route = createFileRoute("/hired/$id")({
@@ -46,8 +28,6 @@ export const Route = createFileRoute("/hired/$id")({
   head: () => ({ meta: [{ title: "Welcome to the team — 86Paper" }] }),
   component: HiredPage,
 });
-
-type AvKind = "full" | "partial" | "none";
 
 function HiredPage() {
   const { id } = Route.useParams();
@@ -82,9 +62,6 @@ function HiredPage() {
         setLastName(last);
         setEmail(res.email ?? "");
         setPhone(res.phone ? formatPhone(res.phone) : "");
-        if (res.role && [...FOH_ROLES, ...BOH_ROLES].includes(res.role as Role)) {
-          setRole(res.role as Role);
-        }
       })
       .catch((e) => {
         console.error("[hired page]", e);
@@ -103,7 +80,7 @@ function HiredPage() {
   const alreadyClaimed = !!invite?.hiredEmployeeId && !/^e_/.test(invite.hiredEmployeeId);
 
   const submit = async () => {
-    const parsed = hiredSchema.safeParse({ firstName, lastName, email, phone, ecFirstName, ecLastName, ecPhone });
+    const parsed = hiredSchema.safeParse({ firstName, lastName, email, phone });
     if (!parsed.success) {
       const first = parsed.error.issues[0];
       return toast.error(first?.message ?? "Please complete the form");
@@ -112,8 +89,6 @@ function HiredPage() {
     if (password !== confirmPassword) return toast.error("Passwords don't match");
 
     setSubmitting(true);
-    // The hire path links the roster row through claimHireInvite below; joinStaff
-    // is now the slug-based self-join flow and no longer applies here.
 
     const redirectTo = typeof window !== "undefined" ? window.location.origin : undefined;
     const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
