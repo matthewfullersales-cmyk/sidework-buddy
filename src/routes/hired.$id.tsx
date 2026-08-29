@@ -213,70 +213,16 @@ function HiredPage() {
             <Field label="Email"><Input type="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} maxLength={255} autoComplete="email" /></Field>
             <Field label="Phone"><PhoneInput value={phone} onChange={setPhone} /></Field>
 
-            <Field label="Primary role">
-              <Select value={role} onValueChange={(v: Role) => setRole(v)}>
-                <SelectTrigger className="h-12"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectLabel>Front of House</SelectLabel>
-                    {FOH_ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-                  </SelectGroup>
-                  <SelectSeparator />
-                  <SelectGroup>
-                    <SelectLabel>Back of House</SelectLabel>
-                    {BOH_ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </Field>
-
-            <div className="grid gap-2">
-              <Label className="text-sm font-medium">Weekly availability</Label>
-              <p className="text-xs text-muted-foreground">Tap to choose Full day, Partial, or Off for each day.</p>
-              <div className="grid gap-2">
-                {DAY_KEYS.map((d) => {
-                  const kind: AvKind = availability[d].kind;
-                  return (
-                    <div key={d} className="flex items-center justify-between gap-2 rounded-lg border border-border p-2">
-                      <span className="w-12 text-sm font-semibold">{d}</span>
-                      <div className="grid flex-1 grid-cols-3 gap-1">
-                        {(["full", "partial", "none"] as AvKind[]).map((k) => {
-                          const active = k === kind;
-                          const label = k === "full" ? "Full" : k === "partial" ? "Partial" : "Off";
-                          return (
-                            <button
-                              key={k}
-                              type="button"
-                              onClick={() => setDayKind(d, k)}
-                              className={`min-h-11 rounded-md border text-xs font-medium transition-colors ${active ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background hover:bg-muted"}`}
-                            >
-                              {label}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+            <div className="grid gap-1.5">
+              <Label className="text-sm">Role</Label>
+              <p className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm font-medium">
+                {invite.role ?? "Your manager will set this"}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Your manager sets your role. If this looks wrong, ask them to fix it.
+              </p>
             </div>
 
-            <div className="grid gap-2 rounded-lg border border-border bg-muted/30 p-3">
-              <Label className="text-sm font-medium">Emergency contact</Label>
-              <div className="grid gap-2 sm:grid-cols-2">
-                <Field label="First name"><Input value={ecFirstName} onChange={(e) => setEcFirstName(e.target.value)} maxLength={60} /></Field>
-                <Field label="Last name"><Input value={ecLastName} onChange={(e) => setEcLastName(e.target.value)} maxLength={60} /></Field>
-              </div>
-              <Field label="Phone"><PhoneInput value={ecPhone} onChange={setEcPhone} /></Field>
-              <Field label="Relationship">
-                <Select value={ecRel} onValueChange={(v: Relationship) => setEcRel(v)}>
-                  <SelectTrigger className="h-12"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {RELATIONSHIPS.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </Field>
-            </div>
 
             <div className="grid gap-3 rounded-lg border border-border bg-muted/30 p-3">
               <Label className="text-sm font-medium">Create a password</Label>
