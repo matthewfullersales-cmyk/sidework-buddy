@@ -2572,6 +2572,12 @@ function ShadowPacketCard() {
           {field("What we provide", packet.dress.foh.provided, (v) => setDress("foh", "provided", v))}
         </div>
         <div className="space-y-3">
+          <p className="text-sm font-medium">Host dress</p>
+          <p className="text-xs text-muted-foreground">Leave blank if hosts follow the front of house dress.</p>
+          {field("What to wear", packet.dress.host.wear, (v) => setDress("host", "wear", v))}
+          {field("What we provide", packet.dress.host.provided, (v) => setDress("host", "provided", v))}
+        </div>
+        <div className="space-y-3">
           <p className="text-sm font-medium">Back of house dress</p>
           {field("What to wear", packet.dress.boh.wear, (v) => setDress("boh", "wear", v))}
           {field("What we provide", packet.dress.boh.provided, (v) => setDress("boh", "provided", v))}
