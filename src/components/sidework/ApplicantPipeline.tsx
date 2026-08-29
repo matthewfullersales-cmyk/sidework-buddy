@@ -301,7 +301,7 @@ export function ApplicantPipeline() {
         const onShift = shDate ? shifts.filter((sh) => sh.date === shDate && sh.employeeId === p.id) : [];
         const scheduled = onShift.length > 0;
         const label = scheduled
-          ? onShift.map((sh) => `${sh.start}–${sh.end}`).join(", ")
+          ? onShift.map((sh) => `${formatTime12h(sh.start)}–${formatTime12h(sh.end)}`).join(", ")
           : "Not scheduled";
         const rank = flagged && scheduled ? 0 : scheduled ? 1 : flagged ? 2 : 3;
         return { id: p.id, name: `${p.firstName} ${p.lastName}`.trim(), label, rank };
