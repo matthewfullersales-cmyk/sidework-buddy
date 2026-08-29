@@ -1053,6 +1053,7 @@ export type Database = {
         }
         Returns: {
           invite_token: string
+          matched_existing: boolean
           person_id: string
         }[]
       }
