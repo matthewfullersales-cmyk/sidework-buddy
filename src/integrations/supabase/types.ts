@@ -284,6 +284,7 @@ export type Database = {
           source: string | null
           state: string
           state_changed_at: string
+          submission_count: number
           updated_at: string
           work_experience: Json | null
         }
@@ -309,6 +310,7 @@ export type Database = {
           source?: string | null
           state?: string
           state_changed_at?: string
+          submission_count?: number
           updated_at?: string
           work_experience?: Json | null
         }
@@ -334,6 +336,7 @@ export type Database = {
           source?: string | null
           state?: string
           state_changed_at?: string
+          submission_count?: number
           updated_at?: string
           work_experience?: Json | null
         }
@@ -1078,6 +1081,7 @@ export type Database = {
           source: string | null
           state: string
           state_changed_at: string
+          submission_count: number
           updated_at: string
           work_experience: Json | null
         }
