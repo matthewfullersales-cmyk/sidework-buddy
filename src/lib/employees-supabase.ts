@@ -255,6 +255,12 @@ export async function saveBusinessInfo(ownerId: string, info: unknown): Promise<
 
 /* ---------------- Shadow shift packet (jsonb on profiles) ---------------- */
 
+// Fallback rule for the resolver that will eventually consume this packet:
+// - Role is Host -> use dress.host; if both of its fields are empty, fall back to dress.foh.
+// - Role is any other front of house role -> use dress.foh.
+// - Role is a back of house role -> use dress.boh.
+// The resolver does not exist yet; this comment records the rule next to the data.
+
 export type ShadowDressSection = { wear: string; provided: string };
 
 export type ShadowPacket = {
@@ -262,6 +268,7 @@ export type ShadowPacket = {
   parking: string;
   dress: {
     foh: ShadowDressSection;
+    host: ShadowDressSection;
     boh: ShadowDressSection;
   };
 };
@@ -272,6 +279,7 @@ export function emptyShadowPacket(): ShadowPacket {
     parking: "",
     dress: {
       foh: { wear: "", provided: "" },
+      host: { wear: "", provided: "" },
       boh: { wear: "", provided: "" },
     },
   };
@@ -293,7 +301,7 @@ export function normalizeShadowPacket(raw: unknown): ShadowPacket {
   return {
     entrance: typeof r.entrance === "string" ? r.entrance : "",
     parking: typeof r.parking === "string" ? r.parking : "",
-    dress: { foh: sect(dress.foh), boh: sect(dress.boh) },
+    dress: { foh: sect(dress.foh), host: sect(dress.host), boh: sect(dress.boh) },
   };
 }
 
