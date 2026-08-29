@@ -59,7 +59,7 @@ function presetIdForMeals(meals: Meal[], available: { id: string; label: string;
 export function summarizeAvailability(av: DayAvailability): string {
   if (av.kind === "full") return "Full day";
   if (av.kind === "none") return "Off";
-  return av.meals.join(" & ");
+  return (av.meals ?? []).join(" & ");
 }
 
 export function AvailabilityEditor({
@@ -113,7 +113,7 @@ export function AvailabilityEditor({
                       else if (k === "none") setDay(day, { kind: "none" });
                       else {
                         const defaultMeals = presets[0]?.meals ?? enabledMeals;
-                        setDay(day, { kind: "partial", meals: av.kind === "partial" ? av.meals.filter((m) => enabledMeals.includes(m)) : defaultMeals });
+                        setDay(day, { kind: "partial", meals: av.kind === "partial" ? (av.meals ?? []).filter((m) => enabledMeals.includes(m)) : defaultMeals });
                       }
                     }}
                     className={`min-h-[44px] rounded-md border px-2 text-xs font-medium transition ${
@@ -131,7 +131,7 @@ export function AvailabilityEditor({
               <div className="mt-3">
                 <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Available for</Label>
                 <select
-                  value={presetIdForMeals(av.kind === "partial" ? av.meals : (presets[0]?.meals ?? []), presets)}
+                  value={presetIdForMeals(av.kind === "partial" ? (av.meals ?? []) : (presets[0]?.meals ?? []), presets)}
                   onChange={(e) => {
                     const preset = presets.find((p) => p.id === e.target.value);
                     if (preset) setDay(day, { kind: "partial", meals: preset.meals });
