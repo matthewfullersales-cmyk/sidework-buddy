@@ -79,12 +79,7 @@ function relativeDate(iso: string | null): string {
   return `${Math.round(months / 12)} year${months >= 24 ? "s" : ""} ago`;
 }
 
-function longDate(iso: string | null): string {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
-}
+const longDate = formatDateLong;
 
 export function ApplicantPipeline() {
   const { effectiveOwner } = useAuth();
