@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Logo } from "@/components/sidework/Logo";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,14 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PhoneInput } from "@/components/ui/phone-input";
 
-import { Textarea } from "@/components/ui/textarea";
-import {
-  useStore,
-  type Role,
-  type JobPosting,
-} from "@/lib/sidework-store";
+import { useStore, type JobPosting } from "@/lib/sidework-store";
 import { fetchPublicPosting } from "@/lib/hiring-supabase";
-import { formatPhone } from "@/lib/format-phone";
 import { toast } from "sonner";
 import { CheckCircle2, Loader2 } from "lucide-react";
 
@@ -33,11 +27,6 @@ export const Route = createFileRoute("/careers")({
   }),
   component: CareersPage,
 });
-
-function countWords(s: string) {
-  const t = s.trim();
-  return t ? t.split(/\s+/).length : 0;
-}
 
 function CareersPage() {
   const { jobs, submitApplication, restaurantProfile } = useStore();
@@ -65,39 +54,25 @@ function CareersPage() {
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
-  const [experience, setExperience] = useState("");
-  const [specialTalents, setSpecialTalents] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
-
-  const experienceWords = useMemo(() => countWords(experience), [experience]);
-  const talentsWords = useMemo(() => countWords(specialTalents), [specialTalents]);
 
   const submit = async () => {
     if (!targetJob) return toast.error("Please open a specific job link to apply.");
     if (!firstName.trim() || !lastName.trim()) return toast.error("Please enter your first and last name.");
     if (!/^\S+@\S+\.\S+$/.test(email)) return toast.error("Please enter a valid email address.");
     if (phone.replace(/\D/g, "").length < 10) return toast.error("Please enter a valid phone number.");
-    if (experienceWords < 5) return toast.error("Tell us a bit about your experience (at least 5 words).");
-    if (experienceWords > 150) return toast.error("Please keep your experience under 150 words.");
-    if (talentsWords > 150) return toast.error("Please keep special talents under 150 words.");
 
     setSubmitting(true);
     try {
-      const { insertApplication } = await import("@/lib/hiring-supabase");
-      await insertApplication({
+      const { submitApplication } = await import("@/lib/people-supabase");
+      await submitApplication({
         jobId: targetJob.id,
-        name: `${firstName.trim()} ${lastName.trim()}`,
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         email: email.trim(),
         phone: phone.trim(),
-        role: targetJob.role as Role,
-        pitch: experience.trim(),
-        specialTalents: specialTalents.trim() || undefined,
-        availabilityDays: [],
-        availabilityHours: "Open availability",
-        verified: false,
+        source: "careers",
       });
       setDone(true);
     } catch (e) {
@@ -177,24 +152,6 @@ function CareersPage() {
                 {targetJob && (
                   <p className="text-xs text-muted-foreground">Pre-filled from job posting.</p>
                 )}
-              </Field>
-
-              <Field label={`Experience (${experienceWords}/150 words)`}>
-                <Textarea
-                  rows={5}
-                  value={experience}
-                  onChange={(e) => setExperience(e.target.value)}
-                  placeholder="Briefly describe your relevant restaurant or hospitality experience — where, what role, how long."
-                />
-              </Field>
-
-              <Field label={`Special talents (optional, ${talentsWords}/150 words)`}>
-                <Textarea
-                  rows={4}
-                  value={specialTalents}
-                  onChange={(e) => setSpecialTalents(e.target.value)}
-                  placeholder="Anything else that makes you stand out — languages spoken, wine knowledge, latte art, etc."
-                />
               </Field>
 
               {jobIdParam && !loadingJob && !targetJob && (
