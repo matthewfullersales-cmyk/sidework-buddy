@@ -17,6 +17,7 @@ const payloadSchema = z.object({
   // Kept for backward compat with existing callers; ignored.
   phoneDigits: z.string().regex(/^\d{0,15}$/).optional().default(""),
   slotCount: z.number().int().min(0).max(50).optional(),
+  interviewType: z.enum(["phone", "in_person"]).optional(),
   shadowDate: z.string().max(80).optional(),
   shadowTime: z.string().max(80).optional(),
 });
@@ -27,29 +28,68 @@ export type SendResult = {
 
 type Copy = { subject: string; text: string; html: string };
 
+/** Escapes a value for safe interpolation into HTML markup. */
+function esc(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+const NUMBER_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
+function spellCount(n: number): string {
+  return NUMBER_WORDS[n] ?? String(n);
+}
+
+function ctaButton(link: string): string {
+  const href = esc(link);
+  return (
+    `<p style="margin:24px 0;"><a href="${href}" style="display:inline-block;background-color:#14532d;color:#ffffff;` +
+    `font-size:14px;font-weight:600;text-decoration:none;padding:12px 24px;border-radius:6px;">Pick your interview time</a></p>` +
+    `<p style="font-size:12px;color:#6b7280;">Or paste this link into your browser:<br>${href}</p>`
+  );
+}
+
 function buildCopy(data: z.infer<typeof payloadSchema>): Copy {
   const hi = data.firstName ? `Hi ${data.firstName},` : "Hi,";
   const restaurant = data.restaurantName || "our restaurant";
 
   if (data.kind === "interview_offer") {
     const count = data.slotCount ?? 0;
-    const slotWord = count === 1 ? "time slot" : "time slots";
+    const word = spellCount(count);
+    const offerLine =
+      count === 1
+        ? `We've offered one time — confirm it here if it works for you:`
+        : `We've offered ${word} times — pick the one that works for you here:`;
+    const formatLine =
+      data.interviewType === "in_person"
+        ? "This is an in-person interview at the restaurant."
+        : data.interviewType === "phone"
+          ? "This is a phone interview. They'll call you at the time you pick."
+          : "";
     return {
       subject: `Interview with ${restaurant} — pick a time`,
       text:
 `${hi}
 
-${restaurant} would like to interview you. We've offered ${count} ${slotWord} — pick one that works for you here:
+${restaurant} would like to interview you.${formatLine ? `\n\n${formatLine}` : ""}
+
+${offerLine}
 ${data.link}
 
 Looking forward to speaking with you.`,
       html:
-`<p>${hi}</p>
-<p><strong>${restaurant}</strong> would like to interview you. We've offered ${count} ${slotWord} — pick one that works for you here:</p>
-<p><a href="${data.link}">${data.link}</a></p>
+`<p>${esc(hi)}</p>
+<p><strong>${esc(restaurant)}</strong> would like to interview you.</p>
+${formatLine ? `<p>${esc(formatLine)}</p>` : ""}
+<p>${esc(offerLine)}</p>
+${ctaButton(data.link)}
 <p>Looking forward to speaking with you.</p>`,
     };
   }
+
 
   if (data.kind === "shadow_invite") {
     const when = [data.shadowDate, data.shadowTime].filter(Boolean).join(" at ");

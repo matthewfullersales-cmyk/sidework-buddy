@@ -68,6 +68,7 @@ function PublicInterviewPage() {
       if (updated) setInterview(updated);
       toast.success("You're all set.");
     } catch (e) {
+      console.error("[confirm interview]", e);
       const msg = e instanceof Error ? e.message : "";
       toast.error(
         msg.includes("SLOT_TAKEN")
@@ -76,12 +77,15 @@ function PublicInterviewPage() {
       );
       try {
         const fresh = await getPublicInterview(token);
-        setInterview(fresh);
-      } catch { /* keep current view */ }
+        if (fresh) setInterview(fresh);
+      } catch (refreshErr) {
+        console.error("[confirm interview] refresh failed", refreshErr);
+      }
     } finally {
       setBusy(null);
     }
   };
+
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-md flex-col gap-6 px-4 py-8">
