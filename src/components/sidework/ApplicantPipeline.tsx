@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { PersonAvatar } from "@/components/sidework/PersonAvatar";
 import { InterviewOfferDialog } from "@/components/sidework/InterviewOfferDialog";
 import { formatPhone } from "@/lib/format-phone";
@@ -26,6 +27,12 @@ import {
 } from "@/lib/interviews-supabase";
 import { useStore } from "@/lib/sidework-store";
 import { allRolesWithCustom } from "@/lib/role-colors";
+import {
+  fetchShadowShiftsForPeople,
+  createShadowShift,
+  updateShadowShift,
+  type ShadowShift,
+} from "@/lib/shadow-shifts-supabase";
 import {
   fetchPeople,
   setPersonState,
@@ -84,6 +91,7 @@ export function ApplicantPipeline() {
 
   const [people, setPeople] = useState<Person[]>([]);
   const [jobTitles, setJobTitles] = useState<Record<string, string>>({});
+  const [jobRoles, setJobRoles] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [showArchived, setShowArchived] = useState(false);
@@ -93,9 +101,17 @@ export function ApplicantPipeline() {
   const [offerFor, setOfferFor] = useState<Person | null>(null);
   const [hireFor, setHireFor] = useState<Person | null>(null);
   const [hireRole, setHireRole] = useState<string>("");
+  const [shadowShifts, setShadowShifts] = useState<Record<string, ShadowShift>>({});
+  const [shadowFor, setShadowFor] = useState<Person | null>(null);
+  const [shadowEditing, setShadowEditing] = useState<ShadowShift | null>(null);
+  const [shRole, setShRole] = useState<string>("");
+  const [shDate, setShDate] = useState<string>("");
+  const [shTime, setShTime] = useState<string>("");
+  const [shTrainer, setShTrainer] = useState<string>("");
+  const [shNote, setShNote] = useState<string>("");
 
   // Single source of truth for roles: the restaurant's configured role list.
-  const { customRoles, activeRoles } = useStore();
+  const { customRoles, activeRoles, shifts } = useStore();
   const roleChoices = useMemo(
     () => allRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r)),
     [customRoles, activeRoles],
@@ -117,12 +133,28 @@ export function ApplicantPipeline() {
     }
   };
 
+  // Newest non-cancelled shadow shift per person.
+  const loadShadowShifts = async (rows: Person[]) => {
+    try {
+      const list = await fetchShadowShiftsForPeople(rows.map((p) => p.id));
+      const map: Record<string, ShadowShift> = {};
+      for (const ss of list) {
+        if (ss.status === "cancelled") continue;
+        if (!map[ss.personId]) map[ss.personId] = ss;
+      }
+      setShadowShifts(map);
+    } catch (e) {
+      console.error("[pipeline] shadow shifts load failed", e);
+    }
+  };
+
   const load = async (oid: string) => {
     setLoading(true);
     try {
       const rows = await fetchPeople(oid, { archived: showArchived ? undefined : false });
       setPeople(rows);
       await loadInterviews(rows);
+      await loadShadowShifts(rows);
     } catch (e) {
       console.error("[pipeline] load failed", e);
       toast.error("Couldn't load applicants.");
@@ -143,11 +175,16 @@ export function ApplicantPipeline() {
     void (async () => {
       const { data } = await supabase
         .from("job_postings")
-        .select("id, title")
+        .select("id, title, role")
         .eq("owner_id", ownerId);
       const map: Record<string, string> = {};
-      for (const j of (data ?? []) as { id: string; title: string }[]) map[j.id] = j.title;
+      const roles: Record<string, string> = {};
+      for (const j of (data ?? []) as { id: string; title: string; role: string | null }[]) {
+        map[j.id] = j.title;
+        if (j.role) roles[j.id] = j.role;
+      }
       setJobTitles(map);
+      setJobRoles(roles);
     })();
   }, [ownerId]);
 
@@ -241,6 +278,105 @@ export function ApplicantPipeline() {
     } catch (e) {
       console.error("[pipeline] cancel interview failed", e);
       toast.error("Couldn't cancel that interview.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /** Roster people who can train the selected role, ordered by usefulness. */
+  const trainerCandidates = useMemo(() => {
+    if (!shRole) return [] as { id: string; name: string; label: string; rank: number }[];
+    const roster = people.filter((p) => p.state === "hired" || p.state === "active");
+    const rows = roster
+      .filter(
+        (p) =>
+          (p.isTrainerForRoles ?? []).includes(shRole) ||
+          (p.approvedRoles ?? []).includes(shRole),
+      )
+      .map((p) => {
+        const flagged = (p.isTrainerForRoles ?? []).includes(shRole);
+        // "Scheduled that date" comes from the shifts already in the store —
+        // no extra server query.
+        const onShift = shDate ? shifts.filter((sh) => sh.date === shDate && sh.employeeId === p.id) : [];
+        const scheduled = onShift.length > 0;
+        const label = scheduled
+          ? onShift.map((sh) => `${sh.start}–${sh.end}`).join(", ")
+          : "Not scheduled";
+        const rank = flagged && scheduled ? 0 : scheduled ? 1 : flagged ? 2 : 3;
+        return { id: p.id, name: `${p.firstName} ${p.lastName}`.trim(), label, rank };
+      });
+    rows.sort((a, b) => a.rank - b.rank || a.name.localeCompare(b.name));
+    return rows;
+  }, [people, shifts, shRole, shDate]);
+
+  const anyFlaggedTrainer = useMemo(
+    () =>
+      !!shRole &&
+      people.some(
+        (p) =>
+          (p.state === "hired" || p.state === "active") &&
+          (p.isTrainerForRoles ?? []).includes(shRole),
+      ),
+    [people, shRole],
+  );
+
+  const personName = (id: string | null) => {
+    if (!id) return null;
+    const p = people.find((x) => x.id === id);
+    return p ? `${p.firstName} ${p.lastName}`.trim() : null;
+  };
+
+  const openShadowDialog = (person: Person, existing: ShadowShift | null) => {
+    setShadowEditing(existing);
+    setShRole(existing?.role ?? (person.jobId ? (jobRoles[person.jobId] ?? "") : ""));
+    setShDate(existing?.shiftDate ?? "");
+    setShTime((existing?.arrivalTime ?? "").slice(0, 5));
+    setShTrainer(existing?.trainerPersonId ?? "");
+    setShNote(existing?.note ?? "");
+    setShadowFor(person);
+    setOpenId(null);
+  };
+
+  const closeShadowDialog = () => {
+    setShadowFor(null);
+    setShadowEditing(null);
+  };
+
+  const saveShadowShift = async () => {
+    if (!shadowFor || !shRole || !shDate || !shTime) return;
+    setBusy(true);
+    try {
+      const saved = shadowEditing
+        ? await updateShadowShift({
+            id: shadowEditing.id,
+            shiftDate: shDate,
+            arrivalTime: shTime,
+            trainerPersonId: shTrainer || null,
+            note: shNote.trim() || null,
+          })
+        : await createShadowShift({
+            personId: shadowFor.id,
+            role: shRole,
+            shiftDate: shDate,
+            arrivalTime: shTime,
+            trainerPersonId: shTrainer || null,
+            note: shNote.trim() || null,
+          });
+      setShadowShifts((prev) => ({ ...prev, [saved.personId]: saved }));
+      if (!shadowEditing) {
+        setPeople((prev) =>
+          prev.map((p) =>
+            p.id === saved.personId
+              ? { ...p, state: "shadow", stateChangedAt: new Date().toISOString() }
+              : p,
+          ),
+        );
+      }
+      toast.success(shadowEditing ? "Shadow shift updated" : "Shadow shift scheduled");
+      closeShadowDialog();
+    } catch (e) {
+      console.error("[pipeline] shadow shift save failed", e);
+      toast.error("Couldn't save that shadow shift.");
     } finally {
       setBusy(false);
     }
@@ -464,6 +600,33 @@ export function ApplicantPipeline() {
                   </div>
 
                 )}
+
+                {shadowShifts[openPerson.id] && (
+                  <div className="mt-2 rounded-lg border border-border p-3">
+                    <p className="text-xs font-semibold">
+                      Shadow shift · {shadowShifts[openPerson.id]!.role}
+                    </p>
+                    <p className="text-sm">
+                      {longDate(shadowShifts[openPerson.id]!.shiftDate)} · arrive{" "}
+                      {shadowShifts[openPerson.id]!.arrivalTime.slice(0, 5)}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {personName(shadowShifts[openPerson.id]!.trainerPersonId) ?? "No trainer assigned"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {shadowShifts[openPerson.id]!.confirmedAt ? "Confirmed" : "Not confirmed yet"}
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="mt-2"
+                      disabled={busy}
+                      onClick={() => openShadowDialog(openPerson, shadowShifts[openPerson.id]!)}
+                    >
+                      Edit shadow shift
+                    </Button>
+                  </div>
+                )}
               </div>
 
               <DialogFooter className="flex-col gap-2 sm:flex-row sm:flex-wrap">
@@ -475,7 +638,7 @@ export function ApplicantPipeline() {
                     Cancel interview
                   </Button>
                 )}
-                <Button size="sm" disabled={busy || openPerson.state === "shadow"} onClick={() => void move(openPerson, "shadow")}>Move to Shadow</Button>
+                <Button size="sm" disabled={busy} onClick={() => openShadowDialog(openPerson, shadowShifts[openPerson.id] ?? null)}>Move to Shadow</Button>
                 <Button size="sm" disabled={busy || openPerson.state === "hired"} onClick={() => { setHireRole(""); setHireFor(openPerson); }}>Hire</Button>
                 <Button size="sm" variant="outline" disabled={busy || openPerson.state === "rejected"} onClick={() => void move(openPerson, "rejected")}>Pass</Button>
                 <Button size="sm" variant="ghost" disabled={busy} onClick={() => void archive(openPerson)}>
@@ -511,6 +674,83 @@ export function ApplicantPipeline() {
               <DialogFooter>
                 <Button variant="outline" disabled={busy} onClick={() => { setHireFor(null); setHireRole(""); }}>Cancel</Button>
                 <Button disabled={busy || !hireRole} onClick={() => void hire(hireFor, hireRole)}>Hire</Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!shadowFor} onOpenChange={(o) => { if (!o) closeShadowDialog(); }}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
+          {shadowFor && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Schedule shadow shift for {shadowFor.firstName}</DialogTitle>
+              </DialogHeader>
+
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Role</Label>
+                  <Select value={shRole} onValueChange={setShRole} disabled={!!shadowEditing}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {roleChoices.map((r) => (
+                        <SelectItem key={r} value={r}>{r}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="shadow-date">Date</Label>
+                    <Input id="shadow-date" type="date" value={shDate} onChange={(e) => setShDate(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="shadow-time">Arrival time</Label>
+                    <Input id="shadow-time" type="time" value={shTime} onChange={(e) => setShTime(e.target.value)} />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Trainer <span className="text-xs font-normal text-muted-foreground">(optional)</span></Label>
+                  <Select
+                    value={shTrainer || "none"}
+                    onValueChange={(v) => setShTrainer(v === "none" ? "" : v)}
+                    disabled={!shRole}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={shRole ? "Assign later" : "Pick a role first"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Assign later</SelectItem>
+                      {trainerCandidates.map((t) => (
+                        <SelectItem key={t.id} value={t.id}>
+                          {t.name} <span className="text-muted-foreground">· {t.label}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {shRole && !anyFlaggedTrainer && (
+                    <p className="text-xs text-muted-foreground">
+                      No one is flagged to train {shRole} yet.
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="shadow-note">Anything else for this shift? <span className="text-xs font-normal text-muted-foreground">(optional)</span></Label>
+                  <Textarea id="shadow-note" rows={3} value={shNote} onChange={(e) => setShNote(e.target.value)} />
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" disabled={busy} onClick={closeShadowDialog}>Cancel</Button>
+                <Button disabled={busy || !shRole || !shDate || !shTime} onClick={() => void saveShadowShift()}>
+                  {shadowEditing ? "Save changes" : "Schedule"}
+                </Button>
               </DialogFooter>
             </>
           )}
