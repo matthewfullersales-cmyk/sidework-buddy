@@ -60,12 +60,10 @@ function HiredPage() {
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [role, setRole] = useState<Role>("Server");
-  const [availability, setAvailability] = useState<WeeklyAvailability>(() => defaultWeeklyAvailability());
-  const [ecFirstName, setEcFirstName] = useState("");
-  const [ecLastName, setEcLastName] = useState("");
-  const [ecPhone, setEcPhone] = useState("");
-  const [ecRel, setEcRel] = useState<Relationship>("Friend");
+  // Role, weekly availability and emergency contact are intentionally NOT
+  // collected here: this path cannot persist them (see report), and collecting
+  // data we would discard is worse than not asking.
+
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
