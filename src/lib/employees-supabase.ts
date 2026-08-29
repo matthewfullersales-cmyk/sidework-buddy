@@ -253,6 +253,68 @@ export async function saveBusinessInfo(ownerId: string, info: unknown): Promise<
   if (error) throw error;
 }
 
+/* ---------------- Shadow shift packet (jsonb on profiles) ---------------- */
+
+export type ShadowDressSection = { wear: string; provided: string };
+
+export type ShadowPacket = {
+  entrance: string;
+  parking: string;
+  dress: {
+    foh: ShadowDressSection;
+    boh: ShadowDressSection;
+  };
+};
+
+export function emptyShadowPacket(): ShadowPacket {
+  return {
+    entrance: "",
+    parking: "",
+    dress: {
+      foh: { wear: "", provided: "" },
+      boh: { wear: "", provided: "" },
+    },
+  };
+}
+
+/** Normalize whatever is stored (partial/null) into the full shape with empty strings. */
+export function normalizeShadowPacket(raw: unknown): ShadowPacket {
+  const base = emptyShadowPacket();
+  if (!raw || typeof raw !== "object") return base;
+  const r = raw as Record<string, unknown>;
+  const dress = (r.dress ?? {}) as Record<string, unknown>;
+  const sect = (v: unknown): ShadowDressSection => {
+    const s = (v ?? {}) as Record<string, unknown>;
+    return {
+      wear: typeof s.wear === "string" ? s.wear : "",
+      provided: typeof s.provided === "string" ? s.provided : "",
+    };
+  };
+  return {
+    entrance: typeof r.entrance === "string" ? r.entrance : "",
+    parking: typeof r.parking === "string" ? r.parking : "",
+    dress: { foh: sect(dress.foh), boh: sect(dress.boh) },
+  };
+}
+
+export async function fetchShadowPacket(ownerId: string): Promise<ShadowPacket> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("shadow_packet" as never)
+    .eq("id", ownerId)
+    .maybeSingle();
+  if (error) throw error;
+  return normalizeShadowPacket((data as { shadow_packet: unknown } | null)?.shadow_packet ?? null);
+}
+
+export async function saveShadowPacket(ownerId: string, packet: ShadowPacket): Promise<void> {
+  const { error } = await supabase
+    .from("profiles")
+    .update({ shadow_packet: packet as never } as never)
+    .eq("id", ownerId);
+  if (error) throw error;
+}
+
 /* ---------------- Per-role menu test config (jsonb on profiles) ---------------- */
 
 /** Owner-side read (RLS: owner reads their own profile row). */
