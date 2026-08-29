@@ -1173,8 +1173,10 @@ export type Database = {
       get_public_person_invite: {
         Args: { p_token: string }
         Returns: {
+          claimed: boolean
           expired: boolean
           first_name: string
+          last_name: string
           primary_role: string
           restaurant_name: string
         }[]
