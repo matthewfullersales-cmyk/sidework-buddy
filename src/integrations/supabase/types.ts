@@ -61,6 +61,53 @@ export type Database = {
           },
         ]
       }
+      interviews: {
+        Row: {
+          created_at: string
+          id: string
+          interview_type: string
+          offered_slots: string[]
+          owner_id: string
+          person_id: string
+          public_token: string
+          selected_slot: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          interview_type: string
+          offered_slots?: string[]
+          owner_id: string
+          person_id: string
+          public_token?: string
+          selected_slot?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          interview_type?: string
+          offered_slots?: string[]
+          owner_id?: string
+          person_id?: string
+          public_token?: string
+          selected_slot?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interviews_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_applications: {
         Row: {
           ai_score: string | null
@@ -931,6 +978,41 @@ export type Database = {
         Args: { p_application_id: string; p_employee_profile_id: string }
         Returns: undefined
       }
+      confirm_interview_slot: {
+        Args: { p_slot: string; p_token: string }
+        Returns: {
+          address: string
+          first_name: string
+          id: string
+          interview_type: string
+          offered_slots: string[]
+          restaurant_name: string
+          restaurant_phone: string
+          selected_slot: string
+          status: string
+        }[]
+      }
+      create_interview_offer: {
+        Args: { p_person_id: string; p_slots: string[]; p_type: string }
+        Returns: {
+          created_at: string
+          id: string
+          interview_type: string
+          offered_slots: string[]
+          owner_id: string
+          person_id: string
+          public_token: string
+          selected_slot: string | null
+          status: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "interviews"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       employee_can_claim_role: {
         Args: { p_owner_id: string; p_role: string }
         Returns: boolean
@@ -1010,6 +1092,20 @@ export type Database = {
           role: string
           selected_slot: string
           stage: string
+        }[]
+      }
+      get_public_interview_by_token: {
+        Args: { p_token: string }
+        Returns: {
+          address: string
+          first_name: string
+          id: string
+          interview_type: string
+          offered_slots: string[]
+          restaurant_name: string
+          restaurant_phone: string
+          selected_slot: string
+          status: string
         }[]
       }
       get_public_join_restaurant: {
