@@ -193,6 +193,27 @@ export function ApplicantPipeline() {
     }
   };
 
+  const dropInterview = async (person: Person) => {
+    const iv = interviews[person.id];
+    if (!iv) return;
+    setBusy(true);
+    try {
+      await cancelInterview(iv.id);
+      setInterviews((prev) => {
+        const next = { ...prev };
+        delete next[person.id];
+        return next;
+      });
+      toast.success("Interview cancelled");
+    } catch (e) {
+      console.error("[pipeline] cancel interview failed", e);
+      toast.error("Couldn't cancel that interview.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+
   const openResume = async (path: string) => {
     const { data, error } = await supabase.storage.from("resumes").createSignedUrl(path, 60);
     if (error || !data?.signedUrl) {
