@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { PersonAvatar } from "@/components/sidework/PersonAvatar";
 import { InterviewOfferDialog } from "@/components/sidework/InterviewOfferDialog";
 import { formatPhone } from "@/lib/format-phone";
+import { formatTime12h } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/integrations/supabase/client";
 import { copyLinkWithToast } from "@/lib/copy-to-clipboard";
@@ -300,7 +301,7 @@ export function ApplicantPipeline() {
         const onShift = shDate ? shifts.filter((sh) => sh.date === shDate && sh.employeeId === p.id) : [];
         const scheduled = onShift.length > 0;
         const label = scheduled
-          ? onShift.map((sh) => `${sh.start}–${sh.end}`).join(", ")
+          ? onShift.map((sh) => `${formatTime12h(sh.start)}–${formatTime12h(sh.end)}`).join(", ")
           : "Not scheduled";
         const rank = flagged && scheduled ? 0 : scheduled ? 1 : flagged ? 2 : 3;
         return { id: p.id, name: `${p.firstName} ${p.lastName}`.trim(), label, rank };
@@ -489,7 +490,15 @@ export function ApplicantPipeline() {
                           </div>
                           <div className="mt-3 flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
                             {next && p.state !== "applicant" && (
-                              <Button size="sm" disabled={busy} onClick={() => void move(p, next)}>
+                              <Button
+                                size="sm"
+                                disabled={busy}
+                                onClick={() =>
+                                  next === "shadow"
+                                    ? openShadowDialog(p, shadowShifts[p.id] ?? null)
+                                    : void move(p, next)
+                                }
+                              >
                                 Move to {STATE_LABEL[next]}
                               </Button>
                             )}
@@ -608,7 +617,7 @@ export function ApplicantPipeline() {
                     </p>
                     <p className="text-sm">
                       {longDate(shadowShifts[openPerson.id]!.shiftDate)} · arrive{" "}
-                      {shadowShifts[openPerson.id]!.arrivalTime.slice(0, 5)}
+                      {formatTime12h(shadowShifts[openPerson.id]!.arrivalTime)}
                     </p>
                     <p className="text-sm text-muted-foreground">
                       {personName(shadowShifts[openPerson.id]!.trainerPersonId) ?? "No trainer assigned"}
