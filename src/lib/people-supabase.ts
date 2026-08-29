@@ -242,7 +242,7 @@ export async function submitApplication(input: {
 }): Promise<string> {
   const { data, error } = await supabase.rpc("submit_application", {
     p_owner_slug: input.ownerSlug ?? "",
-    p_job_id: input.jobId ?? undefined,
+    p_job_id: (input.jobId ?? null) as unknown as string,
     p_first_name: input.firstName,
     p_last_name: input.lastName,
     p_email: input.email ?? "",
