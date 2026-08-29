@@ -125,7 +125,10 @@ export async function fetchOwnerEmployees(ownerId: string): Promise<Employee[]> 
   return (data ?? []).map((r) => employeeFromRow(r as unknown as PersonRow));
 }
 
-/** Insert one employee. Returns the new row (with the DB-assigned uuid). */
+/**
+ * Insert one employee. Still targets restaurant_employees (deliberate — the hire
+ * path has not migrated yet), so it maps that row shape locally.
+ */
 export async function insertEmployee(
   ownerId: string,
   e: Employee,
@@ -137,8 +140,14 @@ export async function insertEmployee(
     .select("*")
     .single();
   if (error) throw error;
-  return employeeFromRow(data as unknown as PersonRow);
+  const r = data as Record<string, unknown>;
+  return {
+    ...e,
+    id: String(r.id),
+    joinStatus: r.join_status === "active" ? "active" : "pending",
+  };
 }
+
 
 /** Patch by id. Maps camelCase → snake_case for the fields callers actually change. */
 export async function updateEmployeeRow(id: string, patch: Partial<Employee>): Promise<void> {
