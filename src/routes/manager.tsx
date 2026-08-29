@@ -2523,7 +2523,7 @@ function ShadowPacketCard() {
   }, [ownerId]);
 
   const set = (patch: Partial<ShadowPacket>) => setPacket((p) => ({ ...p, ...patch }));
-  const setDress = (section: "foh" | "boh", field: "wear" | "provided", value: string) =>
+  const setDress = (section: "foh" | "host" | "boh", field: "wear" | "provided", value: string) =>
     setPacket((p) => ({ ...p, dress: { ...p.dress, [section]: { ...p.dress[section], [field]: value } } }));
 
   const save = async () => {
