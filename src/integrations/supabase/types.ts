@@ -261,6 +261,92 @@ export type Database = {
         }
         Relationships: []
       }
+      people: {
+        Row: {
+          applied_at: string | null
+          approved_roles: string[]
+          archived: boolean
+          auth_user_id: string | null
+          auto_approve_roles: string[]
+          created_at: string
+          email: string | null
+          emergency_contact: Json | null
+          first_name: string
+          hired_at: string | null
+          id: string
+          is_trainer_for_roles: string[]
+          job_id: string | null
+          last_name: string
+          owner_id: string
+          phone: string | null
+          primary_role: string | null
+          resume_path: string | null
+          source: string | null
+          state: string
+          state_changed_at: string
+          updated_at: string
+          work_experience: Json | null
+        }
+        Insert: {
+          applied_at?: string | null
+          approved_roles?: string[]
+          archived?: boolean
+          auth_user_id?: string | null
+          auto_approve_roles?: string[]
+          created_at?: string
+          email?: string | null
+          emergency_contact?: Json | null
+          first_name: string
+          hired_at?: string | null
+          id?: string
+          is_trainer_for_roles?: string[]
+          job_id?: string | null
+          last_name: string
+          owner_id: string
+          phone?: string | null
+          primary_role?: string | null
+          resume_path?: string | null
+          source?: string | null
+          state?: string
+          state_changed_at?: string
+          updated_at?: string
+          work_experience?: Json | null
+        }
+        Update: {
+          applied_at?: string | null
+          approved_roles?: string[]
+          archived?: boolean
+          auth_user_id?: string | null
+          auto_approve_roles?: string[]
+          created_at?: string
+          email?: string | null
+          emergency_contact?: Json | null
+          first_name?: string
+          hired_at?: string | null
+          id?: string
+          is_trainer_for_roles?: string[]
+          job_id?: string | null
+          last_name?: string
+          owner_id?: string
+          phone?: string | null
+          primary_role?: string | null
+          resume_path?: string | null
+          source?: string | null
+          state?: string
+          state_changed_at?: string
+          updated_at?: string
+          work_experience?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "people_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "job_postings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           business_info: Json | null
@@ -968,12 +1054,58 @@ export type Database = {
           slug: string
         }[]
       }
+      set_person_state: {
+        Args: { p_new_state: string; p_person_id: string }
+        Returns: {
+          applied_at: string | null
+          approved_roles: string[]
+          archived: boolean
+          auth_user_id: string | null
+          auto_approve_roles: string[]
+          created_at: string
+          email: string | null
+          emergency_contact: Json | null
+          first_name: string
+          hired_at: string | null
+          id: string
+          is_trainer_for_roles: string[]
+          job_id: string | null
+          last_name: string
+          owner_id: string
+          phone: string | null
+          primary_role: string | null
+          resume_path: string | null
+          source: string | null
+          state: string
+          state_changed_at: string
+          updated_at: string
+          work_experience: Json | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "people"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       set_restaurant_slug: { Args: { p_slug: string }; Returns: string }
       shift_is_on_trade_board: {
         Args: { p_owner_id: string; p_shift_id: string }
         Returns: boolean
       }
       slugify_name: { Args: { input: string }; Returns: string }
+      submit_application: {
+        Args: {
+          p_email: string
+          p_first_name: string
+          p_job_id: string
+          p_last_name: string
+          p_owner_slug: string
+          p_phone: string
+          p_source: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       user_role: "owner" | "employee"
