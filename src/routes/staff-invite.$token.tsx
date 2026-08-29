@@ -354,10 +354,15 @@ function StaffInvitePage() {
                           })}
                         </div>
                       ) : null}
-                    </div>
-                  );
-                })}
+                  </div>
+                );
+              })}
               </div>
+              {!availabilityCheck.complete ? (
+                <p className="text-xs text-muted-foreground">
+                  Still need: {availabilityCheck.missing.join(", ")}
+                </p>
+              ) : null}
             </div>
 
             <div className="grid gap-2 rounded-lg border border-border bg-muted/30 p-3">
