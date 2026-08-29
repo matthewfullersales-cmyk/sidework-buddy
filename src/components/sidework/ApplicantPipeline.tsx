@@ -82,12 +82,30 @@ export function ApplicantPipeline() {
   const [showArchived, setShowArchived] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [interviews, setInterviews] = useState<Record<string, Interview>>({});
+  const [offerFor, setOfferFor] = useState<Person | null>(null);
+
+  // Newest non-cancelled interview per person.
+  const loadInterviews = async (rows: Person[]) => {
+    try {
+      const list = await fetchInterviewsForPeople(rows.map((p) => p.id));
+      const map: Record<string, Interview> = {};
+      for (const iv of list) {
+        if (iv.status === "cancelled") continue;
+        if (!map[iv.personId]) map[iv.personId] = iv;
+      }
+      setInterviews(map);
+    } catch (e) {
+      console.error("[pipeline] interviews load failed", e);
+    }
+  };
 
   const load = async (oid: string) => {
     setLoading(true);
     try {
       const rows = await fetchPeople(oid, { archived: showArchived ? undefined : false });
       setPeople(rows);
+      await loadInterviews(rows);
     } catch (e) {
       console.error("[pipeline] load failed", e);
       toast.error("Couldn't load applicants.");
@@ -95,6 +113,7 @@ export function ApplicantPipeline() {
       setLoading(false);
     }
   };
+
 
   useEffect(() => {
     if (!ownerId) return;
