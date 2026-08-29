@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PersonAvatar } from "@/components/sidework/PersonAvatar";
 import { InterviewOfferDialog } from "@/components/sidework/InterviewOfferDialog";
 import { formatPhone } from "@/lib/format-phone";
@@ -94,10 +95,10 @@ export function ApplicantPipeline() {
   const [hireRole, setHireRole] = useState<string>("");
 
   // Single source of truth for roles: the restaurant's configured role list.
-  const { state: storeState } = useStore();
+  const { customRoles, activeRoles } = useStore();
   const roleChoices = useMemo(
-    () => allRolesWithCustom(storeState.customRoles).filter((r) => storeState.activeRoles.includes(r)),
-    [storeState.customRoles, storeState.activeRoles],
+    () => allRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r)),
+    [customRoles, activeRoles],
   );
 
 
@@ -482,6 +483,35 @@ export function ApplicantPipeline() {
                 </Button>
               </DialogFooter>
 
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!hireFor} onOpenChange={(o) => { if (!o) { setHireFor(null); setHireRole(""); } }}>
+        <DialogContent className="sm:max-w-md">
+          {hireFor && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Hire {hireFor.firstName} as…</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-2">
+                <Label>Role</Label>
+                <Select value={hireRole} onValueChange={setHireRole}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {roleChoices.map((r) => (
+                      <SelectItem key={r} value={r}>{r}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" disabled={busy} onClick={() => { setHireFor(null); setHireRole(""); }}>Cancel</Button>
+                <Button disabled={busy || !hireRole} onClick={() => void hire(hireFor, hireRole)}>Hire</Button>
+              </DialogFooter>
             </>
           )}
         </DialogContent>
