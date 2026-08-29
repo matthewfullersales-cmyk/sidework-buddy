@@ -90,6 +90,16 @@ export function ApplicantPipeline() {
   const [busy, setBusy] = useState(false);
   const [interviews, setInterviews] = useState<Record<string, Interview>>({});
   const [offerFor, setOfferFor] = useState<Person | null>(null);
+  const [hireFor, setHireFor] = useState<Person | null>(null);
+  const [hireRole, setHireRole] = useState<string>("");
+
+  // Single source of truth for roles: the restaurant's configured role list.
+  const { state: storeState } = useStore();
+  const roleChoices = useMemo(
+    () => allRolesWithCustom(storeState.customRoles).filter((r) => storeState.activeRoles.includes(r)),
+    [storeState.customRoles, storeState.activeRoles],
+  );
+
 
   // Newest non-cancelled interview per person.
   const loadInterviews = async (rows: Person[]) => {
