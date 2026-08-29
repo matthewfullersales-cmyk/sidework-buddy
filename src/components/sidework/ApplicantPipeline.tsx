@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PersonAvatar } from "@/components/sidework/PersonAvatar";
 import { InterviewOfferDialog } from "@/components/sidework/InterviewOfferDialog";
 import { formatPhone } from "@/lib/format-phone";
@@ -23,9 +24,12 @@ import {
   cancelInterview,
   type Interview,
 } from "@/lib/interviews-supabase";
+import { useStore } from "@/lib/sidework-store";
+import { allRolesWithCustom } from "@/lib/role-colors";
 import {
   fetchPeople,
   setPersonState,
+  hirePerson,
   archivePerson,
   type Person,
   type PersonState,
@@ -87,6 +91,16 @@ export function ApplicantPipeline() {
   const [busy, setBusy] = useState(false);
   const [interviews, setInterviews] = useState<Record<string, Interview>>({});
   const [offerFor, setOfferFor] = useState<Person | null>(null);
+  const [hireFor, setHireFor] = useState<Person | null>(null);
+  const [hireRole, setHireRole] = useState<string>("");
+
+  // Single source of truth for roles: the restaurant's configured role list.
+  const { customRoles, activeRoles } = useStore();
+  const roleChoices = useMemo(
+    () => allRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r)),
+    [customRoles, activeRoles],
+  );
+
 
   // Newest non-cancelled interview per person.
   const loadInterviews = async (rows: Person[]) => {
@@ -172,6 +186,22 @@ export function ApplicantPipeline() {
     } catch (e) {
       console.error("[pipeline] state change failed", e);
       toast.error("Couldn't update this person.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const hire = async (person: Person, role: string) => {
+    setBusy(true);
+    try {
+      const updated = await hirePerson(person.id, role);
+      setPeople((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+      toast.success(`${person.firstName} hired as ${role}`);
+      setHireFor(null);
+      setHireRole("");
+    } catch (e) {
+      console.error("[pipeline] hire failed", e);
+      toast.error("Couldn't hire this person.");
     } finally {
       setBusy(false);
     }
@@ -446,13 +476,42 @@ export function ApplicantPipeline() {
                   </Button>
                 )}
                 <Button size="sm" disabled={busy || openPerson.state === "shadow"} onClick={() => void move(openPerson, "shadow")}>Move to Shadow</Button>
-                <Button size="sm" disabled={busy || openPerson.state === "hired"} onClick={() => void move(openPerson, "hired")}>Hire</Button>
+                <Button size="sm" disabled={busy || openPerson.state === "hired"} onClick={() => { setHireRole(""); setHireFor(openPerson); }}>Hire</Button>
                 <Button size="sm" variant="outline" disabled={busy || openPerson.state === "rejected"} onClick={() => void move(openPerson, "rejected")}>Pass</Button>
                 <Button size="sm" variant="ghost" disabled={busy} onClick={() => void archive(openPerson)}>
                   {openPerson.archived ? "Restore" : "Archive"}
                 </Button>
               </DialogFooter>
 
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!hireFor} onOpenChange={(o) => { if (!o) { setHireFor(null); setHireRole(""); } }}>
+        <DialogContent className="sm:max-w-md">
+          {hireFor && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Hire {hireFor.firstName} as…</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-2">
+                <Label>Role</Label>
+                <Select value={hireRole} onValueChange={setHireRole}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {roleChoices.map((r) => (
+                      <SelectItem key={r} value={r}>{r}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" disabled={busy} onClick={() => { setHireFor(null); setHireRole(""); }}>Cancel</Button>
+                <Button disabled={busy || !hireRole} onClick={() => void hire(hireFor, hireRole)}>Hire</Button>
+              </DialogFooter>
             </>
           )}
         </DialogContent>
