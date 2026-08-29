@@ -31,6 +31,7 @@ import { sendApplicantNotification } from "@/lib/applicant-notifications.functio
 import { notifyTimeOffResolved, notifyScheduleChanged } from "@/lib/notifications.functions";
 
 import { AvailabilityEditor, RestaurantHoursEditor, MealPeriodsEditor, BusinessInfoEditor } from "@/components/sidework/AvailabilityEditor";
+import { fetchShadowPacket, saveShadowPacket, emptyShadowPacket, type ShadowPacket } from "@/lib/employees-supabase";
 import { StaffJoinBanner, FullscreenQrDialog, StaffOnboardingCard, useJoinUrl } from "@/components/sidework/StaffOnboarding";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
@@ -2484,6 +2485,7 @@ function SettingsTab({ onOpenSetup }: { onOpenSetup: () => void }) {
           <BusinessInfoEditor value={businessInfo} onChange={setBusinessInfo} />
         </CardContent>
       </Card>
+      <ShadowPacketCard />
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Menu test requirements</CardTitle>
@@ -2501,6 +2503,84 @@ function SettingsTab({ onOpenSetup }: { onOpenSetup: () => void }) {
       </Card>
       {setupCompleted && <StaffOnboardingCard />}
     </div>
+  );
+}
+
+function ShadowPacketCard() {
+  const { user } = useAuth();
+  const ownerId = user?.id ?? null;
+  const [packet, setPacket] = useState<ShadowPacket>(emptyShadowPacket);
+  const [loaded, setLoaded] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!ownerId) return;
+    let cancelled = false;
+    fetchShadowPacket(ownerId)
+      .then((p) => { if (!cancelled) { setPacket(p); setLoaded(true); } })
+      .catch((e) => { console.error("[shadow packet] load failed", e); if (!cancelled) setLoaded(true); });
+    return () => { cancelled = true; };
+  }, [ownerId]);
+
+  const set = (patch: Partial<ShadowPacket>) => setPacket((p) => ({ ...p, ...patch }));
+  const setDress = (section: "foh" | "boh", field: "wear" | "provided", value: string) =>
+    setPacket((p) => ({ ...p, dress: { ...p.dress, [section]: { ...p.dress[section], [field]: value } } }));
+
+  const save = async () => {
+    if (!ownerId) return;
+    setSaving(true);
+    try {
+      await saveShadowPacket(ownerId, packet);
+      toast.success("Shadow shift packet saved");
+    } catch (e) {
+      console.error("[shadow packet] save failed", e);
+      toast.error("Couldn't save the shadow shift packet");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const field = (
+    label: string,
+    value: string,
+    onChange: (v: string) => void,
+  ) => (
+    <div className="grid gap-2">
+      <Label>{label}</Label>
+      <Textarea rows={3} value={value} onChange={(e) => onChange(e.target.value)} disabled={!loaded} />
+    </div>
+  );
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Shadow shift packet</CardTitle>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Arrival and dress info written once here and sent to anyone coming in for a shadow shift.
+          Fill in only what applies — anything left blank is simply left out.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        <div className="space-y-3">
+          <p className="text-sm font-medium">Arrival</p>
+          {field("Where to enter", packet.entrance, (v) => set({ entrance: v }))}
+          {field("Where to park", packet.parking, (v) => set({ parking: v }))}
+        </div>
+        <div className="space-y-3">
+          <p className="text-sm font-medium">Front of house dress</p>
+          {field("What to wear", packet.dress.foh.wear, (v) => setDress("foh", "wear", v))}
+          {field("What we provide", packet.dress.foh.provided, (v) => setDress("foh", "provided", v))}
+        </div>
+        <div className="space-y-3">
+          <p className="text-sm font-medium">Back of house dress</p>
+          {field("What to wear", packet.dress.boh.wear, (v) => setDress("boh", "wear", v))}
+          {field("What we provide", packet.dress.boh.provided, (v) => setDress("boh", "provided", v))}
+        </div>
+        <div className="flex justify-end">
+          <Button onClick={save} disabled={!loaded || saving}>{saving ? "Saving…" : "Save"}</Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
