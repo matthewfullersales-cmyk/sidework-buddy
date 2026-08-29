@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { PhoneInput } from "@/components/ui/phone-input";
 
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { type Role, type Relationship, type WeeklyAvailability, type DayKey, DAY_KEYS, defaultWeeklyAvailability } from "@/lib/sidework-store";
+import { useStore, type Role, type Relationship, type WeeklyAvailability, type DayKey, DAY_KEYS, defaultWeeklyAvailability } from "@/lib/sidework-store";
 import { supabase } from "@/integrations/supabase/client";
 import { resolveJoinRestaurant } from "@/lib/join.functions";
 import { formatPhone } from "@/lib/format-phone";
@@ -41,6 +41,7 @@ type AvKind = "full" | "partial" | "none";
 
 function JoinPage() {
   const { slug } = Route.useParams();
+  const { joinStaff } = useStore();
   const [resolved, setResolved] = useState<{ ownerId: string; restaurantName: string } | null>(null);
   const [resolving, setResolving] = useState(true);
   const restaurantName = resolved?.restaurantName ?? "the team";
@@ -142,26 +143,22 @@ function JoinPage() {
         throw new Error("Check your email to confirm your account, then open this link again to finish joining.");
       }
 
-      // 2. Server resolves the slug again and inserts a PENDING roster row.
-      const { error: joinErr } = await supabase.rpc("join_restaurant_by_slug", {
-        p_slug: slug,
-        p_auth_user_id: userId,
-        p_patch: {
-          first_name: parsed.data.firstName,
-          last_name: parsed.data.lastName,
-          email: parsed.data.email,
-          phone: parsed.data.phone,
-          primary_role: role,
-          weekly_availability: availability,
-          emergency_contact: {
-            firstName: parsed.data.ecFirstName,
-            lastName: parsed.data.ecLastName,
-            phone: parsed.data.ecPhone,
-            relationship: ecRel,
-          },
-        } as never,
+      // 2. Server resolves the slug again and inserts a PENDING person row.
+      await joinStaff({
+        slug,
+        firstName: parsed.data.firstName,
+        lastName: parsed.data.lastName,
+        email: parsed.data.email,
+        phone: parsed.data.phone,
+        role,
+        weeklyAvailability: availability,
+        emergencyContact: {
+          firstName: parsed.data.ecFirstName,
+          lastName: parsed.data.ecLastName,
+          phone: parsed.data.ecPhone,
+          relationship: ecRel,
+        },
       });
-      if (joinErr) throw new Error(joinErr.message);
 
       setDone({ firstName: parsed.data.firstName });
     } catch (e) {
