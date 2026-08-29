@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
 import { Logo } from "@/components/sidework/Logo";
 import { Card, CardContent } from "@/components/ui/card";
@@ -30,9 +30,9 @@ const RELATIONSHIPS: Relationship[] = ["Spouse", "Parent", "Sibling", "Child", "
 const claimSchema = z.object({
   email: z.string().trim().email("Valid email required").max(255),
   phone: z.string().trim().min(7, "Phone number required").max(30),
-  ecFirstName: z.string().trim().min(1, "Emergency contact first name required").max(60),
-  ecLastName: z.string().trim().min(1, "Emergency contact last name required").max(60),
-  ecPhone: z.string().trim().min(7, "Emergency contact phone required").max(30),
+  ecFirstName: z.string().trim().max(60).optional(),
+  ecLastName: z.string().trim().max(60).optional(),
+  ecPhone: z.string().trim().max(30).optional(),
 });
 
 export const Route = createFileRoute("/staff-invite/$token")({
@@ -90,6 +90,21 @@ function StaffInvitePage() {
   // Exactly one half; tapping the other replaces it rather than accumulating.
   const setDayHalf = (day: DayKey, half: DayHalf) =>
     setAvailability((prev) => ({ ...prev, [day]: { kind: "partial", half } }));
+
+  const availabilityCheck = useMemo(() => {
+    const missing: string[] = [];
+    for (const d of DAY_KEYS) {
+      const entry = availability[d];
+      if (!entry) {
+        missing.push(d);
+        continue;
+      }
+      if (entry.kind === "partial" && !entry.half) {
+        missing.push(`${d} (Day or Night)`);
+      }
+    }
+    return { complete: missing.length === 0, missing };
+  }, [availability]);
 
   const restaurantName = invite?.restaurantName ?? "the team";
   const inviteName = `${invite?.firstName ?? ""} ${invite?.lastName ?? ""}`.trim();
@@ -161,16 +176,25 @@ function StaffInvitePage() {
 
       try {
         void uid;
+        const hasEc =
+          Boolean(parsed.data.ecFirstName?.trim()) ||
+          Boolean(parsed.data.ecLastName?.trim()) ||
+          Boolean(parsed.data.ecPhone?.trim()) ||
+          Boolean(ecRel);
         await claimStaffInvite(token, {
           email: parsed.data.email,
           phone: parsed.data.phone,
-          weekly_availability: Object.keys(availability).length ? availability : undefined,
-          emergency_contact: {
-            firstName: parsed.data.ecFirstName,
-            lastName: parsed.data.ecLastName,
-            phone: parsed.data.ecPhone,
-            ...(ecRel ? { relationship: ecRel } : {}),
-          },
+          weekly_availability: availability,
+          ...(hasEc
+            ? {
+                emergency_contact: {
+                  firstName: parsed.data.ecFirstName?.trim() ?? "",
+                  lastName: parsed.data.ecLastName?.trim() ?? "",
+                  phone: parsed.data.ecPhone?.trim() ?? "",
+                  ...(ecRel ? { relationship: ecRel } : {}),
+                },
+              }
+            : {}),
         });
       } catch (claimErr: any) {
         setSubmitting(false);
@@ -285,7 +309,7 @@ function StaffInvitePage() {
             <div className="grid gap-2">
               <Label className="text-sm font-medium">Weekly availability</Label>
               <p className="text-xs text-muted-foreground">
-                Tap to choose Full day, Partial, or Off for each day. Days you don't tap are left blank.
+                Tap Full, Partial, or Off for each day. If Partial, also choose Day or Night.
               </p>
               <div className="grid gap-2">
                 {DAY_KEYS.map((d) => {
@@ -330,10 +354,15 @@ function StaffInvitePage() {
                           })}
                         </div>
                       ) : null}
-                    </div>
-                  );
-                })}
+                  </div>
+                );
+              })}
               </div>
+              {!availabilityCheck.complete ? (
+                <p className="text-xs text-muted-foreground">
+                  Still need: {availabilityCheck.missing.join(", ")}
+                </p>
+              ) : null}
             </div>
 
             <div className="grid gap-2 rounded-lg border border-border bg-muted/30 p-3">
@@ -360,7 +389,12 @@ function StaffInvitePage() {
               <Field label="Confirm password"><PasswordInput autoComplete="new-password" minLength={8} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} /></Field>
             </div>
 
-            <Button size="lg" className="h-14 text-base shadow-elegant" onClick={submit} disabled={submitting}>
+            <Button
+              size="lg"
+              className="h-14 text-base shadow-elegant"
+              onClick={submit}
+              disabled={submitting || !availabilityCheck.complete}
+            >
               {submitting ? "Setting up…" : `Join ${restaurantName}`}
             </Button>
           </CardContent>
