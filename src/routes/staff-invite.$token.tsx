@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   type Relationship,
   type DayAvailability,
+  type DayHalf,
   type DayKey,
   DAY_KEYS,
 } from "@/lib/sidework-store";
@@ -161,6 +162,7 @@ function StaffInvitePage() {
       try {
         void uid;
         await claimStaffInvite(token, {
+          email: parsed.data.email,
           phone: parsed.data.phone,
           weekly_availability: Object.keys(availability).length ? availability : undefined,
           emergency_contact: {
@@ -287,26 +289,47 @@ function StaffInvitePage() {
               </p>
               <div className="grid gap-2">
                 {DAY_KEYS.map((d) => {
-                  const kind: AvKind | undefined = availability[d]?.kind;
+                  const entry = availability[d];
+                  const kind: AvKind | undefined = entry?.kind;
+                  const half = entry?.kind === "partial" ? entry.half : undefined;
                   return (
-                    <div key={d} className="flex items-center justify-between gap-2 rounded-lg border border-border p-2">
-                      <span className="w-12 text-sm font-semibold">{d}</span>
-                      <div className="grid flex-1 grid-cols-3 gap-1">
-                        {(["full", "partial", "none"] as AvKind[]).map((k) => {
-                          const active = k === kind;
-                          const label = k === "full" ? "Full" : k === "partial" ? "Partial" : "Off";
-                          return (
-                            <button
-                              key={k}
-                              type="button"
-                              onClick={() => setDayKind(d, k)}
-                              className={`min-h-11 rounded-md border text-xs font-medium transition-colors ${active ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background hover:bg-muted"}`}
-                            >
-                              {label}
-                            </button>
-                          );
-                        })}
+                    <div key={d} className="grid gap-2 rounded-lg border border-border p-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="w-12 text-sm font-semibold">{d}</span>
+                        <div className="grid flex-1 grid-cols-3 gap-1">
+                          {(["full", "partial", "none"] as AvKind[]).map((k) => {
+                            const active = k === kind;
+                            const label = k === "full" ? "Full" : k === "partial" ? "Partial" : "Off";
+                            return (
+                              <button
+                                key={k}
+                                type="button"
+                                onClick={() => setDayKind(d, k)}
+                                className={`min-h-11 rounded-md border text-xs font-medium transition-colors ${active ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background hover:bg-muted"}`}
+                              >
+                                {label}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
+                      {kind === "partial" ? (
+                        <div className="grid grid-cols-2 gap-1 pl-12">
+                          {(["day", "night"] as DayHalf[]).map((h) => {
+                            const active = h === half;
+                            return (
+                              <button
+                                key={h}
+                                type="button"
+                                onClick={() => setDayHalf(d, h)}
+                                className={`min-h-11 rounded-md border text-xs font-medium transition-colors ${active ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background hover:bg-muted"}`}
+                              >
+                                {h === "day" ? "Day" : "Night"}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : null}
                     </div>
                   );
                 })}
