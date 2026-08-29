@@ -712,6 +712,66 @@ export type Database = {
           },
         ]
       }
+      shadow_shifts: {
+        Row: {
+          arrival_time: string
+          confirmed_at: string | null
+          created_at: string
+          id: string
+          note: string | null
+          owner_id: string
+          person_id: string
+          role: string
+          shift_date: string
+          status: string
+          trainer_person_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          arrival_time: string
+          confirmed_at?: string | null
+          created_at?: string
+          id?: string
+          note?: string | null
+          owner_id: string
+          person_id: string
+          role: string
+          shift_date: string
+          status?: string
+          trainer_person_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          arrival_time?: string
+          confirmed_at?: string | null
+          created_at?: string
+          id?: string
+          note?: string | null
+          owner_id?: string
+          person_id?: string
+          role?: string
+          shift_date?: string
+          status?: string
+          trainer_person_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shadow_shifts_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shadow_shifts_trainer_person_id_fkey"
+            columns: ["trainer_person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shift_trades: {
         Row: {
           approved_by: string | null
@@ -1060,6 +1120,36 @@ export type Database = {
           person_id: string
         }[]
       }
+      create_shadow_shift: {
+        Args: {
+          p_arrival_time: string
+          p_note?: string
+          p_person_id: string
+          p_role: string
+          p_shift_date: string
+          p_trainer_person_id?: string
+        }
+        Returns: {
+          arrival_time: string
+          confirmed_at: string | null
+          created_at: string
+          id: string
+          note: string | null
+          owner_id: string
+          person_id: string
+          role: string
+          shift_date: string
+          status: string
+          trainer_person_id: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "shadow_shifts"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       decline_pending_person: {
         Args: { p_person_id: string }
         Returns: undefined
@@ -1341,6 +1431,35 @@ export type Database = {
           p_source: string
         }
         Returns: string
+      }
+      update_shadow_shift: {
+        Args: {
+          p_arrival_time: string
+          p_id: string
+          p_note?: string
+          p_shift_date: string
+          p_trainer_person_id?: string
+        }
+        Returns: {
+          arrival_time: string
+          confirmed_at: string | null
+          created_at: string
+          id: string
+          note: string | null
+          owner_id: string
+          person_id: string
+          role: string
+          shift_date: string
+          status: string
+          trainer_person_id: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "shadow_shifts"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
     }
     Enums: {
