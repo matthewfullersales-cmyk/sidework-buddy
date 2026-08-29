@@ -443,7 +443,7 @@ export function isAvailableFor(av: DayAvailability | undefined, start: string, p
   if (av.kind === "none") return false;
   const meal = mealForShiftStart(start, periods);
   if (meal === null) return true; // no configured periods → don't block
-  return av.meals.includes(meal);
+  return (av.meals ?? []).includes(meal);
 }
 
 // Minutes-since-midnight; end<=start is treated as crossing midnight (24:00).
@@ -487,7 +487,7 @@ export function isAvailableForRange(
   if (av.kind === "none") return { ok: false, touched: [], violating: [] };
   const touched = mealsInShiftRange(start, end, periods);
   if (touched.length === 0) return { ok: true, touched, violating: [] };
-  const violating = touched.filter((m) => !av.meals.includes(m));
+  const violating = touched.filter((m) => !(av.meals ?? []).includes(m));
   return { ok: violating.length === 0, touched, violating };
 }
 
