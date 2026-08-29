@@ -9,6 +9,8 @@ import { PhoneInput } from "@/components/ui/phone-input";
 
 import { useStore, type JobPosting } from "@/lib/sidework-store";
 import { fetchPublicPosting } from "@/lib/hiring-supabase";
+import { supabase } from "@/integrations/supabase/client";
+
 import { toast } from "sonner";
 import { CheckCircle2, Loader2 } from "lucide-react";
 
@@ -33,6 +35,7 @@ function CareersPage() {
   const { job: jobIdParam } = Route.useSearch();
   const [targetJob, setTargetJob] = useState<JobPosting | null>(null);
   const [loadingJob, setLoadingJob] = useState(!!jobIdParam);
+  const [publicName, setPublicName] = useState<string | null>(null);
   useEffect(() => {
     if (!jobIdParam) {
       setTargetJob(null);
@@ -48,7 +51,23 @@ function CareersPage() {
       .finally(() => setLoadingJob(false));
   }, [jobIdParam]);
 
-  const restaurantName = restaurantProfile?.name ?? "Our restaurant";
+  // The store profile only exists for a signed-in owner; public visitors resolve
+  // the restaurant name from the job link itself.
+  useEffect(() => {
+    if (!jobIdParam) return;
+    let cancelled = false;
+    void (async () => {
+      const { data, error } = await supabase.rpc("get_public_job_restaurant", { p_job_id: jobIdParam });
+      if (cancelled) return;
+      if (error) { console.error("[careers] restaurant name lookup failed", error); return; }
+      const row = (data ?? [])[0] as { restaurant_name: string | null } | undefined;
+      setPublicName(row?.restaurant_name?.trim() || null);
+    })();
+    return () => { cancelled = true; };
+  }, [jobIdParam]);
+
+  const restaurantName = restaurantProfile?.name?.trim() || publicName || null;
+
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -117,7 +136,7 @@ function CareersPage() {
             <span className="h-1.5 w-1.5 rounded-full bg-white" /> Now Hiring
           </span>
           <h1 className="mt-4 text-3xl font-bold tracking-tight md:text-5xl">
-            {targetJob ? `Apply: ${targetJob.title}` : `Join the team at ${restaurantName}.`}
+            {targetJob ? `Apply: ${targetJob.title}` : restaurantName ? `Join the team at ${restaurantName}.` : "Join the team."}
           </h1>
           <p className="mt-3 max-w-xl text-base text-white/85">
             {targetJob

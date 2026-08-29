@@ -158,6 +158,8 @@ export function InterviewOfferDialog({
           restaurantName,
           email: person.email ?? "",
           slotCount: selected.length,
+          interviewType: type,
+
         }});
         emailOk = res.email.ok;
         emailAttempted = res.email.attempted;

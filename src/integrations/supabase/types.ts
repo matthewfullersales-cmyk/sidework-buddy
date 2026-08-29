@@ -1108,6 +1108,13 @@ export type Database = {
           status: string
         }[]
       }
+      get_public_job_restaurant: {
+        Args: { p_job_id: string }
+        Returns: {
+          owner_id: string
+          restaurant_name: string
+        }[]
+      }
       get_public_join_restaurant: {
         Args: { p_slug: string }
         Returns: {
