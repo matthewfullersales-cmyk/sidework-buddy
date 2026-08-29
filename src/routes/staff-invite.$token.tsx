@@ -309,7 +309,7 @@ function StaffInvitePage() {
             <div className="grid gap-2">
               <Label className="text-sm font-medium">Weekly availability</Label>
               <p className="text-xs text-muted-foreground">
-                Tap to choose Full day, Partial, or Off for each day. Days you don't tap are left blank.
+                Tap Full, Partial, or Off for each day. If Partial, also choose Day or Night.
               </p>
               <div className="grid gap-2">
                 {DAY_KEYS.map((d) => {
