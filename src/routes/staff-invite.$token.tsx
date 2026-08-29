@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
 import { Logo } from "@/components/sidework/Logo";
 import { Card, CardContent } from "@/components/ui/card";
@@ -30,9 +30,9 @@ const RELATIONSHIPS: Relationship[] = ["Spouse", "Parent", "Sibling", "Child", "
 const claimSchema = z.object({
   email: z.string().trim().email("Valid email required").max(255),
   phone: z.string().trim().min(7, "Phone number required").max(30),
-  ecFirstName: z.string().trim().min(1, "Emergency contact first name required").max(60),
-  ecLastName: z.string().trim().min(1, "Emergency contact last name required").max(60),
-  ecPhone: z.string().trim().min(7, "Emergency contact phone required").max(30),
+  ecFirstName: z.string().trim().max(60).optional(),
+  ecLastName: z.string().trim().max(60).optional(),
+  ecPhone: z.string().trim().max(30).optional(),
 });
 
 export const Route = createFileRoute("/staff-invite/$token")({
