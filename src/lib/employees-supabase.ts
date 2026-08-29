@@ -119,7 +119,7 @@ export async function fetchOwnerEmployees(ownerId: string): Promise<Employee[]> 
     .select("*")
     .eq("owner_id", ownerId)
     .eq("archived", false)
-    .neq("state", "rejected")
+    .in("state", ["hired", "active", "inactive", "pending_approval"])
     .order("created_at", { ascending: true });
   if (error) throw error;
   return (data ?? []).map((r) => employeeFromRow(r as unknown as PersonRow));
