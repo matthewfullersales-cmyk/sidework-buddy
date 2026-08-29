@@ -213,6 +213,36 @@ export function ApplicantPipeline() {
     }
   };
 
+  const interviewLink = (iv: Interview) =>
+    `${typeof window === "undefined" ? "" : window.location.origin}/interview/t/${iv.publicToken}`;
+
+  /** Re-sends the existing offer email. Creates nothing and changes no state. */
+  const resendOffer = async (person: Person, iv: Interview) => {
+    if (!person.email) {
+      toast.warning("No email on file — use Copy link instead.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await sendApplicantNotification({ data: {
+        kind: "interview_offer",
+        link: interviewLink(iv),
+        firstName: person.firstName ?? "",
+        restaurantName: effectiveOwner?.restaurantName ?? "",
+        email: person.email,
+        slotCount: iv.offeredSlots.length,
+        interviewType: iv.interviewType,
+      }});
+      if (res.email.ok) toast.success(`Interview invite re-sent to ${person.email}`);
+      else toast.error(`Couldn't send that email${res.email.error ? `: ${res.email.error}` : ""}`);
+    } catch (e) {
+      console.error("[pipeline] resend interview email failed", e);
+      toast.error("Couldn't send that email.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
 
   const openResume = async (path: string) => {
     const { data, error } = await supabase.storage.from("resumes").createSignedUrl(path, 60);
@@ -377,7 +407,29 @@ export function ApplicantPipeline() {
                         {interviews[openPerson.id]!.offeredSlots.length === 1 ? "" : "s"} offered — waiting on them to pick
                       </p>
                     )}
+                    {interviews[openPerson.id]!.status !== "completed" && (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            copyLinkWithToast(interviewLink(interviews[openPerson.id]!), "Interview link copied")
+                          }
+                        >
+                          Copy link
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={busy}
+                          onClick={() => void resendOffer(openPerson, interviews[openPerson.id]!)}
+                        >
+                          Resend email
+                        </Button>
+                      </div>
+                    )}
                   </div>
+
                 )}
               </div>
 
