@@ -1267,9 +1267,11 @@ export type Database = {
         Args: { p_token: string }
         Returns: {
           claimed: boolean
+          email: string
           expired: boolean
           first_name: string
           last_name: string
+          phone: string
           primary_role: string
           restaurant_name: string
         }[]

@@ -395,6 +395,8 @@ export async function createStaffInviteRow(
 export type PublicStaffInviteInfo = {
   firstName: string | null;
   lastName: string | null;
+  email: string | null;
+  phone: string | null;
   primaryRole: string | null;
   restaurantName: string | null;
   expired: boolean;
@@ -412,6 +414,8 @@ export async function fetchPublicStaffInvite(
     | {
         first_name: string | null;
         last_name: string | null;
+        email: string | null;
+        phone: string | null;
         primary_role: string | null;
         restaurant_name: string | null;
         expired: boolean;
@@ -422,6 +426,8 @@ export async function fetchPublicStaffInvite(
   return {
     firstName: row.first_name,
     lastName: row.last_name,
+    email: row.email,
+    phone: row.phone,
     primaryRole: row.primary_role,
     restaurantName: row.restaurant_name,
     expired: Boolean(row.expired),

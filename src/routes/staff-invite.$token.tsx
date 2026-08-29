@@ -11,10 +11,9 @@ import { PhoneInput } from "@/components/ui/phone-input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   type Relationship,
-  type WeeklyAvailability,
+  type DayAvailability,
   type DayKey,
   DAY_KEYS,
-  defaultWeeklyAvailability,
 } from "@/lib/sidework-store";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -52,11 +51,12 @@ function StaffInvitePage() {
 
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [availability, setAvailability] = useState<WeeklyAvailability>(() => defaultWeeklyAvailability());
+  // Starts empty on purpose: nothing is stored for a day the person never taps.
+  const [availability, setAvailability] = useState<Partial<Record<DayKey, DayAvailability>>>({});
   const [ecFirstName, setEcFirstName] = useState("");
   const [ecLastName, setEcLastName] = useState("");
   const [ecPhone, setEcPhone] = useState("");
-  const [ecRel, setEcRel] = useState<Relationship>("Friend");
+  const [ecRel, setEcRel] = useState<Relationship | "">("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -69,6 +69,8 @@ function StaffInvitePage() {
         if (cancelled) return;
         if (!res) { setNotFound(true); return; }
         setInvite(res);
+        if (res.email) setEmail(res.email);
+        if (res.phone) setPhone(res.phone);
       })
       .catch((e) => { console.error("[staff-invite]", e); if (!cancelled) setNotFound(true); })
       .finally(() => { if (!cancelled) setLoading(false); });
@@ -153,12 +155,12 @@ function StaffInvitePage() {
         void uid;
         await claimStaffInvite(token, {
           phone: parsed.data.phone,
-          weekly_availability: availability,
+          weekly_availability: Object.keys(availability).length ? availability : undefined,
           emergency_contact: {
             firstName: parsed.data.ecFirstName,
             lastName: parsed.data.ecLastName,
             phone: parsed.data.ecPhone,
-            relationship: ecRel,
+            ...(ecRel ? { relationship: ecRel } : {}),
           },
         });
       } catch (claimErr: any) {
@@ -273,10 +275,12 @@ function StaffInvitePage() {
 
             <div className="grid gap-2">
               <Label className="text-sm font-medium">Weekly availability</Label>
-              <p className="text-xs text-muted-foreground">Tap to choose Full day, Partial, or Off for each day.</p>
+              <p className="text-xs text-muted-foreground">
+                Tap to choose Full day, Partial, or Off for each day. Days you don't tap are left blank.
+              </p>
               <div className="grid gap-2">
                 {DAY_KEYS.map((d) => {
-                  const kind: AvKind = availability[d].kind;
+                  const kind: AvKind | undefined = availability[d]?.kind;
                   return (
                     <div key={d} className="flex items-center justify-between gap-2 rounded-lg border border-border p-2">
                       <span className="w-12 text-sm font-semibold">{d}</span>
@@ -310,8 +314,8 @@ function StaffInvitePage() {
               </div>
               <Field label="Phone"><PhoneInput value={ecPhone} onChange={setEcPhone} /></Field>
               <Field label="Relationship">
-                <Select value={ecRel} onValueChange={(v: Relationship) => setEcRel(v)}>
-                  <SelectTrigger className="h-12"><SelectValue /></SelectTrigger>
+                <Select value={ecRel || undefined} onValueChange={(v: Relationship) => setEcRel(v)}>
+                  <SelectTrigger className="h-12"><SelectValue placeholder="Select relationship (optional)" /></SelectTrigger>
                   <SelectContent>
                     {RELATIONSHIPS.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
                   </SelectContent>
