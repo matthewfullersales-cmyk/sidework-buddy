@@ -51,7 +51,6 @@ type AvKind = "full" | "partial" | "none";
 
 function HiredPage() {
   const { id } = Route.useParams();
-  const { joinStaff } = useStore();
 
   const [invite, setInvite] = useState<PublicHireInviteInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -118,15 +117,8 @@ function HiredPage() {
     if (password !== confirmPassword) return toast.error("Passwords don't match");
 
     setSubmitting(true);
-    joinStaff({
-      firstName: parsed.data.firstName,
-      lastName: parsed.data.lastName,
-      email: parsed.data.email,
-      phone: parsed.data.phone,
-      role,
-      weeklyAvailability: availability,
-      emergencyContact: { firstName: parsed.data.ecFirstName, lastName: parsed.data.ecLastName, phone: parsed.data.ecPhone, relationship: ecRel },
-    });
+    // The hire path links the roster row through claimHireInvite below; joinStaff
+    // is now the slug-based self-join flow and no longer applies here.
 
     const redirectTo = typeof window !== "undefined" ? window.location.origin : undefined;
     const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
