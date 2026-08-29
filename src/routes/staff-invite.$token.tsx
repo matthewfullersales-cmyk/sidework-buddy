@@ -91,6 +91,21 @@ function StaffInvitePage() {
   const setDayHalf = (day: DayKey, half: DayHalf) =>
     setAvailability((prev) => ({ ...prev, [day]: { kind: "partial", half } }));
 
+  const availabilityCheck = useMemo(() => {
+    const missing: string[] = [];
+    for (const d of DAY_KEYS) {
+      const entry = availability[d];
+      if (!entry) {
+        missing.push(d);
+        continue;
+      }
+      if (entry.kind === "partial" && !entry.half) {
+        missing.push(`${d} (Day or Night)`);
+      }
+    }
+    return { complete: missing.length === 0, missing };
+  }, [availability]);
+
   const restaurantName = invite?.restaurantName ?? "the team";
   const inviteName = `${invite?.firstName ?? ""} ${invite?.lastName ?? ""}`.trim();
   const inviteRole = invite?.primaryRole ?? "";
