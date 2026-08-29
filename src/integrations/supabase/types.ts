@@ -1203,6 +1203,49 @@ export type Database = {
           first_name: string
         }[]
       }
+      hire_person: {
+        Args: { p_person_id: string; p_primary_role: string }
+        Returns: {
+          applied_at: string | null
+          approved_roles: string[]
+          archived: boolean
+          auth_user_id: string | null
+          auto_approve_roles: string[]
+          created_at: string
+          email: string | null
+          emergency_contact: Json | null
+          first_name: string
+          hired_at: string | null
+          id: string
+          invite_expires_at: string | null
+          invite_token: string | null
+          invited_at: string | null
+          is_trainer_for_roles: string[]
+          job_id: string | null
+          joined_via: string | null
+          last_name: string
+          onboarding_started: boolean
+          owner_id: string
+          personal_info_complete: boolean
+          phone: string | null
+          primary_role: string | null
+          push_opt_in: boolean
+          resume_path: string | null
+          source: string | null
+          state: string
+          state_changed_at: string
+          submission_count: number
+          updated_at: string
+          weekly_availability: Json | null
+          work_experience: Json | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "people"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       host_complete_interview: {
         Args: { p_application_id: string; p_notes: string }
         Returns: undefined
