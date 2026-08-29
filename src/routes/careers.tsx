@@ -136,7 +136,7 @@ function CareersPage() {
             <span className="h-1.5 w-1.5 rounded-full bg-white" /> Now Hiring
           </span>
           <h1 className="mt-4 text-3xl font-bold tracking-tight md:text-5xl">
-            {targetJob ? `Apply: ${targetJob.title}` : `Join the team at ${restaurantName}.`}
+            {targetJob ? `Apply: ${targetJob.title}` : restaurantName ? `Join the team at ${restaurantName}.` : "Join the team."}
           </h1>
           <p className="mt-3 max-w-xl text-base text-white/85">
             {targetJob
