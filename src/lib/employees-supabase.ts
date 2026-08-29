@@ -194,9 +194,16 @@ export async function deleteEmployeeRow(id: string): Promise<void> {
 }
 
 export async function deleteAllOwnerEmployees(ownerId: string): Promise<void> {
-  const { error } = await supabase.from("people").delete().eq("owner_id", ownerId);
+  // `people` also holds the hiring pipeline (applicants, interviewing, shadow,
+  // rejected). Clearing the roster must never wipe those rows.
+  const { error } = await supabase
+    .from("people")
+    .delete()
+    .eq("owner_id", ownerId)
+    .in("state", ["active", "inactive", "pending_approval", "hired"]);
   if (error) throw error;
 }
+
 
 /** Dead localStorage-migration machinery. `people` has no local_id column. */
 export async function bootstrapLocalEmployees(
