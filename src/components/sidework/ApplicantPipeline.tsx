@@ -11,9 +11,15 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { PersonAvatar } from "@/components/sidework/PersonAvatar";
+import { InterviewOfferDialog } from "@/components/sidework/InterviewOfferDialog";
 import { formatPhone } from "@/lib/format-phone";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  fetchInterviewsForPeople,
+  cancelInterview,
+  type Interview,
+} from "@/lib/interviews-supabase";
 import {
   fetchPeople,
   setPersonState,
@@ -21,6 +27,7 @@ import {
   type Person,
   type PersonState,
 } from "@/lib/people-supabase";
+
 
 const PIPELINE_STATES: PersonState[] = ["applicant", "interviewing", "shadow", "hired", "rejected"];
 
@@ -75,12 +82,30 @@ export function ApplicantPipeline() {
   const [showArchived, setShowArchived] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [interviews, setInterviews] = useState<Record<string, Interview>>({});
+  const [offerFor, setOfferFor] = useState<Person | null>(null);
+
+  // Newest non-cancelled interview per person.
+  const loadInterviews = async (rows: Person[]) => {
+    try {
+      const list = await fetchInterviewsForPeople(rows.map((p) => p.id));
+      const map: Record<string, Interview> = {};
+      for (const iv of list) {
+        if (iv.status === "cancelled") continue;
+        if (!map[iv.personId]) map[iv.personId] = iv;
+      }
+      setInterviews(map);
+    } catch (e) {
+      console.error("[pipeline] interviews load failed", e);
+    }
+  };
 
   const load = async (oid: string) => {
     setLoading(true);
     try {
       const rows = await fetchPeople(oid, { archived: showArchived ? undefined : false });
       setPeople(rows);
+      await loadInterviews(rows);
     } catch (e) {
       console.error("[pipeline] load failed", e);
       toast.error("Couldn't load applicants.");
@@ -88,6 +113,7 @@ export function ApplicantPipeline() {
       setLoading(false);
     }
   };
+
 
   useEffect(() => {
     if (!ownerId) return;
@@ -166,6 +192,27 @@ export function ApplicantPipeline() {
       setBusy(false);
     }
   };
+
+  const dropInterview = async (person: Person) => {
+    const iv = interviews[person.id];
+    if (!iv) return;
+    setBusy(true);
+    try {
+      await cancelInterview(iv.id);
+      setInterviews((prev) => {
+        const next = { ...prev };
+        delete next[person.id];
+        return next;
+      });
+      toast.success("Interview cancelled");
+    } catch (e) {
+      console.error("[pipeline] cancel interview failed", e);
+      toast.error("Couldn't cancel that interview.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
 
   const openResume = async (path: string) => {
     const { data, error } = await supabase.storage.from("resumes").createSignedUrl(path, 60);
@@ -306,10 +353,38 @@ export function ApplicantPipeline() {
                     View resume
                   </Button>
                 )}
+
+                {interviews[openPerson.id] && (
+                  <div className="mt-2 rounded-lg border border-border p-3">
+                    <p className="text-xs font-semibold">
+                      Interview · {interviews[openPerson.id]!.interviewType === "phone" ? "Phone call" : "In person"}
+                    </p>
+                    {interviews[openPerson.id]!.status === "scheduled" && interviews[openPerson.id]!.selectedSlot ? (
+                      <p className="text-sm">
+                        Confirmed for{" "}
+                        {new Date(interviews[openPerson.id]!.selectedSlot!).toLocaleString(undefined, {
+                          weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
+                        })}
+                      </p>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        {interviews[openPerson.id]!.offeredSlots.length} time
+                        {interviews[openPerson.id]!.offeredSlots.length === 1 ? "" : "s"} offered — waiting on them to pick
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
               <DialogFooter className="flex-col gap-2 sm:flex-row sm:flex-wrap">
-                <Button size="sm" disabled={busy || openPerson.state === "interviewing"} onClick={() => void move(openPerson, "interviewing")}>Move to Interviewing</Button>
+                <Button size="sm" disabled={busy} onClick={() => { setOfferFor(openPerson); setOpenId(null); }}>
+                  {interviews[openPerson.id] ? "Re-offer interview" : "Schedule interview"}
+                </Button>
+                {interviews[openPerson.id] && interviews[openPerson.id]!.status !== "completed" && (
+                  <Button size="sm" variant="outline" disabled={busy} onClick={() => void dropInterview(openPerson)}>
+                    Cancel interview
+                  </Button>
+                )}
                 <Button size="sm" disabled={busy || openPerson.state === "shadow"} onClick={() => void move(openPerson, "shadow")}>Move to Shadow</Button>
                 <Button size="sm" disabled={busy || openPerson.state === "hired"} onClick={() => void move(openPerson, "hired")}>Hire</Button>
                 <Button size="sm" variant="outline" disabled={busy || openPerson.state === "rejected"} onClick={() => void move(openPerson, "rejected")}>Pass</Button>
@@ -317,11 +392,32 @@ export function ApplicantPipeline() {
                   {openPerson.archived ? "Restore" : "Archive"}
                 </Button>
               </DialogFooter>
+
             </>
           )}
         </DialogContent>
       </Dialog>
+
+      {offerFor && ownerId && (
+        <InterviewOfferDialog
+          person={offerFor}
+          ownerId={ownerId}
+          restaurantName={effectiveOwner?.restaurantName ?? ""}
+          onClose={() => setOfferFor(null)}
+          onCreated={(iv) => {
+            setInterviews((prev) => ({ ...prev, [iv.personId]: iv }));
+            setPeople((prev) =>
+              prev.map((p) =>
+                p.id === iv.personId
+                  ? { ...p, state: "interviewing", stateChangedAt: new Date().toISOString() }
+                  : p,
+              ),
+            );
+          }}
+        />
+      )}
     </Card>
+
   );
 }
 
