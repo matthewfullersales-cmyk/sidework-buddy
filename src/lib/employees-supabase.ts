@@ -12,78 +12,65 @@ import type {
   WorkExperience,
 } from "@/lib/sidework-store";
 
-type EmployeeRow = {
+type PersonRow = {
   id: string;
   owner_id: string;
   auth_user_id: string | null;
-  local_id: string | null;
-  name: string;
-  first_name: string | null;
-  last_name: string | null;
+  first_name: string;
+  last_name: string;
   email: string | null;
   phone: string | null;
-  position: string | null;
-  section: string | null;
-  primary_role: string;
+  state: string;
+  primary_role: string | null;
   approved_roles: string[];
   auto_approve_roles: string[];
-  seniority: number | null;
-  availability: string;
   weekly_availability: unknown;
   emergency_contact: unknown;
-  photo_url: string | null;
-  invited_at: string;
+  invited_at: string | null;
+  created_at: string;
   onboarding_started: boolean;
   personal_info_complete: boolean;
-  hired_from_application_id: string | null;
-  application_pitch: string | null;
-  applied_at: string | null;
   work_experience: unknown;
-  special_talents: string | null;
-  join_status?: string | null;
   joined_via?: string | null;
 };
 
-
-export function employeeFromRow(r: EmployeeRow): Employee {
+export function employeeFromRow(r: PersonRow): Employee {
   return {
     id: r.id,
-    name: r.name,
+    name: `${r.first_name ?? ""} ${r.last_name ?? ""}`.trim(),
     firstName: r.first_name ?? undefined,
     lastName: r.last_name ?? undefined,
     email: r.email ?? "",
     phone: r.phone ?? undefined,
-    primaryRole: r.primary_role as Role,
+    primaryRole: (r.primary_role ?? "") as Role,
     approvedRoles: (r.approved_roles ?? []) as Role[],
     autoApproveRoles: (r.auto_approve_roles ?? []) as Role[],
-    availability: r.availability ?? "",
+    availability: "",
     weeklyAvailability: (r.weekly_availability as WeeklyAvailability | null) ?? undefined,
     emergencyContact: (r.emergency_contact as EmergencyContact | null) ?? undefined,
-    photoUrl: r.photo_url ?? undefined,
-    invitedAt: r.invited_at,
+    photoUrl: undefined,
+    invitedAt: r.invited_at ?? r.created_at,
     onboardingStarted: r.onboarding_started,
     personalInfoComplete: r.personal_info_complete,
-    progress: [], // training progress stays local in Wave A
-    position: (r.position as Position | null) ?? undefined,
-    section: (r.section as Section | null) ?? undefined,
-    seniority: r.seniority ?? undefined,
-    hiredFromApplicationId: r.hired_from_application_id ?? undefined,
-    applicationPitch: r.application_pitch ?? undefined,
-    appliedAt: r.applied_at ?? undefined,
+    progress: [],
+    position: undefined,
+    section: undefined,
+    seniority: undefined,
+    hiredFromApplicationId: undefined,
+    applicationPitch: undefined,
+    appliedAt: undefined,
     workExperience: (r.work_experience as WorkExperience[] | null) ?? undefined,
-    specialTalents: r.special_talents ?? undefined,
-    // Fail closed: anything that isn't explicitly "active" is treated as pending.
-    joinStatus: r.join_status === "active" ? "active" : "pending",
+    specialTalents: undefined,
+    joinStatus: r.state === "pending_approval" ? "pending" : "active",
     joinedVia: r.joined_via ?? undefined,
   };
 }
 
 /** Owner/manager approves a pending self-join. */
 export async function approveEmployeeRow(id: string): Promise<void> {
-  const { error } = await supabase
-    .from("restaurant_employees")
-    .update({ join_status: "active" } as never)
-    .eq("id", id);
+  const { error } = await supabase.rpc("approve_pending_person" as never, {
+    p_person_id: id,
+  } as never);
   if (error) throw error;
 }
 
@@ -128,12 +115,14 @@ export async function hasSupabaseSession(): Promise<boolean> {
 /** Owner-scoped: fetch every employee. */
 export async function fetchOwnerEmployees(ownerId: string): Promise<Employee[]> {
   const { data, error } = await supabase
-    .from("restaurant_employees")
+    .from("people")
     .select("*")
     .eq("owner_id", ownerId)
+    .eq("archived", false)
+    .neq("state", "rejected")
     .order("created_at", { ascending: true });
   if (error) throw error;
-  return (data ?? []).map((r) => employeeFromRow(r as EmployeeRow));
+  return (data ?? []).map((r) => employeeFromRow(r as unknown as PersonRow));
 }
 
 /** Insert one employee. Returns the new row (with the DB-assigned uuid). */
@@ -148,69 +137,64 @@ export async function insertEmployee(
     .select("*")
     .single();
   if (error) throw error;
-  return employeeFromRow(data as EmployeeRow);
+  return employeeFromRow(data as unknown as PersonRow);
 }
 
 /** Patch by id. Maps camelCase → snake_case for the fields callers actually change. */
 export async function updateEmployeeRow(id: string, patch: Partial<Employee>): Promise<void> {
   const row: Record<string, unknown> = {};
-  if (patch.name !== undefined) row.name = patch.name;
-  if (patch.firstName !== undefined) row.first_name = patch.firstName ?? null;
-  if (patch.lastName !== undefined) row.last_name = patch.lastName ?? null;
+  if (patch.firstName !== undefined) row.first_name = patch.firstName ?? "";
+  if (patch.lastName !== undefined) row.last_name = patch.lastName ?? "";
   if (patch.email !== undefined) row.email = patch.email || null;
   if (patch.phone !== undefined) row.phone = patch.phone ?? null;
-  if (patch.position !== undefined) row.position = patch.position ?? null;
-  if (patch.section !== undefined) row.section = patch.section ?? null;
   if (patch.primaryRole !== undefined) row.primary_role = patch.primaryRole;
   if (patch.approvedRoles !== undefined) row.approved_roles = patch.approvedRoles;
   if (patch.autoApproveRoles !== undefined) row.auto_approve_roles = patch.autoApproveRoles;
-  if (patch.seniority !== undefined) row.seniority = patch.seniority ?? null;
-  if (patch.availability !== undefined) row.availability = patch.availability ?? "";
   if (patch.weeklyAvailability !== undefined) row.weekly_availability = patch.weeklyAvailability as unknown;
   if (patch.emergencyContact !== undefined) row.emergency_contact = patch.emergencyContact as unknown;
-  if (patch.photoUrl !== undefined) row.photo_url = patch.photoUrl ?? null;
   if (patch.onboardingStarted !== undefined) row.onboarding_started = patch.onboardingStarted;
   if (patch.personalInfoComplete !== undefined) row.personal_info_complete = patch.personalInfoComplete;
-  if (patch.specialTalents !== undefined) row.special_talents = patch.specialTalents ?? null;
   if (Object.keys(row).length === 0) return;
   const { error } = await supabase
-    .from("restaurant_employees")
+    .from("people")
     .update(row as never)
     .eq("id", id);
   if (error) throw error;
 }
 
+/**
+ * Removes a person from the roster. A pending self-join is declined through the
+ * RPC (keeps the audit state); anyone else is deleted outright.
+ */
 export async function deleteEmployeeRow(id: string): Promise<void> {
-  const { error } = await supabase.from("restaurant_employees").delete().eq("id", id);
+  const { data } = await supabase
+    .from("people")
+    .select("state")
+    .eq("id", id)
+    .maybeSingle();
+  const state = (data as { state?: string } | null)?.state;
+  if (state === "pending_approval") {
+    const { error } = await supabase.rpc("decline_pending_person" as never, {
+      p_person_id: id,
+    } as never);
+    if (error) throw error;
+    return;
+  }
+  const { error } = await supabase.from("people").delete().eq("id", id);
   if (error) throw error;
 }
 
 export async function deleteAllOwnerEmployees(ownerId: string): Promise<void> {
-  const { error } = await supabase
-    .from("restaurant_employees")
-    .delete()
-    .eq("owner_id", ownerId);
+  const { error } = await supabase.from("people").delete().eq("owner_id", ownerId);
   if (error) throw error;
 }
 
-/**
- * One-time bootstrap: upload any local employees the owner has to Supabase.
- * Idempotent via UNIQUE(owner_id, local_id) — repeat calls are no-ops.
- * Returns the freshly-fetched authoritative list from Supabase after upload.
- */
+/** Dead localStorage-migration machinery. `people` has no local_id column. */
 export async function bootstrapLocalEmployees(
-  ownerId: string,
-  locals: Employee[],
+  _ownerId: string,
+  _locals: Employee[],
 ): Promise<Employee[]> {
-  // Public/signed-out pages must never issue any roster request.
-  if (!(await hasSupabaseSession())) return [];
-  if (locals.length === 0) return [];
-  const rows = locals.map((e) => employeeToInsert(ownerId, e, { localId: e.id }));
-  const { error } = await supabase
-    .from("restaurant_employees")
-    .upsert(rows, { onConflict: "owner_id,local_id", ignoreDuplicates: true });
-  if (error) throw error;
-  return fetchOwnerEmployees(ownerId);
+  return [];
 }
 
 /* ---------------- Restaurant hours (jsonb on profiles) ---------------- */
@@ -300,91 +284,95 @@ export async function createStaffInviteRow(
     email: string;
     phone: string;
     role: Role;
-    localId: string;
   },
-): Promise<{ id: string; inviteToken: string }> {
-  const fullName = `${seed.firstName} ${seed.lastName}`.trim();
-  const inviteToken = crypto.randomUUID();
-  const insert = {
-    owner_id: ownerId,
-    local_id: seed.localId,
-    name: fullName || seed.email || "New staff",
-    first_name: seed.firstName || null,
-    last_name: seed.lastName || null,
-    email: seed.email || null,
-    phone: seed.phone || null,
-    primary_role: seed.role,
-    approved_roles: [seed.role],
-    auto_approve_roles: [],
-    availability: "",
-    weekly_availability: null as never,
-    emergency_contact: null as never,
-    invited_at: new Date().toISOString().slice(0, 10),
-    onboarding_started: false,
-    personal_info_complete: false,
-    invite_token: inviteToken,
-  };
-  const { data, error } = await supabase
-    .from("restaurant_employees")
-    .insert(insert as never)
-    .select("id, invite_token")
-    .single();
+): Promise<{ id: string; inviteToken: string; matchedExisting: boolean }> {
+  const { data, error } = await supabase.rpc("create_person_invite" as never, {
+    p_owner_id: ownerId,
+    p_first_name: seed.firstName,
+    p_last_name: seed.lastName,
+    p_email: seed.email || null,
+    p_phone: seed.phone || null,
+    p_primary_role: seed.role,
+  } as never);
   if (error) throw error;
-  const row = data as { id: string; invite_token: string };
-  return { id: row.id, inviteToken: row.invite_token };
+  const row = (Array.isArray(data) ? data[0] : data) as
+    | { person_id: string; invite_token: string; matched_existing: boolean }
+    | undefined;
+  if (!row) throw new Error("Invite could not be created");
+  return {
+    id: row.person_id,
+    inviteToken: row.invite_token,
+    matchedExisting: Boolean(row.matched_existing),
+  };
 }
 
 export type PublicStaffInviteInfo = {
-  id: string;
   firstName: string | null;
   lastName: string | null;
-  name: string;
-  email: string | null;
-  phone: string | null;
-  primaryRole: string;
+  primaryRole: string | null;
   restaurantName: string | null;
+  expired: boolean;
   claimed: boolean;
 };
 
 export async function fetchPublicStaffInvite(
   token: string,
 ): Promise<PublicStaffInviteInfo | null> {
-  const { data, error } = await supabase.rpc("get_public_employee_invite", {
+  const { data, error } = await supabase.rpc("get_public_person_invite" as never, {
     p_token: token,
-  });
+  } as never);
   if (error) throw error;
-  const row = Array.isArray(data) ? data[0] : null;
+  const row = (Array.isArray(data) ? data[0] : null) as
+    | {
+        first_name: string | null;
+        last_name: string | null;
+        primary_role: string | null;
+        restaurant_name: string | null;
+        expired: boolean;
+        claimed: boolean;
+      }
+    | null;
   if (!row) return null;
   return {
-    id: row.id,
     firstName: row.first_name,
     lastName: row.last_name,
-    name: row.name,
-    email: row.email,
-    phone: row.phone,
     primaryRole: row.primary_role,
     restaurantName: row.restaurant_name,
-    claimed: row.claimed,
+    expired: Boolean(row.expired),
+    claimed: Boolean(row.claimed),
   };
 }
 
+/**
+ * Claims the invite for the signed-in user (the RPC reads auth.uid()), then
+ * writes the self-editable fields. First/last name and role are manager-owned
+ * and are rejected by the database guard, so they are never sent.
+ */
 export async function claimStaffInvite(
   token: string,
-  authUserId: string,
   patch: {
-    first_name?: string;
-    last_name?: string;
     phone?: string;
-    primary_role?: string;
     weekly_availability?: unknown;
     emergency_contact?: unknown;
   },
-): Promise<void> {
-  const { error } = await supabase.rpc("claim_employee_invite", {
+): Promise<string> {
+  const { data, error } = await supabase.rpc("claim_person_invite" as never, {
     p_token: token,
-    p_auth_user_id: authUserId,
-    p_patch: patch as never,
-  });
+  } as never);
   if (error) throw error;
-}
+  const personId = (typeof data === "string" ? data : (data as { id?: string } | null)?.id) ?? "";
 
+  const hasSelfFields =
+    patch.phone !== undefined ||
+    patch.weekly_availability !== undefined ||
+    patch.emergency_contact !== undefined;
+  if (personId && hasSelfFields) {
+    const row: Record<string, unknown> = { personal_info_complete: true };
+    if (patch.phone !== undefined) row.phone = patch.phone || null;
+    if (patch.weekly_availability !== undefined) row.weekly_availability = patch.weekly_availability;
+    if (patch.emergency_contact !== undefined) row.emergency_contact = patch.emergency_contact;
+    const { error: upErr } = await supabase.from("people").update(row as never).eq("id", personId);
+    if (upErr) throw upErr;
+  }
+  return personId;
+}
