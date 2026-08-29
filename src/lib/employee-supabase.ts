@@ -31,7 +31,7 @@ export async function fetchEmployeeContext(): Promise<EmployeeContext | null> {
 
 export async function fetchMyEmployeeRow(employeeId: string): Promise<Employee | null> {
   const { data, error } = await supabase
-    .from("restaurant_employees")
+    .from("people")
     .select("*")
     .eq("id", employeeId)
     .maybeSingle();
