@@ -321,18 +321,26 @@ export type Database = {
           first_name: string
           hired_at: string | null
           id: string
+          invite_expires_at: string | null
+          invite_token: string | null
+          invited_at: string | null
           is_trainer_for_roles: string[]
           job_id: string | null
+          joined_via: string | null
           last_name: string
+          onboarding_started: boolean
           owner_id: string
+          personal_info_complete: boolean
           phone: string | null
           primary_role: string | null
+          push_opt_in: boolean
           resume_path: string | null
           source: string | null
           state: string
           state_changed_at: string
           submission_count: number
           updated_at: string
+          weekly_availability: Json | null
           work_experience: Json | null
         }
         Insert: {
@@ -347,18 +355,26 @@ export type Database = {
           first_name: string
           hired_at?: string | null
           id?: string
+          invite_expires_at?: string | null
+          invite_token?: string | null
+          invited_at?: string | null
           is_trainer_for_roles?: string[]
           job_id?: string | null
+          joined_via?: string | null
           last_name: string
+          onboarding_started?: boolean
           owner_id: string
+          personal_info_complete?: boolean
           phone?: string | null
           primary_role?: string | null
+          push_opt_in?: boolean
           resume_path?: string | null
           source?: string | null
           state?: string
           state_changed_at?: string
           submission_count?: number
           updated_at?: string
+          weekly_availability?: Json | null
           work_experience?: Json | null
         }
         Update: {
@@ -373,18 +389,26 @@ export type Database = {
           first_name?: string
           hired_at?: string | null
           id?: string
+          invite_expires_at?: string | null
+          invite_token?: string | null
+          invited_at?: string | null
           is_trainer_for_roles?: string[]
           job_id?: string | null
+          joined_via?: string | null
           last_name?: string
+          onboarding_started?: boolean
           owner_id?: string
+          personal_info_complete?: boolean
           phone?: string | null
           primary_role?: string | null
+          push_opt_in?: boolean
           resume_path?: string | null
           source?: string | null
           state?: string
           state_changed_at?: string
           submission_count?: number
           updated_at?: string
+          weekly_availability?: Json | null
           work_experience?: Json | null
         }
         Relationships: [
@@ -1174,18 +1198,26 @@ export type Database = {
           first_name: string
           hired_at: string | null
           id: string
+          invite_expires_at: string | null
+          invite_token: string | null
+          invited_at: string | null
           is_trainer_for_roles: string[]
           job_id: string | null
+          joined_via: string | null
           last_name: string
+          onboarding_started: boolean
           owner_id: string
+          personal_info_complete: boolean
           phone: string | null
           primary_role: string | null
+          push_opt_in: boolean
           resume_path: string | null
           source: string | null
           state: string
           state_changed_at: string
           submission_count: number
           updated_at: string
+          weekly_availability: Json | null
           work_experience: Json | null
         }
         SetofOptions: {
