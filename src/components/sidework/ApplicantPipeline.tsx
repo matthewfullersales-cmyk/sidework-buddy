@@ -11,9 +11,15 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { PersonAvatar } from "@/components/sidework/PersonAvatar";
+import { InterviewOfferDialog } from "@/components/sidework/InterviewOfferDialog";
 import { formatPhone } from "@/lib/format-phone";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  fetchInterviewsForPeople,
+  cancelInterview,
+  type Interview,
+} from "@/lib/interviews-supabase";
 import {
   fetchPeople,
   setPersonState,
@@ -21,6 +27,7 @@ import {
   type Person,
   type PersonState,
 } from "@/lib/people-supabase";
+
 
 const PIPELINE_STATES: PersonState[] = ["applicant", "interviewing", "shadow", "hired", "rejected"];
 
