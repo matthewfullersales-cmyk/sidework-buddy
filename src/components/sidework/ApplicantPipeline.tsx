@@ -397,7 +397,27 @@ export function ApplicantPipeline() {
           )}
         </DialogContent>
       </Dialog>
+
+      {offerFor && ownerId && (
+        <InterviewOfferDialog
+          person={offerFor}
+          ownerId={ownerId}
+          restaurantName={effectiveOwner?.restaurantName ?? ""}
+          onClose={() => setOfferFor(null)}
+          onCreated={(iv) => {
+            setInterviews((prev) => ({ ...prev, [iv.personId]: iv }));
+            setPeople((prev) =>
+              prev.map((p) =>
+                p.id === iv.personId
+                  ? { ...p, state: "interviewing", stateChangedAt: new Date().toISOString() }
+                  : p,
+              ),
+            );
+          }}
+        />
+      )}
     </Card>
+
   );
 }
 
