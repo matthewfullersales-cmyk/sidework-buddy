@@ -176,16 +176,25 @@ function StaffInvitePage() {
 
       try {
         void uid;
+        const hasEc =
+          Boolean(parsed.data.ecFirstName?.trim()) ||
+          Boolean(parsed.data.ecLastName?.trim()) ||
+          Boolean(parsed.data.ecPhone?.trim()) ||
+          Boolean(ecRel);
         await claimStaffInvite(token, {
           email: parsed.data.email,
           phone: parsed.data.phone,
-          weekly_availability: Object.keys(availability).length ? availability : undefined,
-          emergency_contact: {
-            firstName: parsed.data.ecFirstName,
-            lastName: parsed.data.ecLastName,
-            phone: parsed.data.ecPhone,
-            ...(ecRel ? { relationship: ecRel } : {}),
-          },
+          weekly_availability: availability,
+          ...(hasEc
+            ? {
+                emergency_contact: {
+                  firstName: parsed.data.ecFirstName?.trim() ?? "",
+                  lastName: parsed.data.ecLastName?.trim() ?? "",
+                  phone: parsed.data.ecPhone?.trim() ?? "",
+                  ...(ecRel ? { relationship: ecRel } : {}),
+                },
+              }
+            : {}),
         });
       } catch (claimErr: any) {
         setSubmitting(false);
