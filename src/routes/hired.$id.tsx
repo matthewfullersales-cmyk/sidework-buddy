@@ -9,36 +9,18 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { PhoneInput } from "@/components/ui/phone-input";
 
-import {
-  Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import {
-  useStore,
-  type Role,
-  type Relationship,
-  type WeeklyAvailability,
-  type DayKey,
-  DAY_KEYS,
-  defaultWeeklyAvailability,
-} from "@/lib/sidework-store";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchPublicHireInvite, claimHireInvite, type PublicHireInviteInfo } from "@/lib/hiring-supabase";
 import { formatPhone } from "@/lib/format-phone";
 import { toast } from "sonner";
 import { CheckCircle2, Loader2, Share, Plus } from "lucide-react";
 
-const FOH_ROLES: Role[] = ["Host", "Busser", "Server Assistant", "Bar Back", "Bartender", "Server", "Manager", "Assistant Manager"];
-const BOH_ROLES: Role[] = ["Chef", "Sous Chef", "Line Cook", "Fry Cook", "Saute", "Grill", "Pizza", "Garde Manger", "Dishwasher", "Prep"];
-const RELATIONSHIPS: Relationship[] = ["Spouse", "Parent", "Sibling", "Child", "Friend", "Other"];
 
 const hiredSchema = z.object({
   firstName: z.string().trim().min(1, "First name required").max(60),
   lastName: z.string().trim().min(1, "Last name required").max(60),
   email: z.string().trim().email("Valid email required").max(255),
   phone: z.string().trim().min(7, "Phone number required").max(30),
-  ecFirstName: z.string().trim().min(1, "Emergency contact first name required").max(60),
-  ecLastName: z.string().trim().min(1, "Emergency contact last name required").max(60),
-  ecPhone: z.string().trim().min(7, "Emergency contact phone required").max(30),
 });
 
 export const Route = createFileRoute("/hired/$id")({
@@ -46,8 +28,6 @@ export const Route = createFileRoute("/hired/$id")({
   head: () => ({ meta: [{ title: "Welcome to the team — 86Paper" }] }),
   component: HiredPage,
 });
-
-type AvKind = "full" | "partial" | "none";
 
 function HiredPage() {
   const { id } = Route.useParams();
@@ -60,12 +40,10 @@ function HiredPage() {
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [role, setRole] = useState<Role>("Server");
-  const [availability, setAvailability] = useState<WeeklyAvailability>(() => defaultWeeklyAvailability());
-  const [ecFirstName, setEcFirstName] = useState("");
-  const [ecLastName, setEcLastName] = useState("");
-  const [ecPhone, setEcPhone] = useState("");
-  const [ecRel, setEcRel] = useState<Relationship>("Friend");
+  // Role, weekly availability and emergency contact are intentionally NOT
+  // collected here: this path cannot persist them (see report), and collecting
+  // data we would discard is worse than not asking.
+
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -84,9 +62,6 @@ function HiredPage() {
         setLastName(last);
         setEmail(res.email ?? "");
         setPhone(res.phone ? formatPhone(res.phone) : "");
-        if (res.role && [...FOH_ROLES, ...BOH_ROLES].includes(res.role as Role)) {
-          setRole(res.role as Role);
-        }
       })
       .catch((e) => {
         console.error("[hired page]", e);
@@ -98,17 +73,14 @@ function HiredPage() {
     return () => { cancelled = true; };
   }, [id]);
 
-  const setDayKind = (day: DayKey, kind: AvKind) =>
-    setAvailability((prev) => ({
-      ...prev,
-      [day]: kind === "partial" ? { kind: "partial", meals: ["Lunch", "Dinner"] } : { kind },
-    }));
+
+
 
   const restaurantName = invite?.restaurantName ?? "the team";
   const alreadyClaimed = !!invite?.hiredEmployeeId && !/^e_/.test(invite.hiredEmployeeId);
 
   const submit = async () => {
-    const parsed = hiredSchema.safeParse({ firstName, lastName, email, phone, ecFirstName, ecLastName, ecPhone });
+    const parsed = hiredSchema.safeParse({ firstName, lastName, email, phone });
     if (!parsed.success) {
       const first = parsed.error.issues[0];
       return toast.error(first?.message ?? "Please complete the form");
@@ -117,8 +89,6 @@ function HiredPage() {
     if (password !== confirmPassword) return toast.error("Passwords don't match");
 
     setSubmitting(true);
-    // The hire path links the roster row through claimHireInvite below; joinStaff
-    // is now the slug-based self-join flow and no longer applies here.
 
     const redirectTo = typeof window !== "undefined" ? window.location.origin : undefined;
     const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
@@ -213,70 +183,16 @@ function HiredPage() {
             <Field label="Email"><Input type="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} maxLength={255} autoComplete="email" /></Field>
             <Field label="Phone"><PhoneInput value={phone} onChange={setPhone} /></Field>
 
-            <Field label="Primary role">
-              <Select value={role} onValueChange={(v: Role) => setRole(v)}>
-                <SelectTrigger className="h-12"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectLabel>Front of House</SelectLabel>
-                    {FOH_ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-                  </SelectGroup>
-                  <SelectSeparator />
-                  <SelectGroup>
-                    <SelectLabel>Back of House</SelectLabel>
-                    {BOH_ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </Field>
-
-            <div className="grid gap-2">
-              <Label className="text-sm font-medium">Weekly availability</Label>
-              <p className="text-xs text-muted-foreground">Tap to choose Full day, Partial, or Off for each day.</p>
-              <div className="grid gap-2">
-                {DAY_KEYS.map((d) => {
-                  const kind: AvKind = availability[d].kind;
-                  return (
-                    <div key={d} className="flex items-center justify-between gap-2 rounded-lg border border-border p-2">
-                      <span className="w-12 text-sm font-semibold">{d}</span>
-                      <div className="grid flex-1 grid-cols-3 gap-1">
-                        {(["full", "partial", "none"] as AvKind[]).map((k) => {
-                          const active = k === kind;
-                          const label = k === "full" ? "Full" : k === "partial" ? "Partial" : "Off";
-                          return (
-                            <button
-                              key={k}
-                              type="button"
-                              onClick={() => setDayKind(d, k)}
-                              className={`min-h-11 rounded-md border text-xs font-medium transition-colors ${active ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background hover:bg-muted"}`}
-                            >
-                              {label}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+            <div className="grid gap-1.5">
+              <Label className="text-sm">Role</Label>
+              <p className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm font-medium">
+                {invite.role ?? "Your manager will set this"}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Your manager sets your role. If this looks wrong, ask them to fix it.
+              </p>
             </div>
 
-            <div className="grid gap-2 rounded-lg border border-border bg-muted/30 p-3">
-              <Label className="text-sm font-medium">Emergency contact</Label>
-              <div className="grid gap-2 sm:grid-cols-2">
-                <Field label="First name"><Input value={ecFirstName} onChange={(e) => setEcFirstName(e.target.value)} maxLength={60} /></Field>
-                <Field label="Last name"><Input value={ecLastName} onChange={(e) => setEcLastName(e.target.value)} maxLength={60} /></Field>
-              </div>
-              <Field label="Phone"><PhoneInput value={ecPhone} onChange={setEcPhone} /></Field>
-              <Field label="Relationship">
-                <Select value={ecRel} onValueChange={(v: Relationship) => setEcRel(v)}>
-                  <SelectTrigger className="h-12"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {RELATIONSHIPS.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </Field>
-            </div>
 
             <div className="grid gap-3 rounded-lg border border-border bg-muted/30 p-3">
               <Label className="text-sm font-medium">Create a password</Label>

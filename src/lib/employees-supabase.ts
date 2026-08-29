@@ -194,9 +194,16 @@ export async function deleteEmployeeRow(id: string): Promise<void> {
 }
 
 export async function deleteAllOwnerEmployees(ownerId: string): Promise<void> {
-  const { error } = await supabase.from("people").delete().eq("owner_id", ownerId);
+  // `people` also holds the hiring pipeline (applicants, interviewing, shadow,
+  // rejected). Clearing the roster must never wipe those rows.
+  const { error } = await supabase
+    .from("people")
+    .delete()
+    .eq("owner_id", ownerId)
+    .in("state", ["active", "inactive", "pending_approval", "hired"]);
   if (error) throw error;
 }
+
 
 /** Dead localStorage-migration machinery. `people` has no local_id column. */
 export async function bootstrapLocalEmployees(
@@ -369,13 +376,17 @@ export async function claimStaffInvite(
     p_token: token,
   } as never);
   if (error) throw error;
-  const personId = (typeof data === "string" ? data : (data as { id?: string } | null)?.id) ?? "";
+  const personId = typeof data === "string" ? data : (data as { id?: string } | null)?.id;
+  if (typeof personId !== "string" || personId.length === 0) {
+    throw new Error("Couldn't finish claiming this invite. Please ask your manager to send a new link.");
+  }
 
   const hasSelfFields =
     patch.phone !== undefined ||
     patch.weekly_availability !== undefined ||
     patch.emergency_contact !== undefined;
-  if (personId && hasSelfFields) {
+  if (hasSelfFields) {
+
     const row: Record<string, unknown> = { personal_info_complete: true };
     if (patch.phone !== undefined) row.phone = patch.phone || null;
     if (patch.weekly_availability !== undefined) row.weekly_availability = patch.weekly_availability;
