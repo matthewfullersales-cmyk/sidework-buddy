@@ -1316,12 +1316,12 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           ...s,
           jobs: postings,
           applications: apps,
-          // If nothing remote and no bootstrap happened, keep local (single-device owner).
-          employees: remoteEmployees.length > 0
-            ? withProgress(remoteEmployees)
-            : withProgress(s.employees),
+          // A successful fetch is authoritative, including an empty result:
+          // [] means "this owner has none," not "no data — keep the cache."
+          // On failure we never get here (the Promise.all throws first).
+          employees: withProgress(remoteEmployees),
           shifts: remoteShifts,
-          timeOff: remoteTimeOff.length > 0 ? remoteTimeOff : s.timeOff,
+          timeOff: remoteTimeOff,
           trades: remoteTrades,
           ...hoursPatch,
           businessInfo: normalizeBusinessInfo(remoteBusinessInfo),
