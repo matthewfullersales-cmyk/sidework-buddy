@@ -989,6 +989,10 @@ export type Database = {
         Args: { p_application_id: string; p_note: string }
         Returns: undefined
       }
+      approve_pending_person: {
+        Args: { p_person_id: string }
+        Returns: undefined
+      }
       can_manage_hiring_for: { Args: { p_owner_id: string }; Returns: boolean }
       can_manage_schedule_for: {
         Args: { p_owner_id: string }
@@ -1002,6 +1006,7 @@ export type Database = {
         Args: { p_application_id: string; p_employee_profile_id: string }
         Returns: undefined
       }
+      claim_person_invite: { Args: { p_token: string }; Returns: string }
       confirm_interview_slot: {
         Args: { p_slot: string; p_token: string }
         Returns: {
@@ -1036,6 +1041,24 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      create_person_invite: {
+        Args: {
+          p_email: string
+          p_first_name: string
+          p_last_name: string
+          p_owner_id: string
+          p_phone: string
+          p_primary_role: string
+        }
+        Returns: {
+          invite_token: string
+          person_id: string
+        }[]
+      }
+      decline_pending_person: {
+        Args: { p_person_id: string }
+        Returns: undefined
       }
       employee_can_claim_role: {
         Args: { p_owner_id: string; p_role: string }
@@ -1146,6 +1169,15 @@ export type Database = {
           restaurant_name: string
         }[]
       }
+      get_public_person_invite: {
+        Args: { p_token: string }
+        Returns: {
+          expired: boolean
+          first_name: string
+          primary_role: string
+          restaurant_name: string
+        }[]
+      }
       get_public_shadow_shift: {
         Args: { p_application_id: string }
         Returns: {
@@ -1174,6 +1206,22 @@ export type Database = {
       }
       join_restaurant_by_slug: {
         Args: { p_auth_user_id: string; p_patch: Json; p_slug: string }
+        Returns: string
+      }
+      join_restaurant_by_slug_v2: {
+        Args: {
+          p_email: string
+          p_first_name: string
+          p_last_name: string
+          p_phone: string
+          p_primary_role: string
+          p_slug: string
+        }
+        Returns: string
+      }
+      person_can_manage: { Args: { p_owner_id: string }; Returns: boolean }
+      regenerate_person_invite: {
+        Args: { p_person_id: string }
         Returns: string
       }
       search_restaurants: {
