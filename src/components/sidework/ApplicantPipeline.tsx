@@ -23,9 +23,12 @@ import {
   cancelInterview,
   type Interview,
 } from "@/lib/interviews-supabase";
+import { useStore } from "@/lib/sidework-store";
+import { allRolesWithCustom } from "@/lib/role-colors";
 import {
   fetchPeople,
   setPersonState,
+  hirePerson,
   archivePerson,
   type Person,
   type PersonState,
@@ -172,6 +175,22 @@ export function ApplicantPipeline() {
     } catch (e) {
       console.error("[pipeline] state change failed", e);
       toast.error("Couldn't update this person.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const hire = async (person: Person, role: string) => {
+    setBusy(true);
+    try {
+      const updated = await hirePerson(person.id, role);
+      setPeople((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+      toast.success(`${person.firstName} hired as ${role}`);
+      setHireFor(null);
+      setHireRole("");
+    } catch (e) {
+      console.error("[pipeline] hire failed", e);
+      toast.error("Couldn't hire this person.");
     } finally {
       setBusy(false);
     }
@@ -446,7 +465,7 @@ export function ApplicantPipeline() {
                   </Button>
                 )}
                 <Button size="sm" disabled={busy || openPerson.state === "shadow"} onClick={() => void move(openPerson, "shadow")}>Move to Shadow</Button>
-                <Button size="sm" disabled={busy || openPerson.state === "hired"} onClick={() => void move(openPerson, "hired")}>Hire</Button>
+                <Button size="sm" disabled={busy || openPerson.state === "hired"} onClick={() => { setHireRole(""); setHireFor(openPerson); }}>Hire</Button>
                 <Button size="sm" variant="outline" disabled={busy || openPerson.state === "rejected"} onClick={() => void move(openPerson, "rejected")}>Pass</Button>
                 <Button size="sm" variant="ghost" disabled={busy} onClick={() => void archive(openPerson)}>
                   {openPerson.archived ? "Restore" : "Archive"}
