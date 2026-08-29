@@ -51,6 +51,12 @@ export type Person = {
   resumePath: string | null;
   workExperience: unknown;
   archived: boolean;
+  inviteToken: string | null;
+  inviteExpiresAt: string | null;
+  invitedAt: string | null;
+  joinedVia: string | null;
+  onboardingStarted: boolean;
+  personalInfoComplete: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -77,6 +83,12 @@ type PersonRow = {
   resume_path: string | null;
   work_experience: unknown;
   archived: boolean;
+  invite_token: string | null;
+  invite_expires_at: string | null;
+  invited_at: string | null;
+  joined_via: string | null;
+  onboarding_started: boolean;
+  personal_info_complete: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -104,6 +116,12 @@ function mapPerson(row: PersonRow): Person {
     resumePath: row.resume_path,
     workExperience: row.work_experience ?? null,
     archived: row.archived,
+    inviteToken: row.invite_token ?? null,
+    inviteExpiresAt: row.invite_expires_at ?? null,
+    invitedAt: row.invited_at ?? null,
+    joinedVia: row.joined_via ?? null,
+    onboardingStarted: !!row.onboarding_started,
+    personalInfoComplete: !!row.personal_info_complete,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -240,6 +258,13 @@ export async function archivePerson(id: string, archived = true): Promise<Person
     .single();
   if (error) throw error;
   return mapPerson(data as PersonRow);
+}
+
+/** Manager-only: mint a fresh invite token for someone with no login yet. */
+export async function regeneratePersonInvite(id: string): Promise<string> {
+  const { data, error } = await supabase.rpc("regenerate_person_invite", { p_person_id: id });
+  if (error) throw error;
+  return data as unknown as string;
 }
 
 /** Public, unauthenticated application intake. Returns the new person id. */
