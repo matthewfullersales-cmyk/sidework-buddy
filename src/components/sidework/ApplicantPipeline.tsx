@@ -289,7 +289,7 @@ export function ApplicantPipeline() {
                             </div>
                           </div>
                           <div className="mt-3 flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
-                            {next && (
+                            {next && p.state !== "applicant" && (
                               <Button size="sm" disabled={busy} onClick={() => void move(p, next)}>
                                 Move to {STATE_LABEL[next]}
                               </Button>
@@ -298,6 +298,7 @@ export function ApplicantPipeline() {
                               {p.archived ? "Restore" : "Archive"}
                             </Button>
                           </div>
+
                         </div>
                       </li>
                     );
@@ -327,8 +328,12 @@ export function ApplicantPipeline() {
                 {openPerson.phone && <p>{formatPhone(openPerson.phone)}</p>}
                 {openPerson.email && <p className="break-all">{openPerson.email}</p>}
                 <p className="text-xs text-muted-foreground">
-                  Applicant since {longDate(openPerson.appliedAt ?? openPerson.createdAt)} · in {STATE_LABEL[openPerson.state]} since {longDate(openPerson.stateChangedAt)}
+                  Applied {longDate(openPerson.appliedAt ?? openPerson.createdAt)}
+                  {openPerson.state !== "applicant"
+                    ? ` · in ${STATE_LABEL[openPerson.state]} since ${longDate(openPerson.stateChangedAt)}`
+                    : ""}
                 </p>
+
 
                 {openPerson.emergencyContact && (openPerson.emergencyContact.name || openPerson.emergencyContact.phone) && (
                   <div className="mt-2 rounded-lg border border-border p-3">
