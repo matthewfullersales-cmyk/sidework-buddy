@@ -38,6 +38,7 @@ import {
   fetchPeople,
   setPersonState,
   hirePerson,
+  regeneratePersonInvite,
   archivePerson,
   type Person,
   type PersonState,
@@ -232,6 +233,15 @@ export function ApplicantPipeline() {
       toast.success(`${person.firstName} hired as ${role}`);
       setHireFor(null);
       setHireRole("");
+      // The hire is done. Inviting them to sign up is best-effort and must
+      // never roll the hire back.
+      if (updated.inviteToken) {
+        if (updated.email) {
+          await sendHireInvite(updated);
+        } else {
+          toast.warning("No email on file — copy the invite link and give it to them.");
+        }
+      }
     } catch (e) {
       console.error("[pipeline] hire failed", e);
       toast.error("Couldn't hire this person.");
@@ -408,6 +418,51 @@ export function ApplicantPipeline() {
     }
   };
 
+
+  const inviteLink = (person: Person) =>
+    `${typeof window === "undefined" ? "" : window.location.origin}/staff-invite/${person.inviteToken}`;
+
+  /** Sends (or re-sends) the sign-up invite using the person's EXISTING token. */
+  const sendHireInvite = async (person: Person, resend = false) => {
+    if (!person.email || !person.inviteToken) {
+      toast.warning("No email on file — use Copy invite link instead.");
+      return;
+    }
+    try {
+      const res = await sendApplicantNotification({ data: {
+        kind: "hire_signup",
+        link: inviteLink(person),
+        firstName: person.firstName ?? "",
+        restaurantName: effectiveOwner?.restaurantName ?? "",
+        email: person.email,
+      }});
+      if (res.email.ok) {
+        toast.success(`${resend ? "Invite re-sent" : "Invite sent"} to ${person.email}`);
+      } else {
+        toast.error(`Couldn't send that email${res.email.error ? `: ${res.email.error}` : ""}`);
+      }
+    } catch (e) {
+      console.error("[pipeline] hire invite email failed", e);
+      toast.error("Couldn't send that email.");
+    }
+  };
+
+  /** Mints a fresh token — only offered once the current invite has expired. */
+  const reissueInvite = async (person: Person) => {
+    setBusy(true);
+    try {
+      const token = await regeneratePersonInvite(person.id);
+      const updated: Person = { ...person, inviteToken: token, invitedAt: new Date().toISOString() };
+      setPeople((prev) => prev.map((p) => (p.id === person.id ? updated : p)));
+      if (updated.email) await sendHireInvite(updated, true);
+      else toast.success("New invite link created — copy it and give it to them.");
+    } catch (e) {
+      console.error("[pipeline] reissue invite failed", e);
+      toast.error("Couldn't create a new invite link.");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const openResume = async (path: string) => {
     const { data, error } = await supabase.storage.from("resumes").createSignedUrl(path, 60);
@@ -603,6 +658,65 @@ export function ApplicantPipeline() {
                     )}
                   </div>
 
+                )}
+
+                {openPerson.state === "hired" && (
+                  <div className="mt-2 rounded-lg border border-border p-3">
+                    <p className="text-xs font-semibold">Sign-up invite</p>
+                    <p className="text-sm">
+                      {openPerson.invitedAt
+                        ? `Invite sent ${new Date(openPerson.invitedAt).toLocaleString(undefined, {
+                            month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
+                          })}`
+                        : "No invite sent yet"}
+                      {openPerson.email ? "" : " · no email on file"}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {openPerson.authUserId
+                        ? openPerson.personalInfoComplete
+                          ? "Signed up · profile complete"
+                          : "Signed up · profile not finished yet"
+                        : "Hasn't signed up yet"}
+                    </p>
+                    {!openPerson.authUserId
+                      && openPerson.inviteExpiresAt
+                      && new Date(openPerson.inviteExpiresAt).getTime() < Date.now() && (
+                      <p className="text-xs text-destructive">
+                        This invite link has expired. Re-issue it to send a new one.
+                      </p>
+                    )}
+                    {!openPerson.authUserId && (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {openPerson.inviteToken && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => copyLinkWithToast(inviteLink(openPerson), "Invite link copied")}
+                          >
+                            Copy invite link
+                          </Button>
+                        )}
+                        {openPerson.inviteToken && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={busy || !openPerson.email}
+                            onClick={() => void sendHireInvite(openPerson, true)}
+                          >
+                            Resend invite
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={busy}
+                          onClick={() => void reissueInvite(openPerson)}
+                        >
+                          Re-issue link
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 )}
 
                 {shadowShifts[openPerson.id] && (
