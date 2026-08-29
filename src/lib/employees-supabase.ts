@@ -376,13 +376,17 @@ export async function claimStaffInvite(
     p_token: token,
   } as never);
   if (error) throw error;
-  const personId = (typeof data === "string" ? data : (data as { id?: string } | null)?.id) ?? "";
+  const personId = typeof data === "string" ? data : (data as { id?: string } | null)?.id;
+  if (typeof personId !== "string" || personId.length === 0) {
+    throw new Error("Couldn't finish claiming this invite. Please ask your manager to send a new link.");
+  }
 
   const hasSelfFields =
     patch.phone !== undefined ||
     patch.weekly_availability !== undefined ||
     patch.emergency_contact !== undefined;
-  if (personId && hasSelfFields) {
+  if (hasSelfFields) {
+
     const row: Record<string, unknown> = { personal_info_complete: true };
     if (patch.phone !== undefined) row.phone = patch.phone || null;
     if (patch.weekly_availability !== undefined) row.weekly_availability = patch.weekly_availability;
