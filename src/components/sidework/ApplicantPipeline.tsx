@@ -353,10 +353,38 @@ export function ApplicantPipeline() {
                     View resume
                   </Button>
                 )}
+
+                {interviews[openPerson.id] && (
+                  <div className="mt-2 rounded-lg border border-border p-3">
+                    <p className="text-xs font-semibold">
+                      Interview · {interviews[openPerson.id]!.interviewType === "phone" ? "Phone call" : "In person"}
+                    </p>
+                    {interviews[openPerson.id]!.status === "scheduled" && interviews[openPerson.id]!.selectedSlot ? (
+                      <p className="text-sm">
+                        Confirmed for{" "}
+                        {new Date(interviews[openPerson.id]!.selectedSlot!).toLocaleString(undefined, {
+                          weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
+                        })}
+                      </p>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        {interviews[openPerson.id]!.offeredSlots.length} time
+                        {interviews[openPerson.id]!.offeredSlots.length === 1 ? "" : "s"} offered — waiting on them to pick
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
               <DialogFooter className="flex-col gap-2 sm:flex-row sm:flex-wrap">
-                <Button size="sm" disabled={busy || openPerson.state === "interviewing"} onClick={() => void move(openPerson, "interviewing")}>Move to Interviewing</Button>
+                <Button size="sm" disabled={busy} onClick={() => { setOfferFor(openPerson); setOpenId(null); }}>
+                  {interviews[openPerson.id] ? "Re-offer interview" : "Schedule interview"}
+                </Button>
+                {interviews[openPerson.id] && interviews[openPerson.id]!.status !== "completed" && (
+                  <Button size="sm" variant="outline" disabled={busy} onClick={() => void dropInterview(openPerson)}>
+                    Cancel interview
+                  </Button>
+                )}
                 <Button size="sm" disabled={busy || openPerson.state === "shadow"} onClick={() => void move(openPerson, "shadow")}>Move to Shadow</Button>
                 <Button size="sm" disabled={busy || openPerson.state === "hired"} onClick={() => void move(openPerson, "hired")}>Hire</Button>
                 <Button size="sm" variant="outline" disabled={busy || openPerson.state === "rejected"} onClick={() => void move(openPerson, "rejected")}>Pass</Button>
@@ -364,6 +392,7 @@ export function ApplicantPipeline() {
                   {openPerson.archived ? "Restore" : "Archive"}
                 </Button>
               </DialogFooter>
+
             </>
           )}
         </DialogContent>
