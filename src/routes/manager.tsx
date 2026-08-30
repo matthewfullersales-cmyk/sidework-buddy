@@ -198,13 +198,8 @@ function OverviewTab() {
     const pending = trades.filter((t) => t.status === "pending_approval").length;
     const newApps = applications.filter((a) => a.status === "new").length;
     const pendingTO = timeOff.filter((t) => t.status === "pending").length;
-    const menuStale = employees.filter((e) => menuTestStatus(e, menuBankMetaObj, customRoles, menuTestConfig, uploadedMenuTypes) === "stale").length;
-    const menuNever = employees.filter((e) => {
-      const s = menuTestStatus(e, menuBankMetaObj, customRoles, menuTestConfig, uploadedMenuTypes);
-      return s === "never" || s === "in-progress";
-    }).length;
-    const menuBlocked = employees.filter((e) => menuTestStatus(e, menuBankMetaObj, customRoles, menuTestConfig, uploadedMenuTypes) === "blocked").length;
-    return { onboarded, total: employees.length, pending, newApps, pendingTO, shifts: shifts.length, menuStale, menuNever, menuBlocked };
+    return { onboarded, total: employees.length, pending, newApps, pendingTO, shifts: shifts.length };
+
   }, [employees, customRoles, trades, shifts, applications, timeOff, menuBankMetaObj, menuTestConfig, uploadedMenuTypes]);
 
   return (
