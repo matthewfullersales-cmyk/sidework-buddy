@@ -643,8 +643,21 @@ function ChecklistItem({ done, label }: { done: boolean; label: string }) {
 }
 
 function TimeOffTab({ employeeId }: { employeeId: string }) {
-  const { timeOff, requestTimeOff } = useStore();
+  const { timeOff, requestTimeOff, cancelTimeOff } = useStore();
   const mine = timeOff.filter((t) => t.employeeId === employeeId);
+  const [cancelling, setCancelling] = useState<string | null>(null);
+
+  const doCancel = async (id: string) => {
+    setCancelling(id);
+    try {
+      await cancelTimeOff(id);
+      toast.success("Time off request cancelled");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not cancel that request.");
+    } finally {
+      setCancelling(null);
+    }
+  };
   const [form, setForm] = useState({ startDate: "", endDate: "" });
 
   const daysRequested = useMemo(() => {
