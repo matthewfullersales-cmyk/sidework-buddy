@@ -43,14 +43,15 @@ function spellCount(n: number): string {
   return NUMBER_WORDS[n] ?? String(n);
 }
 
-function ctaButton(link: string): string {
+function ctaButton(link: string, label: string): string {
   const href = esc(link);
   return (
     `<p style="margin:24px 0;"><a href="${href}" style="display:inline-block;background-color:#14532d;color:#ffffff;` +
-    `font-size:14px;font-weight:600;text-decoration:none;padding:12px 24px;border-radius:6px;">Pick your interview time</a></p>` +
+    `font-size:14px;font-weight:600;text-decoration:none;padding:12px 24px;border-radius:6px;">${esc(label)}</a></p>` +
     `<p style="font-size:12px;color:#6b7280;">Or paste this link into your browser:<br>${href}</p>`
   );
 }
+
 
 function buildCopy(data: z.infer<typeof payloadSchema>): Copy {
   const hi = data.firstName ? `Hi ${data.firstName},` : "Hi,";
@@ -85,7 +86,7 @@ Looking forward to speaking with you.`,
 <p><strong>${esc(restaurant)}</strong> would like to interview you.</p>
 ${formatLine ? `<p>${esc(formatLine)}</p>` : ""}
 <p>${esc(offerLine)}</p>
-${ctaButton(data.link)}
+${ctaButton(data.link, "Pick your interview time")}
 <p>Looking forward to speaking with you.</p>`,
     };
   }
@@ -105,9 +106,10 @@ ${data.link}
 
 See you soon!`,
       html:
-`<p>${hi}</p>
-<p><strong>${restaurant}</strong> would like to invite you in for a shadow shift${when ? ` on <strong>${when}</strong>` : ""}.</p>
-<p>Review the details and confirm here:<br><a href="${data.link}">${data.link}</a></p>
+`<p>${esc(hi)}</p>
+<p><strong>${esc(restaurant)}</strong> would like to invite you in for a shadow shift${when ? ` on <strong>${esc(when)}</strong>` : ""}.</p>
+<p>Everything you need — where to come in, who to ask for, and what to wear — is here:</p>
+${ctaButton(data.link, "See the details")}
 <p>See you soon!</p>`,
     };
   }
@@ -123,9 +125,9 @@ ${data.link}
 
 Excited to have you.`,
     html:
-`<p>${hi}</p>
-<p>Welcome to the team at <strong>${restaurant}</strong>! Finish setting up your account and start your training here:</p>
-<p><a href="${data.link}">${data.link}</a></p>
+`<p>${esc(hi)}</p>
+<p>Welcome to the team at <strong>${esc(restaurant)}</strong>! Finish setting up your account and start your training here:</p>
+${ctaButton(data.link, "Finish setting up")}
 <p>Excited to have you.</p>`,
   };
 }
