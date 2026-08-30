@@ -65,7 +65,7 @@ import { toast } from "sonner";
 export type Role = string;
 export const BUILT_IN_ROLES = [
   "Host","Busser","Server Assistant","Bar Back","Bartender","Server","Manager","Assistant Manager",
-  "Chef","Sous Chef","Line Cook","Fry Cook","Saute","Grill","Pizza","Garde Manger","Dishwasher","Prep",
+  "Chef","Sous Chef","Line Cook","Fry Cook","Saute","Grill","Pizza","Garde Manger","Dishwasher","Prep","Expo","Food Runner",
 ] as const;
 export type BuiltInRole = typeof BUILT_IN_ROLES[number];
 export interface CustomRole { name: string; section: "FOH" | "BOH"; color: string }
