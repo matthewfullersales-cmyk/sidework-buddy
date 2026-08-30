@@ -179,17 +179,10 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
     phone: me.emergencyContact?.phone ?? "",
     relationship: me.emergencyContact?.relationship ?? "Other" as Relationship,
   });
-  const [specialTalents, setSpecialTalents] = useState(me.specialTalents ?? "");
-  const [photoUrl, setPhotoUrl] = useState(me.photoUrl ?? "");
   const { menuBankMeta, menuTestConfig, uploadedMenuTypes } = useStore();
   const s = onboardingStatus(me, customRoles, menuBankMeta, menuTestConfig, uploadedMenuTypes);
 
-  const onPhotoFile = (file: File | null) => {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setPhotoUrl(String(reader.result ?? ""));
-    reader.readAsDataURL(file);
-  };
+
 
   const save = () => {
     if (!firstName.trim() || !phone.trim()) return toast.error("Please fill name and phone.");
