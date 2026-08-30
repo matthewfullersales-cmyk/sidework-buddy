@@ -429,21 +429,20 @@ export function ApplicantPipeline() {
       }
       // Mirrors the server rule in update_shadow_shift: a reschedule (date or
       // arrival time moved) clears the trainee's confirmation, so they must be
-      // emailed again. Trainer or note changes must NOT re-send.
+      // emailed again. Trainer, note, section or dress-group changes must NOT.
+      // Postgres returns time as "HH:MM:SS" while the form holds "HH:MM", so
+      // times are compared on the first five characters only; dates are plain
+      // YYYY-MM-DD strings on both sides.
       const moved =
         !!shadowEditing &&
         (shadowEditing.shiftDate !== saved.shiftDate ||
-          shadowEditing.arrivalTime !== saved.arrivalTime);
-      toast.success(
-        shadowEditing
-          ? moved
-            ? `New time emailed to ${shadowFor.firstName} — their previous confirmation was cleared`
-            : "Shadow shift updated"
-          : "Shadow shift scheduled",
-      );
+          hhmm(shadowEditing.arrivalTime) !== hhmm(saved.arrivalTime));
+      if (!shadowEditing) toast.success("Shadow shift scheduled");
+      else if (!moved) toast.success("Shadow shift updated — no email sent (time unchanged)");
       const target = shadowFor;
       closeShadowDialog();
-      if (!shadowEditing || moved) await sendShadowInvite(target, saved, moved);
+      if (!shadowEditing) await sendShadowInvite(target, saved);
+      else if (moved) await sendShadowMoved(target, saved);
     } catch (e) {
       console.error("[pipeline] shadow shift save failed", e);
       toast.error("Couldn't save that shadow shift.");
