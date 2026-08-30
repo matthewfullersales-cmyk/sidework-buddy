@@ -86,7 +86,7 @@ Looking forward to speaking with you.`,
 <p><strong>${esc(restaurant)}</strong> would like to interview you.</p>
 ${formatLine ? `<p>${esc(formatLine)}</p>` : ""}
 <p>${esc(offerLine)}</p>
-${ctaButton(data.link)}
+${ctaButton(data.link, "Pick your interview time")}
 <p>Looking forward to speaking with you.</p>`,
     };
   }
