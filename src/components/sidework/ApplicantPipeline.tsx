@@ -191,6 +191,19 @@ export function ApplicantPipeline() {
     })();
   }, [ownerId]);
 
+  // The shadow packet is per-restaurant, so load it once for the owner rather
+  // than on every dialog open.
+  useEffect(() => {
+    if (!ownerId) return;
+    void fetchShadowPacket(ownerId)
+      .then((p) => {
+        setShadowPacket(p);
+        setShadowPacketLoaded(true);
+      })
+      .catch((e) => console.error("[pipeline] shadow packet load failed", e));
+  }, [ownerId]);
+
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     const digits = q.replace(/\D/g, "");
