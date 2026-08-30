@@ -31,22 +31,18 @@ export const Route = createFileRoute("/shadow/t/$token")({
   }),
 });
 
-const BOH_ROLES = [
-  "chef", "sous chef", "line cook", "fry cook", "saute", "grill",
-  "pizza", "garde manger", "dishwasher", "prep",
-];
-
 /** Host -> host section (falling back to FOH when blank); BOH roles -> boh; everything else -> foh. */
 function dressFor(role: string, packet: ReturnType<typeof normalizeShadowPacket>) {
-  const r = role.trim().toLowerCase();
-  if (r === "host" || r === "hostess") {
+  const section = shadowSectionForRole(role);
+  if (section === "host") {
     const host = packet.dress.host;
     if (host.wear.trim() || host.provided.trim()) return host;
     return packet.dress.foh;
   }
-  if (BOH_ROLES.includes(r)) return packet.dress.boh;
+  if (section === "boh") return packet.dress.boh;
   return packet.dress.foh;
 }
+
 
 function Field({ label, value }: { label: string; value: string }) {
   if (!value.trim()) return null;
