@@ -56,7 +56,7 @@ export type Database = {
             foreignKeyName: "employee_notifications_employee_id_fkey"
             columns: ["employee_id"]
             isOneToOne: false
-            referencedRelation: "restaurant_employees"
+            referencedRelation: "people"
             referencedColumns: ["id"]
           },
         ]
@@ -520,7 +520,7 @@ export type Database = {
             foreignKeyName: "push_subscriptions_employee_id_fkey"
             columns: ["employee_id"]
             isOneToOne: false
-            referencedRelation: "restaurant_employees"
+            referencedRelation: "people"
             referencedColumns: ["id"]
           },
         ]
@@ -591,7 +591,7 @@ export type Database = {
             foreignKeyName: "quiz_attempts_employee_id_fkey"
             columns: ["employee_id"]
             isOneToOne: false
-            referencedRelation: "restaurant_employees"
+            referencedRelation: "people"
             referencedColumns: ["id"]
           },
         ]
@@ -1017,7 +1017,7 @@ export type Database = {
             foreignKeyName: "training_progress_employee_id_fkey"
             columns: ["employee_id"]
             isOneToOne: false
-            referencedRelation: "restaurant_employees"
+            referencedRelation: "people"
             referencedColumns: ["id"]
           },
         ]
