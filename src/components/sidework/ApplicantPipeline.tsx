@@ -110,6 +110,8 @@ export function ApplicantPipeline() {
   const [shNote, setShNote] = useState<string>("");
   // Owner's dress-group overrides, needed to resolve the shadow shift row.
   const [shadowPacket, setShadowPacket] = useState<ShadowPacket>(emptyShadowPacket);
+  const [shadowPacketLoaded, setShadowPacketLoaded] = useState(false);
+
 
   // Single source of truth for roles: the restaurant's configured role list.
   const { customRoles, activeRoles, shifts } = useStore();
@@ -188,6 +190,19 @@ export function ApplicantPipeline() {
       setJobRoles(roles);
     })();
   }, [ownerId]);
+
+  // The shadow packet is per-restaurant, so load it once for the owner rather
+  // than on every dialog open.
+  useEffect(() => {
+    if (!ownerId) return;
+    void fetchShadowPacket(ownerId)
+      .then((p) => {
+        setShadowPacket(p);
+        setShadowPacketLoaded(true);
+      })
+      .catch((e) => console.error("[pipeline] shadow packet load failed", e));
+  }, [ownerId]);
+
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -337,11 +352,7 @@ export function ApplicantPipeline() {
   };
 
   const openShadowDialog = (person: Person, existing: ShadowShift | null) => {
-    if (person.ownerId) {
-      void fetchShadowPacket(person.ownerId)
-        .then(setShadowPacket)
-        .catch((e) => console.error("[pipeline] shadow packet load failed", e));
-    }
+
     setShadowEditing(existing);
     setShRole(existing?.role ?? (person.jobId ? (jobRoles[person.jobId] ?? "") : ""));
     setShDate(existing?.shiftDate ?? "");
@@ -362,9 +373,29 @@ export function ApplicantPipeline() {
     setBusy(true);
     // Department and dress group are resolved HERE, where customRoles and the
     // owner's overrides exist, then stored on the row. The trainee page does
-    // no classification of its own.
+    // no classification of its own. Never resolve from an unloaded packet.
+    let packet = shadowPacket;
+    if (!shadowPacketLoaded) {
+      const oid = ownerId ?? shadowFor.ownerId;
+      if (!oid) {
+        setBusy(false);
+        toast.error("Couldn't load your shadow shift settings. Try again.");
+        return;
+      }
+      try {
+        packet = await fetchShadowPacket(oid);
+        setShadowPacket(packet);
+        setShadowPacketLoaded(true);
+      } catch (e) {
+        console.error("[pipeline] shadow packet load failed", e);
+        setBusy(false);
+        toast.error("Couldn't load your shadow shift settings. Try again.");
+        return;
+      }
+    }
     const section = shadowSectionForRole(shRole, customRoles);
-    const dressGroup = dressGroupForRole(shRole, customRoles, shadowPacket.dressGroup);
+    const dressGroup = dressGroupForRole(shRole, customRoles, packet.dressGroup);
+
     try {
       const saved = shadowEditing
         ? await updateShadowShift({
