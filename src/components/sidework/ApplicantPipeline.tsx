@@ -769,17 +769,38 @@ export function ApplicantPipeline() {
                       {personName(shadowShifts[openPerson.id]!.trainerPersonId) ?? "No trainer assigned"}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {shadowShifts[openPerson.id]!.confirmedAt ? "Confirmed" : "Not confirmed yet"}
+                      {shadowShifts[openPerson.id]!.confirmedAt
+                        ? "Confirmed"
+                        : shadowShifts[openPerson.id]!.declinedAt
+                          ? "Said they can't make it"
+                          : "Not confirmed yet"}
                     </p>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="mt-2"
-                      disabled={busy}
-                      onClick={() => openShadowDialog(openPerson, shadowShifts[openPerson.id]!)}
-                    >
-                      Edit shadow shift
-                    </Button>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={busy}
+                        onClick={() => openShadowDialog(openPerson, shadowShifts[openPerson.id]!)}
+                      >
+                        Edit shadow shift
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={busy}
+                        onClick={() => void sendShadowInvite(openPerson, shadowShifts[openPerson.id]!, true)}
+                      >
+                        Resend invite
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => copyLinkWithToast(shadowLink(shadowShifts[openPerson.id]!), "Shadow shift link copied")}
+                      >
+                        Copy link
+                      </Button>
+                    </div>
+
                   </div>
                 )}
               </div>
