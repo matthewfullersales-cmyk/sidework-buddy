@@ -21,6 +21,8 @@ export const ROLE_COLORS: Record<string, string> = {
   "Garde Manger": "#7D6608",
   Prep: "#1E8449",
   Dishwasher: "#7F8C8D",
+  Expo: "#6C3483",
+  "Food Runner": "#117864",
 };
 
 export const FOH_ROLES_ORDERED: Role[] = [
@@ -45,6 +47,8 @@ export const BOH_ROLES_ORDERED: Role[] = [
   "Garde Manger",
   "Prep",
   "Dishwasher",
+  "Expo",
+  "Food Runner",
 ];
 
 export const ROLES_ORDERED: Role[] = [...FOH_ROLES_ORDERED, ...BOH_ROLES_ORDERED];

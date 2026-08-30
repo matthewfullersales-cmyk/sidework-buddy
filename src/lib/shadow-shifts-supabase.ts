@@ -6,6 +6,15 @@
 import { supabase } from "@/integrations/supabase/client";
 
 export type ShadowShiftStatus = "scheduled" | "cancelled" | "completed";
+export type ShadowSectionValue = "foh" | "boh";
+export type ShadowDressGroupValue = "foh" | "host" | "boh";
+
+function asSection(v: unknown): ShadowSectionValue | null {
+  return v === "foh" || v === "boh" ? v : null;
+}
+function asDressGroup(v: unknown): ShadowDressGroupValue | null {
+  return v === "foh" || v === "host" || v === "boh" ? v : null;
+}
 
 export type ShadowShift = {
   id: string;
@@ -17,6 +26,8 @@ export type ShadowShift = {
   trainerPersonId: string | null;
   note: string | null;
   status: ShadowShiftStatus;
+  section: ShadowSectionValue | null;
+  dressGroup: ShadowDressGroupValue | null;
   confirmedAt: string | null;
   declinedAt: string | null;
   publicToken: string;
@@ -34,6 +45,8 @@ type ShadowShiftRow = {
   trainer_person_id: string | null;
   note: string | null;
   status: string;
+  section: string | null;
+  dress_group: string | null;
   confirmed_at: string | null;
   declined_at: string | null;
   public_token: string;
@@ -52,6 +65,8 @@ function mapShadowShift(row: ShadowShiftRow): ShadowShift {
     trainerPersonId: row.trainer_person_id,
     note: row.note,
     status: (row.status as ShadowShiftStatus) ?? "scheduled",
+    section: asSection(row.section),
+    dressGroup: asDressGroup(row.dress_group),
     confirmedAt: row.confirmed_at,
     declinedAt: row.declined_at ?? null,
     publicToken: row.public_token,
@@ -66,6 +81,9 @@ export type PublicShadowShift = {
   arrivalTime: string;
   role: string;
   status: ShadowShiftStatus;
+  /** Resolved manager-side at scheduling time. Older rows may be null. */
+  section: ShadowSectionValue | null;
+  dressGroup: ShadowDressGroupValue | null;
   confirmedAt: string | null;
   declinedAt: string | null;
   firstName: string | null;
@@ -82,6 +100,8 @@ type PublicShadowShiftRow = {
   arrival_time: string;
   role: string;
   status: string;
+  section: string | null;
+  dress_group: string | null;
   confirmed_at: string | null;
   declined_at: string | null;
   first_name: string | null;
@@ -99,6 +119,8 @@ function mapPublic(row: PublicShadowShiftRow): PublicShadowShift {
     arrivalTime: row.arrival_time,
     role: row.role,
     status: (row.status as ShadowShiftStatus) ?? "scheduled",
+    section: asSection(row.section),
+    dressGroup: asDressGroup(row.dress_group),
     confirmedAt: row.confirmed_at,
     declinedAt: row.declined_at,
     firstName: row.first_name,
@@ -152,6 +174,8 @@ export async function createShadowShift(input: {
   arrivalTime: string;
   trainerPersonId?: string | null;
   note?: string | null;
+  section: ShadowSectionValue;
+  dressGroup: ShadowDressGroupValue;
 }): Promise<ShadowShift> {
   const { data, error } = await supabase.rpc("create_shadow_shift", {
     p_person_id: input.personId,
@@ -160,7 +184,9 @@ export async function createShadowShift(input: {
     p_arrival_time: input.arrivalTime,
     p_trainer_person_id: input.trainerPersonId ?? undefined,
     p_note: input.note ?? undefined,
-  });
+    p_section: input.section,
+    p_dress_group: input.dressGroup,
+  } as never);
   if (error) throw error;
   return mapShadowShift(data as unknown as ShadowShiftRow);
 }
@@ -175,6 +201,8 @@ export async function updateShadowShift(input: {
   arrivalTime: string;
   trainerPersonId?: string | null;
   note?: string | null;
+  section: ShadowSectionValue;
+  dressGroup: ShadowDressGroupValue;
 }): Promise<ShadowShift> {
   const { data, error } = await supabase.rpc("update_shadow_shift", {
     p_id: input.id,
@@ -182,7 +210,9 @@ export async function updateShadowShift(input: {
     p_arrival_time: input.arrivalTime,
     p_trainer_person_id: input.trainerPersonId ?? undefined,
     p_note: input.note ?? undefined,
-  });
+    p_section: input.section,
+    p_dress_group: input.dressGroup,
+  } as never);
   if (error) throw error;
   return mapShadowShift(data as unknown as ShadowShiftRow);
 }
