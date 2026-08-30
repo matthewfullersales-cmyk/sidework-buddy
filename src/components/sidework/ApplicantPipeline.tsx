@@ -938,6 +938,14 @@ export function ApplicantPipeline() {
                       >
                         Copy link
                       </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={busy}
+                        onClick={() => void dropShadowShift(openPerson)}
+                      >
+                        Cancel shadow shift
+                      </Button>
                     </div>
 
                   </div>
