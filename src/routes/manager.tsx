@@ -41,7 +41,7 @@ import { format } from "date-fns";
 import { useAuth } from "@/lib/auth-context";
 // (removed) team-permissions registry — single-login owner model.
 import { fetchBookedInterviewSlots } from "@/lib/hiring-supabase";
-import { cn } from "@/lib/utils";
+import { cn, formatTime12h } from "@/lib/utils";
 import { listOwnerQuizAttempts, type QuizAttemptSummary } from "@/lib/quiz.functions";
 import { useServerFn } from "@tanstack/react-start";
 
@@ -1021,7 +1021,7 @@ function TradesTab() {
         <div className="text-sm">
           <p className="font-medium">{from?.name} → {to?.name ?? "open"}</p>
           <p className="text-xs text-muted-foreground">
-            {shift?.role} · {shift?.date} · {shift?.start}–{shift?.end}
+            {shift?.role} · {shift?.date} · {formatTime12h(shift?.start)} – {formatTime12h(shift?.end)}
             {t.autoApproved && " · auto-approved"}
           </p>
         </div>

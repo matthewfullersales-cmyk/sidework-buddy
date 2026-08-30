@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { useStore, isPendingJoin, type Role, type Shift, type Position, type Section, type WeeklyAvailability, type MealPeriods, type Meal, DAY_KEYS, isAvailableFor, halfForShiftStart, halfForAvailability, mealForShiftStart, suggestedShiftTimes, hoursConfigured, isPendingRoleAssignment } from "@/lib/sidework-store";
 import { toast } from "sonner";
 import { notifyScheduleChanged } from "@/lib/notifications.functions";
+import { formatTime12h } from "@/lib/utils";
 
 import { ROLE_COLORS, roleStyle, STATUS_COLORS, contrastText, fohRolesWithCustom, bohRolesWithCustom, allRolesWithCustom, nextCustomColor } from "@/lib/role-colors";
 
@@ -584,7 +585,7 @@ export function ScheduleSection() {
                               >
                                 {s ? (
                                   <div className="flex flex-col">
-                                    <span className="font-semibold">{s.start}–{s.end}</span>
+                                    <span className="font-semibold">{formatTime12h(s.start)} – {formatTime12h(s.end)}</span>
                                     {toStatus === "pending" && (
                                       <span className="mt-0.5 text-[9px] uppercase tracking-wide" style={{ color: "#8a4b00" }}>PTO pending</span>
                                     )}
