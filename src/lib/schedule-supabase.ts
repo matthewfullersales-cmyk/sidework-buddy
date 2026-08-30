@@ -124,11 +124,8 @@ type TimeOffRow = {
   local_id: string | null;
   start_date: string;
   end_date: string;
-  reason_type: string | null;
-  reason: string;
   status: string;
   resolved_at: string | null;
-  decision_note: string | null;
   created_at: string;
 };
 
@@ -138,12 +135,9 @@ function timeOffFromRow(r: TimeOffRow): TimeOffRequest {
     employeeId: r.employee_id ?? "",
     startDate: r.start_date,
     endDate: r.end_date,
-    reasonType: r.reason_type ?? undefined,
-    reason: r.reason,
     status: (r.status as TimeOffStatus) ?? "pending",
     createdAt: r.created_at,
     resolvedAt: r.resolved_at ?? undefined,
-    decisionNote: r.decision_note ?? undefined,
   };
 }
 
@@ -166,8 +160,6 @@ export async function insertTimeOffRow(
       employee_id: employeeIdOverride !== undefined ? employeeIdOverride : (t.employeeId || null),
       start_date: t.startDate,
       end_date: t.endDate,
-      reason_type: t.reasonType ?? null,
-      reason: t.reason,
     })
     .select("*")
     .single();
@@ -177,16 +169,14 @@ export async function insertTimeOffRow(
 
 export async function updateTimeOffRow(
   id: string,
-  patch: { status?: TimeOffStatus; resolvedAt?: string | null; decisionNote?: string | null },
+  patch: { status?: TimeOffStatus; resolvedAt?: string | null },
 ): Promise<void> {
   const row: {
     status?: TimeOffStatus;
     resolved_at?: string | null;
-    decision_note?: string | null;
   } = {};
   if (patch.status !== undefined) row.status = patch.status;
   if (patch.resolvedAt !== undefined) row.resolved_at = patch.resolvedAt;
-  if (patch.decisionNote !== undefined) row.decision_note = patch.decisionNote;
   const { error } = await supabase.from("time_off_requests").update(row).eq("id", id);
   if (error) throw error;
 }
@@ -334,11 +324,8 @@ export async function bootstrapLocalSchedule(
       local_id: t.id,
       start_date: t.startDate,
       end_date: t.endDate,
-      reason_type: t.reasonType ?? null,
-      reason: t.reason,
       status: t.status,
       resolved_at: t.resolvedAt ?? null,
-      decision_note: t.decisionNote ?? null,
     }));
     const { error } = await supabase
       .from("time_off_requests")

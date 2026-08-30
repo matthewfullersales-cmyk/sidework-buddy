@@ -125,20 +125,17 @@ export async function fetchMyTimeOff(employeeId: string): Promise<TimeOffRequest
   return (data ?? []).map((r) => {
     const row = r as {
       id: string; employee_id: string | null; start_date: string; end_date: string;
-      reason_type: string | null; reason: string; status: string;
-      resolved_at: string | null; decision_note: string | null; created_at: string;
+      status: string;
+      resolved_at: string | null; created_at: string;
     };
     return {
       id: row.id,
       employeeId: row.employee_id ?? "",
       startDate: row.start_date,
       endDate: row.end_date,
-      reasonType: row.reason_type ?? undefined,
-      reason: row.reason,
       status: row.status as TimeOffRequest["status"],
       createdAt: row.created_at,
       resolvedAt: row.resolved_at ?? undefined,
-      decisionNote: row.decision_note ?? undefined,
     };
   });
 }

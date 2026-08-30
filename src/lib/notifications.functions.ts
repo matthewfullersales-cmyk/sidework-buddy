@@ -218,12 +218,11 @@ export const notifyTimeOffResolved = createServerFn({ method: "POST" })
     employeeId: z.string().uuid(),
     approved: z.boolean(),
     dateLabel: z.string().max(160).default(""),
-    note: z.string().max(400).optional().default(""),
   }).parse(d))
   .handler(async ({ data, context }) => {
     const { ownerId } = await authorizeOwnerContext(context);
     const title = data.approved ? "Time off approved" : "Time off declined";
-    const parts = [data.dateLabel && `for ${data.dateLabel}`, data.note && `— ${data.note}`].filter(Boolean).join(" ");
+    const parts = data.dateLabel ? `for ${data.dateLabel}` : "";
     return fanOut({
       ownerId,
       employeeIds: [data.employeeId],

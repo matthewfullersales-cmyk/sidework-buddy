@@ -896,10 +896,8 @@ function ShiftDetailsDialog({
                   ? `⚠️ ${emp?.name ?? "This employee"} has approved time off on ${dateLabel}`
                   : `⚠️ ${emp?.name ?? "This employee"} has a pending time-off request for ${dateLabel}`}
               </p>
-              {timeOffConflict.row.reason && (
-                <p className="mt-1 text-xs opacity-90">Reason: {timeOffConflict.row.reason}</p>
-              )}
               <p className="mt-1 text-xs">
+
                 {blocked
                   ? "Saving is blocked. If this shift really needs to happen, deny or cancel the time-off request first in the Time Off tab."
                   : "The request hasn't been approved yet — you can still save this shift, but consider resolving the request first."}
