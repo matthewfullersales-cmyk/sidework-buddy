@@ -247,10 +247,18 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Weekly availability</CardTitle>
-          <p className="mt-1 text-xs text-muted-foreground">Set which days you can work. Your manager schedules around this.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Your manager sets this. Talk to them if it needs to change.</p>
         </CardHeader>
-        <CardContent>
-          <AvailabilityEditor value={weekly} onChange={setWeekly} />
+        <CardContent className="space-y-2">
+          {DAY_KEYS.map((day) => {
+            const av = me.weeklyAvailability?.[day];
+            return (
+              <div key={day} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background p-3">
+                <p className="text-sm font-semibold">{DAY_FULL[day]}</p>
+                <span className="text-xs text-muted-foreground">{av ? summarizeAvailability(av) : "Not set"}</span>
+              </div>
+            );
+          })}
         </CardContent>
       </Card>
 
