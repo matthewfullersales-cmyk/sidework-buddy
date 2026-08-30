@@ -15,6 +15,7 @@ import {
   DAY_KEYS,
   type DayKey,
   type DayAvailability,
+  type DayHalf,
   type Meal,
   type MealPeriods,
   type MealPeriodConfig,
