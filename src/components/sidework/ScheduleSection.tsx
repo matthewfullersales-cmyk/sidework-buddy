@@ -798,8 +798,7 @@ function ShiftDetailsDialog({
   employeeId: string; date: string; existing?: Shift;
   onClose: () => void; onSave: (s: Shift) => void; onDelete: (id: string) => void;
 }) {
-  const { employees, activeRoles, customRoles, timeOff, mealPeriods, restaurantHours, menuBankMeta, menuTestConfig, uploadedMenuTypes } = useStore();
-  const menuBankMetaObj = menuBankMeta;
+  const { employees, activeRoles, customRoles, timeOff, mealPeriods, restaurantHours } = useStore();
   const emp = employees.find((e) => e.id === employeeId);
   // Compute suggestions up-front so a brand-new shift is seeded with the
   // first suggestion (Dinner arrival for the employee's section/position),
@@ -827,7 +826,6 @@ function ShiftDetailsDialog({
   const [role, setRole] = useState<Role>(existing?.role ?? (emp?.primaryRole ?? "Server"));
   const [notes, setNotes] = useState(existing?.notes ?? "");
   const [overrideAvailability, setOverrideAvailability] = useState(false);
-  const [overrideTraining, setOverrideTraining] = useState(false);
   const [suggestOpen, setSuggestOpen] = useState(false);
   const rolesForPicker = allRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r) || r === role);
   const showSuggestions = hoursConfigured(restaurantHours, mealPeriods) && suggestions.length > 0;
@@ -868,7 +866,6 @@ function ShiftDetailsDialog({
   // Role gate only. The menu test no longer participates in scheduling
   // eligibility — the manager owns the schedule gate.
   const pendingRole = emp ? isPendingRoleAssignment(emp) : false;
-  const trainingBlocked = false;
   const trainingBlockMsg = `${emp?.name ?? "This employee"} doesn't have a role assigned yet — assign one from the Team tab before scheduling.`;
 
 
@@ -1015,7 +1012,7 @@ function ShiftDetailsDialog({
           <div className="flex gap-2">
             <Button variant="ghost" onClick={onClose}>Cancel</Button>
             <Button
-              disabled={blocked || needsOverride || (pendingRole && !existing) || (trainingBlocked && !existing && !overrideTraining)}
+              disabled={blocked || needsOverride || (pendingRole && !existing)}
               onClick={() => {
                 if (blocked) {
                   toast.error(`${emp?.name ?? "Employee"} has approved time off on this date`);
@@ -1027,10 +1024,6 @@ function ShiftDetailsDialog({
                 }
                 if (pendingRole && !existing) {
                   toast.error(trainingBlockMsg);
-                  return;
-                }
-                if (trainingBlocked && !existing && !overrideTraining) {
-                  toast.error("Confirm scheduling despite incomplete training");
                   return;
                 }
                 onSave({
