@@ -25,7 +25,6 @@ import {
   type Section,
   type BusinessInfo,
   defaultWeeklyAvailability,
-  defaultMealPeriods,
   defaultArrivalOffsets,
   findMealPeriodOverlaps,
 } from "@/lib/sidework-store";
