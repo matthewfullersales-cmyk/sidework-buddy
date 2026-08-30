@@ -41,7 +41,7 @@ import { format } from "date-fns";
 import { useAuth } from "@/lib/auth-context";
 // (removed) team-permissions registry — single-login owner model.
 import { fetchBookedInterviewSlots } from "@/lib/hiring-supabase";
-import { cn } from "@/lib/utils";
+import { cn, formatTime12h } from "@/lib/utils";
 import { listOwnerQuizAttempts, type QuizAttemptSummary } from "@/lib/quiz.functions";
 import { useServerFn } from "@tanstack/react-start";
 
