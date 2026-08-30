@@ -34,47 +34,33 @@ const DAY_FULL: Record<DayKey, string> = {
   Fri: "Friday", Sat: "Saturday", Sun: "Sunday",
 };
 
-const ALL_PRESETS: { id: string; label: string; meals: Meal[] }[] = [
-  { id: "B",   label: "Breakfast Only",             meals: ["Breakfast"] },
-  { id: "L",   label: "Lunch Only",                 meals: ["Lunch"] },
-  { id: "D",   label: "Dinner Only",                meals: ["Dinner"] },
-  { id: "BL",  label: "Breakfast & Lunch",          meals: ["Breakfast", "Lunch"] },
-  { id: "BD",  label: "Breakfast & Dinner",         meals: ["Breakfast", "Dinner"] },
-  { id: "LD",  label: "Lunch & Dinner",             meals: ["Lunch", "Dinner"] },
-  { id: "BLD", label: "Breakfast, Lunch & Dinner",  meals: ["Breakfast", "Lunch", "Dinner"] },
-];
-
-function presetsFor(enabledMeals: Meal[]): { id: string; label: string; meals: Meal[] }[] {
-  const set = new Set(enabledMeals);
-  return ALL_PRESETS.filter((p) => p.meals.every((m) => set.has(m)));
-}
-
-function presetIdForMeals(meals: Meal[], available: { id: string; label: string; meals: Meal[] }[]): string {
-  const m = available.find((p) =>
-    p.meals.length === meals.length && p.meals.every((x) => meals.includes(x))
-  );
-  return m?.id ?? available[0]?.id ?? "D";
+/** Read the Day/Night half, deriving it from legacy `meals` when absent so no
+ * stored record renders blank. */
+function halfOf(av: DayAvailability): DayHalf | null {
+  if (av.kind !== "partial") return null;
+  if (av.half === "day" || av.half === "night") return av.half;
+  const meals = av.meals ?? [];
+  if (meals.length === 0) return null;
+  return meals.includes("Dinner") ? "night" : "day";
 }
 
 export function summarizeAvailability(av: DayAvailability): string {
   if (av.kind === "full") return "Full day";
   if (av.kind === "none") return "Off";
-  return (av.meals ?? []).join(" & ");
+  const half = halfOf(av);
+  if (half === "day") return "Days only";
+  if (half === "night") return "Nights only";
+  return "Partial";
 }
 
 export function AvailabilityEditor({
   value,
   onChange,
-  mealPeriods,
 }: {
   value: WeeklyAvailability | undefined;
   onChange: (next: WeeklyAvailability) => void;
-  mealPeriods?: MealPeriods;
 }) {
   const weekly: WeeklyAvailability = value ?? defaultWeeklyAvailability();
-  const mp: MealPeriods = mealPeriods ?? defaultMealPeriods();
-  const enabledMeals: Meal[] = (["Breakfast", "Lunch", "Dinner"] as Meal[]).filter((m) => mp[m].enabled);
-  const presets = presetsFor(enabledMeals);
 
   const setDay = (day: DayKey, next: DayAvailability) => {
     onChange({ ...weekly, [day]: next });
@@ -82,15 +68,10 @@ export function AvailabilityEditor({
 
   return (
     <div className="space-y-2">
-      {enabledMeals.length === 0 && (
-        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-900 dark:text-amber-200">
-          No meal periods are configured for this restaurant yet. Owners can turn on Breakfast, Lunch, or Dinner in Settings → Restaurant hours so "Partial" availability has real windows to line up against.
-        </div>
-      )}
       {DAY_KEYS.map((day) => {
         const av = weekly[day];
         const kind = av.kind;
-        const partialDisabled = presets.length === 0;
+        const half = halfOf(av);
         return (
           <div key={day} className="rounded-lg border border-border bg-background p-3">
             <div className="flex items-center justify-between gap-3">
@@ -101,47 +82,49 @@ export function AvailabilityEditor({
               {(["full", "partial", "none"] as const).map((k) => {
                 const active = kind === k;
                 const label = k === "full" ? "Full Day" : k === "partial" ? "Partial" : "Not Available";
-                const disabled = k === "partial" && partialDisabled;
                 return (
                   <button
                     key={k}
                     type="button"
-                    disabled={disabled}
                     onClick={() => {
-                      if (disabled) return;
                       if (k === "full") setDay(day, { kind: "full" });
                       else if (k === "none") setDay(day, { kind: "none" });
-                      else {
-                        const defaultMeals = presets[0]?.meals ?? enabledMeals;
-                        setDay(day, { kind: "partial", meals: av.kind === "partial" ? (av.meals ?? []).filter((m) => enabledMeals.includes(m)) : defaultMeals });
-                      }
+                      else setDay(day, { kind: "partial", half: half ?? "day" });
                     }}
                     className={`min-h-[44px] rounded-md border px-2 text-xs font-medium transition ${
                       active
                         ? "border-primary bg-primary text-primary-foreground"
                         : "border-border bg-background text-foreground hover:border-primary/40"
-                    } ${disabled ? "opacity-40 cursor-not-allowed" : ""}`}
+                    }`}
                   >
                     {label}
                   </button>
                 );
               })}
             </div>
-            {kind === "partial" && presets.length > 0 && (
+            {kind === "partial" && (
               <div className="mt-3">
                 <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Available for</Label>
-                <select
-                  value={presetIdForMeals(av.kind === "partial" ? (av.meals ?? []) : (presets[0]?.meals ?? []), presets)}
-                  onChange={(e) => {
-                    const preset = presets.find((p) => p.id === e.target.value);
-                    if (preset) setDay(day, { kind: "partial", meals: preset.meals });
-                  }}
-                  className="mt-1 h-11 w-full rounded-md border border-input bg-background px-3 text-base md:h-9 md:text-sm"
-                >
-                  {presets.map((p) => (
-                    <option key={p.id} value={p.id}>{p.label}</option>
-                  ))}
-                </select>
+                <div className="mt-1 grid grid-cols-2 gap-2">
+                  {(["day", "night"] as DayHalf[]).map((h) => {
+                    const active = half === h;
+                    return (
+                      <button
+                        key={h}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => setDay(day, { kind: "partial", half: h })}
+                        className={`min-h-[44px] rounded-md border px-2 text-xs font-medium transition ${
+                          active
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-border bg-background text-foreground hover:border-primary/40"
+                        }`}
+                      >
+                        {h === "day" ? "Day" : "Night"}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>
@@ -150,6 +133,7 @@ export function AvailabilityEditor({
     </div>
   );
 }
+
 
 export function MealPeriodsEditor({
   value,
