@@ -194,8 +194,6 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
       phone: phone.trim(),
       weeklyAvailability: weekly,
       emergencyContact: { ...ec, firstName: ec.firstName.trim(), lastName: ec.lastName.trim() },
-      specialTalents: specialTalents.trim() || undefined,
-      photoUrl: photoUrl || undefined,
       personalInfoComplete: true,
       onboardingStarted: true,
     });
