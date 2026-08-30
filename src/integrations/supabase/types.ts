@@ -717,10 +717,12 @@ export type Database = {
           arrival_time: string
           confirmed_at: string | null
           created_at: string
+          declined_at: string | null
           id: string
           note: string | null
           owner_id: string
           person_id: string
+          public_token: string
           role: string
           shift_date: string
           status: string
@@ -731,10 +733,12 @@ export type Database = {
           arrival_time: string
           confirmed_at?: string | null
           created_at?: string
+          declined_at?: string | null
           id?: string
           note?: string | null
           owner_id: string
           person_id: string
+          public_token?: string
           role: string
           shift_date: string
           status?: string
@@ -745,10 +749,12 @@ export type Database = {
           arrival_time?: string
           confirmed_at?: string | null
           created_at?: string
+          declined_at?: string | null
           id?: string
           note?: string | null
           owner_id?: string
           person_id?: string
+          public_token?: string
           role?: string
           shift_date?: string
           status?: string
@@ -1075,6 +1081,24 @@ export type Database = {
           status: string
         }[]
       }
+      confirm_shadow_shift_by_token: {
+        Args: { p_token: string }
+        Returns: {
+          address: string
+          arrival_time: string
+          confirmed_at: string
+          declined_at: string
+          first_name: string
+          note: string
+          restaurant_name: string
+          restaurant_phone: string
+          role: string
+          shadow_packet: Json
+          shift_date: string
+          status: string
+          trainer_first_name: string
+        }[]
+      }
       create_interview_offer: {
         Args: { p_person_id: string; p_slots: string[]; p_type: string }
         Returns: {
@@ -1124,10 +1148,12 @@ export type Database = {
           arrival_time: string
           confirmed_at: string | null
           created_at: string
+          declined_at: string | null
           id: string
           note: string | null
           owner_id: string
           person_id: string
+          public_token: string
           role: string
           shift_date: string
           status: string
@@ -1144,6 +1170,24 @@ export type Database = {
       decline_pending_person: {
         Args: { p_person_id: string }
         Returns: undefined
+      }
+      decline_shadow_shift_by_token: {
+        Args: { p_token: string }
+        Returns: {
+          address: string
+          arrival_time: string
+          confirmed_at: string
+          declined_at: string
+          first_name: string
+          note: string
+          restaurant_name: string
+          restaurant_phone: string
+          role: string
+          shadow_packet: Json
+          shift_date: string
+          status: string
+          trainer_first_name: string
+        }[]
       }
       employee_can_claim_role: {
         Args: { p_owner_id: string; p_role: string }
@@ -1280,6 +1324,24 @@ export type Database = {
           shadow_response_note: string
           shadow_shift: Json
           stage: string
+        }[]
+      }
+      get_public_shadow_shift_by_token: {
+        Args: { p_token: string }
+        Returns: {
+          address: string
+          arrival_time: string
+          confirmed_at: string
+          declined_at: string
+          first_name: string
+          note: string
+          restaurant_name: string
+          restaurant_phone: string
+          role: string
+          shadow_packet: Json
+          shift_date: string
+          status: string
+          trainer_first_name: string
         }[]
       }
       get_restaurant_coworker_names: {
@@ -1437,10 +1499,12 @@ export type Database = {
           arrival_time: string
           confirmed_at: string | null
           created_at: string
+          declined_at: string | null
           id: string
           note: string | null
           owner_id: string
           person_id: string
+          public_token: string
           role: string
           shift_date: string
           status: string
