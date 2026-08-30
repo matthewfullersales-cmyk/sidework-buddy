@@ -10,8 +10,9 @@ const GATEWAY_URL = "https://connector-gateway.lovable.dev";
 
 const payloadSchema = z.object({
   kind: z.enum(["interview_offer", "shadow_invite", "shadow_moved", "shadow_cancelled", "hire_signup"]),
-  // shadow_cancelled carries no link; a placeholder is accepted and unused.
-  link: z.string().url().optional().default("https://86paper.com"),
+  // shadow_cancelled carries no link; every other kind REQUIRES a valid URL so
+  // a CTA can never silently fall back to the marketing homepage.
+  link: z.string().url().optional(),
   firstName: z.string().trim().max(120).optional().default(""),
   restaurantName: z.string().trim().max(200).optional().default("our restaurant"),
   email: z.string().trim().email().optional().or(z.literal("").optional()),
@@ -21,6 +22,14 @@ const payloadSchema = z.object({
   interviewType: z.enum(["phone", "in_person"]).optional(),
   shadowDate: z.string().max(80).optional(),
   shadowTime: z.string().max(80).optional(),
+}).superRefine((data, ctx) => {
+  if (data.kind !== "shadow_cancelled" && !data.link) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["link"],
+      message: `link is required for kind "${data.kind}"`,
+    });
+  }
 });
 
 export type SendResult = {
@@ -87,7 +96,7 @@ Looking forward to speaking with you.`,
 <p><strong>${esc(restaurant)}</strong> would like to interview you.</p>
 ${formatLine ? `<p>${esc(formatLine)}</p>` : ""}
 <p>${esc(offerLine)}</p>
-${ctaButton(data.link, "Pick your interview time")}
+${ctaButton(data.link!, "Pick your interview time")}
 <p>Looking forward to speaking with you.</p>`,
     };
   }
@@ -110,7 +119,7 @@ See you soon!`,
 `<p>${esc(hi)}</p>
 <p><strong>${esc(restaurant)}</strong> would like to invite you in for a shadow shift${when ? ` on <strong>${esc(when)}</strong>` : ""}.</p>
 <p>Everything you need — where to come in, who to ask for, and what to wear — is here:</p>
-${ctaButton(data.link, "See the details")}
+${ctaButton(data.link!, "See the details")}
 <p>See you soon!</p>`,
     };
   }
@@ -132,7 +141,7 @@ See you soon!`,
 `<p>${esc(hi)}</p>
 <p>Your shadow shift at <strong>${esc(restaurant)}</strong> has been moved${when ? ` to <strong>${esc(when)}</strong>` : ""}.</p>
 <p>Your earlier confirmation no longer applies. Please confirm the new time:</p>
-${ctaButton(data.link, "Confirm the new time")}
+${ctaButton(data.link!, "Confirm the new time")}
 <p>See you soon!</p>`,
     };
   }
@@ -163,7 +172,7 @@ Excited to have you.`,
     html:
 `<p>${esc(hi)}</p>
 <p>Welcome to the team at <strong>${esc(restaurant)}</strong>! Finish setting up your account and start your training here:</p>
-${ctaButton(data.link, "Finish setting up")}
+${ctaButton(data.link!, "Finish setting up")}
 <p>Excited to have you.</p>`,
   };
 }
