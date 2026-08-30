@@ -28,6 +28,8 @@ import {
 } from "@/lib/interviews-supabase";
 import { useStore } from "@/lib/sidework-store";
 import { allRolesWithCustom } from "@/lib/role-colors";
+import { shadowSectionForRole, dressGroupForRole } from "@/lib/shadow-packet-roles";
+import { fetchShadowPacket, emptyShadowPacket, type ShadowPacket } from "@/lib/employees-supabase";
 import {
   fetchShadowShiftsForPeople,
   createShadowShift,
@@ -106,6 +108,8 @@ export function ApplicantPipeline() {
   const [shTime, setShTime] = useState<string>("");
   const [shTrainer, setShTrainer] = useState<string>("");
   const [shNote, setShNote] = useState<string>("");
+  // Owner's dress-group overrides, needed to resolve the shadow shift row.
+  const [shadowPacket, setShadowPacket] = useState<ShadowPacket>(emptyShadowPacket);
 
   // Single source of truth for roles: the restaurant's configured role list.
   const { customRoles, activeRoles, shifts } = useStore();
@@ -333,6 +337,11 @@ export function ApplicantPipeline() {
   };
 
   const openShadowDialog = (person: Person, existing: ShadowShift | null) => {
+    if (person.ownerId) {
+      void fetchShadowPacket(person.ownerId)
+        .then(setShadowPacket)
+        .catch((e) => console.error("[pipeline] shadow packet load failed", e));
+    }
     setShadowEditing(existing);
     setShRole(existing?.role ?? (person.jobId ? (jobRoles[person.jobId] ?? "") : ""));
     setShDate(existing?.shiftDate ?? "");
@@ -351,6 +360,11 @@ export function ApplicantPipeline() {
   const saveShadowShift = async () => {
     if (!shadowFor || !shRole || !shDate || !shTime) return;
     setBusy(true);
+    // Department and dress group are resolved HERE, where customRoles and the
+    // owner's overrides exist, then stored on the row. The trainee page does
+    // no classification of its own.
+    const section = shadowSectionForRole(shRole, customRoles);
+    const dressGroup = dressGroupForRole(shRole, customRoles, shadowPacket.dressGroup);
     try {
       const saved = shadowEditing
         ? await updateShadowShift({
@@ -359,6 +373,8 @@ export function ApplicantPipeline() {
             arrivalTime: shTime,
             trainerPersonId: shTrainer || null,
             note: shNote.trim() || null,
+            section,
+            dressGroup,
           })
         : await createShadowShift({
             personId: shadowFor.id,
@@ -367,6 +383,8 @@ export function ApplicantPipeline() {
             arrivalTime: shTime,
             trainerPersonId: shTrainer || null,
             note: shNote.trim() || null,
+            section,
+            dressGroup,
           });
       setShadowShifts((prev) => ({ ...prev, [saved.personId]: saved }));
       if (!shadowEditing) {
