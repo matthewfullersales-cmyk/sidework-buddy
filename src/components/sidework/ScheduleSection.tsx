@@ -556,8 +556,10 @@ export function ScheduleSection() {
                         const toStatus = timeOffStatusFor(emp.id, date);
                         const dayKey = DAY_KEYS[dayIdx];
                         const availDay = emp.weeklyAvailability?.[dayKey];
-                        const fullyUnavailable = availDay?.kind === "none";
-                        const showUnavailable = fullyUnavailable && !s && toStatus !== "approved";
+                        // Off days stay clickable — managers must be able to
+                        // record a shift picked up on a day off. The cell just
+                        // reads differently at a glance.
+                        const offDay = availDay?.kind === "none";
                         return (
                           <td key={date} className="border-b border-border p-1 align-middle">
                             {toStatus === "approved" ? (
@@ -567,21 +569,16 @@ export function ScheduleSection() {
                               >
                                 Time off
                               </div>
-                            ) : showUnavailable ? (
-                              <div
-                                className="w-full min-h-[52px] rounded-md border border-dashed border-muted-foreground/30 bg-muted/40 text-muted-foreground text-[11px] grid place-items-center px-1 text-center leading-tight"
-                                title={`${emp.name} marked ${dayKey}s as unavailable in their profile`}
-                                aria-label={`${emp.name} is unavailable on ${dayKey}s`}
-                              >
-                                Unavailable
-                              </div>
                             ) : (
                               <button
                                 onClick={() => setEditing({ employeeId: emp.id, date, existing: s })}
+                                title={offDay ? `${emp.name} marked ${dayKey}s as unavailable — you can still schedule them` : undefined}
                                 className={`w-full min-h-[52px] rounded-md text-[11px] px-2 py-1 transition border ${
                                   s
                                     ? "hover:opacity-80"
-                                    : "bg-background border-dashed border-border text-muted-foreground hover:border-primary/40 hover:text-primary"
+                                    : offDay
+                                      ? "bg-muted/40 border-dashed border-muted-foreground/30 text-muted-foreground hover:border-primary/40 hover:text-primary"
+                                      : "bg-background border-dashed border-border text-muted-foreground hover:border-primary/40 hover:text-primary"
                                 }`}
                                 style={s ? roleStyle(s.role) : undefined}
                               >
@@ -600,6 +597,8 @@ export function ScheduleSection() {
                                   >
                                     PTO pending
                                   </span>
+                                ) : offDay ? (
+                                  <span className="text-[10px] leading-tight">Off · +</span>
                                 ) : (
                                   <span>+</span>
                                 )}
