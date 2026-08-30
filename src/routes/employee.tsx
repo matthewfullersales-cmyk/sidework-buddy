@@ -238,7 +238,6 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
           <div className="grid gap-2"><Label>Role</Label><Input disabled value={me.primaryRole} /></div>
         </CardContent>
 
-        </CardContent>
       </Card>
 
       <Card>
