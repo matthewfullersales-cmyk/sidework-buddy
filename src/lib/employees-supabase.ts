@@ -261,23 +261,32 @@ export type ShadowDressSection = { wear: string; provided: string };
 
 export type ShadowPacket = {
   entrance: string;
+  /** Optional BOH-only entrance override. Blank means everyone uses `entrance`. */
+  entranceBoh: string;
   parking: string;
   dress: {
     foh: ShadowDressSection;
     host: ShadowDressSection;
     boh: ShadowDressSection;
   };
+  /** What to bring. No cross-fallback: blank boh means "nothing special". */
+  bring: { foh: string; boh: string };
+  /** One optional line per role, keyed by role name. */
+  doing: Record<string, string>;
 };
 
 export function emptyShadowPacket(): ShadowPacket {
   return {
     entrance: "",
+    entranceBoh: "",
     parking: "",
     dress: {
       foh: { wear: "", provided: "" },
       host: { wear: "", provided: "" },
       boh: { wear: "", provided: "" },
     },
+    bring: { foh: "", boh: "" },
+    doing: {},
   };
 }
 
@@ -287,6 +296,7 @@ export function normalizeShadowPacket(raw: unknown): ShadowPacket {
   if (!raw || typeof raw !== "object") return base;
   const r = raw as Record<string, unknown>;
   const dress = (r.dress ?? {}) as Record<string, unknown>;
+  const bring = (r.bring ?? {}) as Record<string, unknown>;
   const sect = (v: unknown): ShadowDressSection => {
     const s = (v ?? {}) as Record<string, unknown>;
     return {
@@ -294,12 +304,23 @@ export function normalizeShadowPacket(raw: unknown): ShadowPacket {
       provided: typeof s.provided === "string" ? s.provided : "",
     };
   };
+  const str = (v: unknown): string => (typeof v === "string" ? v : "");
+  const doing: Record<string, string> = {};
+  if (r.doing && typeof r.doing === "object") {
+    for (const [k, v] of Object.entries(r.doing as Record<string, unknown>)) {
+      if (typeof v === "string") doing[k] = v;
+    }
+  }
   return {
-    entrance: typeof r.entrance === "string" ? r.entrance : "",
-    parking: typeof r.parking === "string" ? r.parking : "",
+    entrance: str(r.entrance),
+    entranceBoh: str(r.entranceBoh),
+    parking: str(r.parking),
     dress: { foh: sect(dress.foh), host: sect(dress.host), boh: sect(dress.boh) },
+    bring: { foh: str(bring.foh), boh: str(bring.boh) },
+    doing,
   };
 }
+
 
 export async function fetchShadowPacket(ownerId: string): Promise<ShadowPacket> {
   const { data, error } = await supabase
