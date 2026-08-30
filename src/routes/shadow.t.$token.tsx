@@ -148,14 +148,22 @@ function PublicShadowShiftPage() {
             )}
           </section>
 
-          {packet && (packet.entrance.trim() || packet.parking.trim() || (dress && (dress.wear.trim() || dress.provided.trim()))) && (
+          {packet && (entrance.trim() || packet.parking.trim() || (dress && (dress.wear.trim() || dress.provided.trim()))) && (
             <section className="space-y-4 rounded-xl border border-border p-5">
-              <Field label="Where to come in" value={packet.entrance} />
+              <Field label="Where to come in" value={entrance} />
               <Field label="Parking" value={packet.parking} />
               {dress && <Field label="What to wear" value={dress.wear} />}
               {dress && <Field label="What we provide" value={dress.provided} />}
             </section>
           )}
+
+          {(bring.trim() || doing.trim()) && (
+            <section className="space-y-4 rounded-xl border border-border p-5">
+              <Field label="What to bring" value={bring} />
+              <Field label="What you'll be doing" value={doing} />
+            </section>
+          )}
+
 
           {shift.note && (
             <section className="rounded-xl border border-border p-5">
