@@ -9,6 +9,8 @@ import { Logo } from "@/components/sidework/Logo";
 import { formatPhone } from "@/lib/format-phone";
 import { formatDateLong, formatTime12h } from "@/lib/utils";
 import { normalizeShadowPacket } from "@/lib/employees-supabase";
+import { shadowSectionForRole } from "@/lib/shadow-packet-roles";
+
 import {
   getPublicShadowShift,
   confirmShadowShiftByToken,
@@ -31,22 +33,18 @@ export const Route = createFileRoute("/shadow/t/$token")({
   }),
 });
 
-const BOH_ROLES = [
-  "chef", "sous chef", "line cook", "fry cook", "saute", "grill",
-  "pizza", "garde manger", "dishwasher", "prep",
-];
-
 /** Host -> host section (falling back to FOH when blank); BOH roles -> boh; everything else -> foh. */
 function dressFor(role: string, packet: ReturnType<typeof normalizeShadowPacket>) {
-  const r = role.trim().toLowerCase();
-  if (r === "host" || r === "hostess") {
+  const section = shadowSectionForRole(role);
+  if (section === "host") {
     const host = packet.dress.host;
     if (host.wear.trim() || host.provided.trim()) return host;
     return packet.dress.foh;
   }
-  if (BOH_ROLES.includes(r)) return packet.dress.boh;
+  if (section === "boh") return packet.dress.boh;
   return packet.dress.foh;
 }
+
 
 function Field({ label, value }: { label: string; value: string }) {
   if (!value.trim()) return null;
@@ -97,8 +95,19 @@ function PublicShadowShiftPage() {
   };
 
   const packet = shift ? normalizeShadowPacket(shift.shadowPacket) : null;
+  const section = shift ? shadowSectionForRole(shift.role) : null;
   const dress = shift && packet ? dressFor(shift.role, packet) : null;
+  // Entrance: BOH override when set, otherwise the main entrance (fallback).
+  const entrance = packet
+    ? section === "boh" && packet.entranceBoh.trim()
+      ? packet.entranceBoh
+      : packet.entrance
+    : "";
+  // Bring: no cross-fallback — blank BOH is a complete answer.
+  const bring = packet ? (section === "boh" ? packet.bring.boh : packet.bring.foh) : "";
+  const doing = packet && shift ? (packet.doing[shift.role] ?? "") : "";
   const closed = shift ? shift.status === "cancelled" || shift.status === "completed" : false;
+
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-md flex-col gap-6 px-4 py-8">
@@ -139,14 +148,22 @@ function PublicShadowShiftPage() {
             )}
           </section>
 
-          {packet && (packet.entrance.trim() || packet.parking.trim() || (dress && (dress.wear.trim() || dress.provided.trim()))) && (
+          {packet && (entrance.trim() || packet.parking.trim() || (dress && (dress.wear.trim() || dress.provided.trim()))) && (
             <section className="space-y-4 rounded-xl border border-border p-5">
-              <Field label="Where to come in" value={packet.entrance} />
+              <Field label="Where to come in" value={entrance} />
               <Field label="Parking" value={packet.parking} />
               {dress && <Field label="What to wear" value={dress.wear} />}
               {dress && <Field label="What we provide" value={dress.provided} />}
             </section>
           )}
+
+          {(bring.trim() || doing.trim()) && (
+            <section className="space-y-4 rounded-xl border border-border p-5">
+              <Field label="What to bring" value={bring} />
+              <Field label="What you'll be doing" value={doing} />
+            </section>
+          )}
+
 
           {shift.note && (
             <section className="rounded-xl border border-border p-5">

@@ -2476,9 +2476,17 @@ function ShadowPacketCard() {
     return () => { cancelled = true; };
   }, [ownerId]);
 
+  const { activeRoles, customRoles } = useStore();
+  const roleChoices = allRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r));
+
   const set = (patch: Partial<ShadowPacket>) => setPacket((p) => ({ ...p, ...patch }));
   const setDress = (section: "foh" | "host" | "boh", field: "wear" | "provided", value: string) =>
     setPacket((p) => ({ ...p, dress: { ...p.dress, [section]: { ...p.dress[section], [field]: value } } }));
+  const setBring = (section: "foh" | "boh", value: string) =>
+    setPacket((p) => ({ ...p, bring: { ...p.bring, [section]: value } }));
+  const setDoing = (role: string, value: string) =>
+    setPacket((p) => ({ ...p, doing: { ...p.doing, [role]: value } }));
+
 
   const save = async () => {
     if (!ownerId) return;
@@ -2498,12 +2506,30 @@ function ShadowPacketCard() {
     label: string,
     value: string,
     onChange: (v: string) => void,
+    opts?: { placeholder?: string; hint?: string },
   ) => (
     <div className="grid gap-2">
       <Label>{label}</Label>
-      <Textarea rows={3} value={value} onChange={(e) => onChange(e.target.value)} disabled={!loaded} />
+      {opts?.hint && <p className="text-xs text-muted-foreground">{opts.hint}</p>}
+      <Textarea
+        rows={3}
+        value={value}
+        placeholder={opts?.placeholder}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={!loaded}
+      />
     </div>
   );
+
+  const blankDress =
+    !packet.dress.foh.wear.trim() && !packet.dress.foh.provided.trim()
+      ? "front of house"
+      : !packet.dress.boh.wear.trim() && !packet.dress.boh.provided.trim()
+        ? "back of house"
+        : null;
+  const nudges: string[] = [];
+  if (loaded && !packet.entrance.trim()) nudges.push("Trainees won't be told where to come in.");
+  if (loaded && blankDress) nudges.push(`Trainees in ${blankDress} roles won't be told what to wear.`);
 
   return (
     <Card>
@@ -2515,9 +2541,23 @@ function ShadowPacketCard() {
         </p>
       </CardHeader>
       <CardContent className="space-y-5">
+        {nudges.length > 0 && (
+          <div className="rounded-lg border border-warning/40 bg-warning/10 p-3">
+            {nudges.map((n) => (
+              <p key={n} className="text-xs text-muted-foreground">{n}</p>
+            ))}
+            <p className="mt-1 text-xs text-muted-foreground">You can still save — this is just a heads up.</p>
+          </div>
+        )}
         <div className="space-y-3">
           <p className="text-sm font-medium">Arrival</p>
           {field("Where to enter", packet.entrance, (v) => set({ entrance: v }))}
+          {field(
+            "Back of house entrance (optional override)",
+            packet.entranceBoh,
+            (v) => set({ entranceBoh: v }),
+            { hint: "Leave blank if everyone uses the main entrance above." },
+          )}
           {field("Where to park", packet.parking, (v) => set({ parking: v }))}
         </div>
         <div className="space-y-3">
@@ -2536,6 +2576,33 @@ function ShadowPacketCard() {
           {field("What to wear", packet.dress.boh.wear, (v) => setDress("boh", "wear", v))}
           {field("What we provide", packet.dress.boh.provided, (v) => setDress("boh", "provided", v))}
         </div>
+        <div className="space-y-3 border-t border-border pt-5">
+          <p className="text-sm font-medium">What to bring</p>
+          <p className="text-xs text-muted-foreground">Blank means nothing special. Front of house wording is also used for hosts.</p>
+          {field("Front of house", packet.bring.foh, (v) => setBring("foh", v), {
+            placeholder: "e.g. non-slip shoes, a pen, black pants",
+          })}
+          {field("Back of house", packet.bring.boh, (v) => setBring("boh", v), {
+            placeholder: "e.g. non-slip shoes, your knives if you have them",
+          })}
+        </div>
+        {roleChoices.length > 0 && (
+          <div className="space-y-3 border-t border-border pt-5">
+            <p className="text-sm font-medium">What they'll be doing</p>
+            <p className="text-xs text-muted-foreground">Optional, one line per role. Shown only to trainees shadowing that role.</p>
+            {roleChoices.map((r) => (
+              <div key={r} className="grid gap-2">
+                <Label>{r}</Label>
+                <Textarea
+                  rows={2}
+                  value={packet.doing[r] ?? ""}
+                  onChange={(e) => setDoing(r, e.target.value)}
+                  disabled={!loaded}
+                />
+              </div>
+            ))}
+          </div>
+        )}
         <div className="flex justify-end">
           <Button onClick={save} disabled={!loaded || saving}>{saving ? "Saving…" : "Save"}</Button>
         </div>
@@ -2543,6 +2610,7 @@ function ShadowPacketCard() {
     </Card>
   );
 }
+
 
 function Stat({ label, value, hint, tone }: { label: string; value: number | string; hint?: string; tone?: "warn" }) {
   return (
