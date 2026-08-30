@@ -110,6 +110,8 @@ export function ApplicantPipeline() {
   const [shNote, setShNote] = useState<string>("");
   // Owner's dress-group overrides, needed to resolve the shadow shift row.
   const [shadowPacket, setShadowPacket] = useState<ShadowPacket>(emptyShadowPacket);
+  const [shadowPacketLoaded, setShadowPacketLoaded] = useState(false);
+
 
   // Single source of truth for roles: the restaurant's configured role list.
   const { customRoles, activeRoles, shifts } = useStore();
