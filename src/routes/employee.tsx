@@ -364,7 +364,7 @@ function TrainingTab({ employeeId }: { employeeId: string }) {
         retakeRequired={menuState === "stale"}
         onQuizSubmit={(result) => {
           applyQuizAttemptResult(me.id, MENU_MODULE_ID, result);
-          if (result.passed) toast.success(`Passed with ${result.score}% — you're schedule eligible.`);
+          if (result.passed) toast.success(`Passed with ${result.score}%.`);
           else toast.error(`Scored ${result.score}%. Try again.`);
         }}
       />
