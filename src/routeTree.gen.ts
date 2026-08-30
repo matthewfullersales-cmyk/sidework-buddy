@@ -30,6 +30,7 @@ import { Route as StaffInviteTokenRouteImport } from './routes/staff-invite.$tok
 import { Route as ApiPublicStripeWebhookRouteImport } from './routes/api/public/stripe-webhook'
 import { Route as InterviewIdHostRouteImport } from './routes/interview.$id.host'
 import { Route as InterviewTTokenRouteImport } from './routes/interview.t.$token'
+import { Route as ShadowTTokenRouteImport } from './routes/shadow.t.$token'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -136,6 +137,11 @@ const InterviewTTokenRoute = InterviewTTokenRouteImport.update({
   path: '/interview/t/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ShadowTTokenRoute = ShadowTTokenRouteImport.update({
+  id: '/shadow/t/$token',
+  path: '/shadow/t/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -159,6 +165,7 @@ export interface FileRoutesByFullPath {
   '/api/public/stripe-webhook': typeof ApiPublicStripeWebhookRoute
   '/interview/$id/host': typeof InterviewIdHostRoute
   '/interview/t/$token': typeof InterviewTTokenRoute
+  '/shadow/t/$token': typeof ShadowTTokenRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -182,6 +189,7 @@ export interface FileRoutesByTo {
   '/api/public/stripe-webhook': typeof ApiPublicStripeWebhookRoute
   '/interview/$id/host': typeof InterviewIdHostRoute
   '/interview/t/$token': typeof InterviewTTokenRoute
+  '/shadow/t/$token': typeof ShadowTTokenRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -206,6 +214,7 @@ export interface FileRoutesById {
   '/api/public/stripe-webhook': typeof ApiPublicStripeWebhookRoute
   '/interview/$id/host': typeof InterviewIdHostRoute
   '/interview/t/$token': typeof InterviewTTokenRoute
+  '/shadow/t/$token': typeof ShadowTTokenRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -231,6 +240,7 @@ export interface FileRouteTypes {
     | '/api/public/stripe-webhook'
     | '/interview/$id/host'
     | '/interview/t/$token'
+    | '/shadow/t/$token'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -254,6 +264,7 @@ export interface FileRouteTypes {
     | '/api/public/stripe-webhook'
     | '/interview/$id/host'
     | '/interview/t/$token'
+    | '/shadow/t/$token'
   id:
     | '__root__'
     | '/'
@@ -277,6 +288,7 @@ export interface FileRouteTypes {
     | '/api/public/stripe-webhook'
     | '/interview/$id/host'
     | '/interview/t/$token'
+    | '/shadow/t/$token'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -300,6 +312,7 @@ export interface RootRouteChildren {
   StaffInviteTokenRoute: typeof StaffInviteTokenRoute
   ApiPublicStripeWebhookRoute: typeof ApiPublicStripeWebhookRoute
   InterviewTTokenRoute: typeof InterviewTTokenRoute
+  ShadowTTokenRoute: typeof ShadowTTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -451,6 +464,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InterviewTTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/shadow/t/$token': {
+      id: '/shadow/t/$token'
+      path: '/shadow/t/$token'
+      fullPath: '/shadow/t/$token'
+      preLoaderRoute: typeof ShadowTTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -487,6 +507,7 @@ const rootRouteChildren: RootRouteChildren = {
   StaffInviteTokenRoute: StaffInviteTokenRoute,
   ApiPublicStripeWebhookRoute: ApiPublicStripeWebhookRoute,
   InterviewTTokenRoute: InterviewTTokenRoute,
+  ShadowTTokenRoute: ShadowTTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
