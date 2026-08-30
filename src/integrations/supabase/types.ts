@@ -912,14 +912,11 @@ export type Database = {
       time_off_requests: {
         Row: {
           created_at: string
-          decision_note: string | null
           employee_id: string | null
           end_date: string
           id: string
           local_id: string | null
           owner_id: string
-          reason: string
-          reason_type: string | null
           resolved_at: string | null
           start_date: string
           status: string
@@ -927,14 +924,11 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          decision_note?: string | null
           employee_id?: string | null
           end_date: string
           id?: string
           local_id?: string | null
           owner_id: string
-          reason?: string
-          reason_type?: string | null
           resolved_at?: string | null
           start_date: string
           status?: string
@@ -942,14 +936,11 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          decision_note?: string | null
           employee_id?: string | null
           end_date?: string
           id?: string
           local_id?: string | null
           owner_id?: string
-          reason?: string
-          reason_type?: string | null
           resolved_at?: string | null
           start_date?: string
           status?: string
