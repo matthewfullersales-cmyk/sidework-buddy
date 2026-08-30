@@ -22,6 +22,7 @@ import { Progress } from "@/components/ui/progress";
 import { onboardingStatus, useStore, type Role, type ApplicationStatus, type Employee, type Relationship, DAY_KEYS, hoursConfigured, type JobApplication, type HiringStage, type ShadowShiftDetails, type InterviewType, getHiringStage, isPendingRoleAssignment, isPendingJoin, isScheduleEligible, trainingProgressFor, menuTestStatus, MENU_MODULE_ID, MENU_TEST_TITLE, availableMenuKinds } from "@/lib/sidework-store";
 import { MenuTestMatrix } from "@/components/sidework/MenuTestMatrix";
 import { roleStyle, fohRolesWithCustom, bohRolesWithCustom, allRolesWithCustom } from "@/lib/role-colors";
+import { defaultDressGroupForRole } from "@/lib/shadow-packet-roles";
 
 import { PhoneInput } from "@/components/ui/phone-input";
 import { copyLinkWithToast } from "@/lib/copy-to-clipboard";
