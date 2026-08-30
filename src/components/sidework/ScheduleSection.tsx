@@ -865,21 +865,12 @@ function ShiftDetailsDialog({
   })();
   const needsOverride = !!availConflict && !overrideAvailability;
 
-  // Training-eligibility gate. A pending-role or in-training employee can't
-  // be scheduled — the manager must assign a role and the employee must pass
-  // their required training modules first.
+  // Role gate only. The menu test no longer participates in scheduling
+  // eligibility — the manager owns the schedule gate.
   const pendingRole = emp ? isPendingRoleAssignment(emp) : false;
-  const eligible = emp ? isScheduleEligible(emp, customRoles, menuBankMetaObj, menuTestConfig, uploadedMenuTypes) : true;
-  const progress = emp ? trainingProgressFor(emp, customRoles, menuBankMetaObj, menuTestConfig, uploadedMenuTypes) : { passed: 0, total: 0 };
-  const menuState = emp ? menuTestStatus(emp, menuBankMetaObj, customRoles, menuTestConfig, uploadedMenuTypes) : "not-required";
-  const trainingBlocked = !!emp && !eligible;
-  const trainingBlockMsg = pendingRole
-    ? `${emp?.name ?? "This employee"} doesn't have a role assigned yet — assign one from the Team tab before scheduling.`
-    : menuState === "stale"
-      ? `${emp?.name ?? "This employee"} passed the previous Menu Knowledge Test, but the menu was updated. They must retake the test before their next shift.`
-      : menuState === "never" || menuState === "in-progress"
-        ? `${emp?.name ?? "This employee"} hasn't passed the Menu Knowledge Test yet — required before scheduling.`
-        : `${emp?.name ?? "This employee"} hasn't completed required training yet — ${progress.passed} of ${progress.total} modules complete.`;
+  const trainingBlocked = false;
+  const trainingBlockMsg = `${emp?.name ?? "This employee"} doesn't have a role assigned yet — assign one from the Team tab before scheduling.`;
+
 
   return (
     <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
