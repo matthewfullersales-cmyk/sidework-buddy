@@ -181,6 +181,23 @@ export async function updateTimeOffRow(
   if (error) throw error;
 }
 
+/**
+ * Delete a time-off request. RLS silently filters rows the caller may not
+ * delete — PostgREST then returns 200 with an empty body. We therefore
+ * require the deleted row to come back, and treat zero rows as a failure.
+ */
+export async function deleteTimeOffRow(id: string): Promise<void> {
+  const { data, error } = await supabase
+    .from("time_off_requests")
+    .delete()
+    .eq("id", id)
+    .select("id");
+  if (error) throw error;
+  if (!data || data.length === 0) {
+    throw new Error("Request could not be cancelled — it may already have been decided.");
+  }
+}
+
 /* ---------------- trades ---------------- */
 
 type TradeRow = {

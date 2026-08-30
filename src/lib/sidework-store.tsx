@@ -848,6 +848,7 @@ interface Store {
   inviteShadowShift: (id: string, details: ShadowShiftDetails) => void;
   requestTimeOff: (data: Omit<TimeOffRequest, "id" | "createdAt" | "status">) => void;
   resolveTimeOff: (id: string, approved: boolean) => void;
+  cancelTimeOff: (id: string) => Promise<void>;
 }
 
 const Ctx = createContext<Store | null>(null);
