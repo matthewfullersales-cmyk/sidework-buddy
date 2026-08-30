@@ -59,10 +59,6 @@ function EmployeePage() {
     selectedTargetRef.current = targetId;
     setCurrentUserRef.current({ type: "employee", id: targetId });
   }, [targetId]);
-  useEffect(() => {
-    const timeout = window.setTimeout(() => setLoadingTimedOut(true), 15_000);
-    return () => window.clearTimeout(timeout);
-  }, []);
   const me = targetId
     ? employees.find((employee) => employee.id === targetId)
     : currentUser.type === "employee"
@@ -70,6 +66,16 @@ function EmployeePage() {
       : undefined;
   const targetResolved = Boolean(targetId && employeeHydratedTargetId === targetId);
   const stillLoading = !loadingTimedOut && (authLoading || Boolean(targetId && !targetResolved && !employeeHydrationError));
+  useEffect(() => {
+    const pending = authLoading || Boolean(targetId && !targetResolved && !employeeHydrationError);
+    if (!pending) {
+      setLoadingTimedOut(false);
+      return;
+    }
+    setLoadingTimedOut(false);
+    const timeout = window.setTimeout(() => setLoadingTimedOut(true), 15_000);
+    return () => window.clearTimeout(timeout);
+  }, [authLoading, targetId, targetResolved, employeeHydrationError]);
   const status = useMemo(() => (me ? onboardingStatus(me, customRoles, menuBankVersion, menuTestConfig, uploadedMenuTypes) : null), [me, customRoles, menuBankVersion, menuTestConfig, uploadedMenuTypes]);
 
   useEffect(() => {
