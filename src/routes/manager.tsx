@@ -198,13 +198,8 @@ function OverviewTab() {
     const pending = trades.filter((t) => t.status === "pending_approval").length;
     const newApps = applications.filter((a) => a.status === "new").length;
     const pendingTO = timeOff.filter((t) => t.status === "pending").length;
-    const menuStale = employees.filter((e) => menuTestStatus(e, menuBankMetaObj, customRoles, menuTestConfig, uploadedMenuTypes) === "stale").length;
-    const menuNever = employees.filter((e) => {
-      const s = menuTestStatus(e, menuBankMetaObj, customRoles, menuTestConfig, uploadedMenuTypes);
-      return s === "never" || s === "in-progress";
-    }).length;
-    const menuBlocked = employees.filter((e) => menuTestStatus(e, menuBankMetaObj, customRoles, menuTestConfig, uploadedMenuTypes) === "blocked").length;
-    return { onboarded, total: employees.length, pending, newApps, pendingTO, shifts: shifts.length, menuStale, menuNever, menuBlocked };
+    return { onboarded, total: employees.length, pending, newApps, pendingTO, shifts: shifts.length };
+
   }, [employees, customRoles, trades, shifts, applications, timeOff, menuBankMetaObj, menuTestConfig, uploadedMenuTypes]);
 
   return (
@@ -215,19 +210,8 @@ function OverviewTab() {
         <Stat label="New applications" value={stats.newApps} hint="Awaiting review" tone={stats.newApps > 0 ? "warn" : undefined} />
         <Stat label="Time off pending" value={stats.pendingTO} hint="Need a decision" tone={stats.pendingTO > 0 ? "warn" : undefined} />
       </div>
-      {(stats.menuBlocked > 0 || stats.menuStale > 0 || stats.menuNever > 0) && (
-        <Card className="border-amber-500/40 bg-amber-500/10">
-          <CardContent className="p-4 text-sm">
-            <p className="font-semibold text-amber-900 dark:text-amber-200">Menu Knowledge Test — schedule gate</p>
-            <p className="mt-1 text-amber-900/80 dark:text-amber-200/80">
-              {stats.menuStale > 0 && <>{stats.menuStale} of {stats.total} staff need to <b>retake</b> the updated menu test. </>}
-              {stats.menuNever > 0 && <>{stats.menuNever} of {stats.total} staff have <b>never passed</b> the menu test. </>}
-              {stats.menuBlocked > 0 && <>{stats.menuBlocked} of {stats.total} staff are <b>blocked until all required menus are uploaded and have test questions</b>. </>}
-              These employees can't be scheduled until they pass at 80%.
-            </p>
-          </CardContent>
-        </Card>
-      )}
+
+
       <NotificationsCard />
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
@@ -756,21 +740,14 @@ function TeamTab() {
                       <Badge variant="secondary" className="bg-muted text-foreground">Pending role</Badge>
                     ) : isScheduleEligible(e, customRoles, menuBankMetaObj, menuTestConfig, uploadedMenuTypes) ? (
                       <Badge className="bg-success text-success-foreground hover:bg-success">Schedule eligible</Badge>
-                    ) : (
-                      (() => {
-                        const tp = trainingProgressFor(e, customRoles, menuBankMetaObj, menuTestConfig, uploadedMenuTypes);
-                        return <Badge variant="secondary" className="bg-amber-500/15 text-amber-700 dark:text-amber-300">In training · {tp.passed}/{tp.total}</Badge>;
-                      })()
-                    )}
-                    {menuState === "blocked" && (
-                      <p className="mt-1 text-[11px] font-semibold text-amber-700 dark:text-amber-300">Required menu not uploaded — blocked</p>
-                    )}
+                    ) : null}
                     {menuState === "stale" && (
-                      <p className="mt-1 text-[11px] font-semibold text-amber-700 dark:text-amber-300">Menu updated — retake required</p>
+                      <p className="mt-1 text-[11px] text-muted-foreground">Menu updated — retake suggested</p>
                     )}
                     {(menuState === "never" || menuState === "in-progress") && (
-                      <p className="mt-1 text-[11px] font-semibold text-amber-700 dark:text-amber-300">Menu test not passed</p>
+                      <p className="mt-1 text-[11px] text-muted-foreground">Menu test not taken</p>
                     )}
+
 
                     <p className="mt-1 text-xs text-muted-foreground">{s.passed}/{s.total} knowledge tests passed</p>
                     <Progress value={s.pct} className="mt-2 h-1.5 w-32" />

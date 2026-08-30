@@ -1085,20 +1085,22 @@ export function menuTestStatus(
   return "passed";
 }
 
+/**
+ * Schedule eligibility. The MANAGER owns the schedule gate; the Menu
+ * Knowledge Test no longer participates in this decision (parked feature).
+ * The only remaining derived block is "no role assigned yet".
+ */
 export function isScheduleEligible(
   emp: Pick<Employee, "personalInfoComplete" | "primaryRole" | "approvedRoles" | "progress">,
-  customRoles: CustomRole[] = [],
-  meta: MenuBankMeta | null | undefined = null,
-  config?: MenuTestConfig | null,
-  uploadedMenuTypes: MenuKind[] = [],
+  _customRoles: CustomRole[] = [],
+  _meta: MenuBankMeta | null | undefined = null,
+  _config?: MenuTestConfig | null,
+  _uploadedMenuTypes: MenuKind[] = [],
 ): boolean {
   if (isPendingRoleAssignment(emp)) return false;
-  if (testIdsForEmployee(emp).length === 0) return false;
-  // Fail closed: required menu types exist in config but not in the bank.
-  if (menuTestBlockedFor(emp, customRoles, meta, config, uploadedMenuTypes)) return false;
-  if (!menuTestRequiredFor(emp, customRoles, meta, config, uploadedMenuTypes)) return true;
-  return hasCurrentMenuPass(emp.progress, meta);
+  return true;
 }
+
 
 export function trainingProgressFor(
   emp: Pick<Employee, "primaryRole" | "approvedRoles" | "progress">,
