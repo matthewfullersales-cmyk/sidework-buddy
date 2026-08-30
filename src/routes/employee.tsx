@@ -16,7 +16,12 @@ import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { KnowledgeTest } from "@/components/sidework/KnowledgeTest";
 import { summarizeAvailability } from "@/components/sidework/AvailabilityEditor";
-import { onboardingStatus, useStore, isPendingJoin, testIdsForEmployee, menuTestStatus, MENU_MODULE_ID, MENU_TEST_TITLE, DAY_KEYS, DAY_FULL_NAMES, type Relationship } from "@/lib/sidework-store";
+import { onboardingStatus, useStore, isPendingJoin, testIdsForEmployee, menuTestStatus, MENU_MODULE_ID, MENU_TEST_TITLE, DAY_KEYS, type DayKey, type Relationship } from "@/lib/sidework-store";
+
+const DAY_FULL: Record<DayKey, string> = {
+  Mon: "Monday", Tue: "Tuesday", Wed: "Wednesday", Thu: "Thursday",
+  Fri: "Friday", Sat: "Saturday", Sun: "Sunday",
+};
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatPhone } from "@/lib/format-phone";
 import { formatTime12h } from "@/lib/utils";
