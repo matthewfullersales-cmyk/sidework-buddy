@@ -39,6 +39,7 @@ import {
   fetchOwnerTimeOff,
   insertTimeOffRow,
   updateTimeOffRow,
+  deleteTimeOffRow,
   fetchOwnerTrades,
   insertTradeRow,
   updateTradeRow,
