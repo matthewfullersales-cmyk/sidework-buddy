@@ -19,6 +19,7 @@ import { AvailabilityEditor } from "@/components/sidework/AvailabilityEditor";
 import { onboardingStatus, useStore, isPendingJoin, testIdsForEmployee, menuTestStatus, MENU_MODULE_ID, MENU_TEST_TITLE, type Relationship, type WeeklyAvailability } from "@/lib/sidework-store";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatPhone } from "@/lib/format-phone";
+import { formatTime12h } from "@/lib/utils";
 import { toast } from "sonner";
 import { EnablePushBanner, NotificationInbox, PushSettings } from "@/components/sidework/NotificationsUI";
 import { notifyTradePosted } from "@/lib/notifications.functions";
@@ -427,13 +428,8 @@ function MyScheduleTab({ employeeId }: { employeeId: string }) {
     return `${aStr} – ${bStr}`;
   };
 
-  const fmtTime = (t: string) => {
-    // t is "HH:MM" 24h
-    const [hh, mm] = t.split(":").map(Number);
-    const h12 = ((hh + 11) % 12) + 1;
-    const ampm = hh >= 12 ? "PM" : "AM";
-    return mm === 0 ? `${h12} ${ampm}` : `${h12}:${String(mm).padStart(2, "0")} ${ampm}`;
-  };
+  // Display-only formatting of stored "HH:MM" values — shared 12-hour formatter.
+  const fmtTime = formatTime12h;
 
   const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   const todayIso = iso(today);
@@ -603,7 +599,7 @@ function TradesTab({ employeeId }: { employeeId: string }) {
             return (
               <div key={t.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-background p-3">
                 <div>
-                  <p className="text-sm font-medium">{new Date(shift.date).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })} · {shift.start}–{shift.end}</p>
+                  <p className="text-sm font-medium">{new Date(shift.date).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })} · {formatTime12h(shift.start)} – {formatTime12h(shift.end)}</p>
                   <p className="text-xs text-muted-foreground">{shift.role} · from {from?.name ?? "coworker"}{t.note ? ` · "${t.note}"` : ""}</p>
                 </div>
                 {eligible ? (
@@ -630,7 +626,7 @@ function TradesTab({ employeeId }: { employeeId: string }) {
             return (
               <div key={t.id} className="flex items-center justify-between rounded-lg border border-border bg-background p-3 text-sm">
                 <div>
-                  <p className="font-medium">{shift.date} · {shift.start}–{shift.end} · {shift.role}</p>
+                  <p className="font-medium">{shift.date} · {formatTime12h(shift.start)} – {formatTime12h(shift.end)} · {shift.role}</p>
                   <p className="text-xs text-muted-foreground">
                     {t.postedBy === me.id ? "Gave away" : "Picked up"}{other ? ` · with ${other.name}` : ""}
                   </p>

@@ -1021,7 +1021,7 @@ function TradesTab() {
         <div className="text-sm">
           <p className="font-medium">{from?.name} → {to?.name ?? "open"}</p>
           <p className="text-xs text-muted-foreground">
-            {shift?.role} · {shift?.date} · {shift?.start}–{shift?.end}
+            {shift?.role} · {shift?.date} · {formatTime12h(shift?.start)} – {formatTime12h(shift?.end)}
             {t.autoApproved && " · auto-approved"}
           </p>
         </div>

@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useRef, type ReactNode } from "react";
 import { ROLE_COLORS } from "@/lib/role-colors";
+import { formatTime12h } from "@/lib/utils";
 import {
   fetchOwnerPostings,
   fetchOwnerApplications,
@@ -290,15 +291,10 @@ export function serializeRestaurantHoursConfig(
   return { version: 3, days, mealPeriods, arrivalOffsets: arrivalOffsets ?? defaultArrivalOffsets() };
 }
 
-// Format "HH:MM" (24h) → "3:00pm" for suggestion labels.
+// Format "HH:MM" (24h) → "3:00 PM" for suggestion labels. Delegates to the
+// shared formatter so every user-facing time renders identically.
 function fmt12(hhmm: string): string {
-  const [hs, ms] = hhmm.split(":");
-  const h = Number(hs);
-  const m = Number(ms);
-  if (!Number.isFinite(h) || !Number.isFinite(m)) return hhmm;
-  const period = h < 12 ? "am" : "pm";
-  const h12 = h % 12 === 0 ? 12 : h % 12;
-  return `${h12}:${String(m).padStart(2, "0")}${period}`;
+  return formatTime12h(hhmm);
 }
 
 function subMin(hhmm: string, min: number): string {
