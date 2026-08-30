@@ -34,6 +34,7 @@ import {
   fetchShadowShiftsForPeople,
   createShadowShift,
   updateShadowShift,
+  cancelShadowShift,
   type ShadowShift,
 } from "@/lib/shadow-shifts-supabase";
 import {
