@@ -326,7 +326,6 @@ export async function bootstrapLocalSchedule(
       end_date: t.endDate,
       status: t.status,
       resolved_at: t.resolvedAt ?? null,
-      decision_note: t.decisionNote ?? null,
     }));
     const { error } = await supabase
       .from("time_off_requests")
