@@ -1143,77 +1143,42 @@ export type Database = {
           person_id: string
         }[]
       }
-      create_shadow_shift:
-        | {
-            Args: {
-              p_arrival_time: string
-              p_note?: string
-              p_person_id: string
-              p_role: string
-              p_shift_date: string
-              p_trainer_person_id?: string
-            }
-            Returns: {
-              arrival_time: string
-              confirmed_at: string | null
-              created_at: string
-              declined_at: string | null
-              dress_group: string | null
-              id: string
-              note: string | null
-              owner_id: string
-              person_id: string
-              public_token: string
-              role: string
-              section: string | null
-              shift_date: string
-              status: string
-              trainer_person_id: string | null
-              updated_at: string
-            }
-            SetofOptions: {
-              from: "*"
-              to: "shadow_shifts"
-              isOneToOne: true
-              isSetofReturn: false
-            }
-          }
-        | {
-            Args: {
-              p_arrival_time: string
-              p_dress_group?: string
-              p_note?: string
-              p_person_id: string
-              p_role: string
-              p_section?: string
-              p_shift_date: string
-              p_trainer_person_id?: string
-            }
-            Returns: {
-              arrival_time: string
-              confirmed_at: string | null
-              created_at: string
-              declined_at: string | null
-              dress_group: string | null
-              id: string
-              note: string | null
-              owner_id: string
-              person_id: string
-              public_token: string
-              role: string
-              section: string | null
-              shift_date: string
-              status: string
-              trainer_person_id: string | null
-              updated_at: string
-            }
-            SetofOptions: {
-              from: "*"
-              to: "shadow_shifts"
-              isOneToOne: true
-              isSetofReturn: false
-            }
-          }
+      create_shadow_shift: {
+        Args: {
+          p_arrival_time: string
+          p_dress_group?: string
+          p_note?: string
+          p_person_id: string
+          p_role: string
+          p_section?: string
+          p_shift_date: string
+          p_trainer_person_id?: string
+        }
+        Returns: {
+          arrival_time: string
+          confirmed_at: string | null
+          created_at: string
+          declined_at: string | null
+          dress_group: string | null
+          id: string
+          note: string | null
+          owner_id: string
+          person_id: string
+          public_token: string
+          role: string
+          section: string | null
+          shift_date: string
+          status: string
+          trainer_person_id: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "shadow_shifts"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       decline_pending_person: {
         Args: { p_person_id: string }
         Returns: undefined
@@ -1538,75 +1503,41 @@ export type Database = {
         }
         Returns: string
       }
-      update_shadow_shift:
-        | {
-            Args: {
-              p_arrival_time: string
-              p_id: string
-              p_note?: string
-              p_shift_date: string
-              p_trainer_person_id?: string
-            }
-            Returns: {
-              arrival_time: string
-              confirmed_at: string | null
-              created_at: string
-              declined_at: string | null
-              dress_group: string | null
-              id: string
-              note: string | null
-              owner_id: string
-              person_id: string
-              public_token: string
-              role: string
-              section: string | null
-              shift_date: string
-              status: string
-              trainer_person_id: string | null
-              updated_at: string
-            }
-            SetofOptions: {
-              from: "*"
-              to: "shadow_shifts"
-              isOneToOne: true
-              isSetofReturn: false
-            }
-          }
-        | {
-            Args: {
-              p_arrival_time: string
-              p_dress_group?: string
-              p_id: string
-              p_note?: string
-              p_section?: string
-              p_shift_date: string
-              p_trainer_person_id?: string
-            }
-            Returns: {
-              arrival_time: string
-              confirmed_at: string | null
-              created_at: string
-              declined_at: string | null
-              dress_group: string | null
-              id: string
-              note: string | null
-              owner_id: string
-              person_id: string
-              public_token: string
-              role: string
-              section: string | null
-              shift_date: string
-              status: string
-              trainer_person_id: string | null
-              updated_at: string
-            }
-            SetofOptions: {
-              from: "*"
-              to: "shadow_shifts"
-              isOneToOne: true
-              isSetofReturn: false
-            }
-          }
+      update_shadow_shift: {
+        Args: {
+          p_arrival_time: string
+          p_dress_group?: string
+          p_id: string
+          p_note?: string
+          p_section?: string
+          p_shift_date: string
+          p_trainer_person_id?: string
+        }
+        Returns: {
+          arrival_time: string
+          confirmed_at: string | null
+          created_at: string
+          declined_at: string | null
+          dress_group: string | null
+          id: string
+          note: string | null
+          owner_id: string
+          person_id: string
+          public_token: string
+          role: string
+          section: string | null
+          shift_date: string
+          status: string
+          trainer_person_id: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "shadow_shifts"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
     }
     Enums: {
       user_role: "owner" | "employee"
