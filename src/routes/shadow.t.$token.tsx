@@ -9,7 +9,6 @@ import { Logo } from "@/components/sidework/Logo";
 import { formatPhone } from "@/lib/format-phone";
 import { formatDateLong, formatTime12h } from "@/lib/utils";
 import { normalizeShadowPacket } from "@/lib/employees-supabase";
-import { shadowSectionForRole } from "@/lib/shadow-packet-roles";
 
 import {
   getPublicShadowShift,
@@ -32,19 +31,6 @@ export const Route = createFileRoute("/shadow/t/$token")({
     ],
   }),
 });
-
-/** Host -> host section (falling back to FOH when blank); BOH roles -> boh; everything else -> foh. */
-function dressFor(role: string, packet: ReturnType<typeof normalizeShadowPacket>) {
-  const section = shadowSectionForRole(role);
-  if (section === "host") {
-    const host = packet.dress.host;
-    if (host.wear.trim() || host.provided.trim()) return host;
-    return packet.dress.foh;
-  }
-  if (section === "boh") return packet.dress.boh;
-  return packet.dress.foh;
-}
-
 
 function Field({ label, value }: { label: string; value: string }) {
   if (!value.trim()) return null;
@@ -95,8 +81,18 @@ function PublicShadowShiftPage() {
   };
 
   const packet = shift ? normalizeShadowPacket(shift.shadowPacket) : null;
-  const section = shift ? shadowSectionForRole(shift.role) : null;
-  const dress = shift && packet ? dressFor(shift.role, packet) : null;
+  // No role classification happens here: the manager resolved both values at
+  // scheduling time (customRoles are not visible to this unauthenticated page).
+  // Older rows predating those columns fall back to front of house.
+  const section = shift ? (shift.section ?? "foh") : null;
+  const dressGroup = shift ? (shift.dressGroup ?? "foh") : null;
+  // Host is all-or-nothing: any host text at all means use the host block as-is.
+  const dress =
+    packet && dressGroup
+      ? dressGroup === "host" && !packet.dress.host.wear.trim() && !packet.dress.host.provided.trim()
+        ? packet.dress.foh
+        : packet.dress[dressGroup]
+      : null;
   // Entrance: BOH override when set, otherwise the main entrance (fallback).
   const entrance = packet
     ? section === "boh" && packet.entranceBoh.trim()
