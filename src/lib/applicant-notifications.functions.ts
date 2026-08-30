@@ -9,8 +9,9 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 const GATEWAY_URL = "https://connector-gateway.lovable.dev";
 
 const payloadSchema = z.object({
-  kind: z.enum(["interview_offer", "shadow_invite", "hire_signup"]),
-  link: z.string().url(),
+  kind: z.enum(["interview_offer", "shadow_invite", "shadow_moved", "shadow_cancelled", "hire_signup"]),
+  // shadow_cancelled carries no link; a placeholder is accepted and unused.
+  link: z.string().url().optional().default("https://86paper.com"),
   firstName: z.string().trim().max(120).optional().default(""),
   restaurantName: z.string().trim().max(200).optional().default("our restaurant"),
   email: z.string().trim().email().optional().or(z.literal("").optional()),
