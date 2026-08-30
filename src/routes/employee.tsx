@@ -275,7 +275,7 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
           <p className="mt-1 text-xs text-muted-foreground">Set which days you can work. Your manager schedules around this.</p>
         </CardHeader>
         <CardContent>
-          <AvailabilityEditor value={weekly} onChange={setWeekly} mealPeriods={mealPeriods} />
+          <AvailabilityEditor value={weekly} onChange={setWeekly} />
         </CardContent>
       </Card>
 
