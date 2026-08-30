@@ -15,8 +15,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { KnowledgeTest } from "@/components/sidework/KnowledgeTest";
-import { AvailabilityEditor } from "@/components/sidework/AvailabilityEditor";
-import { onboardingStatus, useStore, isPendingJoin, testIdsForEmployee, menuTestStatus, MENU_MODULE_ID, MENU_TEST_TITLE, type Relationship, type WeeklyAvailability } from "@/lib/sidework-store";
+import { summarizeAvailability } from "@/components/sidework/AvailabilityEditor";
+import { onboardingStatus, useStore, isPendingJoin, testIdsForEmployee, menuTestStatus, MENU_MODULE_ID, MENU_TEST_TITLE, DAY_KEYS, type DayKey, type Relationship } from "@/lib/sidework-store";
+
+const DAY_FULL: Record<DayKey, string> = {
+  Mon: "Monday", Tue: "Tuesday", Wed: "Wednesday", Thu: "Thursday",
+  Fri: "Friday", Sat: "Saturday", Sun: "Sunday",
+};
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatPhone } from "@/lib/format-phone";
 import { formatTime12h } from "@/lib/utils";
@@ -172,7 +177,6 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
   const [lastName, setLastName] = useState(me.lastName ?? me.name.split(" ").slice(1).join(" ") ?? "");
   const [email, setEmail] = useState(me.email);
   const [phone, setPhone] = useState(me.phone ?? "");
-  const [weekly, setWeekly] = useState<WeeklyAvailability | undefined>(me.weeklyAvailability);
   const [ec, setEc] = useState({
     firstName: me.emergencyContact?.firstName ?? "",
     lastName: me.emergencyContact?.lastName ?? "",
@@ -192,7 +196,7 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
       lastName: lastName.trim(),
       name: `${firstName.trim()} ${lastName.trim()}`.trim(),
       phone: phone.trim(),
-      weeklyAvailability: weekly,
+      // Availability is manager-owned; it is never written from this save path.
       emergencyContact: { ...ec, firstName: ec.firstName.trim(), lastName: ec.lastName.trim() },
       personalInfoComplete: true,
       onboardingStarted: true,
@@ -243,10 +247,18 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Weekly availability</CardTitle>
-          <p className="mt-1 text-xs text-muted-foreground">Set which days you can work. Your manager schedules around this.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Your manager sets this. Talk to them if it needs to change.</p>
         </CardHeader>
-        <CardContent>
-          <AvailabilityEditor value={weekly} onChange={setWeekly} />
+        <CardContent className="space-y-2">
+          {DAY_KEYS.map((day) => {
+            const av = me.weeklyAvailability?.[day];
+            return (
+              <div key={day} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background p-3">
+                <p className="text-sm font-semibold">{DAY_FULL[day]}</p>
+                <span className="text-xs text-muted-foreground">{av ? summarizeAvailability(av) : "Not set"}</span>
+              </div>
+            );
+          })}
         </CardContent>
       </Card>
 
