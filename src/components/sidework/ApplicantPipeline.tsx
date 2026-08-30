@@ -373,9 +373,29 @@ export function ApplicantPipeline() {
     setBusy(true);
     // Department and dress group are resolved HERE, where customRoles and the
     // owner's overrides exist, then stored on the row. The trainee page does
-    // no classification of its own.
+    // no classification of its own. Never resolve from an unloaded packet.
+    let packet = shadowPacket;
+    if (!shadowPacketLoaded) {
+      const oid = ownerId ?? shadowFor.ownerId;
+      if (!oid) {
+        setBusy(false);
+        toast.error("Couldn't load your shadow shift settings. Try again.");
+        return;
+      }
+      try {
+        packet = await fetchShadowPacket(oid);
+        setShadowPacket(packet);
+        setShadowPacketLoaded(true);
+      } catch (e) {
+        console.error("[pipeline] shadow packet load failed", e);
+        setBusy(false);
+        toast.error("Couldn't load your shadow shift settings. Try again.");
+        return;
+      }
+    }
     const section = shadowSectionForRole(shRole, customRoles);
-    const dressGroup = dressGroupForRole(shRole, customRoles, shadowPacket.dressGroup);
+    const dressGroup = dressGroupForRole(shRole, customRoles, packet.dressGroup);
+
     try {
       const saved = shadowEditing
         ? await updateShadowShift({
