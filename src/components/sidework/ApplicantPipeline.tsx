@@ -379,7 +379,9 @@ export function ApplicantPipeline() {
         );
       }
       toast.success(shadowEditing ? "Shadow shift updated" : "Shadow shift scheduled");
+      const target = shadowFor;
       closeShadowDialog();
+      if (!shadowEditing) await sendShadowInvite(target, saved);
     } catch (e) {
       console.error("[pipeline] shadow shift save failed", e);
       toast.error("Couldn't save that shadow shift.");
@@ -387,6 +389,41 @@ export function ApplicantPipeline() {
       setBusy(false);
     }
   };
+
+  const shadowLink = (ss: ShadowShift) =>
+    `${typeof window === "undefined" ? "" : window.location.origin}/shadow/t/${ss.publicToken}`;
+
+  /** Emails the trainee their shadow shift link; falls back to a copyable link. */
+  const sendShadowInvite = async (person: Person, ss: ShadowShift, resend = false) => {
+    const link = shadowLink(ss);
+    let ok = false;
+    let attempted = false;
+    let err: string | undefined;
+    try {
+      const res = await sendApplicantNotification({ data: {
+        kind: "shadow_invite",
+        link,
+        firstName: person.firstName ?? "",
+        restaurantName: effectiveOwner?.restaurantName ?? "",
+        email: person.email ?? "",
+        shadowDate: formatDateLong(ss.shiftDate),
+        shadowTime: formatTime12h(ss.arrivalTime.slice(0, 5)),
+      }});
+      ok = res.email.ok;
+      attempted = res.email.attempted;
+      err = res.email.error;
+    } catch (e) {
+      console.error("[pipeline] shadow invite email failed", e);
+    }
+    if (ok) {
+      toast.success(`Shadow shift ${resend ? "re-sent" : "emailed"} to ${person.firstName}`, { description: link });
+    } else {
+      const why = attempted ? `email failed${err ? `: ${err}` : ""}` : "no email on file";
+      toast.warning(`Link ready for ${person.firstName} — send it manually (${why})`);
+      copyLinkWithToast(link, "Shadow shift link copied");
+    }
+  };
+
 
   const interviewLink = (iv: Interview) =>
     `${typeof window === "undefined" ? "" : window.location.origin}/interview/t/${iv.publicToken}`;
