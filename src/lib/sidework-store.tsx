@@ -675,12 +675,9 @@ export interface TimeOffRequest {
   employeeId: string;
   startDate: string;
   endDate: string;
-  reasonType?: string;
-  reason: string;
   status: TimeOffStatus;
   createdAt: string;
   resolvedAt?: string;
-  decisionNote?: string;
 }
 
 export interface MenuUpload {
@@ -837,7 +834,7 @@ interface Store {
   completeInterview: (id: string, notes?: string) => void;
   inviteShadowShift: (id: string, details: ShadowShiftDetails) => void;
   requestTimeOff: (data: Omit<TimeOffRequest, "id" | "createdAt" | "status">) => void;
-  resolveTimeOff: (id: string, approved: boolean, note?: string) => void;
+  resolveTimeOff: (id: string, approved: boolean) => void;
 }
 
 const Ctx = createContext<Store | null>(null);
@@ -2182,17 +2179,16 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
         })
         .catch((e) => console.error("[requestTimeOff]", e));
     },
-    resolveTimeOff: (id, approved, note) => {
+    resolveTimeOff: (id, approved) => {
       const patch = {
         status: (approved ? "approved" : "denied") as TimeOffStatus,
         resolvedAt: new Date().toISOString(),
-        decisionNote: note ?? null,
       };
       setState((s) => ({
         ...s,
         timeOff: s.timeOff.map((t) =>
           t.id === id
-            ? { ...t, status: patch.status, resolvedAt: patch.resolvedAt, decisionNote: note }
+            ? { ...t, status: patch.status, resolvedAt: patch.resolvedAt }
             : t,
         ),
       }));
