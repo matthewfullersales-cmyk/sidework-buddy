@@ -2186,7 +2186,7 @@ function TimeOffTab() {
       <div key={t.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-background p-3">
         <div className="text-sm">
           <p className="font-semibold">{emp?.name} <span className="text-muted-foreground">· {emp?.primaryRole}</span></p>
-          <p className="text-xs text-muted-foreground">{t.startDate} → {t.endDate} · {t.reasonType ? `${t.reasonType}: ` : ""}{t.reason}</p>
+          <p className="text-xs text-muted-foreground">{t.startDate} → {t.endDate}</p>
         </div>
         {t.status === "pending" ? (
           <div className="flex gap-2">
