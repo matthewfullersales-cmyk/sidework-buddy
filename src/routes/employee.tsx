@@ -710,11 +710,34 @@ function TimeOffTab({ employeeId }: { employeeId: string }) {
               <div className="text-sm">
                 <p className="font-semibold">{t.startDate} → {t.endDate}</p>
               </div>
-              <Badge className={
-                t.status === "approved" ? "bg-success text-success-foreground hover:bg-success" :
-                t.status === "denied" ? "bg-destructive text-destructive-foreground hover:bg-destructive" :
-                "bg-warning text-warning-foreground hover:bg-warning"
-              }>{t.status}</Badge>
+              <div className="flex items-center gap-2">
+                <Badge className={
+                  t.status === "approved" ? "bg-success text-success-foreground hover:bg-success" :
+                  t.status === "denied" ? "bg-destructive text-destructive-foreground hover:bg-destructive" :
+                  "bg-warning text-warning-foreground hover:bg-warning"
+                }>{t.status}</Badge>
+                {t.status === "pending" && (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button size="sm" variant="outline" disabled={cancelling === t.id}>
+                        {cancelling === t.id ? "Cancelling…" : "Cancel"}
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Cancel this time off request?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          {t.startDate} → {t.endDate} will be withdrawn. This can't be undone — you'd have to submit a new request.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Keep it</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => void doCancel(t.id)}>Cancel request</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
+              </div>
             </div>
           ))}
         </CardContent>
