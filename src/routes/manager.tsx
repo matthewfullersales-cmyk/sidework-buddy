@@ -2476,9 +2476,17 @@ function ShadowPacketCard() {
     return () => { cancelled = true; };
   }, [ownerId]);
 
+  const { activeRoles, customRoles } = useStore();
+  const roleChoices = allRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r));
+
   const set = (patch: Partial<ShadowPacket>) => setPacket((p) => ({ ...p, ...patch }));
   const setDress = (section: "foh" | "host" | "boh", field: "wear" | "provided", value: string) =>
     setPacket((p) => ({ ...p, dress: { ...p.dress, [section]: { ...p.dress[section], [field]: value } } }));
+  const setBring = (section: "foh" | "boh", value: string) =>
+    setPacket((p) => ({ ...p, bring: { ...p.bring, [section]: value } }));
+  const setDoing = (role: string, value: string) =>
+    setPacket((p) => ({ ...p, doing: { ...p.doing, [role]: value } }));
+
 
   const save = async () => {
     if (!ownerId) return;
