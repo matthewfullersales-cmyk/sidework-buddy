@@ -48,6 +48,9 @@ import {
 } from "@/lib/people-supabase";
 
 
+/** Postgres time values arrive as "HH:MM:SS"; form inputs hold "HH:MM". */
+const hhmm = (t: string) => (t ?? "").slice(0, 5);
+
 const PIPELINE_STATES: PersonState[] = ["applicant", "interviewing", "shadow", "hired", "rejected"];
 
 const STATE_LABEL: Record<PersonState, string> = {
