@@ -95,8 +95,19 @@ function PublicShadowShiftPage() {
   };
 
   const packet = shift ? normalizeShadowPacket(shift.shadowPacket) : null;
+  const section = shift ? shadowSectionForRole(shift.role) : null;
   const dress = shift && packet ? dressFor(shift.role, packet) : null;
+  // Entrance: BOH override when set, otherwise the main entrance (fallback).
+  const entrance = packet
+    ? section === "boh" && packet.entranceBoh.trim()
+      ? packet.entranceBoh
+      : packet.entrance
+    : "";
+  // Bring: no cross-fallback — blank BOH is a complete answer.
+  const bring = packet ? (section === "boh" ? packet.bring.boh : packet.bring.foh) : "";
+  const doing = packet && shift ? (packet.doing[shift.role] ?? "") : "";
   const closed = shift ? shift.status === "cancelled" || shift.status === "completed" : false;
+
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-md flex-col gap-6 px-4 py-8">
