@@ -823,7 +823,7 @@ export type Database = {
             foreignKeyName: "shift_trades_claimed_by_fkey"
             columns: ["claimed_by"]
             isOneToOne: false
-            referencedRelation: "restaurant_employees"
+            referencedRelation: "people"
             referencedColumns: ["id"]
           },
           {
@@ -837,7 +837,7 @@ export type Database = {
             foreignKeyName: "shift_trades_posted_by_fkey"
             columns: ["posted_by"]
             isOneToOne: false
-            referencedRelation: "restaurant_employees"
+            referencedRelation: "people"
             referencedColumns: ["id"]
           },
           {
@@ -897,7 +897,7 @@ export type Database = {
             foreignKeyName: "shifts_employee_id_fkey"
             columns: ["employee_id"]
             isOneToOne: false
-            referencedRelation: "restaurant_employees"
+            referencedRelation: "people"
             referencedColumns: ["id"]
           },
           {
@@ -960,7 +960,7 @@ export type Database = {
             foreignKeyName: "time_off_requests_employee_id_fkey"
             columns: ["employee_id"]
             isOneToOne: false
-            referencedRelation: "restaurant_employees"
+            referencedRelation: "people"
             referencedColumns: ["id"]
           },
           {
