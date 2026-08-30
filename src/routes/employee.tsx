@@ -297,21 +297,8 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Special talents</CardTitle>
-          <p className="mt-1 text-xs text-muted-foreground">Share anything fun about yourself — your manager will see it on your profile.</p>
-        </CardHeader>
-        <CardContent>
-          <Textarea
-            rows={3}
-            value={specialTalents}
-            onChange={(e) => setSpecialTalents(e.target.value)}
-            placeholder="Anything you're good at? Singing, art, a second language — you never know when it'll come in handy."
-            maxLength={500}
-          />
-        </CardContent>
-      </Card>
+
+
 
       <div className="flex justify-end">
         <Button onClick={save} size="lg">Save changes</Button>
