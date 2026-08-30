@@ -115,6 +115,41 @@ ${ctaButton(data.link, "See the details")}
     };
   }
 
+  if (data.kind === "shadow_moved") {
+    const when = [data.shadowDate, data.shadowTime].filter(Boolean).join(" at ");
+    return {
+      subject: `Your shadow shift at ${restaurant} has a new time`,
+      text:
+`${hi}
+
+Your shadow shift at ${restaurant} has been moved${when ? ` to ${when}` : ""}.
+
+Your earlier confirmation no longer applies. Please confirm the new time here:
+${data.link}
+
+See you soon!`,
+      html:
+`<p>${esc(hi)}</p>
+<p>Your shadow shift at <strong>${esc(restaurant)}</strong> has been moved${when ? ` to <strong>${esc(when)}</strong>` : ""}.</p>
+<p>Your earlier confirmation no longer applies. Please confirm the new time:</p>
+${ctaButton(data.link, "Confirm the new time")}
+<p>See you soon!</p>`,
+    };
+  }
+
+  if (data.kind === "shadow_cancelled") {
+    return {
+      subject: `Your shadow shift at ${restaurant} has been called off`,
+      text:
+`${hi}
+
+Your shadow shift at ${restaurant} has been called off. The restaurant will be in touch.`,
+      html:
+`<p>${esc(hi)}</p>
+<p>Your shadow shift at <strong>${esc(restaurant)}</strong> has been called off. The restaurant will be in touch.</p>`,
+    };
+  }
+
   // hire_signup
   return {
     subject: `Welcome to ${restaurant} — finish setting up your account`,
