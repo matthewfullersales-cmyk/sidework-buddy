@@ -314,9 +314,6 @@ function PendingRoleAssignmentQueue({
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold">{fullName}</p>
                 <p className="text-xs text-muted-foreground truncate">{e.email}{e.phone ? ` · ${e.phone}` : ""}</p>
-                {e.specialTalents && (
-                  <p className="mt-1 line-clamp-1 text-[11px] text-muted-foreground">Experience: {e.specialTalents}</p>
-                )}
               </div>
               <Select value={draft} onValueChange={(v) => setDrafts((d) => ({ ...d, [e.id]: v as Role }))}>
                 <SelectTrigger className="h-9 w-44"><SelectValue placeholder="Pick a role" /></SelectTrigger>
@@ -807,13 +804,6 @@ function TeamTab() {
                     )}
                   </div>
                 </div>
-
-                {e.specialTalents && (
-                  <div className="mt-3 rounded-lg border border-border bg-muted/30 p-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Special talents</p>
-                    <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">{e.specialTalents}</p>
-                  </div>
-                )}
 
                 <div className="mt-3 flex flex-wrap justify-end gap-2">
                   <Button size="sm" variant="outline" onClick={() => setEditing(e)}>Edit profile</Button>
@@ -1923,7 +1913,6 @@ function aiScoreReasons(a: JobApplication): string[] {
   const pitchText = (a.pitch ?? a.note ?? "").trim();
   const words = pitchText ? pitchText.split(/\s+/).length : 0;
   if (words < 20) reasons.push("brief experience");
-  if (!(a.specialTalents ?? "").trim()) reasons.push("no special talents listed");
   if (reasons.length === 0) return ["complete profile, detailed experience, extras filled in"];
   return reasons;
 }
@@ -2014,12 +2003,6 @@ function ApplicantCard({
               <p className="mt-1 text-sm italic text-foreground/90">"{a.pitch ?? a.note}"</p>
             </div>
           )}
-          {a.specialTalents && (
-            <div className="rounded-lg border border-border bg-muted/30 p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Special talents</p>
-              <p className="mt-1 whitespace-pre-wrap text-sm text-foreground/90">{a.specialTalents}</p>
-            </div>
-          )}
         </div>
       )}
 
@@ -2081,12 +2064,6 @@ function HireReviewDialog({
             </p>
             {(application.pitch || application.note) && (
               <p className="mt-2 italic text-foreground/90">"{application.pitch ?? application.note}"</p>
-            )}
-            {application.specialTalents && (
-              <div className="mt-2">
-                <p className="font-semibold text-primary">Special talents</p>
-                <p className="whitespace-pre-wrap text-muted-foreground">{application.specialTalents}</p>
-              </div>
             )}
             {application.workExperience && application.workExperience.length > 0 && (
               <div className="mt-2 space-y-1">

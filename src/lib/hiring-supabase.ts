@@ -60,7 +60,6 @@ type ApplicationRow = {
   archived: boolean;
   hired_employee_id: string | null;
   work_experience: unknown;
-  special_talents: string | null;
 };
 
 export type PublicInterviewInfo = {
@@ -150,7 +149,6 @@ export function applicationFromRow(r: ApplicationRow): JobApplication {
     archived: r.archived,
     hiredEmployeeId: r.hired_employee_id ?? undefined,
     workExperience: (r.work_experience as WorkExperience[] | null) ?? undefined,
-    specialTalents: r.special_talents ?? undefined,
   };
 }
 
@@ -266,7 +264,6 @@ export async function insertApplication(
     verified: data.verified,
     ai_score: data.aiScore ?? null,
     work_experience: (data.workExperience ?? null) as never,
-    special_talents: data.specialTalents ?? null,
     status: "new",
     applied_at: appliedAt,
   });

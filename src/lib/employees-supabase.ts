@@ -48,7 +48,6 @@ export function employeeFromRow(r: PersonRow): Employee {
     availability: "",
     weeklyAvailability: (r.weekly_availability as WeeklyAvailability | null) ?? undefined,
     emergencyContact: (r.emergency_contact as EmergencyContact | null) ?? undefined,
-    photoUrl: undefined,
     invitedAt: r.invited_at ?? r.created_at,
     onboardingStarted: r.onboarding_started,
     personalInfoComplete: r.personal_info_complete,
@@ -60,7 +59,6 @@ export function employeeFromRow(r: PersonRow): Employee {
     applicationPitch: undefined,
     appliedAt: undefined,
     workExperience: (r.work_experience as WorkExperience[] | null) ?? undefined,
-    specialTalents: undefined,
     joinStatus: r.state === "pending_approval" ? "pending" : "active",
     joinedVia: r.joined_via ?? undefined,
   };
@@ -94,7 +92,6 @@ function employeeToInsert(ownerId: string, e: Employee, opts?: { localId?: strin
     availability: e.availability ?? "",
     weekly_availability: (e.weeklyAvailability ?? null) as never,
     emergency_contact: (e.emergencyContact ?? null) as never,
-    photo_url: e.photoUrl ?? null,
     invited_at: e.invitedAt,
     onboarding_started: e.onboardingStarted,
     personal_info_complete: e.personalInfoComplete,
@@ -102,7 +99,6 @@ function employeeToInsert(ownerId: string, e: Employee, opts?: { localId?: strin
     application_pitch: e.applicationPitch ?? null,
     applied_at: e.appliedAt ?? null,
     work_experience: (e.workExperience ?? null) as never,
-    special_talents: e.specialTalents ?? null,
   };
 }
 

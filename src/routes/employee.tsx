@@ -179,17 +179,10 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
     phone: me.emergencyContact?.phone ?? "",
     relationship: me.emergencyContact?.relationship ?? "Other" as Relationship,
   });
-  const [specialTalents, setSpecialTalents] = useState(me.specialTalents ?? "");
-  const [photoUrl, setPhotoUrl] = useState(me.photoUrl ?? "");
   const { menuBankMeta, menuTestConfig, uploadedMenuTypes } = useStore();
   const s = onboardingStatus(me, customRoles, menuBankMeta, menuTestConfig, uploadedMenuTypes);
 
-  const onPhotoFile = (file: File | null) => {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setPhotoUrl(String(reader.result ?? ""));
-    reader.readAsDataURL(file);
-  };
+
 
   const save = () => {
     if (!firstName.trim() || !phone.trim()) return toast.error("Please fill name and phone.");
@@ -201,8 +194,6 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
       phone: phone.trim(),
       weeklyAvailability: weekly,
       emergencyContact: { ...ec, firstName: ec.firstName.trim(), lastName: ec.lastName.trim() },
-      specialTalents: specialTalents.trim() || undefined,
-      photoUrl: photoUrl || undefined,
       personalInfoComplete: true,
       onboardingStarted: true,
     });
@@ -245,35 +236,8 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
             <div className="grid gap-2"><Label>Phone number</Label><PhoneInput value={phone} onChange={setPhone} /></div>
           </div>
           <div className="grid gap-2"><Label>Role</Label><Input disabled value={me.primaryRole} /></div>
-          <div className="grid gap-2">
-            <Label>Profile photo (optional)</Label>
-            <div className="flex flex-col items-center gap-2">
-              <button
-                type="button"
-                onClick={() => document.getElementById("profile-photo-input")?.click()}
-                className="relative grid h-24 w-24 place-items-center rounded-full border-2 border-dashed border-border bg-muted transition hover:border-primary/50 hover:bg-muted/80"
-              >
-                {photoUrl ? (
-                  <img src={photoUrl} alt="Profile" className="h-24 w-24 rounded-full object-cover" />
-                ) : (
-                  <svg viewBox="0 0 24 24" className="h-8 w-8 text-muted-foreground" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-                )}
-              </button>
-              {!photoUrl ? (
-                <div className="text-center">
-                  <p className="text-sm font-medium text-foreground">Add profile photo</p>
-                  <p className="text-xs text-muted-foreground">Optional - tap to upload</p>
-                </div>
-              ) : (
-                <button type="button" onClick={() => document.getElementById("profile-photo-input")?.click()} className="text-sm text-primary hover:underline">Change photo</button>
-              )}
-              <input id="profile-photo-input" type="file" accept="image/*" className="hidden" onChange={(e) => onPhotoFile(e.target.files?.[0] ?? null)} />
-              {photoUrl && (
-                <button type="button" onClick={() => setPhotoUrl("")} className="text-xs text-muted-foreground hover:text-destructive">Remove</button>
-              )}
-            </div>
-          </div>
         </CardContent>
+
       </Card>
 
       <Card>
@@ -306,21 +270,8 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Special talents</CardTitle>
-          <p className="mt-1 text-xs text-muted-foreground">Share anything fun about yourself — your manager will see it on your profile.</p>
-        </CardHeader>
-        <CardContent>
-          <Textarea
-            rows={3}
-            value={specialTalents}
-            onChange={(e) => setSpecialTalents(e.target.value)}
-            placeholder="Anything you're good at? Singing, art, a second language — you never know when it'll come in handy."
-            maxLength={500}
-          />
-        </CardContent>
-      </Card>
+
+
 
       <div className="flex justify-end">
         <Button onClick={save} size="lg">Save changes</Button>
