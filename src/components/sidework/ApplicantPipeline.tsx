@@ -337,11 +337,7 @@ export function ApplicantPipeline() {
   };
 
   const openShadowDialog = (person: Person, existing: ShadowShift | null) => {
-    if (person.ownerId) {
-      void fetchShadowPacket(person.ownerId)
-        .then(setShadowPacket)
-        .catch((e) => console.error("[pipeline] shadow packet load failed", e));
-    }
+
     setShadowEditing(existing);
     setShRole(existing?.role ?? (person.jobId ? (jobRoles[person.jobId] ?? "") : ""));
     setShDate(existing?.shiftDate ?? "");
