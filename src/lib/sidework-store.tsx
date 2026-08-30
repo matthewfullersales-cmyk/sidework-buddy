@@ -438,13 +438,33 @@ export function mealForShiftStart(start: string, periods?: MealPeriods): Meal | 
   return enabled[enabled.length - 1]!;
 }
 
-export function isAvailableFor(av: DayAvailability | undefined, start: string, periods?: MealPeriods): boolean {
+/** Which half of the day a shift belongs to, judged ONLY by arrival time.
+ * 00:00–11:59 → day, 12:00–23:59 → night. Fixed rule: reads no restaurant
+ * configuration (no meal periods, no hours, no arrival offsets). End time and
+ * midnight crossings are irrelevant. */
+export function halfForShiftStart(start: string): DayHalf {
+  const [h] = start.split(":").map(Number);
+  return (h ?? 0) < 12 ? "day" : "night";
+}
+
+/** Read the Day/Night half off a partial availability, deriving it from legacy
+ * `meals` when `half` is absent (any meal after Lunch → night, else day). */
+export function halfForAvailability(av: DayAvailability | undefined): DayHalf | null {
+  if (!av || av.kind !== "partial") return null;
+  if (av.half === "day" || av.half === "night") return av.half;
+  const meals = av.meals ?? [];
+  if (meals.length === 0) return null;
+  return meals.includes("Dinner") ? "night" : "day";
+}
+
+export function isAvailableFor(av: DayAvailability | undefined, start: string): boolean {
   if (!av || av.kind === "full") return true;
   if (av.kind === "none") return false;
-  const meal = mealForShiftStart(start, periods);
-  if (meal === null) return true; // no configured periods → don't block
-  return (av.meals ?? []).includes(meal);
+  const want = halfForAvailability(av);
+  if (want === null) return true; // partial with no half recorded → don't block
+  return want === halfForShiftStart(start);
 }
+
 
 // Minutes-since-midnight; end<=start is treated as crossing midnight (24:00).
 function toMin(t: string): number {
