@@ -12,7 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { useStore, isPendingJoin, type Role, type Shift, type Position, type Section, type WeeklyAvailability, type MealPeriods, type Meal, DAY_KEYS, isAvailableFor, isAvailableForRange, mealForShiftStart, suggestedShiftTimes, hoursConfigured, isPendingRoleAssignment } from "@/lib/sidework-store";
+import { useStore, isPendingJoin, type Role, type Shift, type Position, type Section, type WeeklyAvailability, type MealPeriods, type Meal, DAY_KEYS, isAvailableFor, halfForShiftStart, halfForAvailability, mealForShiftStart, suggestedShiftTimes, hoursConfigured, isPendingRoleAssignment } from "@/lib/sidework-store";
 import { toast } from "sonner";
 import { notifyScheduleChanged } from "@/lib/notifications.functions";
 
@@ -63,9 +63,12 @@ function summarizeAvailability(weekly?: WeeklyAvailability): string {
     const d = DAY_KEYS[i];
     const av = weekly[d];
     if (!av || av.kind === "full") continue;
+    const half = halfForAvailability(av);
     const label = av.kind === "none"
       ? "Off"
-      : `${(av.meals ?? []).join(" & ")} only`;
+      : half === "day" ? "Days only"
+      : half === "night" ? "Nights only"
+      : "Partial";
     const last = groups[groups.length - 1];
     if (last && last.label === label && last.endIdx === i - 1) {
       last.endIdx = i;
@@ -242,7 +245,7 @@ export function ScheduleSection() {
           if (booked.has(emp.id)) return false;
           if (isOff(emp.id, date)) return false;
           const av = emp.weeklyAvailability?.[dayKey];
-          if (!isAvailableFor(av, desiredStart, mealPeriods)) {
+          if (!isAvailableFor(av, desiredStart)) {
             return false;
           }
           const clamped = clampToHours(dayIdx, desiredStart, desiredEnd);
@@ -348,7 +351,7 @@ export function ScheduleSection() {
       const dayKey = DAY_KEYS[(local.getDay() + 6) % 7];
       const emp = employees.find((e) => e.id === s.employeeId);
       const av = emp?.weeklyAvailability?.[dayKey];
-      if (av && !isAvailableForRange(av, s.start, s.end, mealPeriods).ok) {
+      if (av && !isAvailableFor(av, s.start)) {
         skippedAvail += 1;
         return;
       }
@@ -808,7 +811,11 @@ function ShiftDetailsDialog({
   const localDate0 = new Date(dy0, (dm0 ?? 1) - 1, dd0 ?? 1);
   const dayKey0 = DAY_KEYS[(localDate0.getDay() + 6) % 7]!;
   const availDay0 = emp?.weeklyAvailability?.[dayKey0];
-  const preferredMeals: Meal[] | undefined = availDay0?.kind === "partial" ? availDay0.meals : undefined;
+  const half0 = halfForAvailability(availDay0);
+  const preferredMeals: Meal[] | undefined = useMemo(
+    () => (half0 === "day" ? (["Breakfast", "Lunch"] as Meal[]) : half0 === "night" ? (["Dinner"] as Meal[]) : undefined),
+    [half0],
+  );
   const suggestions = useMemo(
     () => suggestedShiftTimes({
       dayKey: dayKey0,
@@ -854,11 +861,14 @@ function ShiftDetailsDialog({
   const dateLabel = localDate.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" });
 
   const availDay = emp?.weeklyAvailability?.[dayKey];
-  const availConflict: null | { kind: "none" } | { kind: "partial"; meals: string[]; violating: string[]; touched: string[] } = (() => {
+  // Day/Night is judged ONLY by the arrival time (before noon = day, noon or
+  // later = night). No meal periods, no restaurant hours, no configuration.
+  const shiftHalf = halfForShiftStart(start);
+  const availConflict: null | { kind: "none" } | { kind: "partial"; half: "day" | "night" } = (() => {
     if (!availDay || availDay.kind === "full") return null;
     if (availDay.kind === "none") return { kind: "none" };
-    const r = isAvailableForRange(availDay, start, end, mealPeriods);
-    if (!r.ok) return { kind: "partial", meals: availDay.meals ?? [], violating: r.violating, touched: r.touched };
+    const want = halfForAvailability(availDay);
+    if (want && want !== shiftHalf) return { kind: "partial", half: want };
     return null;
   })();
   const needsOverride = !!availConflict && !overrideAvailability;
@@ -922,8 +932,8 @@ function ShiftDetailsDialog({
             >
               <p className="font-semibold">
                 {availConflict.kind === "none"
-                  ? `⚠️ ${emp?.name ?? "This employee"} has ${dayKey}s marked unavailable in their profile`
-                  : `⚠️ ${emp?.name ?? "This employee"} is only available for ${availConflict.meals.join(" & ")} on ${dayKey}s — this shift extends into ${availConflict.violating.join(" & ")} service`}
+                  ? `⚠️ ${emp?.name ?? "This employee"} marked ${dayKey}s as unavailable`
+                  : `⚠️ ${emp?.name ?? "This employee"} is available ${availConflict.half === "day" ? "days" : "nights"} only on ${dayKey}s`}
               </p>
               <p className="mt-1 text-xs">
                 Recurring weekly availability — not a one-off time-off request. Confirm below to schedule anyway.
