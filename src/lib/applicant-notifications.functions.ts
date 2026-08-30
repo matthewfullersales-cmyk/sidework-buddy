@@ -10,8 +10,9 @@ const GATEWAY_URL = "https://connector-gateway.lovable.dev";
 
 const payloadSchema = z.object({
   kind: z.enum(["interview_offer", "shadow_invite", "shadow_moved", "shadow_cancelled", "hire_signup"]),
-  // shadow_cancelled carries no link; a placeholder is accepted and unused.
-  link: z.string().url().optional().default("https://86paper.com"),
+  // shadow_cancelled carries no link; every other kind REQUIRES a valid URL so
+  // a CTA can never silently fall back to the marketing homepage.
+  link: z.string().url().optional(),
   firstName: z.string().trim().max(120).optional().default(""),
   restaurantName: z.string().trim().max(200).optional().default("our restaurant"),
   email: z.string().trim().email().optional().or(z.literal("").optional()),
@@ -21,6 +22,14 @@ const payloadSchema = z.object({
   interviewType: z.enum(["phone", "in_person"]).optional(),
   shadowDate: z.string().max(80).optional(),
   shadowTime: z.string().max(80).optional(),
+}).superRefine((data, ctx) => {
+  if (data.kind !== "shadow_cancelled" && !data.link) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["link"],
+      message: `link is required for kind "${data.kind}"`,
+    });
+  }
 });
 
 export type SendResult = {
