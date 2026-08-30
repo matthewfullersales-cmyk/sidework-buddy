@@ -9,6 +9,8 @@ import { Logo } from "@/components/sidework/Logo";
 import { formatPhone } from "@/lib/format-phone";
 import { formatDateLong, formatTime12h } from "@/lib/utils";
 import { normalizeShadowPacket } from "@/lib/employees-supabase";
+import { shadowSectionForRole } from "@/lib/shadow-packet-roles";
+
 import {
   getPublicShadowShift,
   confirmShadowShiftByToken,
