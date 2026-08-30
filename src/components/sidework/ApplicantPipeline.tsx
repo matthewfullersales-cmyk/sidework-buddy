@@ -378,10 +378,23 @@ export function ApplicantPipeline() {
           ),
         );
       }
-      toast.success(shadowEditing ? "Shadow shift updated" : "Shadow shift scheduled");
+      // Mirrors the server rule in update_shadow_shift: a reschedule (date or
+      // arrival time moved) clears the trainee's confirmation, so they must be
+      // emailed again. Trainer or note changes must NOT re-send.
+      const moved =
+        !!shadowEditing &&
+        (shadowEditing.shiftDate !== saved.shiftDate ||
+          shadowEditing.arrivalTime !== saved.arrivalTime);
+      toast.success(
+        shadowEditing
+          ? moved
+            ? `New time emailed to ${shadowFor.firstName} — their previous confirmation was cleared`
+            : "Shadow shift updated"
+          : "Shadow shift scheduled",
+      );
       const target = shadowFor;
       closeShadowDialog();
-      if (!shadowEditing) await sendShadowInvite(target, saved);
+      if (!shadowEditing || moved) await sendShadowInvite(target, saved, moved);
     } catch (e) {
       console.error("[pipeline] shadow shift save failed", e);
       toast.error("Couldn't save that shadow shift.");
@@ -763,7 +776,7 @@ export function ApplicantPipeline() {
                     </p>
                     <p className="text-sm">
                       {longDate(shadowShifts[openPerson.id]!.shiftDate)} · arrive{" "}
-                      {formatTime12h(shadowShifts[openPerson.id]!.arrivalTime)}
+                      {formatTime12h(shadowShifts[openPerson.id]!.arrivalTime.slice(0, 5))}
                     </p>
                     <p className="text-sm text-muted-foreground">
                       {personName(shadowShifts[openPerson.id]!.trainerPersonId) ?? "No trainer assigned"}
@@ -918,6 +931,7 @@ export function ApplicantPipeline() {
 
                 <div className="space-y-2">
                   <Label htmlFor="shadow-note">Anything else for this shift? <span className="text-xs font-normal text-muted-foreground">(optional)</span></Label>
+                  <p className="text-xs text-muted-foreground">Shown to {shadowFor.firstName} in their invite.</p>
                   <Textarea id="shadow-note" rows={3} value={shNote} onChange={(e) => setShNote(e.target.value)} />
                 </div>
               </div>
