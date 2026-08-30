@@ -177,7 +177,6 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
   const [lastName, setLastName] = useState(me.lastName ?? me.name.split(" ").slice(1).join(" ") ?? "");
   const [email, setEmail] = useState(me.email);
   const [phone, setPhone] = useState(me.phone ?? "");
-  const [weekly, setWeekly] = useState<WeeklyAvailability | undefined>(me.weeklyAvailability);
   const [ec, setEc] = useState({
     firstName: me.emergencyContact?.firstName ?? "",
     lastName: me.emergencyContact?.lastName ?? "",
@@ -197,7 +196,7 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
       lastName: lastName.trim(),
       name: `${firstName.trim()} ${lastName.trim()}`.trim(),
       phone: phone.trim(),
-      weeklyAvailability: weekly,
+      // Availability is manager-owned; it is never written from this save path.
       emergencyContact: { ...ec, firstName: ec.firstName.trim(), lastName: ec.lastName.trim() },
       personalInfoComplete: true,
       onboardingStarted: true,
