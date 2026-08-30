@@ -106,9 +106,10 @@ ${data.link}
 
 See you soon!`,
       html:
-`<p>${hi}</p>
-<p><strong>${restaurant}</strong> would like to invite you in for a shadow shift${when ? ` on <strong>${when}</strong>` : ""}.</p>
-<p>Review the details and confirm here:<br><a href="${data.link}">${data.link}</a></p>
+`<p>${esc(hi)}</p>
+<p><strong>${esc(restaurant)}</strong> would like to invite you in for a shadow shift${when ? ` on <strong>${esc(when)}</strong>` : ""}.</p>
+<p>Everything you need — where to come in, who to ask for, and what to wear — is here:</p>
+${ctaButton(data.link, "See the details")}
 <p>See you soon!</p>`,
     };
   }
@@ -124,9 +125,9 @@ ${data.link}
 
 Excited to have you.`,
     html:
-`<p>${hi}</p>
-<p>Welcome to the team at <strong>${restaurant}</strong>! Finish setting up your account and start your training here:</p>
-<p><a href="${data.link}">${data.link}</a></p>
+`<p>${esc(hi)}</p>
+<p>Welcome to the team at <strong>${esc(restaurant)}</strong>! Finish setting up your account and start your training here:</p>
+${ctaButton(data.link, "Finish setting up")}
 <p>Excited to have you.</p>`,
   };
 }
