@@ -34,6 +34,7 @@ import {
   fetchShadowShiftsForPeople,
   createShadowShift,
   updateShadowShift,
+  cancelShadowShift,
   type ShadowShift,
 } from "@/lib/shadow-shifts-supabase";
 import {
@@ -46,6 +47,9 @@ import {
   type PersonState,
 } from "@/lib/people-supabase";
 
+
+/** Postgres time values arrive as "HH:MM:SS"; form inputs hold "HH:MM". */
+const hhmm = (t: string) => (t ?? "").slice(0, 5);
 
 const PIPELINE_STATES: PersonState[] = ["applicant", "interviewing", "shadow", "hired", "rejected"];
 
@@ -429,21 +433,20 @@ export function ApplicantPipeline() {
       }
       // Mirrors the server rule in update_shadow_shift: a reschedule (date or
       // arrival time moved) clears the trainee's confirmation, so they must be
-      // emailed again. Trainer or note changes must NOT re-send.
+      // emailed again. Trainer, note, section or dress-group changes must NOT.
+      // Postgres returns time as "HH:MM:SS" while the form holds "HH:MM", so
+      // times are compared on the first five characters only; dates are plain
+      // YYYY-MM-DD strings on both sides.
       const moved =
         !!shadowEditing &&
         (shadowEditing.shiftDate !== saved.shiftDate ||
-          shadowEditing.arrivalTime !== saved.arrivalTime);
-      toast.success(
-        shadowEditing
-          ? moved
-            ? `New time emailed to ${shadowFor.firstName} — their previous confirmation was cleared`
-            : "Shadow shift updated"
-          : "Shadow shift scheduled",
-      );
+          hhmm(shadowEditing.arrivalTime) !== hhmm(saved.arrivalTime));
+      if (!shadowEditing) toast.success("Shadow shift scheduled");
+      else if (!moved) toast.success("Shadow shift updated — no email sent (time unchanged)");
       const target = shadowFor;
       closeShadowDialog();
-      if (!shadowEditing || moved) await sendShadowInvite(target, saved, moved);
+      if (!shadowEditing) await sendShadowInvite(target, saved);
+      else if (moved) await sendShadowMoved(target, saved);
     } catch (e) {
       console.error("[pipeline] shadow shift save failed", e);
       toast.error("Couldn't save that shadow shift.");
@@ -454,6 +457,80 @@ export function ApplicantPipeline() {
 
   const shadowLink = (ss: ShadowShift) =>
     `${typeof window === "undefined" ? "" : window.location.origin}/shadow/t/${ss.publicToken}`;
+
+  /** Emails the trainee that the date/arrival time moved and needs re-confirming. */
+  const sendShadowMoved = async (person: Person, ss: ShadowShift) => {
+    const link = shadowLink(ss);
+    let ok = false;
+    let attempted = false;
+    let err: string | undefined;
+    try {
+      const res = await sendApplicantNotification({ data: {
+        kind: "shadow_moved",
+        link,
+        firstName: person.firstName ?? "",
+        restaurantName: effectiveOwner?.restaurantName ?? "",
+        email: person.email ?? "",
+        shadowDate: formatDateLong(ss.shiftDate),
+        shadowTime: formatTime12h(ss.arrivalTime.slice(0, 5)),
+      }});
+      ok = res.email.ok;
+      attempted = res.email.attempted;
+      err = res.email.error;
+    } catch (e) {
+      console.error("[pipeline] shadow moved email failed", e);
+    }
+    if (ok) {
+      toast.success(`New time emailed to ${person.firstName} — their previous confirmation was cleared`, { description: link });
+    } else {
+      const why = attempted ? `email failed${err ? `: ${err}` : ""}` : "no email on file";
+      toast.warning(`${person.firstName} was NOT emailed the new time — send it manually (${why})`);
+      copyLinkWithToast(link, "Shadow shift link copied");
+    }
+  };
+
+  /** Cancels the shadow shift, then tells the trainee. Email never blocks the cancel. */
+  const dropShadowShift = async (person: Person) => {
+    const ss = shadowShifts[person.id];
+    if (!ss) return;
+    setBusy(true);
+    try {
+      await cancelShadowShift(ss.id);
+      setShadowShifts((prev) => {
+        const next = { ...prev };
+        delete next[person.id];
+        return next;
+      });
+      toast.success("Shadow shift cancelled");
+    } catch (e) {
+      console.error("[pipeline] cancel shadow shift failed", e);
+      toast.error("Couldn't cancel that shadow shift.");
+      setBusy(false);
+      return;
+    }
+    setBusy(false);
+    let ok = false;
+    let attempted = false;
+    let err: string | undefined;
+    try {
+      const res = await sendApplicantNotification({ data: {
+        kind: "shadow_cancelled",
+        firstName: person.firstName ?? "",
+        restaurantName: effectiveOwner?.restaurantName ?? "",
+        email: person.email ?? "",
+      }});
+      ok = res.email.ok;
+      attempted = res.email.attempted;
+      err = res.email.error;
+    } catch (e) {
+      console.error("[pipeline] shadow cancelled email failed", e);
+    }
+    if (ok) toast.success(`${person.firstName} was emailed that it's called off`);
+    else {
+      const why = attempted ? `email failed${err ? `: ${err}` : ""}` : "no email on file";
+      toast.warning(`${person.firstName} was NOT told it's called off — reach out directly (${why})`);
+    }
+  };
 
   /** Emails the trainee their shadow shift link; falls back to a copyable link. */
   const sendShadowInvite = async (person: Person, ss: ShadowShift, resend = false) => {
@@ -860,6 +937,14 @@ export function ApplicantPipeline() {
                         onClick={() => copyLinkWithToast(shadowLink(shadowShifts[openPerson.id]!), "Shadow shift link copied")}
                       >
                         Copy link
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={busy}
+                        onClick={() => void dropShadowShift(openPerson)}
+                      >
+                        Cancel shadow shift
                       </Button>
                     </div>
 

@@ -168,11 +168,18 @@ function PublicShadowShiftPage() {
           )}
 
           {closed ? (
+            // Both RPCs guard on status = 'scheduled', so the response buttons
+            // are hidden here rather than left as a silent no-op.
             <section className="rounded-xl border border-border p-5">
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm font-semibold">
                 {shift.status === "completed"
-                  ? "This shadow shift is already complete."
-                  : "This shadow shift was cancelled. Reach out to the restaurant."}
+                  ? "This shadow shift is complete."
+                  : "This shadow shift has been called off."}
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {shift.status === "completed"
+                  ? "Nothing more to do here."
+                  : "The restaurant will be in touch."}
               </p>
             </section>
           ) : (

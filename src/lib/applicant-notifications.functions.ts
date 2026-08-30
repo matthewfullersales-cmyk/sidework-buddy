@@ -9,8 +9,9 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 const GATEWAY_URL = "https://connector-gateway.lovable.dev";
 
 const payloadSchema = z.object({
-  kind: z.enum(["interview_offer", "shadow_invite", "hire_signup"]),
-  link: z.string().url(),
+  kind: z.enum(["interview_offer", "shadow_invite", "shadow_moved", "shadow_cancelled", "hire_signup"]),
+  // shadow_cancelled carries no link; a placeholder is accepted and unused.
+  link: z.string().url().optional().default("https://86paper.com"),
   firstName: z.string().trim().max(120).optional().default(""),
   restaurantName: z.string().trim().max(200).optional().default("our restaurant"),
   email: z.string().trim().email().optional().or(z.literal("").optional()),
@@ -111,6 +112,41 @@ See you soon!`,
 <p>Everything you need — where to come in, who to ask for, and what to wear — is here:</p>
 ${ctaButton(data.link, "See the details")}
 <p>See you soon!</p>`,
+    };
+  }
+
+  if (data.kind === "shadow_moved") {
+    const when = [data.shadowDate, data.shadowTime].filter(Boolean).join(" at ");
+    return {
+      subject: `Your shadow shift at ${restaurant} has a new time`,
+      text:
+`${hi}
+
+Your shadow shift at ${restaurant} has been moved${when ? ` to ${when}` : ""}.
+
+Your earlier confirmation no longer applies. Please confirm the new time here:
+${data.link}
+
+See you soon!`,
+      html:
+`<p>${esc(hi)}</p>
+<p>Your shadow shift at <strong>${esc(restaurant)}</strong> has been moved${when ? ` to <strong>${esc(when)}</strong>` : ""}.</p>
+<p>Your earlier confirmation no longer applies. Please confirm the new time:</p>
+${ctaButton(data.link, "Confirm the new time")}
+<p>See you soon!</p>`,
+    };
+  }
+
+  if (data.kind === "shadow_cancelled") {
+    return {
+      subject: `Your shadow shift at ${restaurant} has been called off`,
+      text:
+`${hi}
+
+Your shadow shift at ${restaurant} has been called off. The restaurant will be in touch.`,
+      html:
+`<p>${esc(hi)}</p>
+<p>Your shadow shift at <strong>${esc(restaurant)}</strong> has been called off. The restaurant will be in touch.</p>`,
     };
   }
 
