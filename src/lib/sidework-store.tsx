@@ -546,7 +546,6 @@ export interface Employee {
   availability: string;
   weeklyAvailability?: WeeklyAvailability;
   emergencyContact?: EmergencyContact;
-  photoUrl?: string;
   invitedAt: string;
   onboardingStarted: boolean;
   personalInfoComplete: boolean;
@@ -559,7 +558,6 @@ export interface Employee {
   applicationPitch?: string;
   appliedAt?: string;
   workExperience?: WorkExperience[];
-  specialTalents?: string;
   /** "pending" = joined via the public link and awaiting owner approval. */
   joinStatus?: "active" | "pending";
   /** How this person got onto the roster ("join_link" for public self-joins). */
@@ -672,7 +670,6 @@ export interface JobApplication {
   archived?: boolean;
   hiredEmployeeId?: string;
   workExperience?: WorkExperience[];
-  specialTalents?: string;
   
 }
 
@@ -2284,7 +2281,6 @@ export function aiScoreFor(a: Partial<JobApplication>): AiScore {
   if (words >= 100) pts += 3;
   else if (words >= 40) pts += 2;
   else if (words >= 15) pts += 1;
-  if ((a.specialTalents ?? "").trim().length > 0) pts += 1;
   // Legacy applications may still carry weeklyAvailability/availabilityDays;
   // give them credit but don't require it from new short-form applications.
   const days = a.weeklyAvailability
