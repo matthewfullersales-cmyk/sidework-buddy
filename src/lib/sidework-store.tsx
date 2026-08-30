@@ -39,6 +39,7 @@ import {
   fetchOwnerTimeOff,
   insertTimeOffRow,
   updateTimeOffRow,
+  deleteTimeOffRow,
   fetchOwnerTrades,
   insertTradeRow,
   updateTradeRow,
@@ -848,6 +849,7 @@ interface Store {
   inviteShadowShift: (id: string, details: ShadowShiftDetails) => void;
   requestTimeOff: (data: Omit<TimeOffRequest, "id" | "createdAt" | "status">) => void;
   resolveTimeOff: (id: string, approved: boolean) => void;
+  cancelTimeOff: (id: string) => Promise<void>;
 }
 
 const Ctx = createContext<Store | null>(null);
@@ -2208,6 +2210,13 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
       if (/^[0-9a-f-]{36}$/i.test(id)) {
         updateTimeOffRow(id, patch).catch((e) => console.error("[resolveTimeOff]", e));
       }
+    },
+    cancelTimeOff: async (id) => {
+      // Server first: RLS decides. Only drop it locally once the row really went.
+      if (/^[0-9a-f-]{36}$/i.test(id)) {
+        await deleteTimeOffRow(id);
+      }
+      setState((s) => ({ ...s, timeOff: s.timeOff.filter((t) => t.id !== id) }));
     },
     setMenuTestConfig: (cfg) => {
       const clean = normalizeMenuTestConfig(cfg);

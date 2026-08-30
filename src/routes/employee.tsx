@@ -14,6 +14,7 @@ import { PhoneInput } from "@/components/ui/phone-input";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { KnowledgeTest } from "@/components/sidework/KnowledgeTest";
 import { summarizeAvailability } from "@/components/sidework/AvailabilityEditor";
 import { onboardingStatus, useStore, isPendingJoin, testIdsForEmployee, menuTestStatus, MENU_MODULE_ID, MENU_TEST_TITLE, DAY_KEYS, type DayKey, type Relationship } from "@/lib/sidework-store";
@@ -643,8 +644,21 @@ function ChecklistItem({ done, label }: { done: boolean; label: string }) {
 }
 
 function TimeOffTab({ employeeId }: { employeeId: string }) {
-  const { timeOff, requestTimeOff } = useStore();
+  const { timeOff, requestTimeOff, cancelTimeOff } = useStore();
   const mine = timeOff.filter((t) => t.employeeId === employeeId);
+  const [cancelling, setCancelling] = useState<string | null>(null);
+
+  const doCancel = async (id: string) => {
+    setCancelling(id);
+    try {
+      await cancelTimeOff(id);
+      toast.success("Time off request cancelled");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not cancel that request.");
+    } finally {
+      setCancelling(null);
+    }
+  };
   const [form, setForm] = useState({ startDate: "", endDate: "" });
 
   const daysRequested = useMemo(() => {
@@ -697,11 +711,34 @@ function TimeOffTab({ employeeId }: { employeeId: string }) {
               <div className="text-sm">
                 <p className="font-semibold">{t.startDate} → {t.endDate}</p>
               </div>
-              <Badge className={
-                t.status === "approved" ? "bg-success text-success-foreground hover:bg-success" :
-                t.status === "denied" ? "bg-destructive text-destructive-foreground hover:bg-destructive" :
-                "bg-warning text-warning-foreground hover:bg-warning"
-              }>{t.status}</Badge>
+              <div className="flex items-center gap-2">
+                <Badge className={
+                  t.status === "approved" ? "bg-success text-success-foreground hover:bg-success" :
+                  t.status === "denied" ? "bg-destructive text-destructive-foreground hover:bg-destructive" :
+                  "bg-warning text-warning-foreground hover:bg-warning"
+                }>{t.status}</Badge>
+                {t.status === "pending" && (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button size="sm" variant="outline" disabled={cancelling === t.id}>
+                        {cancelling === t.id ? "Cancelling…" : "Cancel"}
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Cancel this time off request?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          {t.startDate} → {t.endDate} will be withdrawn. This can't be undone — you'd have to submit a new request.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Keep it</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => void doCancel(t.id)}>Cancel request</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
+              </div>
             </div>
           ))}
         </CardContent>
