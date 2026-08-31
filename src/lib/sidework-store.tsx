@@ -1537,6 +1537,14 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
   }, [authLoading, hydrated, effectiveOwnerId, employeeCtxOwnerId, employeeCtxEmployeeId]);
 
 
+  // Role configuration is owner-level config: mirror it to the database the
+  // same way business info and restaurant hours are mirrored.
+  const persistRoleConfig = (disabledRoles: string[], customRoles: CustomRole[]) => {
+    const oid = ownerIdRef.current;
+    if (oid) saveRoleConfig(oid, disabledRoles, customRoles).catch((e) => console.error("[persistRoleConfig]", e));
+  };
+
+
   const uid = (prefix: string) => `${prefix}${Date.now()}${Math.floor(Math.random() * 1000)}`;
   const newUuid = () =>
     typeof crypto !== "undefined" && "randomUUID" in crypto
