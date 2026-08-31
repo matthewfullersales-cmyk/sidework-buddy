@@ -309,11 +309,9 @@ export async function fetchRoleConfig(
   const row = data as { disabled_roles: unknown; custom_roles: unknown } | null;
 
   // Non-null in the database is the ONLY signal that a save has happened.
-  const everWritten =
-    row !== null &&
-    (row.disabled_roles !== null && row.disabled_roles !== undefined) ||
-    row !== null &&
-    (row.custom_roles !== null && row.custom_roles !== undefined);
+  const stored = (v: unknown) => v !== null && v !== undefined;
+  const everWritten = row !== null && (stored(row.disabled_roles) || stored(row.custom_roles));
+
 
   return {
     // Fail open regardless: NULL, malformed, or non-array all become [],
