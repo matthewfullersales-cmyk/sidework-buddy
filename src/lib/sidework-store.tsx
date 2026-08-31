@@ -1511,6 +1511,8 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
 
   const store: Store = {
     ...state,
+    // Derived, never stored: the ONE role list every consumer must read.
+    activeRoles: effectiveRoles(state.disabledRoles, state.customRoles),
     employeeHydrating,
     employeeHydratedTargetId,
     employeeHydrationError,
