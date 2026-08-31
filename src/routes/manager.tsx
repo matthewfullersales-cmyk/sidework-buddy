@@ -3,7 +3,6 @@ import { useRequireManagerAccess } from "@/lib/use-require-manager-access";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AppShell, PageHeader } from "@/components/sidework/AppShell";
 import { SetupWizard } from "@/components/sidework/SetupWizard";
-import { MenuQuizGenerator } from "@/components/sidework/MenuQuizGenerator";
 import { ScheduleSection } from "@/components/sidework/ScheduleSection";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,9 +18,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
-import { onboardingStatus, useStore, type Role, type ApplicationStatus, type Employee, type Relationship, DAY_KEYS, hoursConfigured, type JobApplication, type HiringStage, type ShadowShiftDetails, type InterviewType, getHiringStage, isPendingRoleAssignment, isPendingJoin, isScheduleEligible, trainingProgressFor, menuTestStatus, MENU_MODULE_ID, MENU_TEST_TITLE, availableMenuKinds } from "@/lib/sidework-store";
-import { MenuTestMatrix } from "@/components/sidework/MenuTestMatrix";
-import { roleStyle, fohRolesWithCustom, bohRolesWithCustom, allRolesWithCustom } from "@/lib/role-colors";
+import { onboardingStatus, useStore, type Role, type ApplicationStatus, type Employee, type Relationship, DAY_KEYS, hoursConfigured, type JobApplication, type HiringStage, type ShadowShiftDetails, type InterviewType, getHiringStage, isPendingRoleAssignment, isPendingJoin, isScheduleEligible } from "@/lib/sidework-store";
+import { roleStyle, fohRolesWithCustom, bohRolesWithCustom, allRolesWithCustom, FOH_ROLES_ORDERED, BOH_ROLES_ORDERED, ROLES_ORDERED, nextCustomColor } from "@/lib/role-colors";
 import { defaultDressGroupForRole } from "@/lib/shadow-packet-roles";
 
 import { PhoneInput } from "@/components/ui/phone-input";
@@ -43,7 +41,6 @@ import { useAuth } from "@/lib/auth-context";
 // (removed) team-permissions registry — single-login owner model.
 import { fetchBookedInterviewSlots } from "@/lib/hiring-supabase";
 import { cn, formatTime12h } from "@/lib/utils";
-import { listOwnerQuizAttempts, type QuizAttemptSummary } from "@/lib/quiz.functions";
 import { useServerFn } from "@tanstack/react-start";
 
 type TeamSortKey =
@@ -105,7 +102,7 @@ function ManagerPage() {
       <SetupWizard
         onComplete={() => {
           setShowSetupWizard(false);
-          setTab("training");
+          setTab("dashboard");
         }}
       />
     );
@@ -141,7 +138,7 @@ function ManagerPage() {
           <CardContent className="flex flex-wrap items-center justify-between gap-4 p-5">
             <div>
               <p className="font-semibold text-primary">Your restaurant setup is incomplete</p>
-              <p className="text-sm text-muted-foreground">Finish a few questions so 86Paper can build your custom training program.</p>
+              <p className="text-sm text-muted-foreground">Finish setting up your restaurant profile and roles.</p>
             </div>
             <Button size="sm" onClick={() => setShowSetupWizard(true)}>Complete your setup</Button>
           </CardContent>
@@ -157,9 +154,8 @@ function ManagerTabs({ tab, setTab, onOpenSetup }: { tab: string; setTab: (v: st
   const newAppsCount = applications.filter((a) => !a.archived && getHiringStage(a) === "new").length;
   return (
     <Tabs value={tab} onValueChange={setTab}>
-      <TabsList className="mb-6 grid h-auto w-full grid-cols-2 gap-1 sm:grid-cols-4 md:grid-cols-8">
+      <TabsList className="mb-6 grid h-auto w-full grid-cols-2 gap-1 sm:grid-cols-4 md:grid-cols-7">
         <TabsTrigger value="dashboard">Overview</TabsTrigger>
-        <TabsTrigger value="training">Training</TabsTrigger>
         <TabsTrigger value="team">Team</TabsTrigger>
         <TabsTrigger value="schedule">Schedule</TabsTrigger>
         <TabsTrigger value="trades">Trades</TabsTrigger>
@@ -176,7 +172,6 @@ function ManagerTabs({ tab, setTab, onOpenSetup }: { tab: string; setTab: (v: st
       </TabsList>
 
       <TabsContent value="dashboard"><OverviewTab /></TabsContent>
-      <TabsContent value="training"><TrainingProgramTab /></TabsContent>
       <TabsContent value="team"><TeamTab /></TabsContent>
       <TabsContent value="schedule"><ScheduleTab /></TabsContent>
       <TabsContent value="trades"><TradesTab /></TabsContent>
@@ -189,19 +184,18 @@ function ManagerTabs({ tab, setTab, onOpenSetup }: { tab: string; setTab: (v: st
 
 
 function OverviewTab() {
-  const { employees: allEmployees, customRoles, trades, shifts, applications, timeOff, menuBankMeta, menuTestConfig, uploadedMenuTypes } = useStore();
+  const { employees: allEmployees, customRoles, trades, shifts, applications, timeOff } = useStore();
   // Pending self-joins don't count as staff until the owner approves them.
   const employees = useMemo(() => allEmployees.filter((e) => !isPendingJoin(e)), [allEmployees]);
-  const menuBankMetaObj = menuBankMeta;
   const stats = useMemo(() => {
-    const onboarded = employees.filter((e) => onboardingStatus(e, customRoles, menuBankMetaObj, menuTestConfig, uploadedMenuTypes).fullyOnboarded).length;
+    const onboarded = employees.filter((e) => onboardingStatus(e, customRoles).fullyOnboarded).length;
 
     const pending = trades.filter((t) => t.status === "pending_approval").length;
     const newApps = applications.filter((a) => a.status === "new").length;
     const pendingTO = timeOff.filter((t) => t.status === "pending").length;
     return { onboarded, total: employees.length, pending, newApps, pendingTO, shifts: shifts.length };
 
-  }, [employees, customRoles, trades, shifts, applications, timeOff, menuBankMetaObj, menuTestConfig, uploadedMenuTypes]);
+  }, [employees, customRoles, trades, shifts, applications, timeOff]);
 
   return (
     <div className="grid gap-6">
@@ -213,14 +207,13 @@ function OverviewTab() {
       </div>
 
 
-      <NotificationsCard />
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-base">Onboarding progress</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {employees.map((e) => {
-            const s = onboardingStatus(e, customRoles, menuBankMetaObj, menuTestConfig, uploadedMenuTypes);
+            const s = onboardingStatus(e, customRoles);
             return (
               <div key={e.id} className="space-y-1.5">
                 <div className="flex items-center justify-between text-sm">
@@ -230,7 +223,6 @@ function OverviewTab() {
                     <Badge style={roleStyle(e.primaryRole)} className="border-transparent">{e.primaryRole}</Badge>
                     {s.fullyOnboarded && <Badge className="bg-success text-success-foreground hover:bg-success">Onboarded</Badge>}
                   </div>
-                  <span className="text-muted-foreground">{s.passed}/{s.total} tests</span>
                 </div>
                 <Progress value={s.pct} className="h-1.5" />
               </div>
@@ -305,7 +297,6 @@ function PendingRoleAssignmentQueue({
       <CardContent className="space-y-3">
         <p className="text-xs text-muted-foreground">
           These employees finished self-onboarding but need a role assigned before you can schedule them.
-          Assigning a role starts their required training track (general knowledge + role-specific modules + menu quiz).
         </p>
         {pending.map((e) => {
           const draft = drafts[e.id] ?? roleChoices[0] ?? "Server";
@@ -387,10 +378,9 @@ function PendingJoinRequestsQueue({
 }
 
 function TeamTab() {
-  const { employees: allEmployees, inviteEmployee, restaurantProfile, activeRoles, customRoles, shifts, trades, timeOff, clearAllEmployees, updateEmployee, approveJoinRequest, declineJoinRequest, menuBankMeta, menuTestConfig, uploadedMenuTypes } = useStore();
+  const { employees: allEmployees, inviteEmployee, restaurantProfile, activeRoles, customRoles, shifts, trades, timeOff, clearAllEmployees, updateEmployee, approveJoinRequest, declineJoinRequest } = useStore();
   const pendingJoins = useMemo(() => allEmployees.filter(isPendingJoin), [allEmployees]);
   const employees = useMemo(() => allEmployees.filter((e) => !isPendingJoin(e)), [allEmployees]);
-  const menuBankMetaObj = menuBankMeta;
 
   const fohActive = fohRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r));
   const bohActive = bohRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r));
@@ -406,17 +396,6 @@ function TeamTab() {
   const [sortKey, setSortKey] = useState<TeamSortKey>("firstNameAsc");
   const [filters, setFilters] = useState<Set<string>>(new Set(["all"]));
   const [sfOpen, setSfOpen] = useState(false);
-  const [quizAttempts, setQuizAttempts] = useState<QuizAttemptSummary[]>([]);
-  const loadQuizAttempts = useServerFn(listOwnerQuizAttempts);
-
-  useEffect(() => {
-    let active = true;
-    loadQuizAttempts()
-      .then((rows) => { if (active) setQuizAttempts(rows); })
-      .catch((error) => console.error("[quiz] couldn't load attempt history", error));
-    return () => { active = false; };
-  }, [loadQuizAttempts]);
-
   useEffect(() => {
     try {
       const saved = localStorage.getItem(TEAM_SORT_STORAGE_KEY);
@@ -445,7 +424,7 @@ function TeamTab() {
       if (filters.has("all")) return true;
       const role = e.primaryRole;
       const isFoh = (FOH_ROLES as string[]).includes(role);
-      const status = onboardingStatus(e, customRoles, menuBankMetaObj, menuTestConfig, uploadedMenuTypes);
+      const status = onboardingStatus(e, customRoles);
       for (const f of filters) {
         if (f === "foh" && isFoh) return true;
         if (f === "boh" && !isFoh) return true;
@@ -457,7 +436,7 @@ function TeamTab() {
     });
     const firstOf = (e: Employee) => (e.firstName ?? e.name.split(" ")[0] ?? "").toLowerCase();
     const lastOf = (e: Employee) => (e.lastName ?? e.name.split(" ").slice(1).join(" ") ?? "").toLowerCase();
-    const pctOf = (e: Employee) => onboardingStatus(e, customRoles, menuBankMetaObj, menuTestConfig, uploadedMenuTypes).pct;
+    const pctOf = (e: Employee) => onboardingStatus(e, customRoles).pct;
     const sorted = [...list];
     sorted.sort((a, b) => {
       switch (sortKey) {
@@ -472,7 +451,7 @@ function TeamTab() {
       }
     });
     return sorted;
-  }, [employees, customRoles, menuBankMetaObj, filters, sortKey]);
+  }, [employees, customRoles, filters, sortKey]);
 
   const { url: joinUrl, ready: joinReady } = useJoinUrl();
   const copyJoinLink = () => {
@@ -499,7 +478,7 @@ function TeamTab() {
         customRoles={customRoles}
         onAssign={(id, role) => {
           updateEmployee(id, { primaryRole: role, approvedRoles: [role] });
-          toast.success(`Role assigned — training track kicked off`);
+          toast.success("Role assigned");
         }}
       />
 
@@ -712,9 +691,7 @@ function TeamTab() {
           <Card><CardContent className="p-8 text-center text-sm text-muted-foreground">No staff match the current filters.</CardContent></Card>
         )}
         {visibleEmployees.map((e) => {
-          const s = onboardingStatus(e, customRoles, menuBankMetaObj, menuTestConfig, uploadedMenuTypes);
           const fullName = e.firstName && e.lastName ? `${e.firstName} ${e.lastName}` : e.name;
-          const menuState = menuTestStatus(e, menuBankMetaObj, customRoles, menuTestConfig, uploadedMenuTypes);
           return (
             <Card key={e.id}>
               <CardContent className="p-5">
@@ -736,39 +713,9 @@ function TeamTab() {
                   <div className="text-right">
                     {isPendingRoleAssignment(e) ? (
                       <Badge variant="secondary" className="bg-muted text-foreground">Pending role</Badge>
-                    ) : isScheduleEligible(e, customRoles, menuBankMetaObj, menuTestConfig, uploadedMenuTypes) ? (
+                    ) : isScheduleEligible(e) ? (
                       <Badge className="bg-success text-success-foreground hover:bg-success">Schedule eligible</Badge>
                     ) : null}
-                    {menuState === "stale" && (
-                      <p className="mt-1 text-[11px] text-muted-foreground">Menu updated — retake suggested</p>
-                    )}
-                    {(menuState === "never" || menuState === "in-progress") && (
-                      <p className="mt-1 text-[11px] text-muted-foreground">Menu test not taken</p>
-                    )}
-
-
-                    <p className="mt-1 text-xs text-muted-foreground">{s.passed}/{s.total} knowledge tests passed</p>
-                    <Progress value={s.pct} className="mt-2 h-1.5 w-32" />
-
-                    {(() => {
-                      const recentAttempts = quizAttempts.filter((attempt) => attempt.employeeId === e.id).slice(0, 5);
-                      if (recentAttempts.length === 0) return null;
-                      return (
-                        <div className="mt-2 space-y-0.5 text-right text-[11px] text-muted-foreground">
-                          {recentAttempts.map((attempt, index) => {
-                            const testTitle = attempt.videoId === MENU_MODULE_ID ? MENU_TEST_TITLE : "Knowledge test";
-                            return (
-                              <p key={attempt.id}>
-                                {testTitle} #{recentAttempts.length - index}: {attempt.score}% {attempt.passed ? "passed" : "not passed"}
-                                {attempt.distractionFlagged && (
-                                  <span className="ml-1 font-semibold text-amber-600 dark:text-amber-400">⚠ possible distraction</span>
-                                )}
-                              </p>
-                            );
-                          })}
-                        </div>
-                      );
-                    })()}
                   </div>
                 </div>
 
@@ -2128,7 +2075,7 @@ function HireReviewDialog({
             </Select>
           </div>
           <div className="rounded-lg border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
-            Availability from the application carries over automatically. Emergency contact and profile photo will be added by the employee from the welcome link. Training and menu quiz are assigned automatically based on the selected position.
+            Availability from the application carries over automatically. Emergency contact details will be added by the employee from the welcome link.
           </div>
         </div>
         <DialogFooter>
@@ -2212,176 +2159,9 @@ function TimeOffTab() {
   );
 }
 
-function TrainingProgramTab() {
-  const { menu, drinkMenu, restaurantProfile } = useStore();
-  return (
-    <div className="grid gap-6">
-      {restaurantProfile && (
-        <Card className="overflow-hidden border-primary/20">
-          <div className="bg-gradient-to-br from-primary to-[oklch(0.22_0.05_155)] p-5 text-primary-foreground sm:p-6">
-            <p className="text-xs font-semibold uppercase tracking-[0.15em] opacity-80">Your vision</p>
-            <h2 className="mt-1 text-xl font-semibold sm:text-2xl">{restaurantProfile.name}</h2>
-            <p className="mt-1 text-sm opacity-90">{restaurantProfile.concept}</p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Badge className="bg-white/15 text-white hover:bg-white/15">{restaurantProfile.serviceStyle}</Badge>
-              <Badge className="bg-white/15 text-white hover:bg-white/15">{restaurantProfile.priority}</Badge>
-            </div>
-          </div>
-          <CardContent className="grid gap-3 p-5 sm:grid-cols-2">
-            <MenuMini label="Food menu" menu={menu} />
-            <MenuMini label="Drink menu" menu={drinkMenu} />
-          </CardContent>
-        </Card>
-      )}
-      <MenuQuizGenerator menuName={menu?.name} />
-    </div>
-  );
-}
-
-function MenuMini({ label, menu }: { label: string; menu: { name: string; sizeKB: number; preview?: string } | null }) {
-  if (!menu) return (
-    <div className="rounded-lg border border-dashed border-border bg-muted/30 p-3 text-sm text-muted-foreground">
-      {label}: not uploaded
-    </div>
-  );
-  return (
-    <div className="flex items-center gap-3 rounded-lg border border-border bg-background p-3">
-      {menu.preview ? (
-        <img src={menu.preview} alt="" className="h-10 w-10 rounded border border-border object-cover" />
-      ) : (
-        <div className="grid h-10 w-10 place-items-center rounded bg-primary-soft text-primary">
-          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
-        </div>
-      )}
-      <div className="min-w-0">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
-        <p className="truncate text-sm font-medium">{menu.name}</p>
-      </div>
-    </div>
-  );
-}
-
-function MenuTab() {
-  const { menu, setMenu, markMenuGenerated } = useStore();
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [generating, setGenerating] = useState(false);
-
-  useEffect(() => {
-    if (!menu || menu.generatedAt) {
-      setGenerating(false);
-      return;
-    }
-
-    setGenerating(true);
-    const t = window.setTimeout(() => {
-      markMenuGenerated();
-      setGenerating(false);
-    }, 2500);
-    return () => window.clearTimeout(t);
-  }, [menu?.uploadedAt, menu?.generatedAt]);
-
-  const handleFile = (file: File) => {
-    const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
-    const isPdf = file.type === "application/pdf" || ext === "pdf";
-    const isImage = file.type.startsWith("image/") || ["jpg", "jpeg", "png", "webp", "heic", "heif"].includes(ext);
-
-    if (!isPdf && !isImage) return toast.error("Upload a menu as a PDF or photo.");
-    if (file.size > 25 * 1024 * 1024) return toast.error("File must be under 25MB.");
-
-    const saveMenu = (preview?: string) => {
-      setMenu({
-        name: file.name,
-        type: file.type || (isPdf ? "application/pdf" : "image/*"),
-        sizeKB: Math.max(1, Math.round(file.size / 1024)),
-        uploadedAt: new Date().toISOString(),
-        preview,
-      });
-      toast.success("Menu uploaded — generating training program");
-    };
-
-    if (isImage && file.size <= 750 * 1024 && !["heic", "heif"].includes(ext)) {
-      const reader = new FileReader();
-      reader.onload = () => saveMenu(reader.result as string);
-      reader.onerror = () => saveMenu();
-      reader.readAsDataURL(file);
-      return;
-    }
-
-    saveMenu();
-  };
-
-  return (
-    <div className="grid gap-6">
-      <Card className="overflow-hidden">
-        <div className="bg-gradient-to-br from-primary to-[oklch(0.22_0.05_155)] p-6 text-primary-foreground">
-          <p className="text-xs font-semibold uppercase tracking-[0.15em] opacity-80">Menu intelligence</p>
-          <h2 className="mt-1 text-2xl font-semibold">Upload your food & drink menu</h2>
-          <p className="mt-1 text-sm opacity-90">We'll generate role-specific training modules tailored to your menu.</p>
-        </div>
-        <CardContent className="p-5">
-          {!menu ? (
-            <div
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files?.[0]; if (f) handleFile(f); }}
-              className="grid place-items-center gap-3 rounded-xl border-2 border-dashed border-border bg-muted/30 p-10 text-center"
-            >
-              <div className="grid h-12 w-12 place-items-center rounded-full bg-primary-soft text-primary">
-                <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-              </div>
-              <div>
-                <p className="font-semibold">Drop your menu here</p>
-                <p className="text-xs text-muted-foreground">PDF or menu photo · up to 25MB</p>
-              </div>
-              <input ref={inputRef} type="file" accept="application/pdf,image/*,.heic,.heif" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.currentTarget.value = ""; }} />
-              <Button onClick={() => inputRef.current?.click()}>Choose file</Button>
-            </div>
-          ) : (
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                {menu.preview ? (
-                  <img src={menu.preview} alt="Menu preview" className="h-16 w-16 rounded-lg border border-border object-cover" />
-                ) : (
-                  <div className="grid h-16 w-16 place-items-center rounded-lg bg-primary-soft text-primary">
-                    <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                  </div>
-                )}
-                <div>
-                  <p className="font-semibold">{menu.name}</p>
-                  <p className="text-xs text-muted-foreground">{menu.sizeKB} KB · uploaded {new Date(menu.uploadedAt).toLocaleDateString()}</p>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => inputRef.current?.click()}>Replace</Button>
-                <Button variant="ghost" size="sm" onClick={() => { setMenu(null); toast.message("Menu removed"); }}>Remove</Button>
-                <input ref={inputRef} type="file" accept="application/pdf,image/*,.heic,.heif" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.currentTarget.value = ""; }} />
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {menu && (generating || !menu.generatedAt) && (
-        <Card className="border-primary/30 bg-primary-soft">
-          <CardContent className="flex items-center gap-4 p-5">
-            <div className="grid h-10 w-10 place-items-center rounded-full bg-primary text-primary-foreground">
-              <svg viewBox="0 0 24 24" className="h-5 w-5 animate-spin" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-            </div>
-            <div>
-              <p className="font-semibold text-primary">Your custom training program is being generated based on your menu.</p>
-              <p className="text-sm text-primary/80">This usually takes less than a minute.</p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-    </div>
-  );
-}
-
 function SettingsTab({ onOpenSetup }: { onOpenSetup: () => void }) {
-  const { setupCompleted, restaurantProfile, resetSetup, restaurantHours, updateRestaurantDay, mealPeriods, updateMealPeriod, businessInfo, setBusinessInfo, activeRoles, customRoles, menuTestConfig, setMenuTestConfig, menuBankMeta, uploadedMenuTypes } = useStore();
+  const { setupCompleted, restaurantProfile, resetSetup, restaurantHours, updateRestaurantDay, mealPeriods, updateMealPeriod, businessInfo, setBusinessInfo } = useStore();
   const configured = hoursConfigured(restaurantHours, mealPeriods);
-  const menuKinds = availableMenuKinds(menuBankMeta, uploadedMenuTypes);
 
 
   return (
@@ -2396,7 +2176,7 @@ function SettingsTab({ onOpenSetup }: { onOpenSetup: () => void }) {
             </>
           ) : (
             <>
-              <p className="text-sm text-muted-foreground">Your restaurant profile is incomplete. Finish setup to unlock your custom training program.</p>
+              <p className="text-sm text-muted-foreground">Your restaurant profile is incomplete. Finish setup to get your restaurant running.</p>
               <Button onClick={onOpenSetup}>Complete your setup</Button>
             </>
           )}
@@ -2441,21 +2221,7 @@ function SettingsTab({ onOpenSetup }: { onOpenSetup: () => void }) {
         </CardContent>
       </Card>
       <ShadowPacketCard />
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Menu test requirements</CardTitle>
-          <p className="mt-1 text-xs text-muted-foreground">Choose which menu knowledge each role must prove before their schedule unlocks. A role with nothing checked is never blocked by a menu test.</p>
-        </CardHeader>
-        <CardContent>
-          <MenuTestMatrix
-            roles={activeRoles}
-            menuKinds={menuKinds}
-            value={menuTestConfig}
-            onChange={setMenuTestConfig}
-            customRoles={customRoles}
-          />
-        </CardContent>
-      </Card>
+      <RolesCard />
       {setupCompleted && <StaffOnboardingCard />}
     </div>
   );
