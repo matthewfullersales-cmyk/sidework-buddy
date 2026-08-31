@@ -15,9 +15,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { KnowledgeTest } from "@/components/sidework/KnowledgeTest";
 import { summarizeAvailability } from "@/components/sidework/AvailabilityEditor";
-import { onboardingStatus, useStore, isPendingJoin, testIdsForEmployee, menuTestStatus, MENU_MODULE_ID, MENU_TEST_TITLE, DAY_KEYS, type DayKey, type Relationship } from "@/lib/sidework-store";
+import { onboardingStatus, useStore, isPendingJoin, DAY_KEYS, type DayKey, type Relationship } from "@/lib/sidework-store";
 
 const DAY_FULL: Record<DayKey, string> = {
   Mon: "Monday", Tue: "Tuesday", Wed: "Wednesday", Thu: "Thursday",
