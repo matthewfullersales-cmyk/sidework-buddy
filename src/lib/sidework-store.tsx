@@ -1356,11 +1356,12 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           }
         }
 
-        // Role config: the database is authoritative, including an empty
-        // result (empty disabledRoles = every built-in role available). The
-        // one exception is the first load after the columns appeared: if the
-        // database has never been written AND this device holds a local-only
-        // configuration, push it up once, then the database wins from then on.
+        // Role config. The database is authoritative whenever it has been
+        // configured at all — INCLUDING when it is empty. An empty server
+        // value is a real value ("nothing disabled"), not a missing one, so
+        // it must overwrite a non-empty local cache; treating empty as
+        // "never written" let a stale device resurrect a role the owner had
+        // already re-enabled. Only a NULL column means never configured.
         // Sequencing: convertActiveRoles already ran on the localStorage
         // payload during hydration, so `local.disabledRoles` here is always
         // the converted, inverted list — never a legacy activeRoles snapshot.
@@ -1369,18 +1370,24 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           const localDisabled = local.disabledRoles ?? [];
           const localCustom = local.customRoles ?? [];
           const hasLocal = localDisabled.length > 0 || localCustom.length > 0;
-          if (!remoteRoleConfig.everWritten && hasLocal && acting === "owner") {
-            rolesPatch = { disabledRoles: localDisabled, customRoles: localCustom };
-            saveRoleConfig(effectiveOwnerId, localDisabled, localCustom).catch((e) =>
-              console.error("[role-config-bootstrap] failed", e),
-            );
-          } else {
+          if (remoteRoleConfig.everWritten) {
+            // Server wins, empty included.
             rolesPatch = {
               disabledRoles: remoteRoleConfig.disabledRoles,
               customRoles: remoteRoleConfig.customRoles,
             };
+          } else if (hasLocal && acting === "owner") {
+            // Never configured and this device holds a local-only config:
+            // push it up once. The save makes the columns non-null, so every
+            // later load takes the branch above — this stays idempotent.
+            rolesPatch = { disabledRoles: localDisabled, customRoles: localCustom };
+            saveRoleConfig(effectiveOwnerId, localDisabled, localCustom).catch((e) =>
+              console.error("[role-config-bootstrap] failed", e),
+            );
           }
+          // Never configured and nothing local: leave state as is.
         }
+
 
 
         // Merge cloud-stored training progress into each employee. Additive:
