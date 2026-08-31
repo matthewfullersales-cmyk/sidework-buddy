@@ -2600,7 +2600,8 @@ function ShadowPacketCard() {
             <p className="text-sm font-medium">By role</p>
             <p className="text-xs text-muted-foreground">
               Optional. The line is shown only to trainees shadowing that role. Dress decides which block of dress
-              text they see — Expo and Food Runner default to front of house dress even though they're back of house.
+              text they see.
+
             </p>
             {roleChoices.map((r) => {
               const derived = defaultDressGroupForRole(r, customRoles);
