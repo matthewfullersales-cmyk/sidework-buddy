@@ -27,6 +27,8 @@ import {
   fetchMenuTestConfig,
   fetchMenuTestConfigViaRpc,
   saveMenuTestConfig,
+  fetchRoleConfig,
+  saveRoleConfig,
   createStaffInviteRow,
 } from "@/lib/employees-supabase";
 
