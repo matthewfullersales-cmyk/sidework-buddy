@@ -34,6 +34,7 @@ export const FOH_ROLES_ORDERED: Role[] = [
   "Server",
   "Manager",
   "Assistant Manager",
+  "Food Runner",
 ];
 
 export const BOH_ROLES_ORDERED: Role[] = [
@@ -48,7 +49,6 @@ export const BOH_ROLES_ORDERED: Role[] = [
   "Prep",
   "Dishwasher",
   "Expo",
-  "Food Runner",
 ];
 
 export const ROLES_ORDERED: Role[] = [...FOH_ROLES_ORDERED, ...BOH_ROLES_ORDERED];
