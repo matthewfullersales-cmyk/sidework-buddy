@@ -67,7 +67,7 @@ const SERVICE_MAP: Record<RestaurantType, ServiceStyle> = {
   Other: "Casual Dining",
 };
 
-const TOTAL_STEPS = 6;
+const TOTAL_STEPS = 4;
 
 const EMPTY: Answers = {
   name: "", street: "", city: "", state: "", zip: "", phone: "", email: "",
@@ -77,28 +77,15 @@ const EMPTY: Answers = {
 
 /* ---------------------------- Component --------------------------- */
 
-/** Fill in any role that the owner never explicitly touched with its default. */
-function defaultsFilled(roles: Role[], kinds: MenuKind[], cfg: MenuTestConfig): MenuTestConfig {
-  const out: MenuTestConfig = {};
-  for (const r of roles) {
-    out[r] = Object.prototype.hasOwnProperty.call(cfg, r) ? cfg[r] : defaultMenuKindsForRole(r, kinds);
-  }
-  return out;
-}
-
 export function SetupWizard({ onComplete }: { onComplete: () => void }) {
-  const { completeSetup, setMenuTestConfig, setBusinessInfo, setDisabledRoles, customRoles, addCustomRole } = useStore();
+  const { completeSetup, setBusinessInfo, setDisabledRoles, customRoles, addCustomRole } = useStore();
   const [step, setStep] = useState(1);
   const [answers, setAnswers] = useState<Answers>(EMPTY);
-  const [foodMenu, setFoodMenu] = useState<MenuUpload | null>(null);
-  const [drinkMenu, setDrinkMenu] = useState<MenuUpload | null>(null);
-  const [dessertMenu, setDessertMenu] = useState<MenuUpload | null>(null);
-  const [testConfig, setTestConfig] = useState<MenuTestConfig>({});
   const [messages, setMessages] = useState<ChatMsg[]>([
     {
       from: "bot",
       text:
-        "Welcome to 86Paper! I'm your restaurant intelligence assistant. Just a few quick questions so I can set up your roles and menu tests. This takes about 2 minutes. Ready?",
+        "Welcome to 86Paper! Just a few quick questions so I can set up your restaurant profile and roles. This takes about a minute. Ready?",
     },
   ]);
   const [finishing, setFinishing] = useState(false);
@@ -107,11 +94,7 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
   const progress = Math.round((step / TOTAL_STEPS) * 100);
 
   const wizardRoles = [...answers.fohRoles, ...answers.bohRoles] as Role[];
-  const uploadedKinds: MenuKind[] = [
-    ...(foodMenu ? (["food"] as MenuKind[]) : []),
-    ...(drinkMenu ? (["drink"] as MenuKind[]) : []),
-    ...(dessertMenu ? (["dessert"] as MenuKind[]) : []),
-  ];
+
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
