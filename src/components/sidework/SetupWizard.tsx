@@ -406,50 +406,16 @@ function TeamForm({
   );
 }
 
-function MenuUploadComposer({
-  food, drink, dessert, onFood, onDrink, onDessert, onSubmit,
-}: {
-  food: MenuUpload | null; drink: MenuUpload | null; dessert: MenuUpload | null;
-  onFood: (m: MenuUpload | null) => void;
-  onDrink: (m: MenuUpload | null) => void;
-  onDessert: (m: MenuUpload | null) => void;
-  onSubmit: () => void;
-}) {
-  const hasAny = Boolean(food || drink || dessert);
-  return (
-    <div className="space-y-3">
-      <UploadField label="Food menu" value={food} onChange={onFood} />
-      <UploadField label="Drink menu" value={drink} onChange={onDrink} hint="Optional — skip if these are on your food menu." />
-      <UploadField label="Dessert menu" value={dessert} onChange={onDessert} hint="Optional — skip if these are on your food menu." />
-      <Button size="lg" className="w-full" disabled={!hasAny} onClick={onSubmit}>
-        Continue →
-      </Button>
-    </div>
-  );
-}
-
 function SummaryComposer({
-  answers, foodMenu, drinkMenu, dessertMenu, testConfig, roles, onConfirm,
+  answers, roles, onConfirm,
 }: {
   answers: Answers;
-  foodMenu: MenuUpload | null;
-  drinkMenu: MenuUpload | null;
-  dessertMenu: MenuUpload | null;
-  testConfig: MenuTestConfig;
   roles: Role[];
   onConfirm: () => void;
 }) {
-  const uploadedNames = [foodMenu, drinkMenu, dessertMenu].filter(Boolean).map((m) => m!.name);
-  const gated = roles.filter((r) => (testConfig[r] ?? []).length > 0);
   const items = [
     `Restaurant profile saved — ${answers.name || "your restaurant"}${[answers.city, answers.state].filter(Boolean).join(", ") ? `, ${[answers.city, answers.state].filter(Boolean).join(", ")}` : ""}${answers.type ? ` (${answers.type})` : ""}`,
     `${roles.length} role${roles.length === 1 ? "" : "s"} configured${roles.length ? `: ${roles.join(", ")}` : ""}`,
-    uploadedNames.length
-      ? `Menu${uploadedNames.length > 1 ? "s" : ""} uploaded: ${uploadedNames.join(", ")}`
-      : "No menus uploaded",
-    gated.length
-      ? `Menu test required for ${gated.join(", ")}`
-      : "No roles currently require a menu test",
   ];
   return (
     <div className="space-y-3">
@@ -464,15 +430,13 @@ function SummaryComposer({
           ))}
         </ul>
       </div>
-      <p className="px-1 text-sm text-muted-foreground">
-        Next up inside the app: generate the Menu Knowledge Test from your menus, review the questions, and publish it.
-      </p>
       <Button size="lg" className="w-full" onClick={onConfirm}>
         Take me in →
       </Button>
     </div>
   );
 }
+
 
 /* ------------------------ Reusable bits --------------------------- */
 
