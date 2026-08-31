@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useRef, type ReactNode } from "react";
-import { ROLE_COLORS } from "@/lib/role-colors";
+import { ROLE_COLORS, ROLES_ORDERED, effectiveRoles } from "@/lib/role-colors";
 import { formatTime12h } from "@/lib/utils";
 import {
   fetchOwnerPostings,
@@ -767,7 +767,12 @@ interface Store {
   setArrivalOffsets: (o: ArrivalOffsets) => void;
   businessInfo: BusinessInfo;
   setBusinessInfo: (info: BusinessInfo) => void;
+  /** Derived: (built-in roles minus disabledRoles) + customRoles. Never stored. */
   activeRoles: Role[];
+  /** Persisted EXCEPTIONS: built-in roles this restaurant turned off. */
+  disabledRoles: string[];
+  setDisabledRoles: (roles: string[]) => void;
+  /** Adapter kept for existing callers: stores the complement as disabledRoles. */
   setActiveRoles: (roles: Role[]) => void;
   customRoles: CustomRole[];
   addCustomRole: (role: CustomRole) => void;
@@ -1173,6 +1178,34 @@ function sanitizePorter<T>(input: T): T {
   return input;
 }
 
+/**
+ * Roles that existed when `activeRoles` was still persisted as a snapshot.
+ * The one-time conversion is computed against THIS list, not the current
+ * built-in list, so built-in roles added after the snapshot era (Expo, Food
+ * Runner, and anything added later) are never retro-disabled.
+ */
+const LEGACY_SNAPSHOT_ROLES: string[] = ROLES_ORDERED.filter(
+  (r) => r !== "Expo" && r !== "Food Runner",
+);
+
+/**
+ * One-time, idempotent migration from the old `activeRoles` snapshot to the
+ * inverted `disabledRoles` exception list. Runs only when a stored
+ * `activeRoles` exists AND `disabledRoles` does not; afterwards `activeRoles`
+ * is dropped from the persisted payload so it can never be read again.
+ */
+function convertActiveRoles(parsed: unknown): Record<string, unknown> {
+  if (!parsed || typeof parsed !== "object") return {};
+  const o = { ...(parsed as Record<string, unknown>) };
+  const legacy = o.activeRoles;
+  delete o.activeRoles;
+  if (Array.isArray(o.disabledRoles)) return o;
+  if (!Array.isArray(legacy)) return o;
+  const on = new Set((legacy as unknown[]).filter((r): r is string => typeof r === "string"));
+  o.disabledRoles = LEGACY_SNAPSHOT_ROLES.filter((r) => !on.has(r));
+  return o;
+}
+
 export function SideworkProvider({ children }: { children: ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
   const [state, setState] = useState(() => ({
@@ -1193,10 +1226,8 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     mealPeriods: defaultMealPeriods(),
     arrivalOffsets: defaultArrivalOffsets(),
     businessInfo: defaultBusinessInfo() as BusinessInfo,
-    activeRoles: [
-      "Host","Server Assistant","Busser","Bar Back","Bartender","Server","Manager","Assistant Manager",
-      "Chef","Sous Chef","Saute","Grill","Line Cook","Fry Cook","Pizza","Garde Manger","Prep","Dishwasher",
-    ] as Role[],
+    // No snapshot: an empty disabledRoles means every built-in role is available.
+    disabledRoles: [] as string[],
     customRoles: [] as CustomRole[],
     setupCompleted: false,
     notifications: [] as Notification[],
@@ -1212,7 +1243,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
       }
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
-        const parsed = sanitizePorter(JSON.parse(raw));
+        const parsed = convertActiveRoles(sanitizePorter(JSON.parse(raw)));
         setState((s) => ({ ...s, ...parsed }));
       }
     } catch {}
@@ -1518,7 +1549,17 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
       const oid = ownerIdRef.current;
       if (oid) saveBusinessInfo(oid, clean).catch((e: unknown) => console.error("[setBusinessInfo]", e));
     },
-    setActiveRoles: (roles) => setState((s) => ({ ...s, activeRoles: roles })),
+    disabledRoles: state.disabledRoles,
+    setDisabledRoles: (roles) =>
+      setState((s) => ({ ...s, disabledRoles: Array.from(new Set(roles)) })),
+    // Callers still think in terms of "these are the roles we staff"; we store
+    // the complement over the BUILT-IN list only. Custom roles are never
+    // disabled — removing one deletes it outright.
+    setActiveRoles: (roles) =>
+      setState((s) => {
+        const on = new Set(roles);
+        return { ...s, disabledRoles: ROLES_ORDERED.filter((r) => !on.has(r)) };
+      }),
     addCustomRole: (role) =>
       setState((s) => {
         if (s.customRoles.some((c) => c.name === role.name) || (BUILT_IN_ROLES as readonly string[]).includes(role.name)) {
@@ -1527,14 +1568,14 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
         return {
           ...s,
           customRoles: [...s.customRoles, role],
-          activeRoles: s.activeRoles.includes(role.name) ? s.activeRoles : [...s.activeRoles, role.name],
+          disabledRoles: s.disabledRoles.filter((r) => r !== role.name),
         };
       }),
     removeCustomRole: (name) =>
       setState((s) => ({
         ...s,
         customRoles: s.customRoles.filter((c) => c.name !== name),
-        activeRoles: s.activeRoles.filter((r) => r !== name),
+        disabledRoles: s.disabledRoles.filter((r) => r !== name),
       })),
     setCurrentUser: (u) => setState((s) => ({ ...s, currentUser: u })),
     clearAllEmployees: () => {
