@@ -234,43 +234,6 @@ function OverviewTab() {
   );
 }
 
-function NotificationsCard() {
-  const { notifications, markNotificationsRead } = useStore();
-  const recent = notifications.slice(0, 6);
-  const unread = notifications.filter((n) => !n.read).length;
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div className="flex items-center gap-2">
-          <CardTitle className="text-base">Training notifications</CardTitle>
-          {unread > 0 && <Badge className="bg-primary text-primary-foreground hover:bg-primary">{unread} new</Badge>}
-        </div>
-        {unread > 0 && (
-          <Button variant="ghost" size="sm" onClick={markNotificationsRead}>Mark all read</Button>
-        )}
-      </CardHeader>
-      <CardContent className="space-y-2">
-        {recent.length === 0 && <p className="text-sm text-muted-foreground">No notifications yet. You'll be alerted when staff pass or fail training.</p>}
-        {recent.map((n) => {
-          const tone = n.type === "training_passed" ? "border-success/30 bg-success/10"
-            : n.type === "training_locked" ? "border-destructive/30 bg-destructive/10"
-            : "border-warning/30 bg-warning/10";
-          const icon = n.type === "training_passed" ? "✓" : n.type === "training_locked" ? "🔒" : "!";
-          return (
-            <div key={n.id} className={`flex items-start gap-3 rounded-lg border p-3 ${tone} ${!n.read ? "ring-1 ring-primary/20" : ""}`}>
-              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-card text-sm font-bold">{icon}</span>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium">{n.message}</p>
-                <p className="text-xs text-muted-foreground">{new Date(n.createdAt).toLocaleString()}</p>
-              </div>
-            </div>
-          );
-        })}
-      </CardContent>
-    </Card>
-  );
-}
-
 function PendingRoleAssignmentQueue({
   employees,
   activeRoles,
@@ -2156,6 +2119,136 @@ function TimeOffTab() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+
+/**
+ * Roles editor. Storage stays INVERTED: we persist the exceptions
+ * (disabledRoles), never a snapshot of the built-in list. Turning a role off
+ * NUDGES when people are assigned to it — it never blocks, and never strips
+ * anyone's existing role.
+ */
+function RolesCard() {
+  const { disabledRoles, customRoles, employees, setDisabledRoles, addCustomRole, removeCustomRole } = useStore();
+  const [draft, setDraft] = useState("");
+  const [section, setSection] = useState<"FOH" | "BOH">("FOH");
+
+  const off = useMemo(
+    () => new Set(disabledRoles.map((r) => r.trim().toLowerCase())),
+    [disabledRoles],
+  );
+  const isOn = (role: string) => !off.has(role.trim().toLowerCase());
+
+  const assignedCount = (role: string) => {
+    const key = role.trim().toLowerCase();
+    return employees.filter(
+      (e) =>
+        e.primaryRole?.trim().toLowerCase() === key ||
+        (e.approvedRoles ?? []).some((r) => r.trim().toLowerCase() === key),
+    ).length;
+  };
+
+  const toggle = (role: string, on: boolean) => {
+    if (!on) {
+      const n = assignedCount(role);
+      if (n > 0) {
+        toast.warning(`${n} ${n === 1 ? "person is" : "people are"} assigned to ${role}`, {
+          description: "They keep the role — it just won't be offered for new assignments.",
+        });
+      }
+    }
+    const next = on
+      ? disabledRoles.filter((r) => r.trim().toLowerCase() !== role.trim().toLowerCase())
+      : [...disabledRoles, role];
+    setDisabledRoles(Array.from(new Set(next)));
+  };
+
+  const addRole = () => {
+    const name = draft.trim();
+    if (!name) return;
+    const key = name.toLowerCase();
+    const clash =
+      ROLES_ORDERED.some((r) => r.toLowerCase() === key) ||
+      customRoles.some((c) => c.name.trim().toLowerCase() === key);
+    if (clash) {
+      toast.error("That role already exists.");
+      return;
+    }
+    addCustomRole({ name, section, color: nextCustomColor(customRoles) });
+    setDraft("");
+  };
+
+  const group = (label: string, list: readonly string[]) => (
+    <div className="space-y-2">
+      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
+      <div className="grid gap-1.5 sm:grid-cols-2">
+        {list.map((role) => (
+          <label
+            key={role}
+            className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2 text-sm"
+          >
+            <span className="flex items-center gap-2">
+              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: roleStyle(role as Role).backgroundColor }} />
+              {role}
+            </span>
+            <Switch checked={isOn(role)} onCheckedChange={(v) => toggle(role, v === true)} aria-label={role} />
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Roles</CardTitle>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Turn off the roles your restaurant doesn't staff, and add your own. Anyone already assigned a role keeps it.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        {group("Front of house", FOH_ROLES_ORDERED)}
+        {group("Back of house", BOH_ROLES_ORDERED)}
+
+        <div className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Your own roles</p>
+          {customRoles.length === 0 ? (
+            <p className="text-sm text-muted-foreground">None yet.</p>
+          ) : (
+            <div className="grid gap-1.5 sm:grid-cols-2">
+              {customRoles.map((c) => (
+                <div key={c.name} className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2 text-sm">
+                  <span className="flex items-center gap-2">
+                    <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: c.color }} />
+                    {c.name}
+                    <span className="text-xs text-muted-foreground">{c.section}</span>
+                  </span>
+                  <Button variant="ghost" size="sm" onClick={() => removeCustomRole(c.name)}>Remove</Button>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="flex flex-wrap gap-2 pt-1">
+            <Input
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addRole(); } }}
+              placeholder="Add your own role"
+              className="min-w-[12rem] flex-1"
+            />
+            <Select value={section} onValueChange={(v) => setSection(v as "FOH" | "BOH")}>
+              <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="FOH">FOH</SelectItem>
+                <SelectItem value="BOH">BOH</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button onClick={addRole} disabled={!draft.trim()}>Add</Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
