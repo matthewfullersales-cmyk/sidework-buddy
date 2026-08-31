@@ -1587,32 +1587,45 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     },
     disabledRoles: state.disabledRoles,
     setDisabledRoles: (roles) =>
-      setState((s) => ({ ...s, disabledRoles: Array.from(new Set(roles)) })),
+      setState((s) => {
+        const next = { ...s, disabledRoles: Array.from(new Set(roles)) };
+        persistRoleConfig(next.disabledRoles, next.customRoles);
+        return next;
+      }),
     // Callers still think in terms of "these are the roles we staff"; we store
     // the complement over the BUILT-IN list only. Custom roles are never
     // disabled — removing one deletes it outright.
     setActiveRoles: (roles) =>
       setState((s) => {
         const on = new Set(roles);
-        return { ...s, disabledRoles: ROLES_ORDERED.filter((r) => !on.has(r)) };
+        const next = { ...s, disabledRoles: ROLES_ORDERED.filter((r) => !on.has(r)) };
+        persistRoleConfig(next.disabledRoles, next.customRoles);
+        return next;
       }),
     addCustomRole: (role) =>
       setState((s) => {
         if (s.customRoles.some((c) => c.name === role.name) || (BUILT_IN_ROLES as readonly string[]).includes(role.name)) {
           return s;
         }
-        return {
+        const next = {
           ...s,
           customRoles: [...s.customRoles, role],
           disabledRoles: s.disabledRoles.filter((r) => r !== role.name),
         };
+        persistRoleConfig(next.disabledRoles, next.customRoles);
+        return next;
       }),
     removeCustomRole: (name) =>
-      setState((s) => ({
-        ...s,
-        customRoles: s.customRoles.filter((c) => c.name !== name),
-        disabledRoles: s.disabledRoles.filter((r) => r !== name),
-      })),
+      setState((s) => {
+        const next = {
+          ...s,
+          customRoles: s.customRoles.filter((c) => c.name !== name),
+          disabledRoles: s.disabledRoles.filter((r) => r !== name),
+        };
+        persistRoleConfig(next.disabledRoles, next.customRoles);
+        return next;
+      }),
+
     setCurrentUser: (u) => setState((s) => ({ ...s, currentUser: u })),
     clearAllEmployees: () => {
       setState((s) => ({ ...s, employees: [], shifts: [], trades: [], timeOff: [] }));
