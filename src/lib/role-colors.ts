@@ -34,6 +34,7 @@ export const FOH_ROLES_ORDERED: Role[] = [
   "Server",
   "Manager",
   "Assistant Manager",
+  "Food Runner",
 ];
 
 export const BOH_ROLES_ORDERED: Role[] = [
@@ -48,7 +49,6 @@ export const BOH_ROLES_ORDERED: Role[] = [
   "Prep",
   "Dishwasher",
   "Expo",
-  "Food Runner",
 ];
 
 export const ROLES_ORDERED: Role[] = [...FOH_ROLES_ORDERED, ...BOH_ROLES_ORDERED];
@@ -108,4 +108,27 @@ export function bohRolesWithCustom(customRoles: CustomRole[]): Role[] {
 
 export function allRolesWithCustom(customRoles: CustomRole[]): Role[] {
   return [...fohRolesWithCustom(customRoles), ...bohRolesWithCustom(customRoles)];
+}
+
+/**
+ * THE single source of truth for "which roles does this restaurant staff?".
+ *
+ * Storage is INVERTED on purpose: we persist the EXCEPTIONS (`disabledRoles`)
+ * rather than a snapshot of the built-in list, so any built-in role added in
+ * code shows up immediately for restaurants that already exist. An empty or
+ * missing `disabledRoles` therefore means EVERY built-in role is available.
+ */
+export function effectiveRoles(disabledRoles: string[] = [], customRoles: CustomRole[] = []): Role[] {
+  const off = new Set(disabledRoles.map((r) => r.trim().toLowerCase()));
+  return allRolesWithCustom(customRoles).filter((r) => !off.has(r.trim().toLowerCase()));
+}
+
+export function effectiveFohRoles(disabledRoles: string[] = [], customRoles: CustomRole[] = []): Role[] {
+  const on = new Set(effectiveRoles(disabledRoles, customRoles));
+  return fohRolesWithCustom(customRoles).filter((r) => on.has(r));
+}
+
+export function effectiveBohRoles(disabledRoles: string[] = [], customRoles: CustomRole[] = []): Role[] {
+  const on = new Set(effectiveRoles(disabledRoles, customRoles));
+  return bohRolesWithCustom(customRoles).filter((r) => on.has(r));
 }

@@ -5,9 +5,8 @@
 //  - SECTION ('foh' | 'boh')     — department. Drives the entrance and the bring list.
 //  - DRESS GROUP ('foh' | 'host' | 'boh') — which block of dress text a role reads.
 //
-// Expo and Food Runner are back of house by department but dress front of house,
-// because they go out on the dining floor. Host is front of house but may have
-// its own dress. Owners can override the dress group per role in the packet.
+// Host is front of house but may have its own dress. Every other role dresses
+// as its section. Owners can override the dress group per role in the packet.
 //
 // This module runs MANAGER-SIDE only: customRoles is client state the
 // unauthenticated trainee page cannot see. The resolved values are stored on
@@ -19,9 +18,6 @@ export type ShadowSection = "foh" | "boh";
 export type ShadowDressGroup = "foh" | "host" | "boh";
 
 const BOH_SET = new Set(BOH_ROLES_ORDERED.map((r) => r.trim().toLowerCase()));
-
-/** Roles that live in back of house but wear the front of house uniform. */
-const FOH_DRESS_BOH_ROLES = new Set(["expo", "food runner"]);
 
 function key(role: string): string {
   return (role ?? "").trim().toLowerCase();
@@ -44,7 +40,6 @@ export function isBohRole(role: string, customRoles: CustomRole[] = []): boolean
 export function defaultDressGroupForRole(role: string, customRoles: CustomRole[] = []): ShadowDressGroup {
   const r = key(role);
   if (r === "host" || r === "hostess") return "host";
-  if (FOH_DRESS_BOH_ROLES.has(r)) return "foh";
   return shadowSectionForRole(role, customRoles);
 }
 
