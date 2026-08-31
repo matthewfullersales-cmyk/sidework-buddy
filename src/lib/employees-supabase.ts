@@ -2,6 +2,7 @@
 // Wave A of the scheduling migration: employees move from localStorage to
 // Supabase; shifts/time-off/trades stay local until Wave B.
 import { supabase } from "@/integrations/supabase/client";
+import { nextCustomColor } from "@/lib/role-colors";
 import type {
   Employee,
   Role,
@@ -10,6 +11,7 @@ import type {
   WeeklyAvailability,
   EmergencyContact,
   WorkExperience,
+  CustomRole,
 } from "@/lib/sidework-store";
 
 type PersonRow = {
