@@ -425,8 +425,8 @@ export type Database = {
         Row: {
           business_info: Json | null
           created_at: string
-          custom_roles: Json
-          disabled_roles: Json
+          custom_roles: Json | null
+          disabled_roles: Json | null
           employee_id: string | null
           full_name: string
           id: string
@@ -446,8 +446,8 @@ export type Database = {
         Insert: {
           business_info?: Json | null
           created_at?: string
-          custom_roles?: Json
-          disabled_roles?: Json
+          custom_roles?: Json | null
+          disabled_roles?: Json | null
           employee_id?: string | null
           full_name?: string
           id: string
@@ -467,8 +467,8 @@ export type Database = {
         Update: {
           business_info?: Json | null
           created_at?: string
-          custom_roles?: Json
-          disabled_roles?: Json
+          custom_roles?: Json | null
+          disabled_roles?: Json | null
           employee_id?: string | null
           full_name?: string
           id?: string
