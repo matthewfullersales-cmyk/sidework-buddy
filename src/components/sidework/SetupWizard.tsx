@@ -147,11 +147,10 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
           nonNegotiables: "",
           pastProblems: "",
         },
-        foodMenu,
-        drinkMenu,
-        dessertMenu,
+        null,
+        null,
+        null,
       );
-      setMenuTestConfig(defaultsFilled(wizardRoles, uploadedKinds, testConfig));
       // Persist the EXCEPTIONS only: built-in roles the owner did not pick.
       // Custom roles the owner typed in are already in the store.
       const picked = new Set(wizardRoles);
@@ -169,10 +168,8 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
     if (promptedRef.current.has(step)) return;
     const prompts: Record<number, string> = {
       2: "Awesome — let's start with the basics. Tell me your restaurant's name and type, plus the address and contact info applicants and new hires will see on your career page and hire invites.",
-      3: "Now your team. Which front-of-house and back-of-house roles do you staff? These are the roles I'll use for menu test requirements.",
-      4: "Time to make this real. Upload at least one menu — food, drink, or dessert (PDF or photo). You'll generate and approve the actual test from the Menu tab once you're inside.",
-      5: "Last question: who actually has to pass a menu test? Check the menus each role must know before their schedule unlocks — I've pre-filled the usual setup.",
-      6: "That's everything. Here's what's saved.",
+      3: "Now your team. Which front-of-house and back-of-house roles do you staff? You can add your own role too, and change all of this later in Settings.",
+      4: "That's everything. Here's what's saved.",
     };
     if (prompts[step]) {
       const t = setTimeout(() => pushBot(prompts[step]), 200);
@@ -181,6 +178,7 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
     }
     promptedRef.current.add(step);
   }, [step]);
+
 
   /* ---------------------------- Render ----------------------------- */
 
