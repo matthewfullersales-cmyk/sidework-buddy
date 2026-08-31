@@ -1356,6 +1356,32 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           }
         }
 
+        // Role config: the database is authoritative, including an empty
+        // result (empty disabledRoles = every built-in role available). The
+        // one exception is the first load after the columns appeared: if the
+        // database has never been written AND this device holds a local-only
+        // configuration, push it up once, then the database wins from then on.
+        // Sequencing: convertActiveRoles already ran on the localStorage
+        // payload during hydration, so `local.disabledRoles` here is always
+        // the converted, inverted list — never a legacy activeRoles snapshot.
+        let rolesPatch: Partial<typeof state> = {};
+        if (remoteRoleConfig) {
+          const localDisabled = local.disabledRoles ?? [];
+          const localCustom = local.customRoles ?? [];
+          const hasLocal = localDisabled.length > 0 || localCustom.length > 0;
+          if (!remoteRoleConfig.everWritten && hasLocal && acting === "owner") {
+            rolesPatch = { disabledRoles: localDisabled, customRoles: localCustom };
+            saveRoleConfig(effectiveOwnerId, localDisabled, localCustom).catch((e) =>
+              console.error("[role-config-bootstrap] failed", e),
+            );
+          } else {
+            rolesPatch = {
+              disabledRoles: remoteRoleConfig.disabledRoles,
+              customRoles: remoteRoleConfig.customRoles,
+            };
+          }
+        }
+
 
         // Merge cloud-stored training progress into each employee. Additive:
         // if a given employee has no cloud rows, fall back to whatever the
