@@ -479,71 +479,6 @@ function ChipGrid({
   );
 }
 
-function UploadField({
-  label, value, onChange, hint,
-}: { label: string; value: MenuUpload | null; onChange: (m: MenuUpload | null) => void; hint?: string }) {
-  const ref = useRef<HTMLInputElement>(null);
-  const handleFile = (file: File) => {
-    const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
-    const isPdf = file.type === "application/pdf" || ext === "pdf";
-    const isImage = file.type.startsWith("image/") || ["jpg", "jpeg", "png", "webp", "heic", "heif"].includes(ext);
-    if (!isPdf && !isImage) return toast.error("Upload a PDF or photo.");
-    if (file.size > 25 * 1024 * 1024) return toast.error("File must be under 25MB.");
-    const save = (preview?: string) => onChange({
-      name: file.name,
-      type: file.type || (isPdf ? "application/pdf" : "image/*"),
-      sizeKB: Math.max(1, Math.round(file.size / 1024)),
-      uploadedAt: new Date().toISOString(),
-      preview,
-    });
-    if (isImage && file.size <= 750 * 1024 && !["heic", "heif"].includes(ext)) {
-      const r = new FileReader();
-      r.onload = () => save(r.result as string);
-      r.onerror = () => save();
-      r.readAsDataURL(file);
-    } else save();
-  };
-  return (
-    <div className="grid gap-1.5">
-      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</span>
-      {hint ? <span className="-mt-0.5 text-xs text-muted-foreground">{hint}</span> : null}
-      {!value ? (
-        <button
-          type="button"
-          onClick={() => ref.current?.click()}
-          className="flex items-center gap-3 rounded-xl border-2 border-dashed border-border bg-muted/30 p-3.5 text-left transition-colors hover:border-primary hover:bg-primary-soft"
-        >
-          <div className="grid h-10 w-10 place-items-center rounded-full bg-primary-soft text-primary">
-            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          </div>
-          <div>
-            <p className="text-sm font-semibold">Upload {label.toLowerCase()}</p>
-            <p className="text-xs text-muted-foreground">PDF or photo · up to 25MB</p>
-          </div>
-        </button>
-      ) : (
-        <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-background p-3">
-          <div className="flex min-w-0 items-center gap-3">
-            {value.preview ? (
-              <img src={value.preview} alt="" className="h-10 w-10 rounded-md border border-border object-cover" />
-            ) : (
-              <div className="grid h-10 w-10 place-items-center rounded-md bg-primary-soft text-primary">
-                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-              </div>
-            )}
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium">{value.name}</p>
-              <p className="text-xs text-muted-foreground">{value.sizeKB} KB</p>
-            </div>
-          </div>
-          <Button size="sm" variant="ghost" onClick={() => onChange(null)}>Remove</Button>
-        </div>
-      )}
-      <input ref={ref} type="file" accept="application/pdf,image/*,.heic,.heif" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.currentTarget.value = ""; }} />
-    </div>
-  );
-}
-
 function FinalizingScreen({ name }: { name: string }) {
   return (
     <div className="grid min-h-[100dvh] place-items-center bg-gradient-hero px-4 text-primary-foreground">
@@ -557,8 +492,13 @@ function FinalizingScreen({ name }: { name: string }) {
           Setting up {name || "your restaurant"}…
         </h1>
         <p className="mt-3 text-white/80">
-          Saving your profile, roles, menus, and menu test requirements.
+          Saving your restaurant profile and roles.
         </p>
+      </div>
+    </div>
+  );
+}
+
       </div>
     </div>
   );
