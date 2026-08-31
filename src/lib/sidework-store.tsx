@@ -1302,18 +1302,11 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           fetchOwnerTimeOff(effectiveOwnerId),
           fetchOwnerTrades(effectiveOwnerId),
           fetchBusinessInfo(effectiveOwnerId),
-          fetchOwnerTrainingProgress(effectiveOwnerId).catch((e) => {
-            console.error("[owner-sync] training progress load failed", e);
-            return new Map<string, VideoProgress[]>();
-          }),
-          fetchMenuBankMeta(effectiveOwnerId).catch((e) => {
-            console.error("[owner-sync] menu bank meta load failed", e);
-            return null;
-          }),
-          fetchMenuTestConfig(effectiveOwnerId).catch((e) => {
-            console.warn("[owner-sync] menu test config load failed", e);
-            return null;
-          }),
+          // Training / menu-test surfaces are parked: these loads are INERT on
+          // purpose. The code below stays so the feature can be revived.
+          Promise.resolve(new Map<string, VideoProgress[]>()),
+          Promise.resolve(null),
+          Promise.resolve(null),
           fetchRoleConfig(effectiveOwnerId).catch((e) => {
             console.warn("[owner-sync] role config load failed", e);
             return null;
@@ -1469,18 +1462,10 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           fetchOwnerOpenTrades(employeeCtxOwnerId),
           fetchMyTimeOff(employeeCtxEmployeeId),
           fetchCoworkerNames(employeeCtxOwnerId),
-          fetchEmployeeTrainingProgress(employeeCtxEmployeeId).catch((e) => {
-            console.error("[employee-sync] training progress load failed", e);
-            return [] as VideoProgress[];
-          }),
-          fetchMenuBankMeta(employeeCtxOwnerId).catch((e) => {
-            console.error("[employee-sync] menu bank meta load failed", e);
-            return null;
-          }),
-          fetchMenuTestConfigViaRpc(employeeCtxOwnerId).catch((e) => {
-            console.warn("[employee-sync] menu test config load failed", e);
-            return null;
-          }),
+          // Parked training/menu-test surfaces — INERT, no network calls.
+          Promise.resolve([] as VideoProgress[]),
+          Promise.resolve(null),
+          Promise.resolve(null),
         ]);
 
         if (cancelled) return;

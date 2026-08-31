@@ -5,11 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { Logo } from "@/components/sidework/Logo";
 import {
   useStore,
-  defaultMenuKindsForRole,
   type CustomRole,
-  type MenuUpload,
-  type MenuKind,
-  type MenuTestConfig,
   type Role,
   type ServiceStyle,
 } from "@/lib/sidework-store";
@@ -19,9 +15,9 @@ import {
   ROLES_ORDERED,
   nextCustomColor,
 } from "@/lib/role-colors";
-import { MenuTestMatrix } from "@/components/sidework/MenuTestMatrix";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { toast } from "sonner";
+
 
 /* ----------------------------- Types ----------------------------- */
 
@@ -71,7 +67,7 @@ const SERVICE_MAP: Record<RestaurantType, ServiceStyle> = {
   Other: "Casual Dining",
 };
 
-const TOTAL_STEPS = 6;
+const TOTAL_STEPS = 4;
 
 const EMPTY: Answers = {
   name: "", street: "", city: "", state: "", zip: "", phone: "", email: "",
@@ -81,28 +77,15 @@ const EMPTY: Answers = {
 
 /* ---------------------------- Component --------------------------- */
 
-/** Fill in any role that the owner never explicitly touched with its default. */
-function defaultsFilled(roles: Role[], kinds: MenuKind[], cfg: MenuTestConfig): MenuTestConfig {
-  const out: MenuTestConfig = {};
-  for (const r of roles) {
-    out[r] = Object.prototype.hasOwnProperty.call(cfg, r) ? cfg[r] : defaultMenuKindsForRole(r, kinds);
-  }
-  return out;
-}
-
 export function SetupWizard({ onComplete }: { onComplete: () => void }) {
-  const { completeSetup, setMenuTestConfig, setBusinessInfo, setDisabledRoles, customRoles, addCustomRole } = useStore();
+  const { completeSetup, setBusinessInfo, setDisabledRoles, customRoles, addCustomRole } = useStore();
   const [step, setStep] = useState(1);
   const [answers, setAnswers] = useState<Answers>(EMPTY);
-  const [foodMenu, setFoodMenu] = useState<MenuUpload | null>(null);
-  const [drinkMenu, setDrinkMenu] = useState<MenuUpload | null>(null);
-  const [dessertMenu, setDessertMenu] = useState<MenuUpload | null>(null);
-  const [testConfig, setTestConfig] = useState<MenuTestConfig>({});
   const [messages, setMessages] = useState<ChatMsg[]>([
     {
       from: "bot",
       text:
-        "Welcome to 86Paper! I'm your restaurant intelligence assistant. Just a few quick questions so I can set up your roles and menu tests. This takes about 2 minutes. Ready?",
+        "Welcome to 86Paper! Just a few quick questions so I can set up your restaurant profile and roles. This takes about a minute. Ready?",
     },
   ]);
   const [finishing, setFinishing] = useState(false);
@@ -111,11 +94,7 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
   const progress = Math.round((step / TOTAL_STEPS) * 100);
 
   const wizardRoles = [...answers.fohRoles, ...answers.bohRoles] as Role[];
-  const uploadedKinds: MenuKind[] = [
-    ...(foodMenu ? (["food"] as MenuKind[]) : []),
-    ...(drinkMenu ? (["drink"] as MenuKind[]) : []),
-    ...(dessertMenu ? (["dessert"] as MenuKind[]) : []),
-  ];
+
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -168,11 +147,10 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
           nonNegotiables: "",
           pastProblems: "",
         },
-        foodMenu,
-        drinkMenu,
-        dessertMenu,
+        null,
+        null,
+        null,
       );
-      setMenuTestConfig(defaultsFilled(wizardRoles, uploadedKinds, testConfig));
       // Persist the EXCEPTIONS only: built-in roles the owner did not pick.
       // Custom roles the owner typed in are already in the store.
       const picked = new Set(wizardRoles);
@@ -190,10 +168,8 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
     if (promptedRef.current.has(step)) return;
     const prompts: Record<number, string> = {
       2: "Awesome — let's start with the basics. Tell me your restaurant's name and type, plus the address and contact info applicants and new hires will see on your career page and hire invites.",
-      3: "Now your team. Which front-of-house and back-of-house roles do you staff? These are the roles I'll use for menu test requirements.",
-      4: "Time to make this real. Upload at least one menu — food, drink, or dessert (PDF or photo). You'll generate and approve the actual test from the Menu tab once you're inside.",
-      5: "Last question: who actually has to pass a menu test? Check the menus each role must know before their schedule unlocks — I've pre-filled the usual setup.",
-      6: "That's everything. Here's what's saved.",
+      3: "Now your team. Which front-of-house and back-of-house roles do you staff? You can add your own role too, and change all of this later in Settings.",
+      4: "That's everything. Here's what's saved.",
     };
     if (prompts[step]) {
       const t = setTimeout(() => pushBot(prompts[step]), 200);
@@ -202,6 +178,7 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
     }
     promptedRef.current.add(step);
   }, [step]);
+
 
   /* ---------------------------- Render ----------------------------- */
 
@@ -266,66 +243,13 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
           )}
 
           {step === 4 && (
-            <MenuUploadComposer
-              food={foodMenu}
-              drink={drinkMenu}
-              dessert={dessertMenu}
-              onFood={setFoodMenu}
-              onDrink={setDrinkMenu}
-              onDessert={setDessertMenu}
-              onSubmit={() => {
-                const uploaded = [foodMenu, drinkMenu, dessertMenu].filter(Boolean) as MenuUpload[];
-                if (uploaded.length === 0) {
-                  toast.error("Upload at least one menu to continue.");
-                  return;
-                }
-                advance(`Uploaded ${uploaded.map((m) => m.name).join(" + ")}`, "");
-              }}
-            />
-          )}
-
-          {step === 5 && (
-            <div className="space-y-3">
-              <MenuTestMatrix
-                roles={wizardRoles}
-                menuKinds={uploadedKinds}
-                value={testConfig}
-                onChange={setTestConfig}
-              />
-              <p className="text-xs text-muted-foreground">
-                Leave a row unchecked and that role is never blocked by a menu test.
-              </p>
-              <Button
-                size="lg"
-                className="w-full"
-                onClick={() => {
-                  const filled = defaultsFilled(wizardRoles, uploadedKinds, testConfig);
-                  setTestConfig(filled);
-                  const gated = wizardRoles.filter((r) => (filled[r] ?? []).length > 0);
-                  advance(
-                    gated.length
-                      ? `Menu tests required for ${gated.join(", ")}`
-                      : "No roles gated by a menu test",
-                    "",
-                  );
-                }}
-              >
-                Save requirements →
-              </Button>
-            </div>
-          )}
-
-          {step === 6 && (
             <SummaryComposer
               answers={answers}
-              foodMenu={foodMenu}
-              drinkMenu={drinkMenu}
-              dessertMenu={dessertMenu}
-              testConfig={defaultsFilled(wizardRoles, uploadedKinds, testConfig)}
               roles={wizardRoles}
               onConfirm={finish}
             />
           )}
+
         </div>
       </div>
     </div>
@@ -482,50 +406,16 @@ function TeamForm({
   );
 }
 
-function MenuUploadComposer({
-  food, drink, dessert, onFood, onDrink, onDessert, onSubmit,
-}: {
-  food: MenuUpload | null; drink: MenuUpload | null; dessert: MenuUpload | null;
-  onFood: (m: MenuUpload | null) => void;
-  onDrink: (m: MenuUpload | null) => void;
-  onDessert: (m: MenuUpload | null) => void;
-  onSubmit: () => void;
-}) {
-  const hasAny = Boolean(food || drink || dessert);
-  return (
-    <div className="space-y-3">
-      <UploadField label="Food menu" value={food} onChange={onFood} />
-      <UploadField label="Drink menu" value={drink} onChange={onDrink} hint="Optional — skip if these are on your food menu." />
-      <UploadField label="Dessert menu" value={dessert} onChange={onDessert} hint="Optional — skip if these are on your food menu." />
-      <Button size="lg" className="w-full" disabled={!hasAny} onClick={onSubmit}>
-        Continue →
-      </Button>
-    </div>
-  );
-}
-
 function SummaryComposer({
-  answers, foodMenu, drinkMenu, dessertMenu, testConfig, roles, onConfirm,
+  answers, roles, onConfirm,
 }: {
   answers: Answers;
-  foodMenu: MenuUpload | null;
-  drinkMenu: MenuUpload | null;
-  dessertMenu: MenuUpload | null;
-  testConfig: MenuTestConfig;
   roles: Role[];
   onConfirm: () => void;
 }) {
-  const uploadedNames = [foodMenu, drinkMenu, dessertMenu].filter(Boolean).map((m) => m!.name);
-  const gated = roles.filter((r) => (testConfig[r] ?? []).length > 0);
   const items = [
     `Restaurant profile saved — ${answers.name || "your restaurant"}${[answers.city, answers.state].filter(Boolean).join(", ") ? `, ${[answers.city, answers.state].filter(Boolean).join(", ")}` : ""}${answers.type ? ` (${answers.type})` : ""}`,
     `${roles.length} role${roles.length === 1 ? "" : "s"} configured${roles.length ? `: ${roles.join(", ")}` : ""}`,
-    uploadedNames.length
-      ? `Menu${uploadedNames.length > 1 ? "s" : ""} uploaded: ${uploadedNames.join(", ")}`
-      : "No menus uploaded",
-    gated.length
-      ? `Menu test required for ${gated.join(", ")}`
-      : "No roles currently require a menu test",
   ];
   return (
     <div className="space-y-3">
@@ -540,15 +430,13 @@ function SummaryComposer({
           ))}
         </ul>
       </div>
-      <p className="px-1 text-sm text-muted-foreground">
-        Next up inside the app: generate the Menu Knowledge Test from your menus, review the questions, and publish it.
-      </p>
       <Button size="lg" className="w-full" onClick={onConfirm}>
         Take me in →
       </Button>
     </div>
   );
 }
+
 
 /* ------------------------ Reusable bits --------------------------- */
 
@@ -591,71 +479,6 @@ function ChipGrid({
   );
 }
 
-function UploadField({
-  label, value, onChange, hint,
-}: { label: string; value: MenuUpload | null; onChange: (m: MenuUpload | null) => void; hint?: string }) {
-  const ref = useRef<HTMLInputElement>(null);
-  const handleFile = (file: File) => {
-    const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
-    const isPdf = file.type === "application/pdf" || ext === "pdf";
-    const isImage = file.type.startsWith("image/") || ["jpg", "jpeg", "png", "webp", "heic", "heif"].includes(ext);
-    if (!isPdf && !isImage) return toast.error("Upload a PDF or photo.");
-    if (file.size > 25 * 1024 * 1024) return toast.error("File must be under 25MB.");
-    const save = (preview?: string) => onChange({
-      name: file.name,
-      type: file.type || (isPdf ? "application/pdf" : "image/*"),
-      sizeKB: Math.max(1, Math.round(file.size / 1024)),
-      uploadedAt: new Date().toISOString(),
-      preview,
-    });
-    if (isImage && file.size <= 750 * 1024 && !["heic", "heif"].includes(ext)) {
-      const r = new FileReader();
-      r.onload = () => save(r.result as string);
-      r.onerror = () => save();
-      r.readAsDataURL(file);
-    } else save();
-  };
-  return (
-    <div className="grid gap-1.5">
-      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</span>
-      {hint ? <span className="-mt-0.5 text-xs text-muted-foreground">{hint}</span> : null}
-      {!value ? (
-        <button
-          type="button"
-          onClick={() => ref.current?.click()}
-          className="flex items-center gap-3 rounded-xl border-2 border-dashed border-border bg-muted/30 p-3.5 text-left transition-colors hover:border-primary hover:bg-primary-soft"
-        >
-          <div className="grid h-10 w-10 place-items-center rounded-full bg-primary-soft text-primary">
-            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          </div>
-          <div>
-            <p className="text-sm font-semibold">Upload {label.toLowerCase()}</p>
-            <p className="text-xs text-muted-foreground">PDF or photo · up to 25MB</p>
-          </div>
-        </button>
-      ) : (
-        <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-background p-3">
-          <div className="flex min-w-0 items-center gap-3">
-            {value.preview ? (
-              <img src={value.preview} alt="" className="h-10 w-10 rounded-md border border-border object-cover" />
-            ) : (
-              <div className="grid h-10 w-10 place-items-center rounded-md bg-primary-soft text-primary">
-                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-              </div>
-            )}
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium">{value.name}</p>
-              <p className="text-xs text-muted-foreground">{value.sizeKB} KB</p>
-            </div>
-          </div>
-          <Button size="sm" variant="ghost" onClick={() => onChange(null)}>Remove</Button>
-        </div>
-      )}
-      <input ref={ref} type="file" accept="application/pdf,image/*,.heic,.heif" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.currentTarget.value = ""; }} />
-    </div>
-  );
-}
-
 function FinalizingScreen({ name }: { name: string }) {
   return (
     <div className="grid min-h-[100dvh] place-items-center bg-gradient-hero px-4 text-primary-foreground">
@@ -669,12 +492,14 @@ function FinalizingScreen({ name }: { name: string }) {
           Setting up {name || "your restaurant"}…
         </h1>
         <p className="mt-3 text-white/80">
-          Saving your profile, roles, menus, and menu test requirements.
+          Saving your restaurant profile and roles.
         </p>
       </div>
     </div>
   );
 }
+
+
 
 
 function CheckIcon({ className = "" }: { className?: string }) {
