@@ -243,66 +243,13 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
           )}
 
           {step === 4 && (
-            <MenuUploadComposer
-              food={foodMenu}
-              drink={drinkMenu}
-              dessert={dessertMenu}
-              onFood={setFoodMenu}
-              onDrink={setDrinkMenu}
-              onDessert={setDessertMenu}
-              onSubmit={() => {
-                const uploaded = [foodMenu, drinkMenu, dessertMenu].filter(Boolean) as MenuUpload[];
-                if (uploaded.length === 0) {
-                  toast.error("Upload at least one menu to continue.");
-                  return;
-                }
-                advance(`Uploaded ${uploaded.map((m) => m.name).join(" + ")}`, "");
-              }}
-            />
-          )}
-
-          {step === 5 && (
-            <div className="space-y-3">
-              <MenuTestMatrix
-                roles={wizardRoles}
-                menuKinds={uploadedKinds}
-                value={testConfig}
-                onChange={setTestConfig}
-              />
-              <p className="text-xs text-muted-foreground">
-                Leave a row unchecked and that role is never blocked by a menu test.
-              </p>
-              <Button
-                size="lg"
-                className="w-full"
-                onClick={() => {
-                  const filled = defaultsFilled(wizardRoles, uploadedKinds, testConfig);
-                  setTestConfig(filled);
-                  const gated = wizardRoles.filter((r) => (filled[r] ?? []).length > 0);
-                  advance(
-                    gated.length
-                      ? `Menu tests required for ${gated.join(", ")}`
-                      : "No roles gated by a menu test",
-                    "",
-                  );
-                }}
-              >
-                Save requirements →
-              </Button>
-            </div>
-          )}
-
-          {step === 6 && (
             <SummaryComposer
               answers={answers}
-              foodMenu={foodMenu}
-              drinkMenu={drinkMenu}
-              dessertMenu={dessertMenu}
-              testConfig={defaultsFilled(wizardRoles, uploadedKinds, testConfig)}
               roles={wizardRoles}
               onConfirm={finish}
             />
           )}
+
         </div>
       </div>
     </div>
