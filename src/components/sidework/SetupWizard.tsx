@@ -5,11 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { Logo } from "@/components/sidework/Logo";
 import {
   useStore,
-  defaultMenuKindsForRole,
   type CustomRole,
-  type MenuUpload,
-  type MenuKind,
-  type MenuTestConfig,
   type Role,
   type ServiceStyle,
 } from "@/lib/sidework-store";
@@ -19,9 +15,9 @@ import {
   ROLES_ORDERED,
   nextCustomColor,
 } from "@/lib/role-colors";
-import { MenuTestMatrix } from "@/components/sidework/MenuTestMatrix";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { toast } from "sonner";
+
 
 /* ----------------------------- Types ----------------------------- */
 
