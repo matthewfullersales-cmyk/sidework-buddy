@@ -192,16 +192,9 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
         </CardHeader>
         <CardContent className="space-y-3">
           <ChecklistItem done={me.personalInfoComplete} label="Personal info, availability & emergency contact" />
-          <ChecklistItem
-            done={s.total === 0 || s.passed === s.total}
-            label={
-              s.total === 0
-                ? "Knowledge tests (none required yet)"
-                : `Knowledge tests (${s.passed}/${s.total} passed)`
-            }
-          />
           <ChecklistItem done={s.fullyOnboarded} label="Marked fully onboarded" />
-          <Progress value={Math.round(((me.personalInfoComplete ? 1 : 0) + (s.total ? s.passed / s.total : 1)) / 2 * 100)} className="h-2" />
+          <Progress value={me.personalInfoComplete ? 100 : 0} className="h-2" />
+
 
         </CardContent>
       </Card>
