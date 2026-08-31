@@ -50,11 +50,7 @@ function EmployeePage() {
     customRoles,
     employeeHydratedTargetId,
     employeeHydrationError,
-    menuBankMeta,
-    menuTestConfig,
-    uploadedMenuTypes,
   } = useStore();
-  const menuBankVersion = menuBankMeta;
   const targetId = employeeContext?.employeeId ?? profile?.employee_id ?? null;
   const selectedTargetRef = useRef<string | null>(null);
   const setCurrentUserRef = useRef(setCurrentUser);
@@ -81,7 +77,7 @@ function EmployeePage() {
     const timeout = window.setTimeout(() => setLoadingTimedOut(true), 15_000);
     return () => window.clearTimeout(timeout);
   }, [authLoading, targetId, targetResolved, employeeHydrationError]);
-  const status = useMemo(() => (me ? onboardingStatus(me, customRoles, menuBankVersion, menuTestConfig, uploadedMenuTypes) : null), [me, customRoles, menuBankVersion, menuTestConfig, uploadedMenuTypes]);
+  const status = useMemo(() => (me ? onboardingStatus(me, customRoles) : null), [me, customRoles]);
 
   useEffect(() => {
     if (!me || !status) return;
@@ -105,8 +101,7 @@ function EmployeePage() {
         <div className="mx-auto max-w-md px-4 py-16 text-center">
           <h1 className="text-2xl font-bold">Waiting on approval</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Your manager needs to approve your join request before you can see the schedule or start your Menu
-            Knowledge Test. Check back soon.
+            Your manager needs to approve your join request before you can see the schedule. Check back soon.
           </p>
         </div>
       </AppShell>
@@ -142,13 +137,12 @@ function EmployeePage() {
     <AppShell nav={nav}>
       <PageHeader
         title={`Hi, ${me.name.split(" ")[0]}`}
-        subtitle={status.fullyOnboarded ? "You're fully onboarded. Nice work." : "Finish your training to get on the schedule."}
+        subtitle={status.fullyOnboarded ? "You're fully onboarded. Nice work." : "Finish your profile to complete onboarding."}
       />
       <EnablePushBanner />
       <Tabs defaultValue={!me.personalInfoComplete ? "profile" : "schedule"}>
-        <TabsList className="mb-6 grid h-auto w-full grid-cols-3 md:grid-cols-6">
+        <TabsList className="mb-6 grid h-auto w-full grid-cols-3 md:grid-cols-5">
           <TabsTrigger value="profile">{me.personalInfoComplete ? "Profile" : "Onboarding"}</TabsTrigger>
-          <TabsTrigger value="training">Testing</TabsTrigger>
           <TabsTrigger value="schedule">Schedule</TabsTrigger>
           <TabsTrigger value="trades">Trades</TabsTrigger>
           <TabsTrigger value="timeoff">Time Off</TabsTrigger>
@@ -160,7 +154,6 @@ function EmployeePage() {
             <PushSettings />
           </div>
         </TabsContent>
-        <TabsContent value="training"><TrainingTab employeeId={me.id} /></TabsContent>
         <TabsContent value="schedule"><MyScheduleTab employeeId={me.id} /></TabsContent>
         <TabsContent value="trades"><TradesTab employeeId={me.id} /></TabsContent>
         <TabsContent value="timeoff"><TimeOffTab employeeId={me.id} /></TabsContent>
@@ -183,8 +176,7 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
     phone: me.emergencyContact?.phone ?? "",
     relationship: me.emergencyContact?.relationship ?? "Other" as Relationship,
   });
-  const { menuBankMeta, menuTestConfig, uploadedMenuTypes } = useStore();
-  const s = onboardingStatus(me, customRoles, menuBankMeta, menuTestConfig, uploadedMenuTypes);
+  const s = onboardingStatus(me, customRoles);
 
 
 
@@ -288,56 +280,6 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
       <div className="flex justify-end">
         <Button onClick={save} size="lg">Save changes</Button>
       </div>
-    </div>
-  );
-}
-
-function TrainingTab({ employeeId }: { employeeId: string }) {
-  const { employees, applyQuizAttemptResult, menuBankMeta, menuTestConfig, uploadedMenuTypes, customRoles } = useStore();
-  const me = employees.find((e) => e.id === employeeId)!;
-  const menuState = menuTestStatus(me, menuBankMeta, customRoles, menuTestConfig, uploadedMenuTypes);
-  const testIds = testIdsForEmployee(me);
-
-  if (menuState === "blocked") {
-    return (
-      <Card className="border-amber-500/50 bg-amber-500/10">
-        <CardContent className="p-6 text-sm text-amber-900 dark:text-amber-200">
-          <p className="font-semibold">Your menu test isn't ready yet</p>
-          <p className="mt-1">Your role is set to be tested on a menu your restaurant hasn't uploaded yet. Ask your manager to upload it — you can't be scheduled until you pass.</p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (testIds.length === 0 || menuState === "not-required") {
-    return <Card><CardContent className="p-6 text-sm text-muted-foreground">No knowledge tests assigned for your role yet.</CardContent></Card>;
-  }
-
-
-  return (
-    <div className="grid gap-4">
-      {menuState === "stale" && (
-        <Card className="border-amber-500/50 bg-amber-500/10">
-          <CardContent className="p-4 text-sm text-amber-900 dark:text-amber-200">
-            <p className="font-semibold">Your restaurant's menu was updated</p>
-            <p className="mt-1">Retake the Menu Knowledge Test below to regain schedule access. You can't be scheduled until you pass at 80%.</p>
-          </CardContent>
-        </Card>
-      )}
-
-      <KnowledgeTest
-        testId={MENU_MODULE_ID}
-        title={MENU_TEST_TITLE}
-        description="Straight knowledge check on your restaurant's current menu. You must pass before you can be scheduled."
-        employeeId={me.id}
-        progress={me.progress.find((p) => p.videoId === MENU_MODULE_ID)}
-        retakeRequired={menuState === "stale"}
-        onQuizSubmit={(result) => {
-          applyQuizAttemptResult(me.id, MENU_MODULE_ID, result);
-          if (result.passed) toast.success(`Passed with ${result.score}%.`);
-          else toast.error(`Scored ${result.score}%. Try again.`);
-        }}
-      />
     </div>
   );
 }
