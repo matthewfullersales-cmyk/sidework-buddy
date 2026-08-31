@@ -253,6 +253,8 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
           {step === 3 && (
             <TeamForm
               value={answers}
+              customRoles={customRoles}
+              onAddCustomRole={addCustomRole}
               onSubmit={(v) => {
                 setAnswers((a) => ({ ...a, ...v }));
                 advance(
