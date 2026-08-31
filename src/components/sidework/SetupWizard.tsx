@@ -499,10 +499,7 @@ function FinalizingScreen({ name }: { name: string }) {
   );
 }
 
-      </div>
-    </div>
-  );
-}
+
 
 
 function CheckIcon({ className = "" }: { className?: string }) {
