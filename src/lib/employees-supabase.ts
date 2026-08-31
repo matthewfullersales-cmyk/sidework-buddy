@@ -2,6 +2,7 @@
 // Wave A of the scheduling migration: employees move from localStorage to
 // Supabase; shifts/time-off/trades stay local until Wave B.
 import { supabase } from "@/integrations/supabase/client";
+import { nextCustomColor } from "@/lib/role-colors";
 import type {
   Employee,
   Role,
@@ -10,6 +11,7 @@ import type {
   WeeklyAvailability,
   EmergencyContact,
   WorkExperience,
+  CustomRole,
 } from "@/lib/sidework-store";
 
 type PersonRow = {
@@ -248,6 +250,72 @@ export async function saveBusinessInfo(ownerId: string, info: unknown): Promise<
     .eq("id", ownerId);
   if (error) throw error;
 }
+
+/* ---------------- Role configuration (jsonb on profiles) ---------------- */
+
+/**
+ * Fail-open normalizer: anything malformed becomes `[]`, which means
+ * "no built-in role is disabled" — never the reverse.
+ */
+export function normalizeDisabledRoles(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((v): v is string => typeof v === "string" && v.trim().length > 0);
+}
+
+/**
+ * Fail-open normalizer for owner-authored custom roles. Entries missing a
+ * usable name or section are dropped; a missing color is assigned rather than
+ * costing the owner the role.
+ */
+export function normalizeCustomRoles(raw: unknown): CustomRole[] {
+  if (!Array.isArray(raw)) return [];
+  const out: CustomRole[] = [];
+  for (const entry of raw) {
+    if (!entry || typeof entry !== "object") continue;
+    const e = entry as Record<string, unknown>;
+    const name = typeof e.name === "string" ? e.name.trim() : "";
+    const section = e.section === "FOH" || e.section === "BOH" ? e.section : null;
+    if (!name || !section) continue;
+    const color = typeof e.color === "string" && e.color.trim() ? e.color : nextCustomColor(out);
+    out.push({ name, section, color });
+  }
+  return out;
+}
+
+export async function fetchRoleConfig(
+  ownerId: string,
+): Promise<{ disabledRoles: string[]; customRoles: CustomRole[]; everWritten: boolean }> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("disabled_roles, custom_roles" as never)
+    .eq("id", ownerId)
+    .maybeSingle();
+  if (error) throw error;
+  const row = data as { disabled_roles: unknown; custom_roles: unknown } | null;
+  const disabledRoles = normalizeDisabledRoles(row?.disabled_roles);
+  const customRoles = normalizeCustomRoles(row?.custom_roles);
+  return {
+    disabledRoles,
+    customRoles,
+    everWritten: disabledRoles.length > 0 || customRoles.length > 0,
+  };
+}
+
+export async function saveRoleConfig(
+  ownerId: string,
+  disabledRoles: string[],
+  customRoles: CustomRole[],
+): Promise<void> {
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      disabled_roles: normalizeDisabledRoles(disabledRoles) as never,
+      custom_roles: normalizeCustomRoles(customRoles) as never,
+    } as never)
+    .eq("id", ownerId);
+  if (error) throw error;
+}
+
 
 /* ---------------- Shadow shift packet (jsonb on profiles) ---------------- */
 

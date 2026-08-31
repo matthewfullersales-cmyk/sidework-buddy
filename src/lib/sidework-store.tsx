@@ -27,6 +27,8 @@ import {
   fetchMenuTestConfig,
   fetchMenuTestConfigViaRpc,
   saveMenuTestConfig,
+  fetchRoleConfig,
+  saveRoleConfig,
   createStaffInviteRow,
 } from "@/lib/employees-supabase";
 
@@ -1291,7 +1293,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     }
     (async () => {
       try {
-        const [postings, apps, remoteEmployeesInitial, remoteHours, remoteShiftsInitial, remoteTimeOffInitial, remoteTradesInitial, remoteBusinessInfo, remoteTrainingProgress, menuBankMeta, remoteMenuTestConfig] = await Promise.all([
+        const [postings, apps, remoteEmployeesInitial, remoteHours, remoteShiftsInitial, remoteTimeOffInitial, remoteTradesInitial, remoteBusinessInfo, remoteTrainingProgress, menuBankMeta, remoteMenuTestConfig, remoteRoleConfig] = await Promise.all([
           fetchOwnerPostings(effectiveOwnerId),
           fetchOwnerApplications(effectiveOwnerId),
           fetchOwnerEmployees(effectiveOwnerId),
@@ -1312,7 +1314,12 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
             console.warn("[owner-sync] menu test config load failed", e);
             return null;
           }),
+          fetchRoleConfig(effectiveOwnerId).catch((e) => {
+            console.warn("[owner-sync] role config load failed", e);
+            return null;
+          }),
         ]);
+
 
         if (cancelled) return;
 
@@ -1349,6 +1356,32 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           }
         }
 
+        // Role config: the database is authoritative, including an empty
+        // result (empty disabledRoles = every built-in role available). The
+        // one exception is the first load after the columns appeared: if the
+        // database has never been written AND this device holds a local-only
+        // configuration, push it up once, then the database wins from then on.
+        // Sequencing: convertActiveRoles already ran on the localStorage
+        // payload during hydration, so `local.disabledRoles` here is always
+        // the converted, inverted list — never a legacy activeRoles snapshot.
+        let rolesPatch: Partial<typeof state> = {};
+        if (remoteRoleConfig) {
+          const localDisabled = local.disabledRoles ?? [];
+          const localCustom = local.customRoles ?? [];
+          const hasLocal = localDisabled.length > 0 || localCustom.length > 0;
+          if (!remoteRoleConfig.everWritten && hasLocal && acting === "owner") {
+            rolesPatch = { disabledRoles: localDisabled, customRoles: localCustom };
+            saveRoleConfig(effectiveOwnerId, localDisabled, localCustom).catch((e) =>
+              console.error("[role-config-bootstrap] failed", e),
+            );
+          } else {
+            rolesPatch = {
+              disabledRoles: remoteRoleConfig.disabledRoles,
+              customRoles: remoteRoleConfig.customRoles,
+            };
+          }
+        }
+
 
         // Merge cloud-stored training progress into each employee. Additive:
         // if a given employee has no cloud rows, fall back to whatever the
@@ -1373,6 +1406,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           timeOff: remoteTimeOff,
           trades: remoteTrades,
           ...hoursPatch,
+          ...rolesPatch,
           businessInfo: normalizeBusinessInfo(remoteBusinessInfo),
           menuBankMeta,
           menuTestConfig: normalizeMenuTestConfig(remoteMenuTestConfig),
@@ -1503,6 +1537,14 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
   }, [authLoading, hydrated, effectiveOwnerId, employeeCtxOwnerId, employeeCtxEmployeeId]);
 
 
+  // Role configuration is owner-level config: mirror it to the database the
+  // same way business info and restaurant hours are mirrored.
+  const persistRoleConfig = (disabledRoles: string[], customRoles: CustomRole[]) => {
+    const oid = ownerIdRef.current;
+    if (oid) saveRoleConfig(oid, disabledRoles, customRoles).catch((e) => console.error("[persistRoleConfig]", e));
+  };
+
+
   const uid = (prefix: string) => `${prefix}${Date.now()}${Math.floor(Math.random() * 1000)}`;
   const newUuid = () =>
     typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -1553,32 +1595,45 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     },
     disabledRoles: state.disabledRoles,
     setDisabledRoles: (roles) =>
-      setState((s) => ({ ...s, disabledRoles: Array.from(new Set(roles)) })),
+      setState((s) => {
+        const next = { ...s, disabledRoles: Array.from(new Set(roles)) };
+        persistRoleConfig(next.disabledRoles, next.customRoles);
+        return next;
+      }),
     // Callers still think in terms of "these are the roles we staff"; we store
     // the complement over the BUILT-IN list only. Custom roles are never
     // disabled — removing one deletes it outright.
     setActiveRoles: (roles) =>
       setState((s) => {
         const on = new Set(roles);
-        return { ...s, disabledRoles: ROLES_ORDERED.filter((r) => !on.has(r)) };
+        const next = { ...s, disabledRoles: ROLES_ORDERED.filter((r) => !on.has(r)) };
+        persistRoleConfig(next.disabledRoles, next.customRoles);
+        return next;
       }),
     addCustomRole: (role) =>
       setState((s) => {
         if (s.customRoles.some((c) => c.name === role.name) || (BUILT_IN_ROLES as readonly string[]).includes(role.name)) {
           return s;
         }
-        return {
+        const next = {
           ...s,
           customRoles: [...s.customRoles, role],
           disabledRoles: s.disabledRoles.filter((r) => r !== role.name),
         };
+        persistRoleConfig(next.disabledRoles, next.customRoles);
+        return next;
       }),
     removeCustomRole: (name) =>
-      setState((s) => ({
-        ...s,
-        customRoles: s.customRoles.filter((c) => c.name !== name),
-        disabledRoles: s.disabledRoles.filter((r) => r !== name),
-      })),
+      setState((s) => {
+        const next = {
+          ...s,
+          customRoles: s.customRoles.filter((c) => c.name !== name),
+          disabledRoles: s.disabledRoles.filter((r) => r !== name),
+        };
+        persistRoleConfig(next.disabledRoles, next.customRoles);
+        return next;
+      }),
+
     setCurrentUser: (u) => setState((s) => ({ ...s, currentUser: u })),
     clearAllEmployees: () => {
       setState((s) => ({ ...s, employees: [], shifts: [], trades: [], timeOff: [] }));
