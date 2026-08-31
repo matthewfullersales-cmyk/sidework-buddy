@@ -282,6 +282,19 @@ export function normalizeCustomRoles(raw: unknown): CustomRole[] {
   return out;
 }
 
+/**
+ * `everWritten` is true if and only if the stored value is non-NULL. It is
+ * NEVER derived from array length: `[]` is a legitimate saved state ("we
+ * configured roles and disabled nothing"), and it is what most restaurants
+ * will hold. Inferring "never written" from "empty" let a stale local cache
+ * resurrect roles the owner had already re-enabled.
+ *
+ *   NULL = never configured   |   [] = configured, nothing disabled
+ *
+ * A missing profile row and a row with NULL columns both mean "not
+ * configured"; neither is an error. The normalizers still fail open, so the
+ * arrays handed back are safe to use no matter what was stored.
+ */
 export async function fetchRoleConfig(
   ownerId: string,
 ): Promise<{ disabledRoles: string[]; customRoles: CustomRole[]; everWritten: boolean }> {
@@ -291,30 +304,53 @@ export async function fetchRoleConfig(
     .eq("id", ownerId)
     .maybeSingle();
   if (error) throw error;
+
+  // No profile row at all -> not configured, and not a crash.
   const row = data as { disabled_roles: unknown; custom_roles: unknown } | null;
-  const disabledRoles = normalizeDisabledRoles(row?.disabled_roles);
-  const customRoles = normalizeCustomRoles(row?.custom_roles);
+
+  // Non-null in the database is the ONLY signal that a save has happened.
+  const everWritten =
+    row !== null &&
+    (row.disabled_roles !== null && row.disabled_roles !== undefined) ||
+    row !== null &&
+    (row.custom_roles !== null && row.custom_roles !== undefined);
+
   return {
-    disabledRoles,
-    customRoles,
-    everWritten: disabledRoles.length > 0 || customRoles.length > 0,
+    // Fail open regardless: NULL, malformed, or non-array all become [],
+    // which means "no built-in role is disabled" — never the reverse.
+    disabledRoles: normalizeDisabledRoles(row?.disabled_roles),
+    customRoles: normalizeCustomRoles(row?.custom_roles),
+    everWritten,
   };
 }
 
+/**
+ * Always writes real arrays, never NULL — saving is what makes a row
+ * "configured". Asks for the affected-row count and throws when it is zero:
+ * an `.update()` against a missing profile row otherwise reports success
+ * while doing nothing at all.
+ */
 export async function saveRoleConfig(
   ownerId: string,
   disabledRoles: string[],
   customRoles: CustomRole[],
 ): Promise<void> {
-  const { error } = await supabase
+  const { error, count } = await supabase
     .from("profiles")
-    .update({
-      disabled_roles: normalizeDisabledRoles(disabledRoles) as never,
-      custom_roles: normalizeCustomRoles(customRoles) as never,
-    } as never)
+    .update(
+      {
+        disabled_roles: normalizeDisabledRoles(disabledRoles) as never,
+        custom_roles: normalizeCustomRoles(customRoles) as never,
+      } as never,
+      { count: "exact" },
+    )
     .eq("id", ownerId);
   if (error) throw error;
+  if (!count) {
+    throw new Error(`saveRoleConfig: no profile row updated for owner ${ownerId}`);
+  }
 }
+
 
 
 /* ---------------- Shadow shift packet (jsonb on profiles) ---------------- */
