@@ -6,12 +6,19 @@ import { Logo } from "@/components/sidework/Logo";
 import {
   useStore,
   defaultMenuKindsForRole,
+  type CustomRole,
   type MenuUpload,
   type MenuKind,
   type MenuTestConfig,
   type Role,
   type ServiceStyle,
 } from "@/lib/sidework-store";
+import {
+  FOH_ROLES_ORDERED,
+  BOH_ROLES_ORDERED,
+  ROLES_ORDERED,
+  nextCustomColor,
+} from "@/lib/role-colors";
 import { MenuTestMatrix } from "@/components/sidework/MenuTestMatrix";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { toast } from "sonner";
@@ -26,16 +33,6 @@ type RestaurantType =
   | "Cafe"
   | "Food Truck"
   | "Other";
-
-const FOH_ROLES = [
-  "Host", "Busser", "Server Assistant", "Bar Back", "Bartender", "Server",
-  "Manager", "Assistant Manager",
-] as const;
-
-const BOH_ROLES = [
-  "Chef", "Sous Chef", "Line Cook", "Fry Cook", "Saute",
-  "Grill", "Pizza", "Garde Manger", "Dishwasher", "Prep",
-] as const;
 
 const RESTAURANT_TYPES: RestaurantType[] = [
   "Fine Dining", "Casual Dining", "Fast Casual", "Bar/Nightlife", "Cafe", "Food Truck", "Other",
@@ -94,7 +91,7 @@ function defaultsFilled(roles: Role[], kinds: MenuKind[], cfg: MenuTestConfig): 
 }
 
 export function SetupWizard({ onComplete }: { onComplete: () => void }) {
-  const { completeSetup, setMenuTestConfig, setBusinessInfo } = useStore();
+  const { completeSetup, setMenuTestConfig, setBusinessInfo, setDisabledRoles, customRoles, addCustomRole } = useStore();
   const [step, setStep] = useState(1);
   const [answers, setAnswers] = useState<Answers>(EMPTY);
   const [foodMenu, setFoodMenu] = useState<MenuUpload | null>(null);
@@ -176,6 +173,10 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
         dessertMenu,
       );
       setMenuTestConfig(defaultsFilled(wizardRoles, uploadedKinds, testConfig));
+      // Persist the EXCEPTIONS only: built-in roles the owner did not pick.
+      // Custom roles the owner typed in are already in the store.
+      const picked = new Set(wizardRoles);
+      setDisabledRoles(ROLES_ORDERED.filter((r) => !picked.has(r)));
       onComplete();
     }, 2000);
   };
@@ -387,11 +388,42 @@ function BasicsForm({
 }
 
 function TeamForm({
-  value, onSubmit,
-}: { value: Answers; onSubmit: (v: Pick<Answers, "fohRoles" | "bohRoles">) => void }) {
+  value, onSubmit, customRoles, onAddCustomRole,
+}: {
+  value: Answers;
+  onSubmit: (v: Pick<Answers, "fohRoles" | "bohRoles">) => void;
+  customRoles: CustomRole[];
+  onAddCustomRole: (role: CustomRole) => void;
+}) {
   const [foh, setFoh] = useState<string[]>(value.fohRoles);
   const [boh, setBoh] = useState<string[]>(value.bohRoles);
+  const [newRole, setNewRole] = useState("");
+  const [newSection, setNewSection] = useState<"FOH" | "BOH">("FOH");
   const ok = foh.length > 0 || boh.length > 0;
+  const fohOptions = [
+    ...FOH_ROLES_ORDERED,
+    ...customRoles.filter((c) => c.section === "FOH").map((c) => c.name),
+  ];
+  const bohOptions = [
+    ...BOH_ROLES_ORDERED,
+    ...customRoles.filter((c) => c.section === "BOH").map((c) => c.name),
+  ];
+
+  const addRole = () => {
+    const name = newRole.trim();
+    if (!name) return;
+    const taken = [...ROLES_ORDERED, ...customRoles.map((c) => c.name)].some(
+      (r) => r.toLowerCase() === name.toLowerCase(),
+    );
+    if (taken) {
+      toast.error(`"${name}" is already one of your roles.`);
+      return;
+    }
+    onAddCustomRole({ name, section: newSection, color: nextCustomColor(customRoles) });
+    if (newSection === "FOH") setFoh((v) => [...v, name]);
+    else setBoh((v) => [...v, name]);
+    setNewRole("");
+  };
   const recommended =
     value.type === "Fine Dining" ? "Server Assistant" :
     value.type === "Casual Dining" || value.type === "Fast Casual" ? "Busser" :
@@ -405,11 +437,41 @@ function TeamForm({
             For {value.type}, we recommend <strong>{recommended}</strong> on your FOH team. Both Busser and Server Assistant are always available.
           </p>
         )}
-        <ChipGrid options={[...FOH_ROLES]} value={foh} multi onChange={(v) => setFoh(v as string[])} />
+        <ChipGrid options={fohOptions} value={foh} multi onChange={(v) => setFoh(v as string[])} />
       </div>
       <div>
         <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">BOH roles</p>
-        <ChipGrid options={[...BOH_ROLES]} value={boh} multi onChange={(v) => setBoh(v as string[])} />
+        <ChipGrid options={bohOptions} value={boh} multi onChange={(v) => setBoh(v as string[])} />
+      </div>
+      <div>
+        <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Type in your own role
+        </p>
+        <div className="flex gap-2">
+          <Input
+            placeholder="e.g. Sommelier"
+            aria-label="New role name"
+            value={newRole}
+            onChange={(e) => setNewRole(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addRole(); } }}
+          />
+          <div className="flex shrink-0 overflow-hidden rounded-md border border-border">
+            {(["FOH", "BOH"] as const).map((sec) => (
+              <button
+                key={sec}
+                type="button"
+                aria-pressed={newSection === sec}
+                onClick={() => setNewSection(sec)}
+                className={`px-3 text-xs font-semibold ${newSection === sec ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground"}`}
+              >
+                {sec}
+              </button>
+            ))}
+          </div>
+          <Button type="button" variant="secondary" onClick={addRole} disabled={!newRole.trim()}>
+            Add
+          </Button>
+        </div>
       </div>
       <Button size="lg" className="w-full" disabled={!ok} onClick={() => onSubmit({ fohRoles: foh, bohRoles: boh })}>
         Continue →
