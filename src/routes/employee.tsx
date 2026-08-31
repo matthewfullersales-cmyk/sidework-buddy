@@ -79,20 +79,8 @@ function EmployeePage() {
   }, [authLoading, targetId, targetResolved, employeeHydrationError]);
   const status = useMemo(() => (me ? onboardingStatus(me, customRoles) : null), [me, customRoles]);
 
-  useEffect(() => {
-    if (!me || !status) return;
-    const key = `sw-welcome-${me.id}`;
-    try {
-      if (!localStorage.getItem(key) && status.total > 0 && status.passed === 0) {
-        toast.success("Welcome! Your knowledge checks are ready.", {
-          description: "Pass your required knowledge tests before your first shift.",
-          duration: 6000,
-        });
-        localStorage.setItem(key, "1");
-      }
-    } catch {}
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [me?.id, status?.total, status?.passed]);
+  // (removed) knowledge-test welcome toast — testing surfaces are parked.
+
 
   if (!authLoading && profile?.role === "owner") return <Navigate to="/manager" />;
   if (me && isPendingJoin(me)) {
