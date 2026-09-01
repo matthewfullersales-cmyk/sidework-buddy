@@ -207,6 +207,8 @@ function OverviewTab() {
       </div>
 
 
+      <NotificationsCard />
+
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-base">Onboarding progress</CardTitle>
@@ -233,6 +235,52 @@ function OverviewTab() {
     </div>
   );
 }
+
+// Manager activity feed. Training/menu-test messages are filtered OUT at
+// render (their generators stay in place but are inert / dormant).
+const TRAINING_NOISE = /\b(training|test|tests|quiz|quizzes|menu knowledge)\b/i;
+
+function NotificationsCard() {
+  const { notifications, markNotificationsRead } = useStore();
+  const visible = useMemo(
+    () => notifications.filter((n) => !TRAINING_NOISE.test(n.message)),
+    [notifications],
+  );
+  const recent = visible.slice(0, 6);
+  const unread = visible.filter((n) => !n.read).length;
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div className="flex items-center gap-2">
+          <CardTitle className="text-base">Recent activity</CardTitle>
+          {unread > 0 && <Badge className="bg-primary text-primary-foreground hover:bg-primary">{unread} new</Badge>}
+        </div>
+        {unread > 0 && (
+          <Button variant="ghost" size="sm" onClick={markNotificationsRead}>Mark all read</Button>
+        )}
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {recent.length === 0 && (
+          <p className="text-sm text-muted-foreground">Nothing yet. Activity from your team shows up here.</p>
+        )}
+        {recent.map((n) => (
+          <div
+            key={n.id}
+            className={`flex items-start gap-3 rounded-lg border border-border p-3 ${!n.read ? "bg-primary/5 ring-1 ring-primary/20" : ""}`}
+          >
+            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-card text-sm font-bold">•</span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium">{n.message}</p>
+              <p className="text-xs text-muted-foreground">{new Date(n.createdAt).toLocaleString()}</p>
+            </div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
+
 
 function PendingRoleAssignmentQueue({
   employees,
