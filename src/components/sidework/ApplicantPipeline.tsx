@@ -529,6 +529,7 @@ export function ApplicantPipeline() {
         restaurantName: effectiveOwner?.restaurantName ?? "",
         email: person.email ?? "",
         shadowDate: formatDateLong(ss.shiftDate),
+        shadowDateSubject: formatDateWithWeekday(ss.shiftDate),
         shadowTime: formatTime12h(ss.arrivalTime.slice(0, 5)),
       }});
       ok = res.email.ok;
@@ -611,6 +612,7 @@ export function ApplicantPipeline() {
         restaurantName: effectiveOwner?.restaurantName ?? "",
         email: person.email ?? "",
         shadowDate: formatDateLong(ss.shiftDate),
+        shadowDateSubject: formatDateWithWeekday(ss.shiftDate),
         shadowTime: formatTime12h(ss.arrivalTime.slice(0, 5)),
       }});
       ok = res.email.ok;
