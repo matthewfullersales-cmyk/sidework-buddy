@@ -3,6 +3,7 @@
 // Managers read/write their own restaurant's rows; a person with a login can
 // read their own row and edit only phone / email / emergency contact.
 import { supabase } from "@/integrations/supabase/client";
+import { DAY_KEYS, type WeeklyAvailability, type DayAvailability } from "@/lib/sidework-store";
 
 export type PersonState =
   | "applicant"
@@ -49,7 +50,9 @@ export type Person = {
   isTrainerForRoles: string[];
   emergencyContact: EmergencyContact | null;
   resumePath: string | null;
-  workExperience: unknown;
+  workExperience: PersonWorkExperience | null;
+  /** Partial by design: intake forms only write the days that were answered. */
+  weeklyAvailability: Partial<WeeklyAvailability> | null;
   archived: boolean;
   inviteToken: string | null;
   inviteExpiresAt: string | null;
@@ -82,6 +85,7 @@ type PersonRow = {
   emergency_contact: unknown;
   resume_path: string | null;
   work_experience: unknown;
+  weekly_availability: unknown;
   archived: boolean;
   invite_token: string | null;
   invite_expires_at: string | null;
@@ -114,7 +118,8 @@ function mapPerson(row: PersonRow): Person {
     isTrainerForRoles: row.is_trainer_for_roles ?? [],
     emergencyContact: (row.emergency_contact as EmergencyContact | null) ?? null,
     resumePath: row.resume_path,
-    workExperience: row.work_experience ?? null,
+    workExperience: normalizeWorkExperience(row.work_experience),
+    weeklyAvailability: normalizeWeeklyAvailability(row.weekly_availability),
     archived: row.archived,
     inviteToken: row.invite_token ?? null,
     inviteExpiresAt: row.invite_expires_at ?? null,
@@ -125,6 +130,40 @@ function mapPerson(row: PersonRow): Person {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+/** Versioned structured experience answers captured on the public application. */
+export type PersonWorkExperience = {
+  v: 1;
+  yearsInRestaurants?: string;
+  longestTenure?: string;
+};
+
+function normalizeWorkExperience(raw: unknown): PersonWorkExperience | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const o = raw as Record<string, unknown>;
+  const years = typeof o.yearsInRestaurants === "string" ? o.yearsInRestaurants : undefined;
+  const tenure = typeof o.longestTenure === "string" ? o.longestTenure : undefined;
+  if (!years && !tenure) return null;
+  return { v: 1, yearsInRestaurants: years, longestTenure: tenure };
+}
+
+/** Keeps only well-formed day entries; anything else is dropped. */
+function normalizeWeeklyAvailability(raw: unknown): Partial<WeeklyAvailability> | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const o = raw as Record<string, unknown>;
+  const out: Partial<WeeklyAvailability> = {};
+  for (const d of DAY_KEYS) {
+    const entry = o[d];
+    if (!entry || typeof entry !== "object") continue;
+    const e = entry as Record<string, unknown>;
+    if (e.kind === "full") out[d] = { kind: "full" } as DayAvailability;
+    else if (e.kind === "none") out[d] = { kind: "none" } as DayAvailability;
+    else if (e.kind === "partial" && (e.half === "day" || e.half === "night")) {
+      out[d] = { kind: "partial", half: e.half } as DayAvailability;
+    }
+  }
+  return Object.keys(out).length > 0 ? out : null;
 }
 
 export type NewPerson = {
@@ -276,6 +315,9 @@ export async function submitApplication(input: {
   email?: string | null;
   phone?: string | null;
   source?: string | null;
+  weeklyAvailability?: Partial<WeeklyAvailability> | null;
+  yearsExperience?: string | null;
+  longestTenure?: string | null;
 }): Promise<string> {
   const { data, error } = await supabase.rpc("submit_application", {
     p_owner_slug: input.ownerSlug ?? "",
@@ -285,7 +327,10 @@ export async function submitApplication(input: {
     p_email: input.email ?? "",
     p_phone: input.phone ?? "",
     p_source: input.source ?? "careers",
-  });
+    p_weekly_availability: (input.weeklyAvailability ?? null) as never,
+    p_years_experience: input.yearsExperience ?? "",
+    p_longest_tenure: input.longestTenure ?? "",
+  } as never);
   if (error) throw error;
   return data as unknown as string;
 }
