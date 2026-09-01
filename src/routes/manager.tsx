@@ -367,7 +367,9 @@ function PendingJoinRequestsQueue({
                 <p className="truncate text-xs text-muted-foreground">
                   {e.email}{e.phone ? ` · ${e.phone}` : ""}
                 </p>
-                <p className="mt-0.5 text-[11px] text-muted-foreground">Wants to join as {e.primaryRole}</p>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">
+                  {e.primaryRole ? `Wants to join as ${e.primaryRole}` : "No role yet — assign one after approving"}
+                </p>
               </div>
               <div className="flex gap-2">
                 <Button size="sm" onClick={() => onApprove(e.id)}>Approve</Button>
