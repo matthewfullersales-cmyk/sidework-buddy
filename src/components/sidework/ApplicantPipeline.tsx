@@ -177,20 +177,28 @@ export function ApplicantPipeline() {
     }
   };
 
-  // Newest non-cancelled shadow shift per person.
+  // Newest non-cancelled shadow shift per person, plus the newest cancelled one
+  // for anyone left with no replacement (the stale-cancel reminder).
   const loadShadowShifts = async (rows: Person[]) => {
     try {
       const list = await fetchShadowShiftsForPeople(rows.map((p) => p.id));
       const map: Record<string, ShadowShift> = {};
+      const cancelled: Record<string, ShadowShift> = {};
       for (const ss of list) {
-        if (ss.status === "cancelled") continue;
+        if (ss.status === "cancelled") {
+          if (!cancelled[ss.personId]) cancelled[ss.personId] = ss;
+          continue;
+        }
         if (!map[ss.personId]) map[ss.personId] = ss;
       }
+      for (const pid of Object.keys(map)) delete cancelled[pid];
       setShadowShifts(map);
+      setCancelledShadow(cancelled);
     } catch (e) {
       console.error("[pipeline] shadow shifts load failed", e);
     }
   };
+
 
   const load = async (oid: string) => {
     setLoading(true);
