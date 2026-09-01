@@ -14,6 +14,12 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { PersonAvatar } from "@/components/sidework/PersonAvatar";
+import {
+  AvailabilitySummary,
+  hasAnyAvailability,
+  yearsExperienceLabel,
+  longestTenureLabel,
+} from "@/components/sidework/AvailabilitySummary";
 import { InterviewOfferDialog } from "@/components/sidework/InterviewOfferDialog";
 import { formatPhone } from "@/lib/format-phone";
 import { formatDateLong, formatDateWithWeekday, formatTime12h } from "@/lib/utils";
@@ -864,6 +870,39 @@ export function ApplicantPipeline() {
                   </div>
                 )}
 
+                <div className="mt-2 rounded-lg border border-border p-3">
+                  <p className="text-xs font-semibold">Weekly availability</p>
+                  {hasAnyAvailability(openPerson.weeklyAvailability) ? (
+                    <div className="mt-2">
+                      <AvailabilitySummary value={openPerson.weeklyAvailability} />
+                    </div>
+                  ) : (
+                    <p className="mt-1 text-sm text-muted-foreground">No availability on record.</p>
+                  )}
+                  <p className="mt-3 text-xs font-semibold">Experience</p>
+                  {yearsExperienceLabel(openPerson.workExperience?.yearsInRestaurants) ||
+                  longestTenureLabel(openPerson.workExperience?.longestTenure) ? (
+                    <div className="mt-1 text-sm">
+                      {yearsExperienceLabel(openPerson.workExperience?.yearsInRestaurants) && (
+                        <p>
+                          <span className="text-muted-foreground">Years in restaurants: </span>
+                          {yearsExperienceLabel(openPerson.workExperience?.yearsInRestaurants)}
+                        </p>
+                      )}
+                      {longestTenureLabel(openPerson.workExperience?.longestTenure) && (
+                        <p>
+                          <span className="text-muted-foreground">Longest at one job: </span>
+                          {longestTenureLabel(openPerson.workExperience?.longestTenure)}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="mt-1 text-sm text-muted-foreground">Not answered.</p>
+                  )}
+                </div>
+
+
+
                 {openPerson.resumePath && (
                   <Button
                     size="sm"
@@ -1137,6 +1176,13 @@ export function ApplicantPipeline() {
                     <Input id="shadow-time" type="time" value={shTime} onChange={(e) => setShTime(e.target.value)} />
                   </div>
                 </div>
+
+                {hasAnyAvailability(shadowFor.weeklyAvailability) && (
+                  <div className="space-y-2">
+                    <Label>{shadowFor.firstName}&apos;s availability</Label>
+                    <AvailabilitySummary value={shadowFor.weeklyAvailability} />
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <Label>Trainer <span className="text-xs font-normal text-muted-foreground">(optional)</span></Label>

@@ -9,13 +9,12 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { type Relationship } from "@/lib/sidework-store";
 import {
-  type Relationship,
-  type DayAvailability,
-  type DayHalf,
-  type DayKey,
-  DAY_KEYS,
-} from "@/lib/sidework-store";
+  AvailabilityPicker,
+  unansweredDays,
+  type PartialWeekly,
+} from "@/components/sidework/AvailabilityPicker";
 import { supabase } from "@/integrations/supabase/client";
 import {
   fetchPublicStaffInvite,
@@ -41,8 +40,6 @@ export const Route = createFileRoute("/staff-invite/$token")({
   component: StaffInvitePage,
 });
 
-type AvKind = "full" | "partial" | "none";
-
 function StaffInvitePage() {
   const { token } = Route.useParams();
 
@@ -53,7 +50,7 @@ function StaffInvitePage() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   // Starts empty on purpose: nothing is stored for a day the person never taps.
-  const [availability, setAvailability] = useState<Partial<Record<DayKey, DayAvailability>>>({});
+  const [availability, setAvailability] = useState<PartialWeekly>({});
   const [ecFirstName, setEcFirstName] = useState("");
   const [ecLastName, setEcLastName] = useState("");
   const [ecPhone, setEcPhone] = useState("");
@@ -78,33 +75,11 @@ function StaffInvitePage() {
     return () => { cancelled = true; };
   }, [token]);
 
-  const setDayKind = (day: DayKey, kind: AvKind) =>
-    setAvailability((prev) => {
-      if (kind !== "partial") return { ...prev, [day]: { kind } };
-      const cur = prev[day];
-      // Keep an already-chosen half when re-tapping Partial; otherwise leave
-      // the half unspecified rather than guessing.
-      return { ...prev, [day]: { kind: "partial", ...(cur?.kind === "partial" && cur.half ? { half: cur.half } : {}) } };
-    });
-
-  // Exactly one half; tapping the other replaces it rather than accumulating.
-  const setDayHalf = (day: DayKey, half: DayHalf) =>
-    setAvailability((prev) => ({ ...prev, [day]: { kind: "partial", half } }));
-
   const availabilityCheck = useMemo(() => {
-    const missing: string[] = [];
-    for (const d of DAY_KEYS) {
-      const entry = availability[d];
-      if (!entry) {
-        missing.push(d);
-        continue;
-      }
-      if (entry.kind === "partial" && !entry.half) {
-        missing.push(`${d} (Day or Night)`);
-      }
-    }
+    const missing = unansweredDays(availability);
     return { complete: missing.length === 0, missing };
   }, [availability]);
+
 
   const restaurantName = invite?.restaurantName ?? "the team";
   const inviteName = `${invite?.firstName ?? ""} ${invite?.lastName ?? ""}`.trim();
@@ -309,61 +284,16 @@ function StaffInvitePage() {
             <div className="grid gap-2">
               <Label className="text-sm font-medium">Weekly availability</Label>
               <p className="text-xs text-muted-foreground">
-                Tap Full, Partial, or Off for each day. If Partial, also choose Day or Night.
+                Tap Full, Day, Night, or Off for each day.
               </p>
-              <div className="grid gap-2">
-                {DAY_KEYS.map((d) => {
-                  const entry = availability[d];
-                  const kind: AvKind | undefined = entry?.kind;
-                  const half = entry?.kind === "partial" ? entry.half : undefined;
-                  return (
-                    <div key={d} className="grid gap-2 rounded-lg border border-border p-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="w-12 text-sm font-semibold">{d}</span>
-                        <div className="grid flex-1 grid-cols-3 gap-1">
-                          {(["full", "partial", "none"] as AvKind[]).map((k) => {
-                            const active = k === kind;
-                            const label = k === "full" ? "Full" : k === "partial" ? "Partial" : "Off";
-                            return (
-                              <button
-                                key={k}
-                                type="button"
-                                onClick={() => setDayKind(d, k)}
-                                className={`min-h-11 rounded-md border text-xs font-medium transition-colors ${active ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background hover:bg-muted"}`}
-                              >
-                                {label}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                      {kind === "partial" ? (
-                        <div className="grid grid-cols-2 gap-1 pl-12">
-                          {(["day", "night"] as DayHalf[]).map((h) => {
-                            const active = h === half;
-                            return (
-                              <button
-                                key={h}
-                                type="button"
-                                onClick={() => setDayHalf(d, h)}
-                                className={`min-h-11 rounded-md border text-xs font-medium transition-colors ${active ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background hover:bg-muted"}`}
-                              >
-                                {h === "day" ? "Day" : "Night"}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      ) : null}
-                  </div>
-                );
-              })}
-              </div>
+              <AvailabilityPicker value={availability} onChange={setAvailability} />
               {!availabilityCheck.complete ? (
                 <p className="text-xs text-muted-foreground">
                   Still need: {availabilityCheck.missing.join(", ")}
                 </p>
               ) : null}
             </div>
+
 
             <div className="grid gap-2 rounded-lg border border-border bg-muted/30 p-3">
               <Label className="text-sm font-medium">Emergency contact</Label>
