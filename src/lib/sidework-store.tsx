@@ -1779,31 +1779,13 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
       })),
     updateEmployee: (id, patch) => {
       setState((s) => {
-        const before = s.employees.find((e) => e.id === id);
         const employees = s.employees.map((e) => (e.id === id ? { ...e, ...patch } : e));
-        const after = employees.find((e) => e.id === id);
-        let notifications = s.notifications;
-        if (before && after) {
-          // Newly required knowledge tests after a role change.
-          const beforeIds = new Set(testIdsForEmployee(before));
-          const added = testIdsForEmployee(after).filter((tid) => !beforeIds.has(tid));
-          if (added.length > 0) {
-            notifications = [
-              {
-                id: uid("n"),
-                type: "training_passed",
-                message: `${after.name} must pass the ${MENU_TEST_TITLE} before being scheduled as ${after.primaryRole}.`,
-                employeeId: after.id,
-                createdAt: new Date().toISOString(),
-                read: false,
-              },
-              ...notifications,
-            ];
-          }
-        }
-
-        return { ...s, employees, notifications };
+        // Menu-test notification on role change is intentionally inert: the
+        // menu test is parked and no longer gates scheduling. Generator removed
+        // rather than filtered downstream.
+        return { ...s, employees };
       });
+
       const oid = ownerIdRef.current;
       if (oid) updateEmployeeRow(id, patch).catch((e) => console.error("[updateEmployee]", e));
     },
