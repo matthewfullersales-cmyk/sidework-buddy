@@ -104,8 +104,9 @@ ${ctaButton(data.link!, "Pick your interview time")}
 
   if (data.kind === "shadow_invite") {
     const when = [data.shadowDate, data.shadowTime].filter(Boolean).join(" at ");
+    const cantMake = `If that time doesn't work, tap "Can't make it" on the same page.`;
     return {
-      subject: `Shadow shift at ${restaurant}`,
+      subject: `Shadow shift at ${restaurant}${data.shadowDate ? ` — ${data.shadowDate}` : ""}`,
       text:
 `${hi}
 
@@ -114,20 +115,21 @@ ${restaurant} would like to invite you in for a shadow shift${when ? ` on ${when
 Review the details and confirm here:
 ${data.link}
 
-See you soon!`,
+${cantMake}`,
       html:
 `<p>${esc(hi)}</p>
 <p><strong>${esc(restaurant)}</strong> would like to invite you in for a shadow shift${when ? ` on <strong>${esc(when)}</strong>` : ""}.</p>
 <p>Everything you need — where to come in, who to ask for, and what to wear — is here:</p>
 ${ctaButton(data.link!, "See the details")}
-<p>See you soon!</p>`,
+<p>${esc(cantMake)}</p>`,
     };
   }
 
   if (data.kind === "shadow_moved") {
     const when = [data.shadowDate, data.shadowTime].filter(Boolean).join(" at ");
+    const cantMake = `If that time doesn't work, tap "Can't make it" on the same page.`;
     return {
-      subject: `Your shadow shift at ${restaurant} has a new time`,
+      subject: `Your shadow shift at ${restaurant} has moved${data.shadowDate ? ` to ${data.shadowDate}` : ""}`,
       text:
 `${hi}
 
@@ -136,28 +138,35 @@ Your shadow shift at ${restaurant} has been moved${when ? ` to ${when}` : ""}.
 Your earlier confirmation no longer applies. Please confirm the new time here:
 ${data.link}
 
-See you soon!`,
+${cantMake}`,
       html:
 `<p>${esc(hi)}</p>
 <p>Your shadow shift at <strong>${esc(restaurant)}</strong> has been moved${when ? ` to <strong>${esc(when)}</strong>` : ""}.</p>
 <p>Your earlier confirmation no longer applies. Please confirm the new time:</p>
 ${ctaButton(data.link!, "Confirm the new time")}
-<p>See you soon!</p>`,
+<p>${esc(cantMake)}</p>`,
     };
   }
 
   if (data.kind === "shadow_cancelled") {
+    const when = [data.shadowDate, data.shadowTime].filter(Boolean).join(" at ");
+    const line1 = `Your shadow shift at ${restaurant}${when ? ` on ${when}` : ""} has been cancelled.`;
+    const line2 = "Nothing else about your application has changed.";
+    const line3 = "If a new date is set, you'll get another email from us.";
     return {
-      subject: `Your shadow shift at ${restaurant} has been called off`,
+      subject: `Your shadow shift at ${restaurant} has been cancelled`,
       text:
 `${hi}
 
-Your shadow shift at ${restaurant} has been called off. The restaurant will be in touch.`,
+${line1} ${line2} ${line3}`,
       html:
 `<p>${esc(hi)}</p>
-<p>Your shadow shift at <strong>${esc(restaurant)}</strong> has been called off. The restaurant will be in touch.</p>`,
+<p>Your shadow shift at <strong>${esc(restaurant)}</strong>${when ? ` on <strong>${esc(when)}</strong>` : ""} has been cancelled.</p>
+<p>${esc(line2)}</p>
+<p>${esc(line3)}</p>`,
     };
   }
+
 
   // hire_signup
   return {

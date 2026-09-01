@@ -89,6 +89,42 @@ function relativeDate(iso: string | null): string {
 
 const longDate = formatDateLong;
 
+/**
+ * How far ahead of the shift the trainee declined. Display-only and
+ * approximate: the shift stores a local date + time with no timezone, so this
+ * is read against the manager's clock. Falls back to null when unparseable, and
+ * the caller then shows the flat wording.
+ */
+function declineTiming(declinedAt: string | null, shiftDate: string, arrivalTime: string): string | null {
+  if (!declinedAt) return null;
+  const declined = new Date(declinedAt).getTime();
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(shiftDate ?? "");
+  const t = /^(\d{2}):(\d{2})/.exec(arrivalTime ?? "");
+  if (Number.isNaN(declined) || !m || !t) return null;
+  const arrival = new Date(
+    Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(t[1]), Number(t[2]),
+  ).getTime();
+  if (Number.isNaN(arrival)) return null;
+  const mins = Math.round((arrival - declined) / 60000);
+  if (mins <= 0) return "Declined after the arrival time";
+  if (mins < 60) return `Declined ${mins} minute${mins === 1 ? "" : "s"} before`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `Declined ${hours} hour${hours === 1 ? "" : "s"} before`;
+  const days = Math.round(hours / 24);
+  if (days === 1) return "Declined the day before";
+  return `Declined ${days} days before`;
+}
+
+/** "Cancelled today" / "Cancelled N days ago", counting whole days. */
+function cancelledAgo(iso: string): string | null {
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return null;
+  const days = Math.max(0, Math.floor((Date.now() - then) / 86400000));
+  if (days === 0) return "Cancelled today — no new date";
+  return `Cancelled ${days} day${days === 1 ? "" : "s"} ago — no new date`;
+}
+
+
 export function ApplicantPipeline() {
   const { effectiveOwner } = useAuth();
   const ownerId = effectiveOwner?.ownerId ?? null;
@@ -106,6 +142,10 @@ export function ApplicantPipeline() {
   const [hireFor, setHireFor] = useState<Person | null>(null);
   const [hireRole, setHireRole] = useState<string>("");
   const [shadowShifts, setShadowShifts] = useState<Record<string, ShadowShift>>({});
+  // Newest cancelled shadow shift for people with no active one — drives the
+  // passive "no new date" reminder on the card.
+  const [cancelledShadow, setCancelledShadow] = useState<Record<string, ShadowShift>>({});
+
   const [shadowFor, setShadowFor] = useState<Person | null>(null);
   const [shadowEditing, setShadowEditing] = useState<ShadowShift | null>(null);
   const [shRole, setShRole] = useState<string>("");
@@ -141,20 +181,28 @@ export function ApplicantPipeline() {
     }
   };
 
-  // Newest non-cancelled shadow shift per person.
+  // Newest non-cancelled shadow shift per person, plus the newest cancelled one
+  // for anyone left with no replacement (the stale-cancel reminder).
   const loadShadowShifts = async (rows: Person[]) => {
     try {
       const list = await fetchShadowShiftsForPeople(rows.map((p) => p.id));
       const map: Record<string, ShadowShift> = {};
+      const cancelled: Record<string, ShadowShift> = {};
       for (const ss of list) {
-        if (ss.status === "cancelled") continue;
+        if (ss.status === "cancelled") {
+          if (!cancelled[ss.personId]) cancelled[ss.personId] = ss;
+          continue;
+        }
         if (!map[ss.personId]) map[ss.personId] = ss;
       }
+      for (const pid of Object.keys(map)) delete cancelled[pid];
       setShadowShifts(map);
+      setCancelledShadow(cancelled);
     } catch (e) {
       console.error("[pipeline] shadow shifts load failed", e);
     }
   };
+
 
   const load = async (oid: string) => {
     setLoading(true);
@@ -423,6 +471,14 @@ export function ApplicantPipeline() {
             dressGroup,
           });
       setShadowShifts((prev) => ({ ...prev, [saved.personId]: saved }));
+      // A new date exists again — clear any stale-cancel reminder.
+      setCancelledShadow((prev) => {
+        if (!prev[saved.personId]) return prev;
+        const next = { ...prev };
+        delete next[saved.personId];
+        return next;
+      });
+
       if (!shadowEditing) {
         setPeople((prev) =>
           prev.map((p) =>
@@ -502,7 +558,12 @@ export function ApplicantPipeline() {
         delete next[person.id];
         return next;
       });
+      setCancelledShadow((prev) => ({
+        ...prev,
+        [person.id]: { ...ss, status: "cancelled", updatedAt: new Date().toISOString() },
+      }));
       toast.success("Shadow shift cancelled");
+
     } catch (e) {
       console.error("[pipeline] cancel shadow shift failed", e);
       toast.error("Couldn't cancel that shadow shift.");
@@ -519,6 +580,8 @@ export function ApplicantPipeline() {
         firstName: person.firstName ?? "",
         restaurantName: effectiveOwner?.restaurantName ?? "",
         email: person.email ?? "",
+        shadowDate: formatDateLong(ss.shiftDate),
+        shadowTime: formatTime12h(ss.arrivalTime.slice(0, 5)),
       }});
       ok = res.email.ok;
       attempted = res.email.attempted;
@@ -526,11 +589,12 @@ export function ApplicantPipeline() {
     } catch (e) {
       console.error("[pipeline] shadow cancelled email failed", e);
     }
-    if (ok) toast.success(`${person.firstName} was emailed that it's called off`);
+    if (ok) toast.success(`${person.firstName} was emailed that it's cancelled`);
     else {
       const why = attempted ? `email failed${err ? `: ${err}` : ""}` : "no email on file";
-      toast.warning(`${person.firstName} was NOT told it's called off — reach out directly (${why})`);
+      toast.warning(`${person.firstName} was NOT told it's cancelled — reach out directly (${why})`);
     }
+
   };
 
   /** Emails the trainee their shadow shift link; falls back to a copyable link. */
@@ -713,8 +777,23 @@ export function ApplicantPipeline() {
                                 {p.jobId && jobTitles[p.jobId] ? ` · ${jobTitles[p.jobId]}` : ""}
                                 {p.archived ? " · archived" : ""}
                               </p>
+                              {shadowShifts[p.id]?.declinedAt && (
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                  {declineTiming(
+                                    shadowShifts[p.id]!.declinedAt,
+                                    shadowShifts[p.id]!.shiftDate,
+                                    shadowShifts[p.id]!.arrivalTime,
+                                  ) ?? "Said they can't make it"}
+                                </p>
+                              )}
+                              {!shadowShifts[p.id] && cancelledShadow[p.id] && (
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                  {cancelledAgo(cancelledShadow[p.id]!.updatedAt) ?? "Cancelled — no new date"}
+                                </p>
+                              )}
                             </div>
                           </div>
+
                           <div className="mt-3 flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
                             {next && p.state !== "applicant" && (
                               <Button
@@ -912,9 +991,14 @@ export function ApplicantPipeline() {
                       {shadowShifts[openPerson.id]!.confirmedAt
                         ? "Confirmed"
                         : shadowShifts[openPerson.id]!.declinedAt
-                          ? "Said they can't make it"
+                          ? (declineTiming(
+                              shadowShifts[openPerson.id]!.declinedAt,
+                              shadowShifts[openPerson.id]!.shiftDate,
+                              shadowShifts[openPerson.id]!.arrivalTime,
+                            ) ?? "Said they can't make it")
                           : "Not confirmed yet"}
                     </p>
+
                     <div className="mt-2 flex flex-wrap gap-2">
                       <Button
                         size="sm"
