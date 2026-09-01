@@ -207,6 +207,8 @@ function OverviewTab() {
       </div>
 
 
+      <NotificationsCard />
+
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-base">Onboarding progress</CardTitle>
