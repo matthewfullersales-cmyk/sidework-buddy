@@ -777,8 +777,23 @@ export function ApplicantPipeline() {
                                 {p.jobId && jobTitles[p.jobId] ? ` · ${jobTitles[p.jobId]}` : ""}
                                 {p.archived ? " · archived" : ""}
                               </p>
+                              {shadowShifts[p.id]?.declinedAt && (
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                  {declineTiming(
+                                    shadowShifts[p.id]!.declinedAt,
+                                    shadowShifts[p.id]!.shiftDate,
+                                    shadowShifts[p.id]!.arrivalTime,
+                                  ) ?? "Said they can't make it"}
+                                </p>
+                              )}
+                              {!shadowShifts[p.id] && cancelledShadow[p.id] && (
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                  {cancelledAgo(cancelledShadow[p.id]!.updatedAt) ?? "Cancelled — no new date"}
+                                </p>
+                              )}
                             </div>
                           </div>
+
                           <div className="mt-3 flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
                             {next && p.state !== "applicant" && (
                               <Button
