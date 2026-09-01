@@ -14,6 +14,12 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { PersonAvatar } from "@/components/sidework/PersonAvatar";
+import {
+  AvailabilitySummary,
+  hasAnyAvailability,
+  yearsExperienceLabel,
+  longestTenureLabel,
+} from "@/components/sidework/AvailabilitySummary";
 import { InterviewOfferDialog } from "@/components/sidework/InterviewOfferDialog";
 import { formatPhone } from "@/lib/format-phone";
 import { formatDateLong, formatDateWithWeekday, formatTime12h } from "@/lib/utils";
