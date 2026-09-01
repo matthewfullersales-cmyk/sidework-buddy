@@ -9,16 +9,15 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { PhoneInput } from "@/components/ui/phone-input";
 
-import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useStore, type Role, type Relationship, type WeeklyAvailability, type DayKey, DAY_KEYS, defaultWeeklyAvailability } from "@/lib/sidework-store";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useStore, type Relationship } from "@/lib/sidework-store";
+import { AvailabilityPicker, unansweredDays, type PartialWeekly } from "@/components/sidework/AvailabilityPicker";
 import { supabase } from "@/integrations/supabase/client";
 import { resolveJoinRestaurant } from "@/lib/join.functions";
 import { formatPhone } from "@/lib/format-phone";
 import { toast } from "sonner";
 import { CheckCircle2, Share, Plus } from "lucide-react";
 
-const FOH_ROLES: Role[] = ["Host", "Busser", "Server Assistant", "Bar Back", "Bartender", "Server", "Manager", "Assistant Manager"];
-const BOH_ROLES: Role[] = ["Chef", "Sous Chef", "Line Cook", "Fry Cook", "Saute", "Grill", "Pizza", "Garde Manger", "Dishwasher", "Prep"];
 const RELATIONSHIPS: Relationship[] = ["Spouse", "Parent", "Sibling", "Child", "Friend", "Other"];
 
 const joinSchema = z.object({
@@ -36,8 +35,6 @@ export const Route = createFileRoute("/join/$slug")({
   head: () => ({ meta: [{ title: "Join the team — 86Paper" }] }),
   component: JoinPage,
 });
-
-type AvKind = "full" | "partial" | "none";
 
 function JoinPage() {
   const { slug } = Route.useParams();
@@ -66,8 +63,7 @@ function JoinPage() {
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [role, setRole] = useState<Role>("Server");
-  const [availability, setAvailability] = useState<WeeklyAvailability>(() => defaultWeeklyAvailability());
+  const [availability, setAvailability] = useState<PartialWeekly>({});
   const [ecFirstName, setEcFirstName] = useState("");
   const [ecLastName, setEcLastName] = useState("");
   const [ecPhone, setEcPhone] = useState("");
@@ -77,11 +73,7 @@ function JoinPage() {
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState<{ firstName: string } | null>(null);
 
-  const setDayKind = (day: DayKey, kind: AvKind) =>
-    setAvailability((prev) => ({
-      ...prev,
-      [day]: kind === "partial" ? { kind: "partial", meals: ["Lunch", "Dinner"] } : { kind },
-    }));
+  const missingDays = unansweredDays(availability);
 
   const submit = async () => {
     const parsed = joinSchema.safeParse({ firstName, lastName, email, phone, ecFirstName, ecLastName, ecPhone });
@@ -92,6 +84,7 @@ function JoinPage() {
     if (password.length < 8) return toast.error("Password must be at least 8 characters");
     if (password !== confirmPassword) return toast.error("Passwords don't match");
     if (!resolved) return toast.error("This join link isn't valid");
+    if (missingDays.length > 0) return toast.error(`Please answer every day: ${missingDays.join(", ")}.`);
 
     setSubmitting(true);
     try {
@@ -150,7 +143,6 @@ function JoinPage() {
         lastName: parsed.data.lastName,
         email: parsed.data.email,
         phone: parsed.data.phone,
-        role,
         weeklyAvailability: availability,
         emergencyContact: {
           firstName: parsed.data.ecFirstName,
@@ -212,52 +204,13 @@ function JoinPage() {
             <Field label="Email"><Input type="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} maxLength={255} autoComplete="email" /></Field>
             <Field label="Phone"><PhoneInput value={phone} onChange={setPhone} /></Field>
 
-            <Field label="Primary role">
-              <Select value={role} onValueChange={(v: Role) => setRole(v)}>
-                <SelectTrigger className="h-12"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectLabel>Front of House</SelectLabel>
-                    {FOH_ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-                  </SelectGroup>
-                  <SelectSeparator />
-                  <SelectGroup>
-                    <SelectLabel>Back of House</SelectLabel>
-                    {BOH_ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </Field>
-
             <div className="grid gap-2">
               <Label className="text-sm font-medium">Weekly availability</Label>
-              <p className="text-xs text-muted-foreground">Tap to choose Full day, Partial, or Off for each day.</p>
-              <div className="grid gap-2">
-                {DAY_KEYS.map((d) => {
-                  const kind: AvKind = availability[d].kind;
-                  return (
-                    <div key={d} className="flex items-center justify-between gap-2 rounded-lg border border-border p-2">
-                      <span className="w-12 text-sm font-semibold">{d}</span>
-                      <div className="grid flex-1 grid-cols-3 gap-1">
-                        {(["full", "partial", "none"] as AvKind[]).map((k) => {
-                          const active = k === kind;
-                          const label = k === "full" ? "Full" : k === "partial" ? "Partial" : "Off";
-                          return (
-                            <button
-                              key={k}
-                              type="button"
-                              onClick={() => setDayKind(d, k)}
-                              className={`min-h-11 rounded-md border text-xs font-medium transition-colors ${active ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background hover:bg-muted"}`}
-                            >
-                              {label}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+              <p className="text-xs text-muted-foreground">Answer every day.</p>
+              <AvailabilityPicker value={availability} onChange={setAvailability} />
+              {missingDays.length > 0 && (
+                <p className="text-xs text-muted-foreground">Still need: {missingDays.join(", ")}</p>
+              )}
             </div>
 
             <div className="grid gap-2 rounded-lg border border-border bg-muted/30 p-3">
@@ -285,7 +238,7 @@ function JoinPage() {
             </div>
 
 
-            <Button size="lg" className="h-14 text-base shadow-elegant" onClick={submit} disabled={submitting}>
+            <Button size="lg" className="h-14 text-base shadow-elegant" onClick={submit} disabled={submitting || missingDays.length > 0}>
               {submitting ? "Joining…" : `Join ${restaurantName}`}
             </Button>
           </CardContent>
@@ -376,8 +329,8 @@ function SuccessScreen({ firstName, restaurantName }: { firstName: string; resta
         <div className="mt-8 rounded-xl border border-primary/30 bg-primary/5 p-4 text-left">
           <p className="font-semibold text-primary">What happens next</p>
           <p className="mt-1 text-sm text-foreground/90">
-            Your manager reviews your request. In the meantime, finish your profile — personal info, emergency contact,
-            and your availability.
+            Your manager reviews your request. Once they approve you and assign your role, you'll show up on the
+            schedule.
           </p>
           <Button asChild className="mt-3 w-full">
             <Link to="/employee">Open my 86Paper</Link>

@@ -810,8 +810,8 @@ interface Store {
     lastName: string;
     email: string;
     phone: string;
-    role: Role;
-    weeklyAvailability: WeeklyAvailability;
+    /** Self-joiners arrive with no role; management assigns one after approval. */
+    weeklyAvailability: Partial<WeeklyAvailability>;
     emergencyContact: EmergencyContact;
   }) => Promise<string>;
   updateRestaurantSlug: (slug: string) => void;
@@ -1714,7 +1714,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
         p_last_name: data.lastName,
         p_email: data.email,
         p_phone: data.phone,
-        p_primary_role: data.role,
+        p_primary_role: "",
       } as never);
       if (error) throw new Error(error.message);
       const empId = typeof personId === "string" ? personId : "";
@@ -1742,11 +1742,11 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
         lastName: data.lastName,
         email: data.email,
         phone: data.phone,
-        primaryRole: data.role,
-        approvedRoles: [data.role],
+        primaryRole: "" as Role,
+        approvedRoles: [],
         autoApproveRoles: [],
         availability: "",
-        weeklyAvailability: data.weeklyAvailability,
+        weeklyAvailability: data.weeklyAvailability as WeeklyAvailability,
         emergencyContact: data.emergencyContact,
         invitedAt: new Date().toISOString().slice(0, 10),
         onboardingStarted: true,
