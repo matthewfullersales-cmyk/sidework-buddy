@@ -263,7 +263,7 @@ function StaffInvitePage() {
         </div>
         <h1 className="mt-6 text-3xl font-bold">Welcome to {restaurantName}, {done.firstName}!</h1>
         <p className="mt-3 text-muted-foreground">Your account is ready.</p>
-        <Button asChild className="mt-6 w-full"><Link to="/employee">Open my training</Link></Button>
+        <Button asChild className="mt-6 w-full"><Link to="/employee">Open my 86Paper</Link></Button>
       </Centered>
     );
   }

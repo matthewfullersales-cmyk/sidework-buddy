@@ -165,13 +165,13 @@ Your shadow shift at ${restaurant} has been called off. The restaurant will be i
     text:
 `${hi}
 
-Welcome to the team at ${restaurant}! Finish setting up your account and start your training here:
+Welcome to the team at ${restaurant}! Finish setting up your account here — your personal info, an emergency contact, and confirming your availability:
 ${data.link}
 
 Excited to have you.`,
     html:
 `<p>${esc(hi)}</p>
-<p>Welcome to the team at <strong>${esc(restaurant)}</strong>! Finish setting up your account and start your training here:</p>
+<p>Welcome to the team at <strong>${esc(restaurant)}</strong>! Finish setting up your account here — your personal info, an emergency contact, and confirming your availability:</p>
 ${ctaButton(data.link!, "Finish setting up")}
 <p>Excited to have you.</p>`,
   };

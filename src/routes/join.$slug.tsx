@@ -342,7 +342,7 @@ function SuccessScreen({ firstName, restaurantName }: { firstName: string; resta
               <p className="font-semibold">Add 86Paper to your home screen</p>
             </div>
             <p className="text-sm text-muted-foreground">
-              For easy access to your schedule, training, and more — no app store needed.
+              For easy access to your schedule and more — no app store needed.
             </p>
             {platform === "ios" ? (
               <div className="rounded-lg bg-muted/40 p-3 text-sm">
@@ -374,10 +374,10 @@ function SuccessScreen({ firstName, restaurantName }: { firstName: string; resta
         </Card>
 
         <div className="mt-8 rounded-xl border border-primary/30 bg-primary/5 p-4 text-left">
-          <p className="font-semibold text-primary">Next up: your Menu Knowledge Test</p>
+          <p className="font-semibold text-primary">What happens next</p>
           <p className="mt-1 text-sm text-foreground/90">
-            Once your manager approves you, you'll take the Menu Knowledge Test. You need to pass it before you can be
-            scheduled — you can retake it as many times as you need.
+            Your manager reviews your request. In the meantime, finish your profile — personal info, emergency contact,
+            and your availability.
           </p>
           <Button asChild className="mt-3 w-full">
             <Link to="/employee">Open my 86Paper</Link>

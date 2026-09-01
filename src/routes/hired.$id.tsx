@@ -168,7 +168,7 @@ function HiredPage() {
           </div>
           <h1 className="mt-4 text-3xl font-bold leading-tight">Welcome to {restaurantName}, {invite.firstName ?? invite.name}!</h1>
           <p className="mt-2 text-white/90">
-            Finish setting up your account to start your training. Takes under 2 minutes.
+            Finish setting up your account — personal info, emergency contact, and your availability. Takes under 2 minutes.
           </p>
         </div>
       </section>
@@ -268,7 +268,7 @@ function SuccessScreen({ firstName, restaurantName }: { firstName: string; resta
               <p className="font-semibold">Add 86Paper to your home screen</p>
             </div>
             <p className="text-sm text-muted-foreground">
-              For easy access to your schedule, training, and more — no app store needed.
+              For easy access to your schedule and more — no app store needed.
             </p>
             {platform === "ios" ? (
               <div className="rounded-lg bg-muted/40 p-3 text-sm">
@@ -293,12 +293,12 @@ function SuccessScreen({ firstName, restaurantName }: { firstName: string; resta
         </Card>
 
         <div className="mt-8 rounded-xl border border-primary/30 bg-primary/5 p-4 text-left">
-          <p className="font-semibold text-primary">Your training starts here.</p>
+          <p className="font-semibold text-primary">You're all set.</p>
           <p className="mt-1 text-sm text-foreground/90">
-            Complete your videos and quizzes before your first shift.
+            Your schedule, shift pickup, and time off all live here.
           </p>
           <Button asChild className="mt-3 w-full">
-            <Link to="/employee">Open my training</Link>
+            <Link to="/employee">Open my 86Paper</Link>
           </Button>
         </div>
       </div>
