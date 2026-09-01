@@ -142,6 +142,10 @@ export function ApplicantPipeline() {
   const [hireFor, setHireFor] = useState<Person | null>(null);
   const [hireRole, setHireRole] = useState<string>("");
   const [shadowShifts, setShadowShifts] = useState<Record<string, ShadowShift>>({});
+  // Newest cancelled shadow shift for people with no active one — drives the
+  // passive "no new date" reminder on the card.
+  const [cancelledShadow, setCancelledShadow] = useState<Record<string, ShadowShift>>({});
+
   const [shadowFor, setShadowFor] = useState<Person | null>(null);
   const [shadowEditing, setShadowEditing] = useState<ShadowShift | null>(null);
   const [shRole, setShRole] = useState<string>("");
