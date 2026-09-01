@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PhoneInput } from "@/components/ui/phone-input";
+import { AvailabilityPicker, unansweredDays, type PartialWeekly } from "@/components/sidework/AvailabilityPicker";
 
 import { useStore, type JobPosting } from "@/lib/sidework-store";
 import { fetchPublicPosting } from "@/lib/hiring-supabase";
@@ -75,12 +76,22 @@ function CareersPage() {
   const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+  const [availability, setAvailability] = useState<PartialWeekly>({});
+  const [years, setYears] = useState<string | null>(null);
+  const [tenure, setTenure] = useState<string | null>(null);
+
+  const missingDays = unansweredDays(availability);
+  const needsTenure = years !== null && years !== "none";
+  const answersComplete = missingDays.length === 0 && years !== null && (!needsTenure || tenure !== null);
 
   const submit = async () => {
     if (!targetJob) return toast.error("Please open a specific job link to apply.");
     if (!firstName.trim() || !lastName.trim()) return toast.error("Please enter your first and last name.");
     if (!/^\S+@\S+\.\S+$/.test(email)) return toast.error("Please enter a valid email address.");
     if (phone.replace(/\D/g, "").length < 10) return toast.error("Please enter a valid phone number.");
+    if (missingDays.length > 0) return toast.error(`Please answer every day: ${missingDays.join(", ")}.`);
+    if (years === null) return toast.error("Please choose how long you've worked in restaurants.");
+    if (needsTenure && tenure === null) return toast.error("Please choose your longest time at one restaurant job.");
 
     setSubmitting(true);
     try {
@@ -92,6 +103,9 @@ function CareersPage() {
         email: email.trim(),
         phone: phone.trim(),
         source: "careers",
+        weeklyAvailability: availability,
+        yearsExperience: years,
+        longestTenure: needsTenure ? tenure : null,
       });
       setDone(true);
     } catch (e) {
@@ -115,7 +129,7 @@ function CareersPage() {
           </div>
           <h1 className="mt-6 text-3xl font-bold">Thanks {firstName.trim() || "for applying"}!</h1>
           <p className="mt-3 text-base text-muted-foreground">
-            We'll review your application and be in touch within 48 hours.
+            Your application was sent to the restaurant.
           </p>
           <Button asChild size="lg" className="mt-8 w-full"><Link to="/">Back to home</Link></Button>
         </div>
@@ -166,18 +180,47 @@ function CareersPage() {
                 </Field>
               </div>
 
-              <Field label="Desired position">
-                <Input value={targetJob ? `${targetJob.title} — ${targetJob.role}` : ""} disabled placeholder="Open a job link to apply" />
-                {targetJob && (
-                  <p className="text-xs text-muted-foreground">Pre-filled from job posting.</p>
+              <div className="grid gap-2">
+                <Label className="text-sm font-semibold">Weekly availability</Label>
+                <p className="-mt-1 text-xs text-muted-foreground">Answer every day.</p>
+                <AvailabilityPicker value={availability} onChange={setAvailability} />
+                {missingDays.length > 0 && (
+                  <p className="text-xs text-muted-foreground">Still need: {missingDays.join(", ")}</p>
                 )}
-              </Field>
+              </div>
+
+              <ChoiceGroup
+                label="Years working in restaurants"
+                value={years}
+                onChange={(v) => { setYears(v); if (v === "none") setTenure(null); }}
+                options={[
+                  { value: "none", label: "None" },
+                  { value: "under-1", label: "Under 1 year" },
+                  { value: "1-3", label: "1–3 years" },
+                  { value: "3-5", label: "3–5 years" },
+                  { value: "5-plus", label: "5+ years" },
+                ]}
+              />
+
+              {needsTenure && (
+                <ChoiceGroup
+                  label="Longest time at one restaurant job"
+                  value={tenure}
+                  onChange={setTenure}
+                  options={[
+                    { value: "under-6mo", label: "Under 6 months" },
+                    { value: "6-12mo", label: "6–12 months" },
+                    { value: "1-2yr", label: "1–2 years" },
+                    { value: "2-plus", label: "2+ years" },
+                  ]}
+                />
+              )}
 
               {jobIdParam && !loadingJob && !targetJob && (
                 <p className="text-sm text-destructive">This job link is no longer active. Please ask for an updated link.</p>
               )}
-              <Button size="lg" className="w-full shadow-elegant" onClick={submit} disabled={submitting || loadingJob || !targetJob}>
-                {submitting ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting…</>) : loadingJob ? "Loading job…" : !targetJob ? "Open a job link to apply" : "Submit application"}
+              <Button size="lg" className="w-full shadow-elegant" onClick={submit} disabled={submitting || loadingJob || !targetJob || !answersComplete}>
+                {submitting ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting…</>) : loadingJob ? "Loading job…" : !targetJob ? "Open a job link to apply" : !answersComplete ? "Answer every question" : "Submit application"}
               </Button>
             </div>
           </CardContent>
@@ -187,6 +230,44 @@ function CareersPage() {
       <footer className="mx-auto max-w-3xl px-4 py-8 text-xs text-muted-foreground">
         © {new Date().getFullYear()} 86Paper
       </footer>
+    </div>
+  );
+}
+
+function ChoiceGroup({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string | null;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+}) {
+  return (
+    <div className="grid gap-2">
+      <Label className="text-sm font-semibold">{label}</Label>
+      <div className="flex flex-wrap gap-2">
+        {options.map((o) => {
+          const active = value === o.value;
+          return (
+            <button
+              key={o.value}
+              type="button"
+              aria-pressed={active}
+              onClick={() => onChange(o.value)}
+              className={`min-h-[44px] rounded-md border px-4 text-sm font-medium transition ${
+                active
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-background text-foreground hover:border-primary/40"
+              }`}
+            >
+              {o.label}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
