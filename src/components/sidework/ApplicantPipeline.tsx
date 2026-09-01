@@ -991,9 +991,14 @@ export function ApplicantPipeline() {
                       {shadowShifts[openPerson.id]!.confirmedAt
                         ? "Confirmed"
                         : shadowShifts[openPerson.id]!.declinedAt
-                          ? "Said they can't make it"
+                          ? (declineTiming(
+                              shadowShifts[openPerson.id]!.declinedAt,
+                              shadowShifts[openPerson.id]!.shiftDate,
+                              shadowShifts[openPerson.id]!.arrivalTime,
+                            ) ?? "Said they can't make it")
                           : "Not confirmed yet"}
                     </p>
+
                     <div className="mt-2 flex flex-wrap gap-2">
                       <Button
                         size="sm"
