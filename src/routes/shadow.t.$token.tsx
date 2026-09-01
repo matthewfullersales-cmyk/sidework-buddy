@@ -185,12 +185,24 @@ function PublicShadowShiftPage() {
               <p className="text-sm font-semibold">
                 {shift.status === "completed"
                   ? "This shadow shift is complete."
-                  : "This shadow shift has been called off."}
+                  : "This shadow shift has been cancelled."}
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
                 {shift.status === "completed"
                   ? "Nothing more to do here."
-                  : "The restaurant will be in touch."}
+                  : "Nothing else about your application has changed."}
+              </p>
+            </section>
+          ) : datePassed ? (
+            // The date is behind us: keep every detail on the page, swap only
+            // the buttons for a plain statement of what happened.
+            <section className="rounded-xl border border-border p-5">
+              <p className="text-sm font-semibold">
+                {shift.confirmedAt
+                  ? "This date has passed. You confirmed this shadow shift."
+                  : shift.declinedAt
+                    ? "This date has passed. You said you couldn't make it."
+                    : "This date has passed. You didn't respond to this shadow shift."}
               </p>
             </section>
           ) : (
@@ -233,6 +245,7 @@ function PublicShadowShiftPage() {
               </div>
             </section>
           )}
+
         </>
       )}
     </main>
