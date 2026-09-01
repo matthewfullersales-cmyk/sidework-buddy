@@ -78,33 +78,11 @@ function StaffInvitePage() {
     return () => { cancelled = true; };
   }, [token]);
 
-  const setDayKind = (day: DayKey, kind: AvKind) =>
-    setAvailability((prev) => {
-      if (kind !== "partial") return { ...prev, [day]: { kind } };
-      const cur = prev[day];
-      // Keep an already-chosen half when re-tapping Partial; otherwise leave
-      // the half unspecified rather than guessing.
-      return { ...prev, [day]: { kind: "partial", ...(cur?.kind === "partial" && cur.half ? { half: cur.half } : {}) } };
-    });
-
-  // Exactly one half; tapping the other replaces it rather than accumulating.
-  const setDayHalf = (day: DayKey, half: DayHalf) =>
-    setAvailability((prev) => ({ ...prev, [day]: { kind: "partial", half } }));
-
   const availabilityCheck = useMemo(() => {
-    const missing: string[] = [];
-    for (const d of DAY_KEYS) {
-      const entry = availability[d];
-      if (!entry) {
-        missing.push(d);
-        continue;
-      }
-      if (entry.kind === "partial" && !entry.half) {
-        missing.push(`${d} (Day or Night)`);
-      }
-    }
+    const missing = unansweredDays(availability);
     return { complete: missing.length === 0, missing };
   }, [availability]);
+
 
   const restaurantName = invite?.restaurantName ?? "the team";
   const inviteName = `${invite?.firstName ?? ""} ${invite?.lastName ?? ""}`.trim();
