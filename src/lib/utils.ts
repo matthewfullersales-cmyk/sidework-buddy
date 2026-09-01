@@ -25,18 +25,41 @@ export function formatTime12h(hhmm: string | null | undefined): string {
  * real instants and keep their normal local-time conversion.
  */
 export function formatDateLong(iso: string | null | undefined): string {
-  if (!iso) return "—";
+  const d = parseDateSafe(iso);
+  if (!d) return "—";
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+/**
+ * Shared parsing for the date formatters. Date-only strings ("YYYY-MM-DD")
+ * become LOCAL midnight — `new Date("2026-09-04")` is UTC midnight and renders
+ * one day early in negative UTC offsets. Full ISO timestamps (containing "T")
+ * are real instants and keep their normal local-time conversion.
+ */
+function parseDateSafe(iso: string | null | undefined): Date | null {
+  if (!iso) return null;
   let d: Date;
   if (!iso.includes("T")) {
     const [yStr, mStr, dStr] = iso.split("-");
     const y = Number(yStr);
     const m = Number(mStr);
     const day = Number(dStr);
-    if (Number.isNaN(y) || Number.isNaN(m) || Number.isNaN(day)) return "—";
+    if (Number.isNaN(y) || Number.isNaN(m) || Number.isNaN(day)) return null;
     d = new Date(y, m - 1, day);
   } else {
     d = new Date(iso);
   }
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  if (Number.isNaN(d.getTime())) return null;
+  return d;
+}
+
+/**
+ * Weekday + short date, no year ("Thursday, Sep 3") — for near-term dates like
+ * email subject lines, where the weekday is the actionable signal. Uses the
+ * same local-midnight date-only parsing as formatDateLong.
+ */
+export function formatDateWithWeekday(iso: string | null | undefined): string {
+  const d = parseDateSafe(iso);
+  if (!d) return "—";
+  return d.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" });
 }

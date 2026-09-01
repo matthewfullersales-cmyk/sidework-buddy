@@ -16,7 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { PersonAvatar } from "@/components/sidework/PersonAvatar";
 import { InterviewOfferDialog } from "@/components/sidework/InterviewOfferDialog";
 import { formatPhone } from "@/lib/format-phone";
-import { formatDateLong, formatTime12h } from "@/lib/utils";
+import { formatDateLong, formatDateWithWeekday, formatTime12h } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/integrations/supabase/client";
 import { copyLinkWithToast } from "@/lib/copy-to-clipboard";
@@ -529,6 +529,7 @@ export function ApplicantPipeline() {
         restaurantName: effectiveOwner?.restaurantName ?? "",
         email: person.email ?? "",
         shadowDate: formatDateLong(ss.shiftDate),
+        shadowDateSubject: formatDateWithWeekday(ss.shiftDate),
         shadowTime: formatTime12h(ss.arrivalTime.slice(0, 5)),
       }});
       ok = res.email.ok;
@@ -611,6 +612,7 @@ export function ApplicantPipeline() {
         restaurantName: effectiveOwner?.restaurantName ?? "",
         email: person.email ?? "",
         shadowDate: formatDateLong(ss.shiftDate),
+        shadowDateSubject: formatDateWithWeekday(ss.shiftDate),
         shadowTime: formatTime12h(ss.arrivalTime.slice(0, 5)),
       }});
       ok = res.email.ok;

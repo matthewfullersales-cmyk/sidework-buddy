@@ -217,7 +217,7 @@ function PublicShadowShiftPage() {
                 <div className="rounded-xl border border-border bg-muted/40 p-5">
                   <p className="text-xs font-semibold uppercase tracking-wide">You said you can't make it</p>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    The restaurant will reach out about another time.
+                    Your response has been recorded.
                   </p>
                 </div>
               )}
