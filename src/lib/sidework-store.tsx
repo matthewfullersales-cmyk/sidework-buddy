@@ -2140,24 +2140,20 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
             x.id === id ? { ...x, status: "hired", stage: "hired", archived: true, hiredEmployeeId: empId } : x,
           ),
           notifications: [
+            // The training-assignment notification is gone (training is parked).
+            // The welcome line is kept for its non-training meaning — a new hire
+            // was added and their signup link went out — reworded accordingly.
             {
               id: uid("n"),
               type: "training_passed",
-              message: `Training automatically assigned to ${employee.name} based on their ${role} position.`,
-              employeeId: empId,
-              createdAt: new Date().toISOString(),
-              read: false,
-            },
-            {
-              id: uid("n"),
-              type: "training_passed",
-              message: `Welcome to ${restaurantName}! ${employee.name} has been added to 86Paper. Welcome link sent so they can complete their profile and start training.`,
+              message: `Welcome to ${restaurantName}! ${employee.name} has been added to 86Paper. Welcome link sent so they can finish setting up their profile.`,
               employeeId: empId,
               createdAt: new Date().toISOString(),
               read: false,
             },
             ...s.notifications,
           ],
+
         };
       });
       if (createdId) {
