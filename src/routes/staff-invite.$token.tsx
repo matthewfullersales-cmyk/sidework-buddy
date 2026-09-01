@@ -9,13 +9,12 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { type Relationship } from "@/lib/sidework-store";
 import {
-  type Relationship,
-  type DayAvailability,
-  type DayHalf,
-  type DayKey,
-  DAY_KEYS,
-} from "@/lib/sidework-store";
+  AvailabilityPicker,
+  unansweredDays,
+  type PartialWeekly,
+} from "@/components/sidework/AvailabilityPicker";
 import { supabase } from "@/integrations/supabase/client";
 import {
   fetchPublicStaffInvite,
