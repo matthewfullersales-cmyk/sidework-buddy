@@ -519,6 +519,8 @@ export function ApplicantPipeline() {
         firstName: person.firstName ?? "",
         restaurantName: effectiveOwner?.restaurantName ?? "",
         email: person.email ?? "",
+        shadowDate: formatDateLong(ss.shiftDate),
+        shadowTime: formatTime12h(ss.arrivalTime.slice(0, 5)),
       }});
       ok = res.email.ok;
       attempted = res.email.attempted;
@@ -526,11 +528,12 @@ export function ApplicantPipeline() {
     } catch (e) {
       console.error("[pipeline] shadow cancelled email failed", e);
     }
-    if (ok) toast.success(`${person.firstName} was emailed that it's called off`);
+    if (ok) toast.success(`${person.firstName} was emailed that it's cancelled`);
     else {
       const why = attempted ? `email failed${err ? `: ${err}` : ""}` : "no email on file";
-      toast.warning(`${person.firstName} was NOT told it's called off — reach out directly (${why})`);
+      toast.warning(`${person.firstName} was NOT told it's cancelled — reach out directly (${why})`);
     }
+
   };
 
   /** Emails the trainee their shadow shift link; falls back to a copyable link. */
