@@ -864,6 +864,39 @@ export function ApplicantPipeline() {
                   </div>
                 )}
 
+                <div className="mt-2 rounded-lg border border-border p-3">
+                  <p className="text-xs font-semibold">Weekly availability</p>
+                  {hasAnyAvailability(openPerson.weeklyAvailability) ? (
+                    <div className="mt-2">
+                      <AvailabilitySummary value={openPerson.weeklyAvailability} />
+                    </div>
+                  ) : (
+                    <p className="mt-1 text-sm text-muted-foreground">No availability on record.</p>
+                  )}
+                  <p className="mt-3 text-xs font-semibold">Experience</p>
+                  {yearsExperienceLabel(openPerson.workExperience?.yearsInRestaurants) ||
+                  longestTenureLabel(openPerson.workExperience?.longestTenure) ? (
+                    <div className="mt-1 text-sm">
+                      {yearsExperienceLabel(openPerson.workExperience?.yearsInRestaurants) && (
+                        <p>
+                          <span className="text-muted-foreground">Years in restaurants: </span>
+                          {yearsExperienceLabel(openPerson.workExperience?.yearsInRestaurants)}
+                        </p>
+                      )}
+                      {longestTenureLabel(openPerson.workExperience?.longestTenure) && (
+                        <p>
+                          <span className="text-muted-foreground">Longest at one job: </span>
+                          {longestTenureLabel(openPerson.workExperience?.longestTenure)}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="mt-1 text-sm text-muted-foreground">Not answered.</p>
+                  )}
+                </div>
+
+
+
                 {openPerson.resumePath && (
                   <Button
                     size="sm"
