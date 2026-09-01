@@ -40,8 +40,6 @@ export const Route = createFileRoute("/staff-invite/$token")({
   component: StaffInvitePage,
 });
 
-type AvKind = "full" | "partial" | "none";
-
 function StaffInvitePage() {
   const { token } = Route.useParams();
 
@@ -52,7 +50,7 @@ function StaffInvitePage() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   // Starts empty on purpose: nothing is stored for a day the person never taps.
-  const [availability, setAvailability] = useState<Partial<Record<DayKey, DayAvailability>>>({});
+  const [availability, setAvailability] = useState<PartialWeekly>({});
   const [ecFirstName, setEcFirstName] = useState("");
   const [ecLastName, setEcLastName] = useState("");
   const [ecPhone, setEcPhone] = useState("");
