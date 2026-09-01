@@ -103,6 +103,17 @@ function PublicShadowShiftPage() {
   const bring = packet ? (section === "boh" ? packet.bring.boh : packet.bring.foh) : "";
   const doing = packet && shift ? (packet.doing[shift.role] ?? "") : "";
   const closed = shift ? shift.status === "cancelled" || shift.status === "completed" : false;
+  // Date-only comparison, deliberately. The shift stores a local date + time
+  // with no timezone and the restaurant's timezone isn't stored anywhere, so a
+  // time-of-day check would run against the trainee's device clock. Dates can't
+  // drift. The buttons stay live all day, including for a confirmed trainee: a
+  // late decline beats a no-show.
+  const todayLocal = (() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  })();
+  const datePassed = shift ? shift.shiftDate.slice(0, 10) < todayLocal : false;
+
 
 
   return (
