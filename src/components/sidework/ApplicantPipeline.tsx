@@ -89,6 +89,42 @@ function relativeDate(iso: string | null): string {
 
 const longDate = formatDateLong;
 
+/**
+ * How far ahead of the shift the trainee declined. Display-only and
+ * approximate: the shift stores a local date + time with no timezone, so this
+ * is read against the manager's clock. Falls back to null when unparseable, and
+ * the caller then shows the flat wording.
+ */
+function declineTiming(declinedAt: string | null, shiftDate: string, arrivalTime: string): string | null {
+  if (!declinedAt) return null;
+  const declined = new Date(declinedAt).getTime();
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(shiftDate ?? "");
+  const t = /^(\d{2}):(\d{2})/.exec(arrivalTime ?? "");
+  if (Number.isNaN(declined) || !m || !t) return null;
+  const arrival = new Date(
+    Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(t[1]), Number(t[2]),
+  ).getTime();
+  if (Number.isNaN(arrival)) return null;
+  const mins = Math.round((arrival - declined) / 60000);
+  if (mins <= 0) return "Declined after the arrival time";
+  if (mins < 60) return `Declined ${mins} minute${mins === 1 ? "" : "s"} before`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `Declined ${hours} hour${hours === 1 ? "" : "s"} before`;
+  const days = Math.round(hours / 24);
+  if (days === 1) return "Declined the day before";
+  return `Declined ${days} days before`;
+}
+
+/** "Cancelled today" / "Cancelled N days ago", counting whole days. */
+function cancelledAgo(iso: string): string | null {
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return null;
+  const days = Math.max(0, Math.floor((Date.now() - then) / 86400000));
+  if (days === 0) return "Cancelled today — no new date";
+  return `Cancelled ${days} day${days === 1 ? "" : "s"} ago — no new date`;
+}
+
+
 export function ApplicantPipeline() {
   const { effectiveOwner } = useAuth();
   const ownerId = effectiveOwner?.ownerId ?? null;
