@@ -471,6 +471,14 @@ export function ApplicantPipeline() {
             dressGroup,
           });
       setShadowShifts((prev) => ({ ...prev, [saved.personId]: saved }));
+      // A new date exists again — clear any stale-cancel reminder.
+      setCancelledShadow((prev) => {
+        if (!prev[saved.personId]) return prev;
+        const next = { ...prev };
+        delete next[saved.personId];
+        return next;
+      });
+
       if (!shadowEditing) {
         setPeople((prev) =>
           prev.map((p) =>
