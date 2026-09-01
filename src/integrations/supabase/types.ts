@@ -1503,9 +1503,12 @@ export type Database = {
           p_first_name: string
           p_job_id: string
           p_last_name: string
+          p_longest_tenure: string
           p_owner_slug: string
           p_phone: string
           p_source: string
+          p_weekly_availability: Json
+          p_years_experience: string
         }
         Returns: string
       }
