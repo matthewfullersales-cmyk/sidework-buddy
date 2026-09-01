@@ -1171,6 +1171,13 @@ export function ApplicantPipeline() {
                   </div>
                 </div>
 
+                {hasAnyAvailability(shadowFor.weeklyAvailability) && (
+                  <div className="space-y-2">
+                    <Label>{shadowFor.firstName}&apos;s availability</Label>
+                    <AvailabilitySummary value={shadowFor.weeklyAvailability} />
+                  </div>
+                )}
+
                 <div className="space-y-2">
                   <Label>Trainer <span className="text-xs font-normal text-muted-foreground">(optional)</span></Label>
                   <Select
