@@ -22,6 +22,8 @@ const payloadSchema = z.object({
   interviewType: z.enum(["phone", "in_person"]).optional(),
   shadowDate: z.string().max(80).optional(),
   shadowTime: z.string().max(80).optional(),
+  // Preformatted "Weekday, Mon D" variant for subject lines; body keeps shadowDate.
+  shadowDateSubject: z.string().max(80).optional(),
 }).superRefine((data, ctx) => {
   if (data.kind !== "shadow_cancelled" && !data.link) {
     ctx.addIssue({
@@ -106,7 +108,7 @@ ${ctaButton(data.link!, "Pick your interview time")}
     const when = [data.shadowDate, data.shadowTime].filter(Boolean).join(" at ");
     const cantMake = `If that time doesn't work, tap "Can't make it" on the same page.`;
     return {
-      subject: `Shadow shift at ${restaurant}${data.shadowDate ? ` — ${data.shadowDate}` : ""}`,
+      subject: `Shadow shift at ${restaurant}${data.shadowDateSubject ? ` — ${data.shadowDateSubject}` : ""}`,
       text:
 `${hi}
 
@@ -129,7 +131,7 @@ ${ctaButton(data.link!, "See the details")}
     const when = [data.shadowDate, data.shadowTime].filter(Boolean).join(" at ");
     const cantMake = `If that time doesn't work, tap "Can't make it" on the same page.`;
     return {
-      subject: `Your shadow shift at ${restaurant} has moved${data.shadowDate ? ` to ${data.shadowDate}` : ""}`,
+      subject: `Your shadow shift at ${restaurant} has moved${data.shadowDateSubject ? ` to ${data.shadowDateSubject}` : ""}`,
       text:
 `${hi}
 
