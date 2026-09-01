@@ -558,7 +558,12 @@ export function ApplicantPipeline() {
         delete next[person.id];
         return next;
       });
+      setCancelledShadow((prev) => ({
+        ...prev,
+        [person.id]: { ...ss, status: "cancelled", updatedAt: new Date().toISOString() },
+      }));
       toast.success("Shadow shift cancelled");
+
     } catch (e) {
       console.error("[pipeline] cancel shadow shift failed", e);
       toast.error("Couldn't cancel that shadow shift.");
