@@ -1,14 +1,17 @@
 // Public, token-scoped interview scheduling page. No auth, no data collection.
-// The applicant taps one of the offered times and that's it.
-import { useEffect, useState } from "react";
+// The candidate taps one of the restaurant's live OPEN times and that's it.
+// Times are wall-clock (the restaurant's own clock) — never timezone-converted.
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/sidework/Logo";
 import { formatPhone } from "@/lib/format-phone";
+import { formatDateLong, formatTime12h } from "@/lib/utils";
 import {
   getPublicInterview,
-  confirmInterviewSlot,
+  claimInterviewSlot,
+  type OpenSlot,
   type PublicInterview,
 } from "@/lib/interviews-supabase";
 
@@ -27,65 +30,63 @@ export const Route = createFileRoute("/interview/t/$token")({
   }),
 });
 
-function formatSlot(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString([], {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
 function PublicInterviewPage() {
   const { token } = Route.useParams();
   const [loading, setLoading] = useState(true);
   const [interview, setInterview] = useState<PublicInterview | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
+  const load = useCallback(async () => {
+    try {
+      const row = await getPublicInterview(token);
+      setInterview(row);
+    } catch (e) {
+      console.error("[public interview]", e);
+      setInterview(null);
+    }
+  }, [token]);
+
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      try {
-        const row = await getPublicInterview(token);
-        if (!cancelled) setInterview(row);
-      } catch (e) {
-        console.error("[public interview]", e);
-        if (!cancelled) setInterview(null);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+      await load();
+      if (!cancelled) setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [token]);
+  }, [load]);
 
-  const confirm = async (slot: string) => {
-    setBusy(slot);
+  // Group open slots by day, preserving the server's date/time ordering.
+  const byDay = useMemo(() => {
+    const groups: { date: string; slots: OpenSlot[] }[] = [];
+    for (const s of interview?.openSlots ?? []) {
+      const last = groups[groups.length - 1];
+      if (last && last.date === s.date) last.slots.push(s);
+      else groups.push({ date: s.date, slots: [s] });
+    }
+    return groups;
+  }, [interview]);
+
+  const claim = async (slot: OpenSlot) => {
+    setBusy(slot.id);
     try {
-      const updated = await confirmInterviewSlot(token, slot);
+      const updated = await claimInterviewSlot(token, slot.id);
       if (updated) setInterview(updated);
       toast.success("You're all set.");
     } catch (e) {
-      console.error("[confirm interview]", e);
+      console.error("[claim interview slot]", e);
       const msg = e instanceof Error ? e.message : "";
       toast.error(
         msg.includes("SLOT_TAKEN")
           ? "That time was just taken. Please pick another."
           : "Couldn't confirm that time. Please try again.",
       );
-      try {
-        const fresh = await getPublicInterview(token);
-        if (fresh) setInterview(fresh);
-      } catch (refreshErr) {
-        console.error("[confirm interview] refresh failed", refreshErr);
-      }
+      await load();
     } finally {
       setBusy(null);
     }
   };
 
+  const isBooked = !!(interview && interview.bookedDate && interview.bookedTime);
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-md flex-col gap-6 px-4 py-8">
@@ -124,36 +125,49 @@ function PublicInterviewPage() {
             )}
           </header>
 
-          {interview.status === "scheduled" && interview.selectedSlot ? (
+          {isBooked ? (
             <section className="rounded-xl border border-primary bg-primary/5 p-5">
               <p className="text-xs font-semibold uppercase tracking-wide text-primary">Confirmed</p>
-              <p className="mt-1 text-lg font-semibold">{formatSlot(interview.selectedSlot)}</p>
-              <p className="mt-2 text-sm text-muted-foreground">We'll see you then.</p>
+              <p className="mt-1 text-lg font-semibold">
+                {formatDateLong(interview.bookedDate!)} at {formatTime12h(interview.bookedTime!)}
+              </p>
             </section>
           ) : interview.status === "completed" ? (
             <section className="rounded-xl border border-border p-5">
               <p className="text-sm text-muted-foreground">This interview is already complete.</p>
             </section>
-          ) : (
-            <section className="space-y-3">
-              <h2 className="text-sm font-semibold">Pick a time that works for you</h2>
-              <ul className="space-y-2">
-                {interview.offeredSlots.map((slot) => (
-                  <li key={slot}>
-                    <Button
-                      className="h-auto min-h-16 w-full justify-start whitespace-normal py-3 text-left text-base"
-                      variant="outline"
-                      disabled={!!busy}
-                      onClick={() => void confirm(slot)}
-                    >
-                      {busy === slot ? "Confirming…" : formatSlot(slot)}
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-              <p className="text-xs text-muted-foreground">
-                Times are shown in your local time zone. One tap confirms.
+          ) : byDay.length === 0 ? (
+            <section className="rounded-xl border border-border p-5">
+              <h2 className="text-sm font-semibold">No times are open right now</h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                You'll get an email when new times are opened. This link stays good — check back then.
               </p>
+            </section>
+          ) : (
+            <section className="space-y-4">
+              <h2 className="text-sm font-semibold">Pick a time that works for you</h2>
+              {byDay.map((g) => (
+                <div key={g.date} className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {formatDateLong(g.date)}
+                  </p>
+                  <ul className="space-y-2">
+                    {g.slots.map((slot) => (
+                      <li key={slot.id}>
+                        <Button
+                          className="h-auto min-h-14 w-full justify-start whitespace-normal py-3 text-left text-base"
+                          variant="outline"
+                          disabled={!!busy}
+                          onClick={() => void claim(slot)}
+                        >
+                          {busy === slot.id ? "Confirming…" : formatTime12h(slot.time)}
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+              <p className="text-xs text-muted-foreground">One tap confirms.</p>
             </section>
           )}
         </>
