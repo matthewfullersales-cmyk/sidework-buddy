@@ -28,7 +28,7 @@ import {
   type InterviewSlot,
 } from "@/lib/interview-slots-supabase";
 
-export function InterviewSlotsCard() {
+export function InterviewSlotsCard({ refreshKey = 0 }: { refreshKey?: number } = {}) {
   const { effectiveOwner } = useAuth();
   const ownerId = effectiveOwner?.ownerId ?? null;
 
