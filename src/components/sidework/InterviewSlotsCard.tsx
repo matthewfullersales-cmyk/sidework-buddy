@@ -1,6 +1,6 @@
 // Manager surface for the restaurant-owned interview slot pool.
 // Additive only: nothing here changes how offers are made or confirmed today.
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -48,6 +48,8 @@ export function InterviewSlotsCard({ refreshKey = 0 }: { refreshKey?: number } =
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmCounts, setConfirmCounts] = useState<{ open: number; booked: number } | null>(null);
   const [confirmError, setConfirmError] = useState(false);
+  // Prevent overlapping reloads when the tab becomes visible repeatedly.
+  const loadingRef = useRef(false);
 
   useEffect(() => {
     if (!ownerId) return;
@@ -99,6 +101,22 @@ export function InterviewSlotsCard({ refreshKey = 0 }: { refreshKey?: number } =
   }, [ownerId, date]);
 
   useEffect(() => { void load(); }, [load, refreshKey]);
+
+  // Refresh when the tab becomes visible again: a candidate may have booked a
+  // slot while the manager was away. Guards avoid clobbering work in progress.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      if (!ownerId) return;
+      if (busy || confirmOpen || preview || loadingRef.current) return;
+      loadingRef.current = true;
+      load()
+        .catch((e) => console.error("[interview slots] visibility refresh failed", e))
+        .finally(() => { loadingRef.current = false; });
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { document.removeEventListener("visibilitychange", onVisible); };
+  }, [ownerId, busy, confirmOpen, preview, load]);
 
   const bookedCount = useMemo(() => slots.filter((s) => s.status === "booked").length, [slots]);
   const openCount = useMemo(() => slots.filter((s) => s.status === "open").length, [slots]);
