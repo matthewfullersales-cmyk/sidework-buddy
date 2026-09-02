@@ -5,16 +5,6 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-/**
- * "4:00 PM" when no end time is set, "4:00 PM – 9:00 PM" when one is.
- * Blank/absent end reproduces the arrival-only rendering exactly.
- */
-export function formatTimeRange12h(start: string | null | undefined, end?: string | null): string {
-  const from = formatTime12h(start);
-  if (!end) return from;
-  return `${from} – ${formatTime12h(end)}`;
-}
-
 /** 12-hour time with AM/PM, dropping a leading zero on the hour (e.g. "4:00 PM"). */
 export function formatTime12h(hhmm: string | null | undefined): string {
   if (!hhmm) return "—";
