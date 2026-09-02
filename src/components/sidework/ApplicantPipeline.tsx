@@ -1150,10 +1150,30 @@ export function ApplicantPipeline() {
                   {interviews[openPerson.id] ? "Re-offer interview" : "Schedule interview"}
                 </Button>
                 {interviews[openPerson.id] && interviews[openPerson.id]!.status !== "completed" && (
-                  <Button size="sm" variant="outline" disabled={busy} onClick={() => void dropInterview(openPerson)}>
-                    Cancel interview
-                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button size="sm" variant="outline" disabled={busy}>
+                        Cancel interview
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Cancel {openPerson.firstName}&apos;s interview?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          {openPerson.firstName} will be emailed that their interview is cancelled, and
+                          that email can&apos;t be unsent. Any time they booked goes back on your open list.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Keep it</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => void dropInterview(openPerson)}>
+                          Cancel interview
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 )}
+
                 <Button size="sm" disabled={busy} onClick={() => openShadowDialog(openPerson, shadowShifts[openPerson.id] ?? null)}>Move to Shadow</Button>
                 <Button size="sm" disabled={busy || openPerson.state === "hired"} onClick={() => { setHireRole(""); setHireFor(openPerson); }}>Hire</Button>
                 <Button size="sm" variant="outline" disabled={busy || openPerson.state === "rejected"} onClick={() => void move(openPerson, "rejected")}>Pass</Button>
