@@ -102,6 +102,22 @@ export function InterviewSlotsCard({ refreshKey = 0 }: { refreshKey?: number } =
 
   useEffect(() => { void load(); }, [load, refreshKey]);
 
+  // Refresh when the tab becomes visible again: a candidate may have booked a
+  // slot while the manager was away. Guards avoid clobbering work in progress.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      if (!ownerId) return;
+      if (busy || confirmOpen || preview || loadingRef.current) return;
+      loadingRef.current = true;
+      load()
+        .catch((e) => console.error("[interview slots] visibility refresh failed", e))
+        .finally(() => { loadingRef.current = false; });
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { document.removeEventListener("visibilitychange", onVisible); };
+  }, [ownerId, busy, confirmOpen, preview, load]);
+
   const bookedCount = useMemo(() => slots.filter((s) => s.status === "booked").length, [slots]);
   const openCount = useMemo(() => slots.filter((s) => s.status === "open").length, [slots]);
 
