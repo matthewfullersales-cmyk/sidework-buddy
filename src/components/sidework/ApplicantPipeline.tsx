@@ -1318,6 +1318,7 @@ export function ApplicantPipeline({ onInterviewChange }: { onInterviewChange?: (
           onClose={() => setOfferFor(null)}
           onCreated={(iv) => {
             setInterviews((prev) => ({ ...prev, [iv.personId]: iv }));
+            onInterviewChange?.();
             setPeople((prev) =>
               prev.map((p) =>
                 p.id === iv.personId
