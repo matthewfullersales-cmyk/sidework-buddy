@@ -177,17 +177,22 @@ export function InterviewSlotsCard({ refreshKey = 0 }: { refreshKey?: number } =
    * follow; a failed email never undoes the cancellation.
    */
   const closeDay = async () => {
-    if (!ownerId) return;
-    if (openCount === 0 && bookedCount === 0) return void toast.message("Nothing to close on this day.");
+    if (!ownerId || !confirmCounts) return;
+    setConfirmOpen(false);
+    const { open: freshOpen, booked: freshBooked } = confirmCounts;
+    if (freshOpen === 0 && freshBooked === 0) return void toast.message("Nothing to close on this day.");
     setBusy(true);
     let affected: Awaited<ReturnType<typeof closeInterviewDay>> = [];
     try {
       affected = await closeInterviewDay(date);
+      // Cancelled count is the server's own return. The closed-times count stays
+      // client-side, taken from the confirm-time server read moments earlier —
+      // close_interview_day returns only affected candidates, and widening its
+      // return shape was out of scope for this pass.
+      const closed = freshOpen + freshBooked;
       toast.success(
-        `Closed ${openCount} open time${openCount === 1 ? "" : "s"}` +
-          (affected.length > 0
-            ? ` · ${affected.length} interview${affected.length === 1 ? "" : "s"} cancelled`
-            : ""),
+        `Closed ${closed} time${closed === 1 ? "" : "s"}` +
+          ` · ${affected.length} interview${affected.length === 1 ? "" : "s"} cancelled`,
       );
       await load();
     } catch (e) {
