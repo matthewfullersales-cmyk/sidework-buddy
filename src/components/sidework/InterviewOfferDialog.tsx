@@ -112,7 +112,8 @@ export function InterviewOfferDialog({
       // candidate must be told before the replacement invite goes out.
       if (liveExisting) {
         await cancelInterview(liveExisting.id);
-        await emailOldCancelled(liveExisting, existingBooked, openCount ?? 0);
+        // The released slot returns to the pool, so it counts as open again.
+        await emailOldCancelled(liveExisting, existingBooked, (openCount ?? 0) + (existingBooked ? 1 : 0));
       }
       const interview = await createInterviewOffer(person.id, type);
       const link = `${window.location.origin}/interview/t/${interview.publicToken}`;
