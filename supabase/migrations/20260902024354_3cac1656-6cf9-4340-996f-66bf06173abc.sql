@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.create_interview_offer(uuid, text) FROM anon;
