@@ -2511,6 +2511,9 @@ function ShadowPacketCard() {
   const nudges: string[] = [];
   if (loaded && !packet.entrance.trim()) nudges.push("Trainees won't be told where to come in.");
   if (loaded && blankDress) nudges.push(`Trainees in ${blankDress} roles won't be told what to wear.`);
+  // True regardless of trainer assignment: a trainee WITH a trainer is already
+  // told who to ask for, so the nudge only covers the unassigned case.
+  if (loaded && !packet.askFor.trim()) nudges.push("Trainees with no trainer assigned won't be told who to ask for.");
 
   return (
     <Card>
@@ -2532,30 +2535,52 @@ function ShadowPacketCard() {
         )}
         <div className="space-y-3">
           <p className="text-sm font-medium">Arrival</p>
-          {field("Where to enter", packet.entrance, (v) => set({ entrance: v }))}
+          {field("Where to enter", packet.entrance, (v) => set({ entrance: v }), {
+            placeholder: "e.g. the side door by the patio, marked Staff",
+          })}
           {field(
             "Back of house entrance (optional override)",
             packet.entranceBoh,
             (v) => set({ entranceBoh: v }),
-            { hint: "Leave blank if everyone uses the main entrance above." },
+            {
+              hint: "Leave blank if everyone uses the main entrance above.",
+              placeholder: "e.g. the kitchen door off the back alley",
+            },
           )}
-          {field("Where to park", packet.parking, (v) => set({ parking: v }))}
+          {field("Where to park", packet.parking, (v) => set({ parking: v }), {
+            placeholder: "e.g. the lot across the street, not the front spaces",
+          })}
+          {field("Who to ask for when you arrive", packet.askFor, (v) => set({ askFor: v }), {
+            placeholder: "e.g. come to the host stand and ask for the manager on duty",
+          })}
         </div>
         <div className="space-y-3">
           <p className="text-sm font-medium">Front of house dress</p>
-          {field("What to wear", packet.dress.foh.wear, (v) => setDress("foh", "wear", v))}
-          {field("What we provide", packet.dress.foh.provided, (v) => setDress("foh", "provided", v))}
+          {field("What to wear", packet.dress.foh.wear, (v) => setDress("foh", "wear", v), {
+            placeholder: "e.g. black non-slip shoes, black pants, white button-down",
+          })}
+          {field("What we provide", packet.dress.foh.provided, (v) => setDress("foh", "provided", v), {
+            placeholder: "e.g. we provide the apron and name tag",
+          })}
         </div>
         <div className="space-y-3">
           <p className="text-sm font-medium">Host dress</p>
           <p className="text-xs text-muted-foreground">Leave blank if hosts follow the front of house dress.</p>
-          {field("What to wear", packet.dress.host.wear, (v) => setDress("host", "wear", v))}
-          {field("What we provide", packet.dress.host.provided, (v) => setDress("host", "provided", v))}
+          {field("What to wear", packet.dress.host.wear, (v) => setDress("host", "wear", v), {
+            placeholder: "e.g. black non-slip shoes, black pants, white button-down",
+          })}
+          {field("What we provide", packet.dress.host.provided, (v) => setDress("host", "provided", v), {
+            placeholder: "e.g. we provide the apron and name tag",
+          })}
         </div>
         <div className="space-y-3">
           <p className="text-sm font-medium">Back of house dress</p>
-          {field("What to wear", packet.dress.boh.wear, (v) => setDress("boh", "wear", v))}
-          {field("What we provide", packet.dress.boh.provided, (v) => setDress("boh", "provided", v))}
+          {field("What to wear", packet.dress.boh.wear, (v) => setDress("boh", "wear", v), {
+            placeholder: "e.g. non-slip shoes, black pants, plain black t-shirt",
+          })}
+          {field("What we provide", packet.dress.boh.provided, (v) => setDress("boh", "provided", v), {
+            placeholder: "e.g. we provide the apron and chef coat",
+          })}
         </div>
         <div className="space-y-3 border-t border-border pt-5">
           <p className="text-sm font-medium">What to bring</p>

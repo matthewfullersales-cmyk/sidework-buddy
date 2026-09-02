@@ -366,6 +366,12 @@ export type ShadowPacket = {
   /** Optional BOH-only entrance override. Blank means everyone uses `entrance`. */
   entranceBoh: string;
   parking: string;
+  /**
+   * Stable, per-restaurant answer to "who do I ask for when I arrive" —
+   * holds whoever is training, including when the shift's trainer is
+   * "Assign later" or the assigned trainer calls out.
+   */
+  askFor: string;
   dress: {
     foh: ShadowDressSection;
     host: ShadowDressSection;
@@ -388,6 +394,7 @@ export function emptyShadowPacket(): ShadowPacket {
     entrance: "",
     entranceBoh: "",
     parking: "",
+    askFor: "",
     dress: {
       foh: { wear: "", provided: "" },
       host: { wear: "", provided: "" },
@@ -430,6 +437,8 @@ export function normalizeShadowPacket(raw: unknown): ShadowPacket {
     entrance: str(r.entrance),
     entranceBoh: str(r.entranceBoh),
     parking: str(r.parking),
+    // Rows predating this field have no key: str(undefined) fails open to "".
+    askFor: str(r.askFor),
     dress: { foh: sect(dress.foh), host: sect(dress.host), boh: sect(dress.boh) },
     bring: { foh: str(bring.foh), boh: str(bring.boh) },
     doing,
@@ -449,11 +458,16 @@ export async function fetchShadowPacket(ownerId: string): Promise<ShadowPacket> 
 }
 
 export async function saveShadowPacket(ownerId: string, packet: ShadowPacket): Promise<void> {
-  const { error } = await supabase
+  // Mirror saveRoleConfig: ask for the exact affected-row count and throw when
+  // it is zero, so an update against a missing profile row can't report success.
+  const { error, count } = await supabase
     .from("profiles")
-    .update({ shadow_packet: packet as never } as never)
+    .update({ shadow_packet: packet as never } as never, { count: "exact" })
     .eq("id", ownerId);
   if (error) throw error;
+  if (!count) {
+    throw new Error(`saveShadowPacket: no profile row updated for owner ${ownerId}`);
+  }
 }
 
 /* ---------------- Per-role menu test config (jsonb on profiles) ---------------- */
