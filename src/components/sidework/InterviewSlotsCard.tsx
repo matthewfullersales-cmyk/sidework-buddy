@@ -1,6 +1,6 @@
 // Manager surface for the restaurant-owned interview slot pool.
 // Additive only: nothing here changes how offers are made or confirmed today.
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -48,6 +48,8 @@ export function InterviewSlotsCard({ refreshKey = 0 }: { refreshKey?: number } =
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmCounts, setConfirmCounts] = useState<{ open: number; booked: number } | null>(null);
   const [confirmError, setConfirmError] = useState(false);
+  // Prevent overlapping reloads when the tab becomes visible repeatedly.
+  const loadingRef = useRef(false);
 
   useEffect(() => {
     if (!ownerId) return;
