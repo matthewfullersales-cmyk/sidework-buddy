@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/sidework/Logo";
 import { formatPhone } from "@/lib/format-phone";
-import { formatDateLong, formatTime12h } from "@/lib/utils";
+import { formatDateLong, formatTimeRange12h } from "@/lib/utils";
 import { normalizeShadowPacket } from "@/lib/employees-supabase";
 
 import {
@@ -145,7 +145,7 @@ function PublicShadowShiftPage() {
           <section className="space-y-1 rounded-xl border border-border p-5">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{shift.role}</p>
             <p className="text-lg font-semibold">{formatDateLong(shift.shiftDate)}</p>
-            <p className="text-sm">Arrive at {formatTime12h(shift.arrivalTime.slice(0, 5))}</p>
+            <p className="text-sm">Arrive at {formatTimeRange12h(shift.arrivalTime.slice(0, 5), shift.endTime ? shift.endTime.slice(0, 5) : null)}</p>
             {shift.trainerFirstName && (
               <p className="pt-1 text-sm">Ask for <span className="font-medium">{shift.trainerFirstName}</span></p>
             )}
