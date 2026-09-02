@@ -231,11 +231,7 @@ export function InterviewSlotsCard() {
                         ? "Closed"
                         : "Open"}
                     </span>
-                    {s.status === "booked" ? (
-                      <Button size="sm" variant="ghost" onClick={() => void removeSlot(s)}>Remove</Button>
-                    ) : (
-                      <Button size="sm" variant="ghost" onClick={() => void removeSlot(s)}>Remove</Button>
-                    )}
+                    <Button size="sm" variant="ghost" onClick={() => void removeSlot(s)}>Remove</Button>
                   </span>
                 </li>
               ))}
