@@ -61,6 +61,47 @@ export type Database = {
           },
         ]
       }
+      interview_slots: {
+        Row: {
+          created_at: string
+          id: string
+          interview_id: string | null
+          owner_id: string
+          slot_date: string
+          slot_time: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          interview_id?: string | null
+          owner_id: string
+          slot_date: string
+          slot_time: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          interview_id?: string | null
+          owner_id?: string
+          slot_date?: string
+          slot_time?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interview_slots_interview_id_fkey"
+            columns: ["interview_id"]
+            isOneToOne: false
+            referencedRelation: "interviews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       interviews: {
         Row: {
           created_at: string
@@ -430,6 +471,7 @@ export type Database = {
           employee_id: string | null
           full_name: string
           id: string
+          interview_interval_minutes: number | null
           menu_test_config: Json
           prior_slugs: string[]
           restaurant_hours: Json | null
@@ -451,6 +493,7 @@ export type Database = {
           employee_id?: string | null
           full_name?: string
           id: string
+          interview_interval_minutes?: number | null
           menu_test_config?: Json
           prior_slugs?: string[]
           restaurant_hours?: Json | null
@@ -472,6 +515,7 @@ export type Database = {
           employee_id?: string | null
           full_name?: string
           id?: string
+          interview_interval_minutes?: number | null
           menu_test_config?: Json
           prior_slugs?: string[]
           restaurant_hours?: Json | null
