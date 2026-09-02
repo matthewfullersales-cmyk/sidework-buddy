@@ -42,6 +42,12 @@ export function InterviewSlotsCard({ refreshKey = 0 }: { refreshKey?: number } =
   // interview id -> public token, so a cancellation email can link them back.
   const [tokens, setTokens] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
+  // Confirmation counts are re-read from the server when the dialog opens, so
+  // the manager never confirms against a stale picture (the pipeline can free
+  // a slot behind this card's back).
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmCounts, setConfirmCounts] = useState<{ open: number; booked: number } | null>(null);
+  const [confirmError, setConfirmError] = useState(false);
 
   useEffect(() => {
     if (!ownerId) return;
