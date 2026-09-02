@@ -18,7 +18,6 @@ const payloadSchema = z.object({
   email: z.string().trim().email().optional().or(z.literal("").optional()),
   // Kept for backward compat with existing callers; ignored.
   phoneDigits: z.string().regex(/^\d{0,15}$/).optional().default(""),
-  slotCount: z.number().int().min(0).max(50).optional(),
   interviewType: z.enum(["phone", "in_person"]).optional(),
   shadowDate: z.string().max(80).optional(),
   shadowTime: z.string().max(80).optional(),
@@ -50,11 +49,6 @@ function esc(value: string): string {
     .replace(/'/g, "&#39;");
 }
 
-const NUMBER_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
-function spellCount(n: number): string {
-  return NUMBER_WORDS[n] ?? String(n);
-}
-
 function ctaButton(link: string, label: string): string {
   const href = esc(link);
   return (
@@ -70,18 +64,13 @@ function buildCopy(data: z.infer<typeof payloadSchema>): Copy {
   const restaurant = data.restaurantName || "our restaurant";
 
   if (data.kind === "interview_offer") {
-    const count = data.slotCount ?? 0;
-    const word = spellCount(count);
-    const offerLine =
-      count === 1
-        ? `We've offered one time — confirm it here if it works for you:`
-        : `We've offered ${word} times — pick the one that works for you here:`;
     const formatLine =
       data.interviewType === "in_person"
         ? "This is an in-person interview at the restaurant."
         : data.interviewType === "phone"
           ? "This is a phone interview. They'll call you at the time you pick."
           : "";
+    const pickLine = "Pick a time that works for you here:";
     return {
       subject: `Interview with ${restaurant} — pick a time`,
       text:
@@ -89,17 +78,14 @@ function buildCopy(data: z.infer<typeof payloadSchema>): Copy {
 
 ${restaurant} would like to interview you.${formatLine ? `\n\n${formatLine}` : ""}
 
-${offerLine}
-${data.link}
-
-Looking forward to speaking with you.`,
+${pickLine}
+${data.link}`,
       html:
 `<p>${esc(hi)}</p>
 <p><strong>${esc(restaurant)}</strong> would like to interview you.</p>
 ${formatLine ? `<p>${esc(formatLine)}</p>` : ""}
-<p>${esc(offerLine)}</p>
-${ctaButton(data.link!, "Pick your interview time")}
-<p>Looking forward to speaking with you.</p>`,
+<p>${esc(pickLine)}</p>
+${ctaButton(data.link!, "Pick your interview time")}`,
     };
   }
 

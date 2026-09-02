@@ -112,6 +112,7 @@ export type Database = {
           person_id: string
           public_token: string
           selected_slot: string | null
+          slot_id: string | null
           status: string
           updated_at: string
         }
@@ -124,6 +125,7 @@ export type Database = {
           person_id: string
           public_token?: string
           selected_slot?: string | null
+          slot_id?: string | null
           status?: string
           updated_at?: string
         }
@@ -136,6 +138,7 @@ export type Database = {
           person_id?: string
           public_token?: string
           selected_slot?: string | null
+          slot_id?: string | null
           status?: string
           updated_at?: string
         }
@@ -145,6 +148,13 @@ export type Database = {
             columns: ["person_id"]
             isOneToOne: false
             referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interviews_slot_id_fkey"
+            columns: ["slot_id"]
+            isOneToOne: false
+            referencedRelation: "interview_slots"
             referencedColumns: ["id"]
           },
         ]
@@ -1122,21 +1132,22 @@ export type Database = {
         Args: { p_application_id: string; p_employee_profile_id: string }
         Returns: undefined
       }
-      claim_person_invite: { Args: { p_token: string }; Returns: string }
-      confirm_interview_slot: {
-        Args: { p_slot: string; p_token: string }
+      claim_interview_slot: {
+        Args: { p_slot_id: string; p_token: string }
         Returns: {
           address: string
+          booked_date: string
+          booked_time: string
           first_name: string
           id: string
           interview_type: string
-          offered_slots: string[]
+          open_slots: Json
           restaurant_name: string
           restaurant_phone: string
-          selected_slot: string
           status: string
         }[]
       }
+      claim_person_invite: { Args: { p_token: string }; Returns: string }
       confirm_shadow_shift_by_token: {
         Args: { p_token: string }
         Returns: {
@@ -1158,7 +1169,7 @@ export type Database = {
         }[]
       }
       create_interview_offer: {
-        Args: { p_person_id: string; p_slots: string[]; p_type: string }
+        Args: { p_person_id: string; p_type: string }
         Returns: {
           created_at: string
           id: string
@@ -1168,6 +1179,7 @@ export type Database = {
           person_id: string
           public_token: string
           selected_slot: string | null
+          slot_id: string | null
           status: string
           updated_at: string
         }
@@ -1338,13 +1350,14 @@ export type Database = {
         Args: { p_token: string }
         Returns: {
           address: string
+          booked_date: string
+          booked_time: string
           first_name: string
           id: string
           interview_type: string
-          offered_slots: string[]
+          open_slots: Json
           restaurant_name: string
           restaurant_phone: string
-          selected_slot: string
           status: string
         }[]
       }
