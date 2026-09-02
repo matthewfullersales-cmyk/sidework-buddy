@@ -1022,6 +1022,9 @@ function TradesTab() {
 }
 
 function JobsTab() {
+  // Simplest available refresh channel: both cards are siblings here, so a
+  // counter bumped by the pipeline makes the slots card re-read.
+  const [slotRefresh, setSlotRefresh] = useState(0);
   const {
     jobs,
     applications,
