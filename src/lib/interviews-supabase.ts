@@ -233,3 +233,44 @@ export async function fetchSlotTimes(slotIds: string[]): Promise<Record<string, 
   }
   return out;
 }
+
+/**
+ * Shared interview_cancelled email for every cancel path (pipeline person card,
+ * day-view row). Includes the booking link ONLY when open slots remain and a
+ * link was supplied. Never throws — the caller reports failure; the
+ * cancellation itself has already committed and must not be rolled back.
+ */
+export async function sendInterviewCancelledEmail(opts: {
+  ownerId: string | null;
+  firstName: string;
+  restaurantName: string;
+  email: string;
+  bookedDate: string | null;
+  bookedTime: string | null;
+  /** Public interview link; included only when open slots remain. */
+  link: string | null;
+}): Promise<{ ok: boolean; attempted: boolean; error?: string }> {
+  let hasOpenSlots = false;
+  try {
+    if (opts.ownerId) hasOpenSlots = (await countOpenSlotsFromToday(opts.ownerId)) > 0;
+  } catch (e) {
+    console.error("[interviews] open slot count failed", e);
+  }
+  const includeLink = hasOpenSlots && !!opts.link;
+  try {
+    const res = await sendApplicantNotification({ data: {
+      kind: "interview_cancelled",
+      ...(includeLink && opts.link ? { link: opts.link } : {}),
+      hasOpenSlots: includeLink,
+      firstName: opts.firstName,
+      restaurantName: opts.restaurantName,
+      email: opts.email,
+      ...(opts.bookedDate ? { interviewDate: formatDateLong(opts.bookedDate) } : {}),
+      ...(opts.bookedTime ? { interviewTime: formatTime12h(opts.bookedTime) } : {}),
+    }});
+    return { ok: res.email.ok, attempted: res.email.attempted, error: res.email.error };
+  } catch (e) {
+    console.error("[interviews] interview cancelled email failed", e);
+    return { ok: false, attempted: true };
+  }
+}
