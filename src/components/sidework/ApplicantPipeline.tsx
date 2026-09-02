@@ -354,12 +354,14 @@ export function ApplicantPipeline() {
     }
   };
 
+  /** Cancels the interview, then tells the candidate. Email never blocks the cancel. */
   const dropInterview = async (person: Person) => {
     const iv = interviews[person.id];
     if (!iv) return;
     setBusy(true);
+    let info: Awaited<ReturnType<typeof cancelInterview>> = null;
     try {
-      await cancelInterview(iv.id);
+      info = await cancelInterview(iv.id);
       setInterviews((prev) => {
         const next = { ...prev };
         delete next[person.id];
@@ -369,10 +371,55 @@ export function ApplicantPipeline() {
     } catch (e) {
       console.error("[pipeline] cancel interview failed", e);
       toast.error("Couldn't cancel that interview.");
-    } finally {
       setBusy(false);
+      return;
+    }
+    setBusy(false);
+    await emailInterviewCancelled(person, iv, info);
+  };
+
+  /** Sends the interview_cancelled email. Reports failure, never throws. */
+  const emailInterviewCancelled = async (
+    person: Person,
+    iv: Interview,
+    info: { bookedDate: string | null; bookedTime: string | null } | null,
+  ) => {
+    let hasOpenSlots = false;
+    try {
+      if (effectiveOwner?.ownerId) {
+        hasOpenSlots = (await countOpenSlotsFromToday(effectiveOwner.ownerId)) > 0;
+      }
+    } catch (e) {
+      console.error("[pipeline] open slot count failed", e);
+    }
+    let ok = false;
+    let attempted = false;
+    let err: string | undefined;
+    try {
+      const res = await sendApplicantNotification({ data: {
+        kind: "interview_cancelled",
+        ...(hasOpenSlots ? { link: interviewLink(iv) } : {}),
+        hasOpenSlots,
+        firstName: person.firstName ?? "",
+        restaurantName: effectiveOwner?.restaurantName ?? "",
+        email: person.email ?? "",
+        ...(info?.bookedDate ? { interviewDate: formatDateLong(info.bookedDate) } : {}),
+        ...(info?.bookedTime ? { interviewTime: formatTime12h(info.bookedTime) } : {}),
+      }});
+      ok = res.email.ok;
+      attempted = res.email.attempted;
+      err = res.email.error;
+    } catch (e) {
+      console.error("[pipeline] interview cancelled email failed", e);
+    }
+    if (ok) {
+      toast.success(`${person.firstName} was emailed about the cancellation`);
+    } else {
+      const why = attempted ? `email failed${err ? `: ${err}` : ""}` : "no email on file";
+      toast.warning(`${person.firstName} was NOT emailed about the cancellation (${why})`);
     }
   };
+
 
   /** Roster people who can train the selected role, ordered by usefulness. */
   const trainerCandidates = useMemo(() => {
