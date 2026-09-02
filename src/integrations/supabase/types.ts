@@ -1124,6 +1124,16 @@ export type Database = {
         Args: { p_owner_id: string }
         Returns: boolean
       }
+      cancel_interview: {
+        Args: { p_interview_id: string }
+        Returns: {
+          booked_date: string
+          booked_time: string
+          email: string
+          first_name: string
+          restaurant_name: string
+        }[]
+      }
       claim_employee_invite: {
         Args: { p_auth_user_id: string; p_patch: Json; p_token: string }
         Returns: undefined
@@ -1148,6 +1158,17 @@ export type Database = {
         }[]
       }
       claim_person_invite: { Args: { p_token: string }; Returns: string }
+      close_interview_day: {
+        Args: { p_date: string }
+        Returns: {
+          booked_date: string
+          booked_time: string
+          email: string
+          first_name: string
+          interview_id: string
+          restaurant_name: string
+        }[]
+      }
       confirm_shadow_shift_by_token: {
         Args: { p_token: string }
         Returns: {
