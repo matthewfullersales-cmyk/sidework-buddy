@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { sendApplicantNotification } from "@/lib/applicant-notifications.functions";
-import { closeInterviewDay } from "@/lib/interviews-supabase";
+import { cancelInterview, closeInterviewDay, sendInterviewCancelledEmail } from "@/lib/interviews-supabase";
 import { useAuth } from "@/lib/auth-context";
 import { formatDateLong, formatTime12h } from "@/lib/utils";
 import {
@@ -48,6 +48,8 @@ export function InterviewSlotsCard({ refreshKey = 0 }: { refreshKey?: number } =
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmCounts, setConfirmCounts] = useState<{ open: number; booked: number } | null>(null);
   const [confirmError, setConfirmError] = useState(false);
+  // Booked slot whose single-interview cancellation is being confirmed.
+  const [cancelTarget, setCancelTarget] = useState<InterviewSlot | null>(null);
   // Prevent overlapping reloads when the tab becomes visible repeatedly.
   const loadingRef = useRef(false);
 
@@ -108,7 +110,7 @@ export function InterviewSlotsCard({ refreshKey = 0 }: { refreshKey?: number } =
     const onVisible = () => {
       if (document.visibilityState !== "visible") return;
       if (!ownerId) return;
-      if (busy || confirmOpen || preview || loadingRef.current) return;
+      if (busy || confirmOpen || cancelTarget || preview || loadingRef.current) return;
       loadingRef.current = true;
       load()
         .catch((e) => console.error("[interview slots] visibility refresh failed", e))
@@ -116,7 +118,7 @@ export function InterviewSlotsCard({ refreshKey = 0 }: { refreshKey?: number } =
     };
     document.addEventListener("visibilitychange", onVisible);
     return () => { document.removeEventListener("visibilitychange", onVisible); };
-  }, [ownerId, busy, confirmOpen, preview, load]);
+  }, [ownerId, busy, confirmOpen, cancelTarget, preview, load]);
 
   const bookedCount = useMemo(() => slots.filter((s) => s.status === "booked").length, [slots]);
   const openCount = useMemo(() => slots.filter((s) => s.status === "open").length, [slots]);
@@ -174,18 +176,54 @@ export function InterviewSlotsCard({ refreshKey = 0 }: { refreshKey?: number } =
   };
 
   const removeSlot = async (slot: InterviewSlot) => {
-    if (slot.status === "booked") {
-      toast.error("Someone confirmed this time", {
-        description: "Removing it means cancelling on them. That flow isn't built yet.",
-      });
-      return;
-    }
+    if (slot.status === "booked") return; // Booked rows use the cancel flow below.
     try {
       await deleteOpenSlot(slot.id);
       await load();
     } catch (e) {
       console.error("[interview slots] delete failed", e);
       toast.error("Couldn't remove that time");
+    }
+  };
+
+  /**
+   * Cancels ONE booked interview from the day view. The slot returns to 'open'
+   * server-side — the day continues, only this interview is off. The email is
+   * best-effort: a failed send never rolls back the cancellation.
+   */
+  const cancelBooked = async () => {
+    const slot = cancelTarget;
+    if (!slot?.interviewId) return;
+    const who = names[slot.interviewId] || "That candidate";
+    const token = tokens[slot.interviewId] ?? null;
+    setCancelTarget(null);
+    setBusy(true);
+    let info: Awaited<ReturnType<typeof cancelInterview>> = null;
+    try {
+      info = await cancelInterview(slot.interviewId);
+      toast.success("Interview cancelled");
+      await load();
+    } catch (e) {
+      console.error("[interview slots] cancel interview failed", e);
+      toast.error("Couldn't cancel that interview");
+      setBusy(false);
+      return;
+    }
+    setBusy(false);
+    const res = await sendInterviewCancelledEmail({
+      ownerId,
+      firstName: info?.firstName ?? who,
+      restaurantName: info?.restaurantName ?? "",
+      email: info?.email ?? "",
+      bookedDate: info?.bookedDate ?? slot.date,
+      bookedTime: info?.bookedTime ?? slot.time,
+      link: token ? `${window.location.origin}/interview/t/${token}` : null,
+    });
+    if (res.ok) {
+      toast.success(`${who} was emailed about the cancellation`);
+    } else {
+      const why = res.attempted ? `email failed${res.error ? `: ${res.error}` : ""}` : "no email on file";
+      toast.warning(`${who} was NOT emailed about the cancellation (${why})`);
     }
   };
 
@@ -368,17 +406,51 @@ export function InterviewSlotsCard({ refreshKey = 0 }: { refreshKey?: number } =
                     {s.status === "open" && (
                       <Button size="sm" variant="ghost" onClick={() => void removeSlot(s)}>Remove</Button>
                     )}
+                    {s.status === "booked" && s.interviewId && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={busy}
+                        onClick={() => setCancelTarget(s)}
+                      >
+                        Cancel interview
+                      </Button>
+                    )}
                   </span>
                 </li>
               ))}
             </ul>
           )}
-          {bookedCount > 0 && (
-            <p className="text-xs text-muted-foreground">
-              {bookedCount} booked time{bookedCount === 1 ? "" : "s"} on this day can't be removed one by one — someone
-              confirmed them. Closing the whole day cancels them and emails those candidates.
-            </p>
-          )}
+          {/* Confirmation for cancelling ONE booked interview. Distinct from
+              close-day above: this slot goes back to open, the day continues. */}
+          <AlertDialog open={!!cancelTarget} onOpenChange={(o) => { if (!o) setCancelTarget(null); }}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  Cancel {cancelTarget?.interviewId && names[cancelTarget.interviewId]
+                    ? `${names[cancelTarget.interviewId]}'s interview`
+                    : "this interview"}?
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  {cancelTarget?.interviewId && names[cancelTarget.interviewId]
+                    ? names[cancelTarget.interviewId]
+                    : "They"}{" "}
+                  will be emailed that the interview is off — that email can't be unsent. The{" "}
+                  {cancelTarget ? formatTime12h(cancelTarget.time) : ""} time on {formatDateLong(date)} goes
+                  back to open and can be booked again. The rest of the day is unchanged.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Keep the interview</AlertDialogCancel>
+                <AlertDialogAction
+                  disabled={busy}
+                  onClick={(e) => { e.preventDefault(); void cancelBooked(); }}
+                >
+                  Cancel the interview
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </CardContent>
     </Card>

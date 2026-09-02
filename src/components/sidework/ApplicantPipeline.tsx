@@ -32,9 +32,9 @@ import {
   fetchInterviewsForPeople,
   fetchSlotTimes,
   cancelInterview,
+  sendInterviewCancelledEmail,
   type Interview,
 } from "@/lib/interviews-supabase";
-import { countOpenSlotsFromToday } from "@/lib/interview-slots-supabase";
 import { useStore } from "@/lib/sidework-store";
 import { allRolesWithCustom } from "@/lib/role-colors";
 import { shadowSectionForRole, dressGroupForRole } from "@/lib/shadow-packet-roles";
@@ -387,38 +387,19 @@ export function ApplicantPipeline({ onInterviewChange }: { onInterviewChange?: (
     iv: Interview,
     info: { bookedDate: string | null; bookedTime: string | null } | null,
   ) => {
-    let hasOpenSlots = false;
-    try {
-      if (effectiveOwner?.ownerId) {
-        hasOpenSlots = (await countOpenSlotsFromToday(effectiveOwner.ownerId)) > 0;
-      }
-    } catch (e) {
-      console.error("[pipeline] open slot count failed", e);
-    }
-    let ok = false;
-    let attempted = false;
-    let err: string | undefined;
-    try {
-      const res = await sendApplicantNotification({ data: {
-        kind: "interview_cancelled",
-        ...(hasOpenSlots ? { link: interviewLink(iv) } : {}),
-        hasOpenSlots,
-        firstName: person.firstName ?? "",
-        restaurantName: effectiveOwner?.restaurantName ?? "",
-        email: person.email ?? "",
-        ...(info?.bookedDate ? { interviewDate: formatDateLong(info.bookedDate) } : {}),
-        ...(info?.bookedTime ? { interviewTime: formatTime12h(info.bookedTime) } : {}),
-      }});
-      ok = res.email.ok;
-      attempted = res.email.attempted;
-      err = res.email.error;
-    } catch (e) {
-      console.error("[pipeline] interview cancelled email failed", e);
-    }
-    if (ok) {
+    const res = await sendInterviewCancelledEmail({
+      ownerId: effectiveOwner?.ownerId ?? null,
+      firstName: person.firstName ?? "",
+      restaurantName: effectiveOwner?.restaurantName ?? "",
+      email: person.email ?? "",
+      bookedDate: info?.bookedDate ?? null,
+      bookedTime: info?.bookedTime ?? null,
+      link: interviewLink(iv),
+    });
+    if (res.ok) {
       toast.success(`${person.firstName} was emailed about the cancellation`);
     } else {
-      const why = attempted ? `email failed${err ? `: ${err}` : ""}` : "no email on file";
+      const why = res.attempted ? `email failed${res.error ? `: ${res.error}` : ""}` : "no email on file";
       toast.warning(`${person.firstName} was NOT emailed about the cancellation (${why})`);
     }
   };
