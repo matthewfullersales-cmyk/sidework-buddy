@@ -153,22 +153,9 @@ function PublicShadowShiftPage() {
             )}
           </section>
 
-          {/* One labelled block, up to two verbatim lines: the assigned trainer
-              (when there is one) and the restaurant's own askFor text. Never
-              composed into a single generated sentence — either line may be
-              missing. askFor alone is enough to render this section. */}
-          {shift && packet && (shift.trainerFirstName || askFor.trim()) && (
-            <section className="space-y-2 rounded-xl border border-border p-5">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Who to ask for</p>
-              {shift.trainerFirstName && (
-                <p className="text-sm">Ask for <span className="font-medium">{shift.trainerFirstName}</span></p>
-              )}
-              {askFor.trim() && <p className="whitespace-pre-line text-sm">{askFor}</p>}
-            </section>
-          )}
-
-          {packet && (entrance.trim() || packet.parking.trim() || (dress && (dress.wear.trim() || dress.provided.trim()))) && (
+          {packet && (askFor.trim() || entrance.trim() || packet.parking.trim() || (dress && (dress.wear.trim() || dress.provided.trim()))) && (
             <section className="space-y-4 rounded-xl border border-border p-5">
+              <Field label="Who to ask for" value={askFor} />
               <Field label="Where to come in" value={entrance} />
               <Field label="Parking" value={packet.parking} />
               {dress && <Field label="What to wear" value={dress.wear} />}
