@@ -291,9 +291,14 @@ export function InterviewSlotsCard({ refreshKey = 0 }: { refreshKey?: number } =
         <div className="space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-xs font-semibold">{formatDateLong(date)}</p>
-            <AlertDialog>
+            <AlertDialog open={confirmOpen} onOpenChange={(o) => { if (!o) setConfirmOpen(false); }}>
               <AlertDialogTrigger asChild>
-                <Button size="sm" variant="outline" disabled={busy || (openCount === 0 && bookedCount === 0)}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={busy || (openCount === 0 && bookedCount === 0)}
+                  onClick={() => void openConfirm()}
+                >
                   Close this day
                 </Button>
               </AlertDialogTrigger>
@@ -301,15 +306,28 @@ export function InterviewSlotsCard({ refreshKey = 0 }: { refreshKey?: number } =
                 <AlertDialogHeader>
                   <AlertDialogTitle>Close {formatDateLong(date)}?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    {openCount} open time{openCount === 1 ? "" : "s"} will close.{" "}
-                    {bookedCount > 0
-                      ? `${bookedCount} confirmed interview${bookedCount === 1 ? "" : "s"} will be cancelled and ${bookedCount === 1 ? "that person" : "those people"} will be emailed. That email can't be unsent.`
-                      : "Nobody has confirmed a time on this day, so no one will be emailed."}
+                    {confirmError
+                      ? "Couldn't check this day's times just now, so we can't tell you what closing it would do. Try again."
+                      : !confirmCounts
+                      ? "Checking this day's times…"
+                      : (
+                        <>
+                          {confirmCounts.open} open time{confirmCounts.open === 1 ? "" : "s"} will close.{" "}
+                          {confirmCounts.booked > 0
+                            ? `${confirmCounts.booked} confirmed interview${confirmCounts.booked === 1 ? "" : "s"} will be cancelled and ${confirmCounts.booked === 1 ? "that person" : "those people"} will be emailed. That email can't be unsent.`
+                            : "Nobody has confirmed a time on this day, so no one will be emailed."}
+                        </>
+                      )}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Keep the day</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => void closeDay()}>Close the day</AlertDialogAction>
+                  <AlertDialogAction
+                    disabled={busy || confirmError || !confirmCounts}
+                    onClick={(e) => { e.preventDefault(); void closeDay(); }}
+                  >
+                    Close the day
+                  </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
