@@ -28,7 +28,7 @@ import {
   type InterviewSlot,
 } from "@/lib/interview-slots-supabase";
 
-export function InterviewSlotsCard() {
+export function InterviewSlotsCard({ refreshKey = 0 }: { refreshKey?: number } = {}) {
   const { effectiveOwner } = useAuth();
   const ownerId = effectiveOwner?.ownerId ?? null;
 
@@ -42,6 +42,12 @@ export function InterviewSlotsCard() {
   // interview id -> public token, so a cancellation email can link them back.
   const [tokens, setTokens] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
+  // Confirmation counts are re-read from the server when the dialog opens, so
+  // the manager never confirms against a stale picture (the pipeline can free
+  // a slot behind this card's back).
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmCounts, setConfirmCounts] = useState<{ open: number; booked: number } | null>(null);
+  const [confirmError, setConfirmError] = useState(false);
 
   useEffect(() => {
     if (!ownerId) return;
@@ -92,10 +98,29 @@ export function InterviewSlotsCard() {
     }
   }, [ownerId, date]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void load(); }, [load, refreshKey]);
 
   const bookedCount = useMemo(() => slots.filter((s) => s.status === "booked").length, [slots]);
   const openCount = useMemo(() => slots.filter((s) => s.status === "open").length, [slots]);
+
+  /** Fresh server read behind the confirmation dialog. Never falls back to state. */
+  const openConfirm = async () => {
+    setConfirmOpen(true);
+    setConfirmCounts(null);
+    setConfirmError(false);
+    if (!ownerId) { setConfirmError(true); return; }
+    try {
+      const rows = await fetchSlotsForDate(ownerId, date);
+      setSlots(rows);
+      setConfirmCounts({
+        open: rows.filter((s) => s.status === "open").length,
+        booked: rows.filter((s) => s.status === "booked").length,
+      });
+    } catch (e) {
+      console.error("[interview slots] confirm read failed", e);
+      setConfirmError(true);
+    }
+  };
 
   const buildPreview = () => {
     if (date < todayLocalISO()) return void toast.error("That date is in the past.");
@@ -152,17 +177,22 @@ export function InterviewSlotsCard() {
    * follow; a failed email never undoes the cancellation.
    */
   const closeDay = async () => {
-    if (!ownerId) return;
-    if (openCount === 0 && bookedCount === 0) return void toast.message("Nothing to close on this day.");
+    if (!ownerId || !confirmCounts) return;
+    setConfirmOpen(false);
+    const { open: freshOpen, booked: freshBooked } = confirmCounts;
+    if (freshOpen === 0 && freshBooked === 0) return void toast.message("Nothing to close on this day.");
     setBusy(true);
     let affected: Awaited<ReturnType<typeof closeInterviewDay>> = [];
     try {
       affected = await closeInterviewDay(date);
+      // Cancelled count is the server's own return. The closed-times count stays
+      // client-side, taken from the confirm-time server read moments earlier —
+      // close_interview_day returns only affected candidates, and widening its
+      // return shape was out of scope for this pass.
+      const closed = freshOpen + freshBooked;
       toast.success(
-        `Closed ${openCount} open time${openCount === 1 ? "" : "s"}` +
-          (affected.length > 0
-            ? ` · ${affected.length} interview${affected.length === 1 ? "" : "s"} cancelled`
-            : ""),
+        `Closed ${closed} time${closed === 1 ? "" : "s"}` +
+          ` · ${affected.length} interview${affected.length === 1 ? "" : "s"} cancelled`,
       );
       await load();
     } catch (e) {
@@ -261,9 +291,14 @@ export function InterviewSlotsCard() {
         <div className="space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-xs font-semibold">{formatDateLong(date)}</p>
-            <AlertDialog>
+            <AlertDialog open={confirmOpen} onOpenChange={(o) => { if (!o) setConfirmOpen(false); }}>
               <AlertDialogTrigger asChild>
-                <Button size="sm" variant="outline" disabled={busy || (openCount === 0 && bookedCount === 0)}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={busy || (openCount === 0 && bookedCount === 0)}
+                  onClick={() => void openConfirm()}
+                >
                   Close this day
                 </Button>
               </AlertDialogTrigger>
@@ -271,15 +306,28 @@ export function InterviewSlotsCard() {
                 <AlertDialogHeader>
                   <AlertDialogTitle>Close {formatDateLong(date)}?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    {openCount} open time{openCount === 1 ? "" : "s"} will close.{" "}
-                    {bookedCount > 0
-                      ? `${bookedCount} confirmed interview${bookedCount === 1 ? "" : "s"} will be cancelled and ${bookedCount === 1 ? "that person" : "those people"} will be emailed. That email can't be unsent.`
-                      : "Nobody has confirmed a time on this day, so no one will be emailed."}
+                    {confirmError
+                      ? "Couldn't check this day's times just now, so we can't tell you what closing it would do. Try again."
+                      : !confirmCounts
+                      ? "Checking this day's times…"
+                      : (
+                        <>
+                          {confirmCounts.open} open time{confirmCounts.open === 1 ? "" : "s"} will close.{" "}
+                          {confirmCounts.booked > 0
+                            ? `${confirmCounts.booked} confirmed interview${confirmCounts.booked === 1 ? "" : "s"} will be cancelled and ${confirmCounts.booked === 1 ? "that person" : "those people"} will be emailed. That email can't be unsent.`
+                            : "Nobody has confirmed a time on this day, so no one will be emailed."}
+                        </>
+                      )}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Keep the day</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => void closeDay()}>Close the day</AlertDialogAction>
+                  <AlertDialogAction
+                    disabled={busy || confirmError || !confirmCounts}
+                    onClick={(e) => { e.preventDefault(); void closeDay(); }}
+                  >
+                    Close the day
+                  </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
@@ -299,7 +347,7 @@ export function InterviewSlotsCard() {
                         ? "Closed"
                         : "Open"}
                     </span>
-                    {s.status !== "booked" && (
+                    {s.status === "open" && (
                       <Button size="sm" variant="ghost" onClick={() => void removeSlot(s)}>Remove</Button>
                     )}
                   </span>

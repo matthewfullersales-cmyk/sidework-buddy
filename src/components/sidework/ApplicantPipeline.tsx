@@ -133,7 +133,7 @@ function cancelledAgo(iso: string): string | null {
 }
 
 
-export function ApplicantPipeline() {
+export function ApplicantPipeline({ onInterviewChange }: { onInterviewChange?: () => void } = {}) {
   const { effectiveOwner } = useAuth();
   const ownerId = effectiveOwner?.ownerId ?? null;
 
@@ -369,6 +369,8 @@ export function ApplicantPipeline() {
         return next;
       });
       toast.success("Interview cancelled");
+      // The slot went back to 'open'; tell any sibling slot view to reload.
+      onInterviewChange?.();
     } catch (e) {
       console.error("[pipeline] cancel interview failed", e);
       toast.error("Couldn't cancel that interview.");
@@ -1316,6 +1318,7 @@ export function ApplicantPipeline() {
           onClose={() => setOfferFor(null)}
           onCreated={(iv) => {
             setInterviews((prev) => ({ ...prev, [iv.personId]: iv }));
+            onInterviewChange?.();
             setPeople((prev) =>
               prev.map((p) =>
                 p.id === iv.personId
