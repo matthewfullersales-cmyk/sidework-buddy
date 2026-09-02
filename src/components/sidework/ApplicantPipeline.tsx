@@ -34,6 +34,7 @@ import {
   cancelInterview,
   type Interview,
 } from "@/lib/interviews-supabase";
+import { countOpenSlotsFromToday } from "@/lib/interview-slots-supabase";
 import { useStore } from "@/lib/sidework-store";
 import { allRolesWithCustom } from "@/lib/role-colors";
 import { shadowSectionForRole, dressGroupForRole } from "@/lib/shadow-packet-roles";
@@ -354,12 +355,14 @@ export function ApplicantPipeline() {
     }
   };
 
+  /** Cancels the interview, then tells the candidate. Email never blocks the cancel. */
   const dropInterview = async (person: Person) => {
     const iv = interviews[person.id];
     if (!iv) return;
     setBusy(true);
+    let info: Awaited<ReturnType<typeof cancelInterview>> = null;
     try {
-      await cancelInterview(iv.id);
+      info = await cancelInterview(iv.id);
       setInterviews((prev) => {
         const next = { ...prev };
         delete next[person.id];
@@ -369,10 +372,55 @@ export function ApplicantPipeline() {
     } catch (e) {
       console.error("[pipeline] cancel interview failed", e);
       toast.error("Couldn't cancel that interview.");
-    } finally {
       setBusy(false);
+      return;
+    }
+    setBusy(false);
+    await emailInterviewCancelled(person, iv, info);
+  };
+
+  /** Sends the interview_cancelled email. Reports failure, never throws. */
+  const emailInterviewCancelled = async (
+    person: Person,
+    iv: Interview,
+    info: { bookedDate: string | null; bookedTime: string | null } | null,
+  ) => {
+    let hasOpenSlots = false;
+    try {
+      if (effectiveOwner?.ownerId) {
+        hasOpenSlots = (await countOpenSlotsFromToday(effectiveOwner.ownerId)) > 0;
+      }
+    } catch (e) {
+      console.error("[pipeline] open slot count failed", e);
+    }
+    let ok = false;
+    let attempted = false;
+    let err: string | undefined;
+    try {
+      const res = await sendApplicantNotification({ data: {
+        kind: "interview_cancelled",
+        ...(hasOpenSlots ? { link: interviewLink(iv) } : {}),
+        hasOpenSlots,
+        firstName: person.firstName ?? "",
+        restaurantName: effectiveOwner?.restaurantName ?? "",
+        email: person.email ?? "",
+        ...(info?.bookedDate ? { interviewDate: formatDateLong(info.bookedDate) } : {}),
+        ...(info?.bookedTime ? { interviewTime: formatTime12h(info.bookedTime) } : {}),
+      }});
+      ok = res.email.ok;
+      attempted = res.email.attempted;
+      err = res.email.error;
+    } catch (e) {
+      console.error("[pipeline] interview cancelled email failed", e);
+    }
+    if (ok) {
+      toast.success(`${person.firstName} was emailed about the cancellation`);
+    } else {
+      const why = attempted ? `email failed${err ? `: ${err}` : ""}` : "no email on file";
+      toast.warning(`${person.firstName} was NOT emailed about the cancellation (${why})`);
     }
   };
+
 
   /** Roster people who can train the selected role, ordered by usefulness. */
   const trainerCandidates = useMemo(() => {
@@ -1103,10 +1151,30 @@ export function ApplicantPipeline() {
                   {interviews[openPerson.id] ? "Re-offer interview" : "Schedule interview"}
                 </Button>
                 {interviews[openPerson.id] && interviews[openPerson.id]!.status !== "completed" && (
-                  <Button size="sm" variant="outline" disabled={busy} onClick={() => void dropInterview(openPerson)}>
-                    Cancel interview
-                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button size="sm" variant="outline" disabled={busy}>
+                        Cancel interview
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Cancel {openPerson.firstName}&apos;s interview?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          {openPerson.firstName} will be emailed that their interview is cancelled, and
+                          that email can&apos;t be unsent. Any time they booked goes back on your open list.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Keep it</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => void dropInterview(openPerson)}>
+                          Cancel interview
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 )}
+
                 <Button size="sm" disabled={busy} onClick={() => openShadowDialog(openPerson, shadowShifts[openPerson.id] ?? null)}>Move to Shadow</Button>
                 <Button size="sm" disabled={busy || openPerson.state === "hired"} onClick={() => { setHireRole(""); setHireFor(openPerson); }}>Hire</Button>
                 <Button size="sm" variant="outline" disabled={busy || openPerson.state === "rejected"} onClick={() => void move(openPerson, "rejected")}>Pass</Button>
@@ -1238,6 +1306,12 @@ export function ApplicantPipeline() {
         <InterviewOfferDialog
           person={offerFor}
           ownerId={ownerId}
+          existing={interviews[offerFor.id] ?? null}
+          existingBooked={(() => {
+            const iv = interviews[offerFor.id];
+            const b = iv?.slotId ? slotTimes[iv.slotId] : undefined;
+            return b ?? null;
+          })()}
           restaurantName={effectiveOwner?.restaurantName ?? ""}
           onClose={() => setOfferFor(null)}
           onCreated={(iv) => {

@@ -107,7 +107,9 @@ function PublicInterviewPage() {
         <>
           <header className="space-y-1">
             <h1 className="text-2xl font-bold">
-              {interview.restaurantName ?? "The restaurant"} would like to interview you
+              {interview.status === "cancelled"
+                ? `Your interview at ${interview.restaurantName ?? "the restaurant"}`
+                : `${interview.restaurantName ?? "The restaurant"} would like to interview you`}
             </h1>
             {interview.firstName && (
               <p className="text-sm text-muted-foreground">Hi {interview.firstName} —</p>
@@ -125,7 +127,23 @@ function PublicInterviewPage() {
             )}
           </header>
 
-          {isBooked ? (
+          {interview.status === "cancelled" && (
+            <section className="rounded-xl border border-border p-5">
+              <h2 className="text-sm font-semibold">This interview has been cancelled</h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Nothing else about your application has changed.
+                {byDay.length > 0
+                  ? " You can pick a new time below."
+                  : " When new times open up, you'll get another email."}
+              </p>
+            </section>
+          )}
+
+          {interview.status === "cancelled" ? (
+            byDay.length > 0 ? (
+              <SlotPicker byDay={byDay} busy={busy} onPick={(s) => void claim(s)} />
+            ) : null
+          ) : isBooked ? (
             <section className="rounded-xl border border-primary bg-primary/5 p-5">
               <p className="text-xs font-semibold uppercase tracking-wide text-primary">Confirmed</p>
               <p className="mt-1 text-lg font-semibold">
@@ -144,34 +162,48 @@ function PublicInterviewPage() {
               </p>
             </section>
           ) : (
-            <section className="space-y-4">
-              <h2 className="text-sm font-semibold">Pick a time that works for you</h2>
-              {byDay.map((g) => (
-                <div key={g.date} className="space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    {formatDateLong(g.date)}
-                  </p>
-                  <ul className="space-y-2">
-                    {g.slots.map((slot) => (
-                      <li key={slot.id}>
-                        <Button
-                          className="h-auto min-h-14 w-full justify-start whitespace-normal py-3 text-left text-base"
-                          variant="outline"
-                          disabled={!!busy}
-                          onClick={() => void claim(slot)}
-                        >
-                          {busy === slot.id ? "Confirming…" : formatTime12h(slot.time)}
-                        </Button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-              <p className="text-xs text-muted-foreground">One tap confirms.</p>
-            </section>
+            <SlotPicker byDay={byDay} busy={busy} onPick={(s) => void claim(s)} />
           )}
         </>
       )}
     </main>
+  );
+}
+
+function SlotPicker({
+  byDay,
+  busy,
+  onPick,
+}: {
+  byDay: { date: string; slots: OpenSlot[] }[];
+  busy: string | null;
+  onPick: (slot: OpenSlot) => void;
+}) {
+  return (
+    <section className="space-y-4">
+      <h2 className="text-sm font-semibold">Pick a time that works for you</h2>
+      {byDay.map((g) => (
+        <div key={g.date} className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            {formatDateLong(g.date)}
+          </p>
+          <ul className="space-y-2">
+            {g.slots.map((slot) => (
+              <li key={slot.id}>
+                <Button
+                  className="h-auto min-h-14 w-full justify-start whitespace-normal py-3 text-left text-base"
+                  variant="outline"
+                  disabled={!!busy}
+                  onClick={() => onPick(slot)}
+                >
+                  {busy === slot.id ? "Confirming\u2026" : formatTime12h(slot.time)}
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+      <p className="text-xs text-muted-foreground">One tap confirms.</p>
+    </section>
   );
 }

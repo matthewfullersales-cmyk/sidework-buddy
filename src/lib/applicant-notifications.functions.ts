@@ -9,8 +9,9 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 const GATEWAY_URL = "https://connector-gateway.lovable.dev";
 
 const payloadSchema = z.object({
-  kind: z.enum(["interview_offer", "shadow_invite", "shadow_moved", "shadow_cancelled", "hire_signup"]),
-  // shadow_cancelled carries no link; every other kind REQUIRES a valid URL so
+  kind: z.enum(["interview_offer", "interview_cancelled", "shadow_invite", "shadow_moved", "shadow_cancelled", "hire_signup"]),
+  // shadow_cancelled never carries a link, and interview_cancelled only carries
+  // one when times are actually open. Every other kind REQUIRES a valid URL so
   // a CTA can never silently fall back to the marketing homepage.
   link: z.string().url().optional(),
   firstName: z.string().trim().max(120).optional().default(""),
@@ -23,8 +24,16 @@ const payloadSchema = z.object({
   shadowTime: z.string().max(80).optional(),
   // Preformatted "Weekday, Mon D" variant for subject lines; body keeps shadowDate.
   shadowDateSubject: z.string().max(80).optional(),
+  // interview_cancelled: the time that WAS booked, if any, plus whether the
+  // restaurant currently has any open time left to point them at.
+  interviewDate: z.string().max(80).optional(),
+  interviewTime: z.string().max(80).optional(),
+  hasOpenSlots: z.boolean().optional().default(false),
 }).superRefine((data, ctx) => {
-  if (data.kind !== "shadow_cancelled" && !data.link) {
+  const linkOptional =
+    data.kind === "shadow_cancelled" ||
+    (data.kind === "interview_cancelled" && !data.hasOpenSlots);
+  if (!linkOptional && !data.link) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ["link"],
@@ -89,6 +98,30 @@ ${ctaButton(data.link!, "Pick your interview time")}`,
     };
   }
 
+
+  if (data.kind === "interview_cancelled") {
+    const when = [data.interviewDate, data.interviewTime].filter(Boolean).join(" at ");
+    const line1 = when
+      ? `Your interview at ${restaurant} on ${when} has been cancelled.`
+      : `Your interview at ${restaurant} has been cancelled.`;
+    const line2 = "Nothing else about your application has changed.";
+    const line3 = data.hasOpenSlots
+      ? "You can pick a new time here:"
+      : "When new times open up, you'll get another email from us.";
+    return {
+      subject: `Your interview at ${restaurant} has been cancelled`,
+      text:
+`${hi}
+
+${line1} ${line2} ${line3}${data.hasOpenSlots ? `\n${data.link}` : ""}`,
+      html:
+`<p>${esc(hi)}</p>
+<p>Your interview at <strong>${esc(restaurant)}</strong>${when ? ` on <strong>${esc(when)}</strong>` : ""} has been cancelled.</p>
+<p>${esc(line2)}</p>
+<p>${esc(line3)}</p>
+${data.hasOpenSlots ? ctaButton(data.link!, "Pick a new time") : ""}`,
+    };
+  }
 
   if (data.kind === "shadow_invite") {
     const when = [data.shadowDate, data.shadowTime].filter(Boolean).join(" at ");

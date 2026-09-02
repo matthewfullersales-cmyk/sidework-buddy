@@ -2,6 +2,7 @@
 // Managers create offers; applicants confirm a slot through token-scoped RPCs.
 // Phone and in-person only — there is no video interview option.
 import { supabase } from "@/integrations/supabase/client";
+import { todayLocalISO } from "@/lib/interview-slots-supabase";
 
 export type InterviewType = "phone" | "in_person";
 export type InterviewStatus = "offered" | "scheduled" | "completed" | "cancelled";
@@ -97,7 +98,10 @@ function mapOpenSlots(raw: unknown): OpenSlot[] {
     const time = typeof o.slot_time === "string" ? o.slot_time.slice(0, 5) : null;
     if (id && date && time) out.push({ id, date, time });
   }
-  return out;
+  // The server keeps one extra day either side of its own UTC date; the local
+  // clock decides what "today" actually is.
+  const today = todayLocalISO();
+  return out.filter((s) => s.date >= today);
 }
 
 function mapPublic(row: PublicInterviewRow): PublicInterview {
@@ -157,13 +161,60 @@ export async function claimInterviewSlot(token: string, slotId: string): Promise
   return rows.length > 0 ? mapPublic(rows[0]!) : null;
 }
 
-export async function cancelInterview(id: string): Promise<void> {
-  const { error } = await supabase
-    .from("interviews")
-    .update({ status: "cancelled" })
-    .eq("id", id);
-  if (error) throw error;
+/** Who was cancelled and what they had booked — everything the email needs. */
+export type CancelledInterviewInfo = {
+  firstName: string | null;
+  email: string | null;
+  restaurantName: string | null;
+  bookedDate: string | null;
+  bookedTime: string | null;
+};
+
+type CancelRow = {
+  first_name: string | null;
+  email: string | null;
+  restaurant_name: string | null;
+  booked_date: string | null;
+  booked_time: string | null;
+};
+
+function mapCancelled(r: CancelRow): CancelledInterviewInfo {
+  return {
+    firstName: r.first_name,
+    email: r.email,
+    restaurantName: r.restaurant_name,
+    bookedDate: r.booked_date,
+    bookedTime: toHHMM(r.booked_time),
+  };
 }
+
+/**
+ * Manager-only. Cancels the interview and releases its slot back to the pool,
+ * in one transaction. Returns what the caller needs to email the candidate.
+ */
+export async function cancelInterview(id: string): Promise<CancelledInterviewInfo | null> {
+  const { data, error } = await supabase.rpc("cancel_interview", { p_interview_id: id } as never);
+  if (error) throw error;
+  const rows = (data ?? []) as unknown as CancelRow[];
+  return rows.length > 0 ? mapCancelled(rows[0]!) : null;
+}
+
+export type ClosedDayCandidate = CancelledInterviewInfo & { interviewId: string };
+
+/**
+ * Manager-only. Closes every open time on a date AND cancels the interviews
+ * holding booked times on it (those slots close too — the day is gone).
+ * Returns the candidates who must be emailed.
+ */
+export async function closeInterviewDay(date: string): Promise<ClosedDayCandidate[]> {
+  const { data, error } = await supabase.rpc("close_interview_day", { p_date: date } as never);
+  if (error) throw error;
+  return ((data ?? []) as unknown as (CancelRow & { interview_id: string })[]).map((r) => ({
+    interviewId: r.interview_id,
+    ...mapCancelled(r),
+  }));
+}
+
 
 /** Wall-clock date/time for booked slots, keyed by slot id. */
 export async function fetchSlotTimes(slotIds: string[]): Promise<Record<string, { date: string; time: string }>> {

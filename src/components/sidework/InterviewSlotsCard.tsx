@@ -6,11 +6,18 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
+import { sendApplicantNotification } from "@/lib/applicant-notifications.functions";
+import { closeInterviewDay } from "@/lib/interviews-supabase";
 import { useAuth } from "@/lib/auth-context";
 import { formatDateLong, formatTime12h } from "@/lib/utils";
 import {
-  closeOpenSlotsForDate,
+  countOpenSlotsFromToday,
   createSlots,
   deleteOpenSlot,
   fetchInterviewInterval,
@@ -32,6 +39,8 @@ export function InterviewSlotsCard() {
   const [preview, setPreview] = useState<string[] | null>(null);
   const [slots, setSlots] = useState<InterviewSlot[]>([]);
   const [names, setNames] = useState<Record<string, string>>({});
+  // interview id -> public token, so a cancellation email can link them back.
+  const [tokens, setTokens] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -52,14 +61,14 @@ export function InterviewSlotsCard() {
       // Booked slots show who holds them; resolved separately so a name lookup
       // failure never hides the schedule itself.
       const interviewIds = rows.map((s) => s.interviewId).filter((x): x is string => !!x);
-      if (interviewIds.length === 0) { setNames({}); return; }
+      if (interviewIds.length === 0) { setNames({}); setTokens({}); return; }
       const { data: ivs } = await supabase
         .from("interviews")
-        .select("id, person_id")
+        .select("id, person_id, public_token")
         .in("id", interviewIds);
-      const personByInterview = new Map(
-        ((ivs ?? []) as { id: string; person_id: string }[]).map((r) => [r.id, r.person_id]),
-      );
+      const ivRows = (ivs ?? []) as { id: string; person_id: string; public_token: string }[];
+      setTokens(Object.fromEntries(ivRows.map((r) => [r.id, r.public_token])));
+      const personByInterview = new Map(ivRows.map((r) => [r.id, r.person_id]));
       const personIds = Array.from(new Set(personByInterview.values()));
       const { data: people } = await supabase
         .from("people")
@@ -137,26 +146,66 @@ export function InterviewSlotsCard() {
     }
   };
 
+  /**
+   * Closes the whole day server-side in one call: open times close, anyone
+   * booked has their interview cancelled and their slot closed too. Emails
+   * follow; a failed email never undoes the cancellation.
+   */
   const closeDay = async () => {
     if (!ownerId) return;
-    if (openCount === 0) return void toast.message("No open times on this day.");
+    if (openCount === 0 && bookedCount === 0) return void toast.message("Nothing to close on this day.");
     setBusy(true);
+    let affected: Awaited<ReturnType<typeof closeInterviewDay>> = [];
     try {
-      await closeOpenSlotsForDate(ownerId, date);
+      affected = await closeInterviewDay(date);
       toast.success(
-        `Closed ${openCount} open time${openCount === 1 ? "" : "s"}`,
-        bookedCount > 0
-          ? {
-              description: `${bookedCount} booked time${bookedCount === 1 ? " is" : "s are"} not affected — cancelling on someone who confirmed comes later.`,
-            }
-          : undefined,
+        `Closed ${openCount} open time${openCount === 1 ? "" : "s"}` +
+          (affected.length > 0
+            ? ` · ${affected.length} interview${affected.length === 1 ? "" : "s"} cancelled`
+            : ""),
       );
       await load();
     } catch (e) {
       console.error("[interview slots] close day failed", e);
       toast.error("Couldn't close that day");
-    } finally {
       setBusy(false);
+      return;
+    }
+    setBusy(false);
+    if (affected.length === 0) return;
+
+    let openLeft = 0;
+    try {
+      openLeft = await countOpenSlotsFromToday(ownerId);
+    } catch (e) {
+      console.error("[interview slots] open slot count failed", e);
+    }
+    const hasOpenSlots = openLeft > 0;
+
+    for (const c of affected) {
+      const who = c.firstName || "That candidate";
+      try {
+        const res = await sendApplicantNotification({ data: {
+          kind: "interview_cancelled",
+          ...(hasOpenSlots && tokens[c.interviewId]
+            ? { link: `${window.location.origin}/interview/t/${tokens[c.interviewId]}` }
+            : {}),
+          hasOpenSlots: hasOpenSlots && !!tokens[c.interviewId],
+          firstName: c.firstName ?? "",
+          restaurantName: c.restaurantName ?? "",
+          email: c.email ?? "",
+          ...(c.bookedDate ? { interviewDate: formatDateLong(c.bookedDate) } : {}),
+          ...(c.bookedTime ? { interviewTime: formatTime12h(c.bookedTime) } : {}),
+        }});
+        if (!res.email.ok) {
+          toast.warning(
+            `${who} was NOT emailed (${res.email.attempted ? `email failed${res.email.error ? `: ${res.email.error}` : ""}` : "no email on file"})`,
+          );
+        }
+      } catch (e) {
+        console.error("[interview slots] cancellation email failed", e);
+        toast.warning(`${who} was NOT emailed about the cancellation.`);
+      }
     }
   };
 
@@ -212,9 +261,28 @@ export function InterviewSlotsCard() {
         <div className="space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-xs font-semibold">{formatDateLong(date)}</p>
-            <Button size="sm" variant="outline" onClick={() => void closeDay()} disabled={busy || openCount === 0}>
-              Close open times
-            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button size="sm" variant="outline" disabled={busy || (openCount === 0 && bookedCount === 0)}>
+                  Close this day
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Close {formatDateLong(date)}?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {openCount} open time{openCount === 1 ? "" : "s"} will close.{" "}
+                    {bookedCount > 0
+                      ? `${bookedCount} confirmed interview${bookedCount === 1 ? "" : "s"} will be cancelled and ${bookedCount === 1 ? "that person" : "those people"} will be emailed. That email can't be unsent.`
+                      : "Nobody has confirmed a time on this day, so no one will be emailed."}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Keep the day</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => void closeDay()}>Close the day</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
           {slots.length === 0 ? (
             <p className="text-sm text-muted-foreground">No interview times on this day yet.</p>
@@ -241,7 +309,8 @@ export function InterviewSlotsCard() {
           )}
           {bookedCount > 0 && (
             <p className="text-xs text-muted-foreground">
-              {bookedCount} booked time{bookedCount === 1 ? "" : "s"} on this day can't be removed here — someone confirmed them.
+              {bookedCount} booked time{bookedCount === 1 ? "" : "s"} on this day can't be removed one by one — someone
+              confirmed them. Closing the whole day cancels them and emails those candidates.
             </p>
           )}
         </div>
