@@ -23,6 +23,8 @@ export type ShadowShift = {
   role: string;
   shiftDate: string;
   arrivalTime: string;
+  /** Optional manager-set end. null means the manager did not set one. */
+  endTime: string | null;
   trainerPersonId: string | null;
   note: string | null;
   status: ShadowShiftStatus;
@@ -42,6 +44,7 @@ type ShadowShiftRow = {
   role: string;
   shift_date: string;
   arrival_time: string;
+  end_time: string | null;
   trainer_person_id: string | null;
   note: string | null;
   status: string;
@@ -62,6 +65,7 @@ function mapShadowShift(row: ShadowShiftRow): ShadowShift {
     role: row.role,
     shiftDate: row.shift_date,
     arrivalTime: row.arrival_time,
+    endTime: row.end_time ?? null,
     trainerPersonId: row.trainer_person_id,
     note: row.note,
     status: (row.status as ShadowShiftStatus) ?? "scheduled",
@@ -79,6 +83,7 @@ function mapShadowShift(row: ShadowShiftRow): ShadowShift {
 export type PublicShadowShift = {
   shiftDate: string;
   arrivalTime: string;
+  endTime: string | null;
   role: string;
   status: ShadowShiftStatus;
   /** Resolved manager-side at scheduling time. Older rows may be null. */
@@ -98,6 +103,7 @@ export type PublicShadowShift = {
 type PublicShadowShiftRow = {
   shift_date: string;
   arrival_time: string;
+  end_time: string | null;
   role: string;
   status: string;
   section: string | null;
@@ -117,6 +123,7 @@ function mapPublic(row: PublicShadowShiftRow): PublicShadowShift {
   return {
     shiftDate: row.shift_date,
     arrivalTime: row.arrival_time,
+    endTime: row.end_time ?? null,
     role: row.role,
     status: (row.status as ShadowShiftStatus) ?? "scheduled",
     section: asSection(row.section),
@@ -172,6 +179,8 @@ export async function createShadowShift(input: {
   role: string;
   shiftDate: string;
   arrivalTime: string;
+  /** Optional. Omit or null when the manager did not set an end time. */
+  endTime?: string | null;
   trainerPersonId?: string | null;
   note?: string | null;
   section: ShadowSectionValue;
@@ -182,6 +191,7 @@ export async function createShadowShift(input: {
     p_role: input.role,
     p_shift_date: input.shiftDate,
     p_arrival_time: input.arrivalTime,
+    p_end_time: input.endTime ?? undefined,
     p_trainer_person_id: input.trainerPersonId ?? undefined,
     p_note: input.note ?? undefined,
     p_section: input.section,
@@ -199,6 +209,8 @@ export async function updateShadowShift(input: {
   id: string;
   shiftDate: string;
   arrivalTime: string;
+  /** Optional. null clears any previously set end time. */
+  endTime?: string | null;
   trainerPersonId?: string | null;
   note?: string | null;
   section: ShadowSectionValue;
@@ -208,6 +220,7 @@ export async function updateShadowShift(input: {
     p_id: input.id,
     p_shift_date: input.shiftDate,
     p_arrival_time: input.arrivalTime,
+    p_end_time: input.endTime ?? undefined,
     p_trainer_person_id: input.trainerPersonId ?? undefined,
     p_note: input.note ?? undefined,
     p_section: input.section,
