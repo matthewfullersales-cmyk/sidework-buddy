@@ -2549,7 +2549,7 @@ function ShadowPacketCard() {
             placeholder: "e.g. the lot across the street, not the front spaces",
           })}
           {field("Who to ask for when you arrive", packet.askFor, (v) => set({ askFor: v }), {
-            placeholder: "e.g. come to the host stand and ask for the manager on duty",
+            placeholder: "e.g. ask the host for the manager on duty",
           })}
         </div>
         <div className="space-y-3">
