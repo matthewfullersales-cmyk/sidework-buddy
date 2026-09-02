@@ -30,6 +30,7 @@ import { sendApplicantNotification } from "@/lib/applicant-notifications.functio
 
 import {
   fetchInterviewsForPeople,
+  fetchSlotTimes,
   cancelInterview,
   type Interview,
 } from "@/lib/interviews-supabase";
@@ -144,6 +145,7 @@ export function ApplicantPipeline() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [interviews, setInterviews] = useState<Record<string, Interview>>({});
+  const [slotTimes, setSlotTimes] = useState<Record<string, { date: string; time: string }>>({});
   const [offerFor, setOfferFor] = useState<Person | null>(null);
   const [hireFor, setHireFor] = useState<Person | null>(null);
   const [hireRole, setHireRole] = useState<string>("");
@@ -182,6 +184,11 @@ export function ApplicantPipeline() {
         if (!map[iv.personId]) map[iv.personId] = iv;
       }
       setInterviews(map);
+      try {
+        setSlotTimes(await fetchSlotTimes(list.map((iv) => iv.slotId).filter((x): x is string => !!x)));
+      } catch (e) {
+        console.error("[pipeline] interview slot times failed", e);
+      }
     } catch (e) {
       console.error("[pipeline] interviews load failed", e);
     }
@@ -654,7 +661,6 @@ export function ApplicantPipeline() {
         firstName: person.firstName ?? "",
         restaurantName: effectiveOwner?.restaurantName ?? "",
         email: person.email,
-        slotCount: iv.offeredSlots.length,
         interviewType: iv.interviewType,
       }});
       if (res.email.ok) toast.success(`Interview invite re-sent to ${person.email}`);
@@ -919,19 +925,19 @@ export function ApplicantPipeline() {
                     <p className="text-xs font-semibold">
                       Interview · {interviews[openPerson.id]!.interviewType === "phone" ? "Phone call" : "In person"}
                     </p>
-                    {interviews[openPerson.id]!.status === "scheduled" && interviews[openPerson.id]!.selectedSlot ? (
-                      <p className="text-sm">
-                        Confirmed for{" "}
-                        {new Date(interviews[openPerson.id]!.selectedSlot!).toLocaleString(undefined, {
-                          weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
-                        })}
-                      </p>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        {interviews[openPerson.id]!.offeredSlots.length} time
-                        {interviews[openPerson.id]!.offeredSlots.length === 1 ? "" : "s"} offered — waiting on them to pick
-                      </p>
-                    )}
+{(() => {
+                      const iv = interviews[openPerson.id]!;
+                      const booked = iv.slotId ? slotTimes[iv.slotId] : undefined;
+                      return booked ? (
+                        <p className="text-sm">
+                          Confirmed for {formatDateLong(booked.date)} at {formatTime12h(booked.time)}
+                        </p>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          Waiting on them to pick a time
+                        </p>
+                      );
+                    })()}
                     {interviews[openPerson.id]!.status !== "completed" && (
                       <div className="mt-2 flex flex-wrap gap-2">
                         <Button

@@ -49,11 +49,6 @@ function esc(value: string): string {
     .replace(/'/g, "&#39;");
 }
 
-const NUMBER_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
-function spellCount(n: number): string {
-  return NUMBER_WORDS[n] ?? String(n);
-}
-
 function ctaButton(link: string, label: string): string {
   const href = esc(link);
   return (
