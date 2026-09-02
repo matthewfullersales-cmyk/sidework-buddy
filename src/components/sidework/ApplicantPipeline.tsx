@@ -34,6 +34,7 @@ import {
   cancelInterview,
   type Interview,
 } from "@/lib/interviews-supabase";
+import { countOpenSlotsFromToday } from "@/lib/interview-slots-supabase";
 import { useStore } from "@/lib/sidework-store";
 import { allRolesWithCustom } from "@/lib/role-colors";
 import { shadowSectionForRole, dressGroupForRole } from "@/lib/shadow-packet-roles";
@@ -1305,6 +1306,12 @@ export function ApplicantPipeline() {
         <InterviewOfferDialog
           person={offerFor}
           ownerId={ownerId}
+          existing={interviews[offerFor.id] ?? null}
+          existingBooked={(() => {
+            const iv = interviews[offerFor.id];
+            const b = iv?.slotId ? slotTimes[iv.slotId] : undefined;
+            return b ?? null;
+          })()}
           restaurantName={effectiveOwner?.restaurantName ?? ""}
           onClose={() => setOfferFor(null)}
           onCreated={(iv) => {
