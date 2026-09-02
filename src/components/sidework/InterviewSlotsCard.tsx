@@ -39,6 +39,8 @@ export function InterviewSlotsCard() {
   const [preview, setPreview] = useState<string[] | null>(null);
   const [slots, setSlots] = useState<InterviewSlot[]>([]);
   const [names, setNames] = useState<Record<string, string>>({});
+  // interview id -> public token, so a cancellation email can link them back.
+  const [tokens, setTokens] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -59,14 +61,14 @@ export function InterviewSlotsCard() {
       // Booked slots show who holds them; resolved separately so a name lookup
       // failure never hides the schedule itself.
       const interviewIds = rows.map((s) => s.interviewId).filter((x): x is string => !!x);
-      if (interviewIds.length === 0) { setNames({}); return; }
+      if (interviewIds.length === 0) { setNames({}); setTokens({}); return; }
       const { data: ivs } = await supabase
         .from("interviews")
-        .select("id, person_id")
+        .select("id, person_id, public_token")
         .in("id", interviewIds);
-      const personByInterview = new Map(
-        ((ivs ?? []) as { id: string; person_id: string }[]).map((r) => [r.id, r.person_id]),
-      );
+      const ivRows = (ivs ?? []) as { id: string; person_id: string; public_token: string }[];
+      setTokens(Object.fromEntries(ivRows.map((r) => [r.id, r.public_token])));
+      const personByInterview = new Map(ivRows.map((r) => [r.id, r.person_id]));
       const personIds = Array.from(new Set(personByInterview.values()));
       const { data: people } = await supabase
         .from("people")
@@ -259,9 +261,28 @@ export function InterviewSlotsCard() {
         <div className="space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-xs font-semibold">{formatDateLong(date)}</p>
-            <Button size="sm" variant="outline" onClick={() => void closeDay()} disabled={busy || openCount === 0}>
-              Close open times
-            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button size="sm" variant="outline" disabled={busy || (openCount === 0 && bookedCount === 0)}>
+                  Close this day
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Close {formatDateLong(date)}?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {openCount} open time{openCount === 1 ? "" : "s"} will close.{" "}
+                    {bookedCount > 0
+                      ? `${bookedCount} confirmed interview${bookedCount === 1 ? "" : "s"} will be cancelled and ${bookedCount === 1 ? "that person" : "those people"} will be emailed. That email can't be unsent.`
+                      : "Nobody has confirmed a time on this day, so no one will be emailed."}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Keep the day</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => void closeDay()}>Close the day</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
           {slots.length === 0 ? (
             <p className="text-sm text-muted-foreground">No interview times on this day yet.</p>
@@ -288,7 +309,8 @@ export function InterviewSlotsCard() {
           )}
           {bookedCount > 0 && (
             <p className="text-xs text-muted-foreground">
-              {bookedCount} booked time{bookedCount === 1 ? "" : "s"} on this day can't be removed here — someone confirmed them.
+              {bookedCount} booked time{bookedCount === 1 ? "" : "s"} on this day can't be removed one by one — someone
+              confirmed them. Closing the whole day cancels them and emails those candidates.
             </p>
           )}
         </div>
