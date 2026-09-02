@@ -99,6 +99,7 @@ function PublicShadowShiftPage() {
       ? packet.entranceBoh
       : packet.entrance
     : "";
+  const askFor = packet ? packet.askFor : "";
   // Bring: no cross-fallback — blank BOH is a complete answer.
   const bring = packet ? (section === "boh" ? packet.bring.boh : packet.bring.foh) : "";
   const doing = packet && shift ? (packet.doing[shift.role] ?? "") : "";
@@ -146,14 +147,25 @@ function PublicShadowShiftPage() {
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{shift.role}</p>
             <p className="text-lg font-semibold">{formatDateLong(shift.shiftDate)}</p>
             <p className="text-sm">Arrive at {formatTime12h(shift.arrivalTime.slice(0, 5))}</p>
-            {shift.trainerFirstName && (
-              <p className="pt-1 text-sm">Ask for <span className="font-medium">{shift.trainerFirstName}</span></p>
-            )}
             {shift.address && <p className="pt-1 text-sm font-medium">{shift.address}</p>}
             {shift.restaurantPhone && (
               <p className="text-sm text-muted-foreground">{formatPhone(shift.restaurantPhone)}</p>
             )}
           </section>
+
+          {/* One labelled block, up to two verbatim lines: the assigned trainer
+              (when there is one) and the restaurant's own askFor text. Never
+              composed into a single generated sentence — either line may be
+              missing. askFor alone is enough to render this section. */}
+          {shift && packet && (shift.trainerFirstName || askFor.trim()) && (
+            <section className="space-y-2 rounded-xl border border-border p-5">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Who to ask for</p>
+              {shift.trainerFirstName && (
+                <p className="text-sm">Ask for <span className="font-medium">{shift.trainerFirstName}</span></p>
+              )}
+              {askFor.trim() && <p className="whitespace-pre-line text-sm">{askFor}</p>}
+            </section>
+          )}
 
           {packet && (entrance.trim() || packet.parking.trim() || (dress && (dress.wear.trim() || dress.provided.trim()))) && (
             <section className="space-y-4 rounded-xl border border-border p-5">
