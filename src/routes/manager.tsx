@@ -38,6 +38,7 @@ import { sendApplicantNotification } from "@/lib/applicant-notifications.functio
 import { notifyTimeOffResolved, notifyScheduleChanged } from "@/lib/notifications.functions";
 
 import { AvailabilityEditor, RestaurantHoursEditor, MealPeriodsEditor, BusinessInfoEditor } from "@/components/sidework/AvailabilityEditor";
+import { AvailabilitySummary, hasAnyAvailability } from "@/components/sidework/AvailabilitySummary";
 import { fetchShadowPacket, saveShadowPacket, emptyShadowPacket, type ShadowPacket } from "@/lib/employees-supabase";
 import { StaffJoinBanner, FullscreenQrDialog, StaffOnboardingCard, useJoinUrl } from "@/components/sidework/StaffOnboarding";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -743,23 +744,13 @@ function TeamTab() {
                 <div className="mt-4 grid gap-3 border-t border-border pt-4 sm:grid-cols-2">
                   <div className="rounded-lg border border-border bg-muted/30 p-3">
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Weekly availability</p>
-                    <div className="mt-2 grid grid-cols-7 gap-1 text-center">
-                      {DAY_KEYS.map((d) => {
-                        const av = e.weeklyAvailability?.[d] ?? { kind: "full" as const };
-                        const tone = av.kind === "full"
-                          ? "bg-primary/15 text-primary border-primary/30"
-                          : av.kind === "none"
-                            ? "bg-muted text-muted-foreground border-border"
-                            : "bg-amber-500/15 text-amber-700 border-amber-500/30 dark:text-amber-300";
-                        const sym = av.kind === "full" ? "✓" : av.kind === "none" ? "—" : "◐";
-                        return (
-                          <div key={d} className={`rounded border px-1 py-1 text-[10px] ${tone}`}>
-                            <div className="font-semibold">{d}</div>
-                            <div>{sym}</div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                    {hasAnyAvailability(e.weeklyAvailability) ? (
+                      <div className="mt-2">
+                        <AvailabilitySummary value={e.weeklyAvailability} />
+                      </div>
+                    ) : (
+                      <p className="mt-2 text-sm italic text-muted-foreground">Not set</p>
+                    )}
                   </div>
                   <div className="rounded-lg border border-border bg-muted/30 p-3">
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Emergency contact</p>
