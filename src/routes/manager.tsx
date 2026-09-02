@@ -2511,9 +2511,7 @@ function ShadowPacketCard() {
   const nudges: string[] = [];
   if (loaded && !packet.entrance.trim()) nudges.push("Trainees won't be told where to come in.");
   if (loaded && blankDress) nudges.push(`Trainees in ${blankDress} roles won't be told what to wear.`);
-  // True regardless of trainer assignment: a trainee WITH a trainer is already
-  // told who to ask for, so the nudge only covers the unassigned case.
-  if (loaded && !packet.askFor.trim()) nudges.push("Trainees with no trainer assigned won't be told who to ask for.");
+  if (loaded && !packet.askFor.trim()) nudges.push("Trainees won't be told who to ask for.");
 
   return (
     <Card>
