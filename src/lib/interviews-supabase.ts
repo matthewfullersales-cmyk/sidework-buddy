@@ -2,7 +2,9 @@
 // Managers create offers; applicants confirm a slot through token-scoped RPCs.
 // Phone and in-person only — there is no video interview option.
 import { supabase } from "@/integrations/supabase/client";
-import { todayLocalISO } from "@/lib/interview-slots-supabase";
+import { countOpenSlotsFromToday, todayLocalISO } from "@/lib/interview-slots-supabase";
+import { sendApplicantNotification } from "@/lib/applicant-notifications.functions";
+import { formatDateLong, formatTime12h } from "@/lib/utils";
 
 export type InterviewType = "phone" | "in_person";
 export type InterviewStatus = "offered" | "scheduled" | "completed" | "cancelled";
