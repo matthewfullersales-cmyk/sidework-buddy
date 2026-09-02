@@ -133,7 +133,7 @@ function cancelledAgo(iso: string): string | null {
 }
 
 
-export function ApplicantPipeline() {
+export function ApplicantPipeline({ onInterviewChange }: { onInterviewChange?: () => void } = {}) {
   const { effectiveOwner } = useAuth();
   const ownerId = effectiveOwner?.ownerId ?? null;
 
