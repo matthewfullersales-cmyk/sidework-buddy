@@ -133,7 +133,7 @@ function cancelledAgo(iso: string): string | null {
 }
 
 
-export function ApplicantPipeline({ onInterviewChange }: { onInterviewChange?: () => void } = {}) {
+export function ApplicantPipeline({ onInterviewChange, refreshKey = 0 }: { onInterviewChange?: () => void; refreshKey?: number } = {}) {
   const { effectiveOwner } = useAuth();
   const ownerId = effectiveOwner?.ownerId ?? null;
 
@@ -238,7 +238,7 @@ export function ApplicantPipeline({ onInterviewChange }: { onInterviewChange?: (
     if (!ownerId) return;
     void load(ownerId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ownerId, showArchived]);
+  }, [ownerId, showArchived, refreshKey]);
 
   useEffect(() => {
     if (!ownerId) return;

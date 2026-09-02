@@ -28,7 +28,7 @@ import {
   type InterviewSlot,
 } from "@/lib/interview-slots-supabase";
 
-export function InterviewSlotsCard({ refreshKey = 0 }: { refreshKey?: number } = {}) {
+export function InterviewSlotsCard({ refreshKey = 0, onInterviewChange }: { refreshKey?: number; onInterviewChange?: () => void } = {}) {
   const { effectiveOwner } = useAuth();
   const ownerId = effectiveOwner?.ownerId ?? null;
 
@@ -210,6 +210,8 @@ export function InterviewSlotsCard({ refreshKey = 0 }: { refreshKey?: number } =
       return;
     }
     setBusy(false);
+    // Cancellation committed — tell the pipeline regardless of email outcome.
+    onInterviewChange?.();
     const res = await sendInterviewCancelledEmail({
       ownerId,
       firstName: info?.firstName ?? who,
@@ -259,6 +261,8 @@ export function InterviewSlotsCard({ refreshKey = 0 }: { refreshKey?: number } =
     }
     setBusy(false);
     if (affected.length === 0) return;
+    // At least one interview was cancelled — tell the pipeline. Independent of emails below.
+    onInterviewChange?.();
 
     let openLeft = 0;
     try {

@@ -1016,6 +1016,7 @@ function JobsTab() {
   // Simplest available refresh channel: both cards are siblings here, so a
   // counter bumped by the pipeline makes the slots card re-read.
   const [slotRefresh, setSlotRefresh] = useState(0);
+  const [pipelineRefresh, setPipelineRefresh] = useState(0);
   const {
     jobs,
     applications,
@@ -1205,9 +1206,9 @@ function JobsTab() {
         </CardContent>
       </Card>
 
-      <InterviewSlotsCard refreshKey={slotRefresh} />
+      <InterviewSlotsCard refreshKey={slotRefresh} onInterviewChange={() => setPipelineRefresh((n) => n + 1)} />
 
-      <ApplicantPipeline onInterviewChange={() => setSlotRefresh((n) => n + 1)} />
+      <ApplicantPipeline refreshKey={pipelineRefresh} onInterviewChange={() => setSlotRefresh((n) => n + 1)} />
 
 
       {pickTypeApp && (
