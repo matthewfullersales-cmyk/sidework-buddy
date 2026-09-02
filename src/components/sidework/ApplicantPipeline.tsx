@@ -1253,12 +1253,6 @@ export function ApplicantPipeline({ onInterviewChange }: { onInterviewChange?: (
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="shadow-end">End time <span className="text-xs font-normal text-muted-foreground">(optional)</span></Label>
-                  <Input id="shadow-end" type="time" value={shEnd} onChange={(e) => setShEnd(e.target.value)} />
-                  <p className="text-xs text-muted-foreground">Leave blank and no end time is shown.</p>
-                </div>
-
                 {hasAnyAvailability(shadowFor.weeklyAvailability) && (
                   <div className="space-y-2">
                     <Label>{shadowFor.firstName}&apos;s availability</Label>
