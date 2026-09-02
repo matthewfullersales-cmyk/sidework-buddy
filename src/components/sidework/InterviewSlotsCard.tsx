@@ -98,10 +98,29 @@ export function InterviewSlotsCard({ refreshKey = 0 }: { refreshKey?: number } =
     }
   }, [ownerId, date]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void load(); }, [load, refreshKey]);
 
   const bookedCount = useMemo(() => slots.filter((s) => s.status === "booked").length, [slots]);
   const openCount = useMemo(() => slots.filter((s) => s.status === "open").length, [slots]);
+
+  /** Fresh server read behind the confirmation dialog. Never falls back to state. */
+  const openConfirm = async () => {
+    setConfirmOpen(true);
+    setConfirmCounts(null);
+    setConfirmError(false);
+    if (!ownerId) { setConfirmError(true); return; }
+    try {
+      const rows = await fetchSlotsForDate(ownerId, date);
+      setSlots(rows);
+      setConfirmCounts({
+        open: rows.filter((s) => s.status === "open").length,
+        booked: rows.filter((s) => s.status === "booked").length,
+      });
+    } catch (e) {
+      console.error("[interview slots] confirm read failed", e);
+      setConfirmError(true);
+    }
+  };
 
   const buildPreview = () => {
     if (date < todayLocalISO()) return void toast.error("That date is in the past.");
