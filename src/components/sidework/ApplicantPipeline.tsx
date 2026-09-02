@@ -369,6 +369,8 @@ export function ApplicantPipeline({ onInterviewChange }: { onInterviewChange?: (
         return next;
       });
       toast.success("Interview cancelled");
+      // The slot went back to 'open'; tell any sibling slot view to reload.
+      onInterviewChange?.();
     } catch (e) {
       console.error("[pipeline] cancel interview failed", e);
       toast.error("Couldn't cancel that interview.");
