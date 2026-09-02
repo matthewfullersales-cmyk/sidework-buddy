@@ -166,3 +166,18 @@ export function todayLocalISO(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
+
+/**
+ * How many times the restaurant currently has open from today (local clock)
+ * onward. Drives whether a cancellation email can point somewhere useful.
+ */
+export async function countOpenSlotsFromToday(ownerId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from("interview_slots")
+    .select("id", { count: "exact", head: true })
+    .eq("owner_id", ownerId)
+    .eq("status", "open")
+    .gte("slot_date", todayLocalISO());
+  if (error) throw error;
+  return count ?? 0;
+}
