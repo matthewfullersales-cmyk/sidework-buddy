@@ -347,7 +347,7 @@ export function InterviewSlotsCard({ refreshKey = 0 }: { refreshKey?: number } =
                         ? "Closed"
                         : "Open"}
                     </span>
-                    {s.status !== "booked" && (
+                    {s.status === "open" && (
                       <Button size="sm" variant="ghost" onClick={() => void removeSlot(s)}>Remove</Button>
                     )}
                   </span>
