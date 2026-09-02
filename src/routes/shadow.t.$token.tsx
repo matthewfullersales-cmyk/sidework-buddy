@@ -155,6 +155,7 @@ function PublicShadowShiftPage() {
 
           {packet && (askFor.trim() || entrance.trim() || packet.parking.trim() || (dress && (dress.wear.trim() || dress.provided.trim()))) && (
             <section className="space-y-4 rounded-xl border border-border p-5">
+              <Field label="Who to ask for" value={askFor} />
               <Field label="Where to come in" value={entrance} />
               <Field label="Parking" value={packet.parking} />
               {dress && <Field label="What to wear" value={dress.wear} />}
