@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { sendApplicantNotification } from "@/lib/applicant-notifications.functions";
-import { closeInterviewDay } from "@/lib/interviews-supabase";
+import { cancelInterview, closeInterviewDay, sendInterviewCancelledEmail } from "@/lib/interviews-supabase";
 import { useAuth } from "@/lib/auth-context";
 import { formatDateLong, formatTime12h } from "@/lib/utils";
 import {
@@ -48,6 +48,8 @@ export function InterviewSlotsCard({ refreshKey = 0 }: { refreshKey?: number } =
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmCounts, setConfirmCounts] = useState<{ open: number; booked: number } | null>(null);
   const [confirmError, setConfirmError] = useState(false);
+  // Booked slot whose single-interview cancellation is being confirmed.
+  const [cancelTarget, setCancelTarget] = useState<InterviewSlot | null>(null);
   // Prevent overlapping reloads when the tab becomes visible repeatedly.
   const loadingRef = useRef(false);
 
@@ -108,7 +110,7 @@ export function InterviewSlotsCard({ refreshKey = 0 }: { refreshKey?: number } =
     const onVisible = () => {
       if (document.visibilityState !== "visible") return;
       if (!ownerId) return;
-      if (busy || confirmOpen || preview || loadingRef.current) return;
+      if (busy || confirmOpen || cancelTarget || preview || loadingRef.current) return;
       loadingRef.current = true;
       load()
         .catch((e) => console.error("[interview slots] visibility refresh failed", e))
@@ -116,7 +118,7 @@ export function InterviewSlotsCard({ refreshKey = 0 }: { refreshKey?: number } =
     };
     document.addEventListener("visibilitychange", onVisible);
     return () => { document.removeEventListener("visibilitychange", onVisible); };
-  }, [ownerId, busy, confirmOpen, preview, load]);
+  }, [ownerId, busy, confirmOpen, cancelTarget, preview, load]);
 
   const bookedCount = useMemo(() => slots.filter((s) => s.status === "booked").length, [slots]);
   const openCount = useMemo(() => slots.filter((s) => s.status === "open").length, [slots]);
