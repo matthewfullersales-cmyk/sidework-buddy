@@ -2,6 +2,7 @@
 // Managers create offers; applicants confirm a slot through token-scoped RPCs.
 // Phone and in-person only — there is no video interview option.
 import { supabase } from "@/integrations/supabase/client";
+import { todayLocalISO } from "@/lib/interview-slots-supabase";
 
 export type InterviewType = "phone" | "in_person";
 export type InterviewStatus = "offered" | "scheduled" | "completed" | "cancelled";
@@ -97,7 +98,10 @@ function mapOpenSlots(raw: unknown): OpenSlot[] {
     const time = typeof o.slot_time === "string" ? o.slot_time.slice(0, 5) : null;
     if (id && date && time) out.push({ id, date, time });
   }
-  return out;
+  // The server keeps one extra day either side of its own UTC date; the local
+  // clock decides what "today" actually is.
+  const today = todayLocalISO();
+  return out.filter((s) => s.date >= today);
 }
 
 function mapPublic(row: PublicInterviewRow): PublicInterview {
