@@ -22,7 +22,7 @@ import {
 } from "@/components/sidework/AvailabilitySummary";
 import { InterviewOfferDialog } from "@/components/sidework/InterviewOfferDialog";
 import { formatPhone } from "@/lib/format-phone";
-import { formatDateLong, formatDateWithWeekday, formatTime12h, formatTimeRange12h } from "@/lib/utils";
+import { formatDateLong, formatDateWithWeekday, formatTime12h } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/integrations/supabase/client";
 import { copyLinkWithToast } from "@/lib/copy-to-clipboard";
@@ -160,8 +160,6 @@ export function ApplicantPipeline({ onInterviewChange }: { onInterviewChange?: (
   const [shRole, setShRole] = useState<string>("");
   const [shDate, setShDate] = useState<string>("");
   const [shTime, setShTime] = useState<string>("");
-  // Optional manager-set end time. Blank is a complete answer: no end shown.
-  const [shEnd, setShEnd] = useState<string>("");
   const [shTrainer, setShTrainer] = useState<string>("");
   const [shNote, setShNote] = useState<string>("");
   // Owner's dress-group overrides, needed to resolve the shadow shift row.
@@ -475,8 +473,6 @@ export function ApplicantPipeline({ onInterviewChange }: { onInterviewChange?: (
     setShRole(existing?.role ?? (person.jobId ? (jobRoles[person.jobId] ?? "") : ""));
     setShDate(existing?.shiftDate ?? "");
     setShTime((existing?.arrivalTime ?? "").slice(0, 5));
-    // Blank unless this shift already has one the manager set.
-    setShEnd((existing?.endTime ?? "").slice(0, 5));
     setShTrainer(existing?.trainerPersonId ?? "");
     setShNote(existing?.note ?? "");
     setShadowFor(person);
@@ -522,7 +518,6 @@ export function ApplicantPipeline({ onInterviewChange }: { onInterviewChange?: (
             id: shadowEditing.id,
             shiftDate: shDate,
             arrivalTime: shTime,
-            endTime: shEnd || null,
             trainerPersonId: shTrainer || null,
             note: shNote.trim() || null,
             section,
@@ -533,7 +528,6 @@ export function ApplicantPipeline({ onInterviewChange }: { onInterviewChange?: (
             role: shRole,
             shiftDate: shDate,
             arrivalTime: shTime,
-            endTime: shEnd || null,
             trainerPersonId: shTrainer || null,
             note: shNote.trim() || null,
             section,
@@ -599,7 +593,7 @@ export function ApplicantPipeline({ onInterviewChange }: { onInterviewChange?: (
         email: person.email ?? "",
         shadowDate: formatDateLong(ss.shiftDate),
         shadowDateSubject: formatDateWithWeekday(ss.shiftDate),
-        shadowTime: formatTimeRange12h(ss.arrivalTime.slice(0, 5), ss.endTime ? ss.endTime.slice(0, 5) : null),
+        shadowTime: formatTime12h(ss.arrivalTime.slice(0, 5)),
       }});
       ok = res.email.ok;
       attempted = res.email.attempted;
@@ -651,7 +645,7 @@ export function ApplicantPipeline({ onInterviewChange }: { onInterviewChange?: (
         restaurantName: effectiveOwner?.restaurantName ?? "",
         email: person.email ?? "",
         shadowDate: formatDateLong(ss.shiftDate),
-        shadowTime: formatTimeRange12h(ss.arrivalTime.slice(0, 5), ss.endTime ? ss.endTime.slice(0, 5) : null),
+        shadowTime: formatTime12h(ss.arrivalTime.slice(0, 5)),
       }});
       ok = res.email.ok;
       attempted = res.email.attempted;
@@ -682,7 +676,7 @@ export function ApplicantPipeline({ onInterviewChange }: { onInterviewChange?: (
         email: person.email ?? "",
         shadowDate: formatDateLong(ss.shiftDate),
         shadowDateSubject: formatDateWithWeekday(ss.shiftDate),
-        shadowTime: formatTimeRange12h(ss.arrivalTime.slice(0, 5), ss.endTime ? ss.endTime.slice(0, 5) : null),
+        shadowTime: formatTime12h(ss.arrivalTime.slice(0, 5)),
       }});
       ok = res.email.ok;
       attempted = res.email.attempted;
@@ -1085,12 +1079,7 @@ export function ApplicantPipeline({ onInterviewChange }: { onInterviewChange?: (
                     </p>
                     <p className="text-sm">
                       {longDate(shadowShifts[openPerson.id]!.shiftDate)} · arrive{" "}
-                      {formatTimeRange12h(
-                        shadowShifts[openPerson.id]!.arrivalTime.slice(0, 5),
-                        shadowShifts[openPerson.id]!.endTime
-                          ? shadowShifts[openPerson.id]!.endTime!.slice(0, 5)
-                          : null,
-                      )}
+                      {formatTime12h(shadowShifts[openPerson.id]!.arrivalTime.slice(0, 5))}
                     </p>
                     <p className="text-sm text-muted-foreground">
                       {personName(shadowShifts[openPerson.id]!.trainerPersonId) ?? "No trainer assigned"}
