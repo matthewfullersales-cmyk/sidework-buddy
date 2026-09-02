@@ -15,6 +15,8 @@ export type Interview = {
   selectedSlot: string | null;
   publicToken: string;
   status: InterviewStatus;
+  /** Booked slot from the restaurant pool. Legacy rows have null. */
+  slotId: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -28,6 +30,7 @@ type InterviewRow = {
   selected_slot: string | null;
   public_token: string;
   status: string;
+  slot_id: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -41,6 +44,7 @@ function mapInterview(row: InterviewRow): Interview {
     offeredSlots: row.offered_slots ?? [],
     selectedSlot: row.selected_slot,
     publicToken: row.public_token,
+    slotId: row.slot_id ?? null,
     status: (row.status as InterviewStatus) ?? "offered",
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -159,4 +163,20 @@ export async function cancelInterview(id: string): Promise<void> {
     .update({ status: "cancelled" })
     .eq("id", id);
   if (error) throw error;
+}
+
+/** Wall-clock date/time for booked slots, keyed by slot id. */
+export async function fetchSlotTimes(slotIds: string[]): Promise<Record<string, { date: string; time: string }>> {
+  const ids = Array.from(new Set(slotIds.filter(Boolean)));
+  if (ids.length === 0) return {};
+  const { data, error } = await supabase
+    .from("interview_slots")
+    .select("id, slot_date, slot_time")
+    .in("id", ids);
+  if (error) throw error;
+  const out: Record<string, { date: string; time: string }> = {};
+  for (const r of (data ?? []) as { id: string; slot_date: string; slot_time: string }[]) {
+    out[r.id] = { date: r.slot_date, time: (r.slot_time ?? "").slice(0, 5) };
+  }
+  return out;
 }
