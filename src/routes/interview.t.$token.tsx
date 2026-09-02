@@ -107,7 +107,9 @@ function PublicInterviewPage() {
         <>
           <header className="space-y-1">
             <h1 className="text-2xl font-bold">
-              {interview.restaurantName ?? "The restaurant"} would like to interview you
+              {interview.status === "cancelled"
+                ? `Your interview at ${interview.restaurantName ?? "the restaurant"}`
+                : `${interview.restaurantName ?? "The restaurant"} would like to interview you`}
             </h1>
             {interview.firstName && (
               <p className="text-sm text-muted-foreground">Hi {interview.firstName} —</p>
@@ -199,9 +201,9 @@ function SlotPicker({
               </li>
             ))}
           </ul>
-          <p className="text-xs text-muted-foreground">One tap confirms.</p>
         </div>
       ))}
+      <p className="text-xs text-muted-foreground">One tap confirms.</p>
     </section>
   );
 }
