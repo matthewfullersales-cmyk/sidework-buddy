@@ -17,7 +17,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { copyLinkWithToast } from "@/lib/copy-to-clipboard";
 import { sendApplicantNotification } from "@/lib/applicant-notifications.functions";
 import { todayLocalISO } from "@/lib/interview-slots-supabase";
+import { formatDateLong, formatTime12h } from "@/lib/utils";
 import {
+  cancelInterview,
   createInterviewOffer,
   type Interview,
   type InterviewType,
@@ -33,12 +35,17 @@ export function InterviewOfferDialog({
   person,
   ownerId,
   restaurantName,
+  existing = null,
+  existingBooked = null,
   onClose,
   onCreated,
 }: {
   person: Person;
   ownerId: string;
   restaurantName: string;
+  /** A live interview this person already has, if any. Warns, never blocks. */
+  existing?: Interview | null;
+  existingBooked?: { date: string; time: string } | null;
   onClose: () => void;
   onCreated: (interview: Interview) => void;
 }) {
@@ -62,10 +69,51 @@ export function InterviewOfferDialog({
     return () => { cancelled = true; };
   }, [ownerId]);
 
+  const liveExisting =
+    existing && (existing.status === "offered" || existing.status === "scheduled") ? existing : null;
+
+  /** Tells the candidate their old interview is off, before the new invite lands. */
+  const emailOldCancelled = async (
+    oldIv: Interview,
+    booked: { date: string; time: string } | null,
+    openSlots: number,
+  ) => {
+    const hasOpenSlots = openSlots > 0;
+    try {
+      const res = await sendApplicantNotification({ data: {
+        kind: "interview_cancelled",
+        ...(hasOpenSlots
+          ? { link: `${window.location.origin}/interview/t/${oldIv.publicToken}` }
+          : {}),
+        hasOpenSlots,
+        firstName: person.firstName ?? "",
+        restaurantName,
+        email: person.email ?? "",
+        ...(booked ? { interviewDate: formatDateLong(booked.date), interviewTime: formatTime12h(booked.time) } : {}),
+      }});
+      if (!res.email.ok) {
+        toast.warning(
+          `${person.firstName} was NOT emailed about the cancelled interview (${
+            res.email.attempted ? `email failed${res.email.error ? `: ${res.email.error}` : ""}` : "no email on file"
+          })`,
+        );
+      }
+    } catch (e) {
+      console.error("[interview offer] cancellation email failed", e);
+      toast.warning(`${person.firstName} was NOT emailed about the cancelled interview.`);
+    }
+  };
+
   const submit = async () => {
     if (!type) return;
     setBusy(true);
     try {
+      // Creating a new offer cancels the old one and frees its slot, so the
+      // candidate must be told before the replacement invite goes out.
+      if (liveExisting) {
+        await cancelInterview(liveExisting.id);
+        await emailOldCancelled(liveExisting, existingBooked, openCount ?? 0);
+      }
       const interview = await createInterviewOffer(person.id, type);
       const link = `${window.location.origin}/interview/t/${interview.publicToken}`;
       onCreated(interview);
@@ -141,6 +189,15 @@ export function InterviewOfferDialog({
               </p>
             </DialogHeader>
 
+            {liveExisting && (
+              <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm">
+                {person.firstName} already has an interview.{" "}
+                {existingBooked
+                  ? `Their confirmed time — ${formatDateLong(existingBooked.date)} at ${formatTime12h(existingBooked.time)} — will be cancelled and put back on your open list.`
+                  : "Their current invite will be cancelled."}{" "}
+                They&apos;ll be emailed about the cancellation, then emailed this new invite.
+              </div>
+            )}
             {openCount === 0 && (
               <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm">
                 No interview times are open yet. You can still send this — {person.firstName} will
