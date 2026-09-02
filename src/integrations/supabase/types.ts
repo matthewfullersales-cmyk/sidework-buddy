@@ -104,6 +104,7 @@ export type Database = {
       }
       interviews: {
         Row: {
+          calendar_seq: number
           created_at: string
           id: string
           interview_type: string
@@ -117,6 +118,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          calendar_seq?: number
           created_at?: string
           id?: string
           interview_type: string
@@ -130,6 +132,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          calendar_seq?: number
           created_at?: string
           id?: string
           interview_type?: string
@@ -775,10 +778,12 @@ export type Database = {
       shadow_shifts: {
         Row: {
           arrival_time: string
+          calendar_seq: number
           confirmed_at: string | null
           created_at: string
           declined_at: string | null
           dress_group: string | null
+          end_time: string | null
           id: string
           note: string | null
           owner_id: string
@@ -793,10 +798,12 @@ export type Database = {
         }
         Insert: {
           arrival_time: string
+          calendar_seq?: number
           confirmed_at?: string | null
           created_at?: string
           declined_at?: string | null
           dress_group?: string | null
+          end_time?: string | null
           id?: string
           note?: string | null
           owner_id: string
@@ -811,10 +818,12 @@ export type Database = {
         }
         Update: {
           arrival_time?: string
+          calendar_seq?: number
           confirmed_at?: string | null
           created_at?: string
           declined_at?: string | null
           dress_group?: string | null
+          end_time?: string | null
           id?: string
           note?: string | null
           owner_id?: string
@@ -1177,6 +1186,7 @@ export type Database = {
           confirmed_at: string
           declined_at: string
           dress_group: string
+          end_time: string
           first_name: string
           note: string
           restaurant_name: string
@@ -1192,6 +1202,7 @@ export type Database = {
       create_interview_offer: {
         Args: { p_person_id: string; p_type: string }
         Returns: {
+          calendar_seq: number
           created_at: string
           id: string
           interview_type: string
@@ -1230,6 +1241,7 @@ export type Database = {
         Args: {
           p_arrival_time: string
           p_dress_group?: string
+          p_end_time?: string
           p_note?: string
           p_person_id: string
           p_role: string
@@ -1239,10 +1251,12 @@ export type Database = {
         }
         Returns: {
           arrival_time: string
+          calendar_seq: number
           confirmed_at: string | null
           created_at: string
           declined_at: string | null
           dress_group: string | null
+          end_time: string | null
           id: string
           note: string | null
           owner_id: string
@@ -1274,6 +1288,7 @@ export type Database = {
           confirmed_at: string
           declined_at: string
           dress_group: string
+          end_time: string
           first_name: string
           note: string
           restaurant_name: string
@@ -1432,6 +1447,7 @@ export type Database = {
           confirmed_at: string
           declined_at: string
           dress_group: string
+          end_time: string
           first_name: string
           note: string
           restaurant_name: string
@@ -1594,6 +1610,7 @@ export type Database = {
         Args: {
           p_arrival_time: string
           p_dress_group?: string
+          p_end_time?: string
           p_id: string
           p_note?: string
           p_section?: string
@@ -1602,10 +1619,12 @@ export type Database = {
         }
         Returns: {
           arrival_time: string
+          calendar_seq: number
           confirmed_at: string | null
           created_at: string
           declined_at: string | null
           dress_group: string | null
+          end_time: string | null
           id: string
           note: string | null
           owner_id: string
