@@ -1,38 +1,47 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import {
-  QrCode,
-  CalendarClock,
-  GraduationCap,
-  Video,
-  Repeat2,
-  Eye,
-  ArrowRight,
-} from "lucide-react";
 import { Logo } from "@/components/sidework/Logo";
-import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "86Paper — 20 years of restaurant expertise. $99/month founding rate" },
+      { title: "86Paper — From application to first shift" },
       {
         name: "description",
         content:
-          "Testing and screening software for independent restaurants. Menu knowledge tests, staff accountability, and hiring insight. One price — $99/month founding rate.",
+          "Hiring software for independent restaurants. One place for the interviews, the shadow shifts and the schedule they land on.",
       },
       {
         property: "og:title",
-        content: "86Paper — 20 years of restaurant expertise. $99/month founding rate",
+        content: "86Paper — From application to first shift",
       },
       {
         property: "og:description",
         content:
-          "Testing and screening software for independent restaurants. Menu knowledge tests, staff accountability, and hiring insight. One price — $99/month founding rate.",
+          "Hiring software for independent restaurants. One place for the interviews, the shadow shifts and the schedule they land on.",
       },
     ],
   }),
   component: Marketing,
 });
+
+const STEPS = [
+  {
+    title: "Post the job.",
+    body: "Applicants land in one pipeline instead of your inbox, your texts and a stack of paper by the host stand.",
+  },
+  {
+    title: "Send interview times.",
+    body: "You set the slots you're actually free. They pick one and it's booked.",
+  },
+  {
+    title: "Schedule the shadow shift.",
+    body: "They get the date, where to come in, where to park, who to ask for and what to wear.",
+  },
+  {
+    title: "Hire them and put them on the schedule.",
+    body: "They join on their phone and see their shifts.",
+  },
+];
 
 function Marketing() {
   return (
@@ -40,27 +49,12 @@ function Marketing() {
       {/* NAV */}
       <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
         <Logo />
-        <nav className="hidden items-center gap-6 text-sm font-semibold md:flex">
-          <a href="#features" className="text-stone-600 hover:text-stone-900">
-            Features
-          </a>
-          <a href="#why" className="text-stone-600 hover:text-stone-900">
-            Why 86Paper
-          </a>
-          <Link to="/pricing" className="text-stone-600 hover:text-stone-900">
-            Pricing
-          </Link>
-        </nav>
-        <div className="flex items-center gap-2">
-          <Link to="/login" className="hidden text-sm font-semibold text-stone-700 hover:text-stone-900 sm:inline">
-            Sign in
-          </Link>
-          <Link to="/pricing">
-            <Button size="sm" className="bg-stone-900 text-white hover:bg-stone-800">
-              Get started
-            </Button>
-          </Link>
-        </div>
+        <Link
+          to="/login"
+          className="text-sm font-semibold text-stone-700 hover:text-stone-900"
+        >
+          Sign in
+        </Link>
       </header>
 
       {/* HERO */}
@@ -73,163 +67,72 @@ function Marketing() {
               For independent restaurants
             </span>
             <h1 className="mt-6 text-5xl font-bold leading-[1.02] tracking-tight md:text-7xl">
-              20 years of restaurant
-              <br />
-              expertise. <span className="italic text-amber-800">$99 a month, locked for life.</span>
+              From application to first shift.
             </h1>
             <p className="mt-6 max-w-2xl text-lg text-stone-700 md:text-xl">
-              86Paper isn't another scheduling app. It's how you find out who your people really are — before their first shift. Menu tests they can't fake, onboarding they complete themselves, and a clear record of who did the work and who didn't.
-            </p>
-            <p className="mt-3 text-sm font-semibold text-amber-800">
-              Founding rate for the first 25 restaurants. Regular price $149/month.
-            </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link to="/pricing">
-                <Button
-                  size="lg"
-                  className="w-full bg-stone-900 text-white shadow-[4px_4px_0_0_rgba(180,83,9,1)] transition-transform hover:-translate-y-0.5 hover:bg-stone-800 sm:w-auto"
-                >
-                  See pricing <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </Link>
-              <a href="#features">
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="w-full border-stone-300 bg-white text-stone-900 hover:bg-stone-100 sm:w-auto"
-                >
-                  What you get
-                </Button>
-              </a>
-            </div>
-            <p className="mt-4 text-sm text-stone-500">
-              One price. No contracts. Cancel anytime.
+              One place for the interviews, the shadow shifts and the schedule
+              they land on.
             </p>
           </div>
         </div>
       </section>
 
-      {/* WHY */}
-      <section id="why" className="border-y border-stone-200 bg-white">
-        <div className="mx-auto grid max-w-6xl gap-12 px-6 py-20 md:grid-cols-5">
-          <div className="md:col-span-2">
-            <p className="text-xs font-bold uppercase tracking-widest text-amber-700">
-              Why we built it
-            </p>
-            <h2 className="mt-3 text-4xl font-bold tracking-tight md:text-5xl">
-              The tools chains pay six figures for. Priced like you.
-            </h2>
-          </div>
-          <div className="space-y-6 text-lg text-stone-700 md:col-span-3">
-            <p>
-              Enterprise workforce software wasn't built for the 12-table bistro or
-              the neighborhood taproom. It's built for corporate ops teams with
-              lawyers and IT departments.
-            </p>
-            <p>
-              Independent owners get stuck stitching together group texts,
-              spreadsheets, and paper binders — while the chain down the street
-              runs on real systems.
-            </p>
-            <p className="font-semibold text-stone-900">
-              86Paper is those systems, translated. The playbook of a 20-year
-              operator, in an app your host can use on a Tuesday.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* FEATURES */}
-      <section id="features" className="bg-[#faf7f2]">
-        <div className="mx-auto max-w-6xl px-6 py-24">
+      {/* HOW IT WORKS */}
+      <section className="border-y border-stone-200 bg-white">
+        <div className="mx-auto max-w-6xl px-6 py-20">
           <div className="mb-14 max-w-2xl">
             <p className="text-xs font-bold uppercase tracking-widest text-amber-700">
-              What you get
+              How it works
             </p>
-            <h2 className="mt-3 text-4xl font-bold tracking-tight md:text-5xl">
-              Every part of running a floor — handled.
-            </h2>
           </div>
-
           <div className="grid gap-5 md:grid-cols-2">
-            <FeatureCard
-              icon={<QrCode className="h-6 w-6" />}
-              title="40 employees? They onboard themselves."
-              body="Print a QR code. Staff scan it, add their name, phone, email, emergency contact, experience, and availability before their first shift. No chasing paperwork."
-              tag="Self-onboarding"
-            />
-            <FeatureCard
-              icon={<CalendarClock className="h-6 w-6" />}
-              title="AI writes your schedule. You approve it."
-              body="Builds a full week in seconds based on availability, role, and minimum staffing. Someone requests off — it suggests the replacement. You never drop below coverage."
-              tag="Scheduling"
-            />
-            <FeatureCard
-              icon={<GraduationCap className="h-6 w-6" />}
-              title="They prove the menu before they touch a table."
-              body="AI-generated menu knowledge test built from your actual menu — ingredients, preparations, and your wine and beer list. New hires prove they know it before they're eligible to be scheduled."
-              tag="Testing"
-            />
-            <FeatureCard
-              icon={<Video className="h-6 w-6" />}
-              title="Screen applicants in five minutes."
-              body="Send a video interview link before you commit to a shadow shift. Sort the serious from the not-so-serious without burning an evening on no-shows."
-              tag="Hiring"
-            />
-            <FeatureCard
-              icon={<Repeat2 className="h-6 w-6" />}
-              title="Sick call at 3pm? Handled by 3:04."
-              body="One tap posts the shift to eligible, available staff. First qualified pickup gets it. Manager approves — or not. Nobody's texting the group chat."
-              tag="Shift trades"
-            />
-            <FeatureCard
-              icon={<Eye className="h-6 w-6" />}
-              title="We help you see when you're not looking."
-              body="Quiz anti-cheat, test completion, onboarding behavior — the data quietly tells you who's serious and who's not. Long before they cost you a Friday night."
-              tag="Character signals"
-            />
+            {STEPS.map((step, i) => (
+              <div
+                key={step.title}
+                className="rounded-2xl border-2 border-stone-900 bg-[#faf7f2] p-7 shadow-[4px_4px_0_0_rgba(23,23,23,1)]"
+              >
+                <div className="grid h-11 w-11 place-items-center rounded-lg bg-stone-900 text-lg font-bold text-amber-100">
+                  {i + 1}
+                </div>
+                <h2 className="mt-5 text-xl font-bold tracking-tight">
+                  {step.title}
+                </h2>
+                <p className="mt-2 text-[15px] leading-relaxed text-stone-600">
+                  {step.body}
+                </p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* PROOF STRIP */}
-      <section className="bg-stone-900 text-stone-100">
-        <div className="mx-auto grid max-w-6xl gap-8 px-6 py-16 text-center md:grid-cols-3">
-          <Stat n="20 yrs" label="of floor experience baked in" />
-          <Stat n="1 app" label="replacing 5 tools + a paper binder" />
-          <Stat n="$99" label="a month. Unlimited staff, not per seat." />
-        </div>
-      </section>
-
-      {/* CLOSING CTA */}
+      {/* WHO BUILT IT */}
       <section className="bg-[#faf7f2]">
-        <div className="mx-auto max-w-4xl px-6 py-24 text-center">
-          <h2 className="text-4xl font-bold tracking-tight md:text-6xl">
-            You already know how to run the restaurant.
-          </h2>
-          <p className="mx-auto mt-5 max-w-2xl text-lg text-stone-700">
-            Let us handle the paperwork, the training binder, the group texts, and
-            the "hey, can anyone cover tonight?" Focus on the food and the room.
+        <div className="mx-auto max-w-3xl px-6 py-20">
+          <p className="text-xs font-bold uppercase tracking-widest text-amber-700">
+            Who built it
           </p>
-          <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-            <Link to="/pricing">
-              <Button
-                size="lg"
-                className="w-full bg-stone-900 text-white shadow-[4px_4px_0_0_rgba(180,83,9,1)] transition-transform hover:-translate-y-0.5 hover:bg-stone-800 sm:w-auto"
-              >
-                Get started — $99/mo <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </Link>
-            <Link to="/login">
-              <Button
-                size="lg"
-                variant="outline"
-                className="w-full border-stone-300 bg-white text-stone-900 hover:bg-stone-100 sm:w-auto"
-              >
-                I already have an account
-              </Button>
-            </Link>
-          </div>
+          <p className="mt-4 text-xl leading-relaxed text-stone-700 md:text-2xl">
+            86Paper is built in Rochester, New York by someone who spent twenty
+            years working in restaurants. Every decision in it comes from the
+            floor, not a focus group.
+          </p>
+        </div>
+      </section>
+
+      {/* CLOSING */}
+      <section className="border-t border-stone-200 bg-white">
+        <div className="mx-auto max-w-3xl px-6 py-20 text-center">
+          <p className="text-xl leading-relaxed text-stone-700 md:text-2xl">
+            86Paper isn't open to new restaurants yet. If you want to be one of
+            the first, email{" "}
+            <a
+              href="mailto:hello@86paper.com"
+              className="font-semibold text-amber-800 underline hover:text-stone-900"
+            >
+              hello@86paper.com
+            </a>
+          </p>
         </div>
       </section>
 
@@ -237,48 +140,15 @@ function Marketing() {
         <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-4 px-6 py-8 text-sm text-stone-500 sm:flex-row sm:items-center">
           <div>© {new Date().getFullYear()} 86Paper LLC</div>
           <div className="flex gap-5">
-            <Link to="/pricing" className="hover:text-stone-900">Pricing</Link>
-            <Link to="/privacy" className="hover:text-stone-900">Privacy</Link>
-            <Link to="/terms" className="hover:text-stone-900">Terms</Link>
+            <Link to="/privacy" className="hover:text-stone-900">
+              Privacy
+            </Link>
+            <Link to="/terms" className="hover:text-stone-900">
+              Terms
+            </Link>
           </div>
         </div>
       </footer>
-    </div>
-  );
-}
-
-function FeatureCard({
-  icon,
-  title,
-  body,
-  tag,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  body: string;
-  tag: string;
-}) {
-  return (
-    <div className="group rounded-2xl border-2 border-stone-900 bg-white p-7 shadow-[4px_4px_0_0_rgba(23,23,23,1)] transition-transform hover:-translate-y-1 hover:shadow-[6px_6px_0_0_rgba(180,83,9,1)]">
-      <div className="flex items-center justify-between">
-        <div className="grid h-11 w-11 place-items-center rounded-lg bg-stone-900 text-amber-100">
-          {icon}
-        </div>
-        <span className="text-[10px] font-bold uppercase tracking-widest text-amber-700">
-          {tag}
-        </span>
-      </div>
-      <h3 className="mt-5 text-xl font-bold tracking-tight">{title}</h3>
-      <p className="mt-2 text-[15px] leading-relaxed text-stone-600">{body}</p>
-    </div>
-  );
-}
-
-function Stat({ n, label }: { n: string; label: string }) {
-  return (
-    <div>
-      <div className="text-5xl font-bold tracking-tight text-amber-200">{n}</div>
-      <div className="mt-2 text-sm text-stone-400">{label}</div>
     </div>
   );
 }

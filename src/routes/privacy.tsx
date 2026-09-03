@@ -9,7 +9,7 @@ export const Route = createFileRoute("/privacy")({
       { property: "og:title", content: "Privacy Policy — 86Paper" },
       { property: "og:description", content: "86Paper Privacy Policy — how we collect, use, and protect your information." },
     ],
-    links: [{ rel: "canonical", href: "https://sidework-buddy.lovable.app/privacy" }],
+    links: [{ rel: "canonical", href: "https://86paper.com/privacy" }],
   }),
   component: PrivacyPage,
 });
