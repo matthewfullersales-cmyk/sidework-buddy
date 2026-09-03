@@ -9,7 +9,7 @@ export const Route = createFileRoute("/terms")({
       { property: "og:title", content: "Terms of Service — 86Paper" },
       { property: "og:description", content: "86Paper Terms of Service — the rules and guidelines for using our platform." },
     ],
-    links: [{ rel: "canonical", href: "https://sidework-buddy.lovable.app/terms" }],
+    links: [{ rel: "canonical", href: "https://86paper.com/terms" }],
   }),
   component: TermsPage,
 });
