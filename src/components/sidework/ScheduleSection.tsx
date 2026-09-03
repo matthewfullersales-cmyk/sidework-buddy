@@ -12,7 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { useStore, isPendingJoin, type Role, type Shift, type Position, type Section, type WeeklyAvailability, type MealPeriods, type Meal, DAY_KEYS, isAvailableFor, halfForShiftStart, halfForAvailability, mealForShiftStart, suggestedShiftTimes, hoursConfigured, isPendingRoleAssignment } from "@/lib/sidework-store";
+import { useStore, isPendingJoin, type Role, type Shift, type Position, type Section, type WeeklyAvailability, type Meal, DAY_KEYS, isAvailableFor, halfForShiftStart, halfForAvailability, mealForShiftStart, suggestedShiftTimes, hoursConfigured, isPendingRoleAssignment } from "@/lib/sidework-store";
 import { toast } from "sonner";
 import { notifyScheduleChanged } from "@/lib/notifications.functions";
 import { formatTime12h } from "@/lib/utils";
@@ -87,38 +87,10 @@ function summarizeAvailability(weekly?: WeeklyAvailability): string {
 }
 
 
-// Default shift specs by position (24h)
-function defaultShift(pos: Position | undefined, isWeekend: boolean): { start: string; end: string } | null {
-  switch (pos) {
-    case "Hostess": return { start: "16:30", end: "22:30" };
-    case "Bartender": return { start: "16:00", end: "00:00" };
-    case "Bar Back": return { start: "17:00", end: "23:30" };
-    case "Server": return { start: "16:30", end: "23:00" };
-    case "Busser": return { start: "17:00", end: "23:00" };
-    case "Server Assistant": return { start: "16:30", end: "23:00" };
-    case "Garde Manger": return { start: "10:00", end: "18:00" };
-    case "Manager": return { start: "15:00", end: "23:30" };
-    case "Assistant Manager": return { start: "11:00", end: "19:00" };
-    case "Chef": return { start: "11:00", end: "22:00" };
-    case "Sous Chef": return { start: "14:00", end: "23:00" };
-    case "Line Cook": return { start: isWeekend ? "14:00" : "15:00", end: "23:00" };
-    case "Prep Cook": return { start: "08:00", end: "16:00" };
-    case "Dishwasher": return { start: "17:00", end: "23:30" };
-    default: return null;
-  }
-}
 
-// Required staffing per day
-function staffingFor(dayIdx: number): Partial<Record<Position, number>> {
-  // dayIdx: 0=Mon..4=Fri, 5=Sat, 6=Sun
-  const weekendNight = dayIdx === 4 || dayIdx === 5; // Fri/Sat
-  return weekendNight
-    ? { Hostess: 3, Bartender: 2, Server: 9, Busser: 2, "Bar Back": 1, "Line Cook": 4, Dishwasher: 2 }
-    : { Hostess: 2, Bartender: 1, Server: 6, Busser: 1, "Bar Back": 1, "Line Cook": 3, Dishwasher: 1 };
-}
 
 export function ScheduleSection() {
-  const { shifts, employees: allEmployees, timeOff, restaurantHours, mealPeriods, upsertShift, deleteShift, applyRemoteShiftUpsert, applyRemoteShiftDelete } = useStore();
+  const { shifts, employees: allEmployees, timeOff, upsertShift, deleteShift, applyRemoteShiftUpsert, applyRemoteShiftDelete } = useStore();
   // Pending self-joins are not staff yet — never schedulable.
   const employees = useMemo(() => allEmployees.filter((e) => !isPendingJoin(e)), [allEmployees]);
 
@@ -169,7 +141,7 @@ export function ScheduleSection() {
   }, [ownerId, applyRemoteShiftUpsert, applyRemoteShiftDelete]);
 
   const [editing, setEditing] = useState<{ employeeId: string; date: string; existing?: Shift } | null>(null);
-  const [generating, setGenerating] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   const [confirmCopy, setConfirmCopy] = useState<{ count: number } | null>(null);
   const [confirmClear, setConfirmClear] = useState<{ count: number } | null>(null);
 
@@ -204,129 +176,8 @@ export function ScheduleSection() {
     return { FOH: foh.sort(sortFn), BOH: boh.sort(sortFn) };
   }, [employees]);
 
-  // AI auto-scheduler
-  function generateAI() {
-    setGenerating(true);
-    setTimeout(() => {
-      // Clear existing shifts for the week first
-      const existingForWeek = shifts.filter((s) => dayISOs.includes(s.date));
-      existingForWeek.forEach((s) => deleteShift(s.id));
 
-      const conflicts: string[] = [];
 
-      const isOff = (empId: string, date: string) => {
-        const status = timeOffStatusFor(empId, date);
-        return status === "approved";
-      };
-
-      // Clamp a shift to restaurant hours; returns null if restaurant is closed or no overlap.
-      const clampToHours = (dayIdx: number, start: string, end: string): { start: string; end: string } | null => {
-        const dayKey = DAY_KEYS[dayIdx];
-        const h = restaurantHours[dayKey];
-        if (!h || h.closed) return null;
-        const s = start < h.open ? h.open : start;
-        const e = end > h.close ? h.close : end;
-        if (s >= e) return null;
-        return { start: s, end: e };
-      };
-
-      // For each day, fill positions by seniority
-      days.forEach((day, dayIdx) => {
-        const date = fmtISO(day);
-        const dayKey = DAY_KEYS[dayIdx];
-        const hours = restaurantHours[dayKey];
-        if (!hours || hours.closed) return; // restaurant closed — no schedule
-        const isWeekend = dayIdx === 4 || dayIdx === 5;
-        const needs = staffingFor(dayIdx);
-
-        // Track who is already booked that day
-        const booked = new Set<string>();
-
-        const trySchedule = (emp: typeof employees[number], desiredStart: string, desiredEnd: string) => {
-          if (booked.has(emp.id)) return false;
-          if (isOff(emp.id, date)) return false;
-          const av = emp.weeklyAvailability?.[dayKey];
-          if (!isAvailableFor(av, desiredStart)) {
-            return false;
-          }
-          const clamped = clampToHours(dayIdx, desiredStart, desiredEnd);
-          if (!clamped) return false;
-          booked.add(emp.id);
-          upsertShift({
-            id: `s_${emp.id}_${date}`,
-            employeeId: emp.id,
-            role: emp.primaryRole,
-            date,
-            start: clamped.start,
-            end: clamped.end,
-            position: emp.position,
-          });
-          return true;
-        };
-
-        (Object.keys(needs) as Position[]).forEach((pos) => {
-          const target = needs[pos] ?? 0;
-          // Candidates with this position
-          const candidates = employees
-            .filter((e) => e.position === pos)
-            .sort((a, b) => (b.seniority ?? 0) - (a.seniority ?? 0));
-
-          let filled = 0;
-          for (const emp of candidates) {
-            if (filled >= target) break;
-            const def = defaultShift(emp.position, isWeekend);
-            if (!def) continue;
-            const ds = emp.position === "Bartender" && emp.availability === "Swing 4hr"
-              ? { start: "19:00", end: "23:00" } : def;
-            if (trySchedule(emp, ds.start, ds.end)) { filled += 1; continue; }
-            // Fallback: try each enabled meal-period start so lunch-only or
-            // breakfast-only employees still land in an appropriate slot.
-            const av = emp.weeklyAvailability?.[dayKey];
-            if (av?.kind === "partial") {
-              const durationMin = (() => {
-                const [sh, sm] = ds.start.split(":").map(Number);
-                const [eh, em] = ds.end.split(":").map(Number);
-                return ((eh ?? 0) * 60 + (em ?? 0)) - ((sh ?? 0) * 60 + (sm ?? 0));
-              })();
-              for (const meal of av.meals ?? []) {
-                const period = mealPeriods[meal];
-                if (!period.enabled) continue;
-                const [ph, pm] = period.start.split(":").map(Number);
-                const startMin = (ph ?? 0) * 60 + (pm ?? 0);
-                const endMin = Math.min(startMin + Math.max(durationMin, 240), 24 * 60 - 1);
-                const eh = String(Math.floor(endMin / 60)).padStart(2, "0");
-                const em = String(endMin % 60).padStart(2, "0");
-                if (trySchedule(emp, period.start, `${eh}:${em}`)) { filled += 1; break; }
-              }
-            }
-          }
-          if (filled < target) {
-            conflicts.push(`${dayKey}: needed ${target} ${pos}${target === 1 ? "" : "s"}, filled ${filled}`);
-          }
-        });
-
-        // Always schedule managers and chefs every day if available
-        (["Manager", "Assistant Manager", "Chef", "Sous Chef"] as Position[]).forEach((pos) => {
-          employees
-            .filter((e) => e.position === pos)
-            .forEach((emp) => {
-              const def = defaultShift(emp.position, isWeekend);
-              if (!def) return;
-              trySchedule(emp, def.start, def.end);
-            });
-        });
-      });
-
-      setGenerating(false);
-      if (conflicts.length > 0) {
-        toast.warning(`AI schedule built with ${conflicts.length} staffing gap${conflicts.length === 1 ? "" : "s"}`, {
-          description: conflicts.slice(0, 4).join(" · ") + (conflicts.length > 4 ? "…" : ""),
-        });
-      } else {
-        toast.success("AI schedule generated — no conflicts");
-      }
-    }, 1400);
-  }
 
   function performCopyToNextWeek() {
     const nextDayISOs = days.map((d) => fmtISO(addDays(d, 7)));
@@ -417,45 +268,37 @@ export function ScheduleSection() {
           <Button size="sm" variant="outline" onClick={() => setWeekStart(addDays(weekStart, 7))} aria-label="Next week">→</Button>
           <Button size="sm" variant="ghost" onClick={() => setWeekStart(startOfWeek(new Date()))}>This week</Button>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
           <Button
             variant="outline"
             onClick={handleClearWeek}
-            disabled={generating}
             className="gap-2 text-destructive hover:bg-destructive/5 hover:text-destructive hover:border-destructive/50"
           >
             <Eraser className="h-4 w-4" />
             Clear Week
           </Button>
-          <Button variant="outline" onClick={handleCopyToNextWeek} disabled={generating} className="gap-2">
+          <Button variant="outline" onClick={handleCopyToNextWeek} className="gap-2">
             <Copy className="h-4 w-4" />
             Copy to Next Week
           </Button>
-          <Button onClick={generateAI} disabled={generating} className="gap-2">
-            {generating ? (
-              <>
-                <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
-                AI is building your schedule…
-              </>
-            ) : (
-              <>✨ Generate AI Schedule</>
-            )}
-          </Button>
           <Button
             variant="default"
-            disabled={generating}
+            disabled={publishing}
             onClick={() => {
+              setPublishing(true);
               const empIds = Array.from(new Set(
                 shifts.filter((s) => dayISOs.includes(s.date)).map((s) => s.employeeId)
               )).filter((id) => /^[0-9a-f-]{36}$/i.test(id));
               if (empIds.length === 0) {
+                setPublishing(false);
                 toast("No shifts to publish this week");
                 return;
               }
               const weekLabel = fmtRange(weekStart);
               notifyScheduleChanged({ data: { employeeIds: empIds, kind: "published", weekLabel } })
-                .then((r) => toast.success(`Schedule published — ${r.notifCount} staff notified`))
+                .then((r) => { setPublishing(false); toast.success(`Schedule published — ${r.notifCount} staff notified`); })
                 .catch((err: unknown) => {
+                  setPublishing(false);
                   console.error("[publish]", err);
                   toast.error("Failed to publish");
                 });
@@ -464,6 +307,7 @@ export function ScheduleSection() {
             Publish week
           </Button>
         </div>
+
       </div>
 
 
