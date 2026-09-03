@@ -90,7 +90,7 @@ function summarizeAvailability(weekly?: WeeklyAvailability): string {
 
 
 export function ScheduleSection() {
-  const { shifts, employees: allEmployees, timeOff, restaurantHours, mealPeriods, upsertShift, deleteShift, applyRemoteShiftUpsert, applyRemoteShiftDelete } = useStore();
+  const { shifts, employees: allEmployees, timeOff, upsertShift, deleteShift, applyRemoteShiftUpsert, applyRemoteShiftDelete } = useStore();
   // Pending self-joins are not staff yet — never schedulable.
   const employees = useMemo(() => allEmployees.filter((e) => !isPendingJoin(e)), [allEmployees]);
 
