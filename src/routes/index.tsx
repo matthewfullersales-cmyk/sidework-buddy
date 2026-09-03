@@ -47,7 +47,7 @@ function Marketing() {
   return (
     <div className="min-h-screen bg-[#faf7f2] text-stone-900 antialiased">
       {/* NAV */}
-      <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
+      <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5 pt-[max(1.25rem,env(safe-area-inset-top))]">
         <Logo />
         <Link
           to="/login"

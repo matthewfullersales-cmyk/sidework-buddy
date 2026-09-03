@@ -17,8 +17,9 @@ export function AppShell({ children, nav }: { children: ReactNode; nav: { to: st
 
   return (
     <div className="min-h-screen bg-background pb-[max(6rem,calc(5rem+env(safe-area-inset-bottom)))] md:pb-0">
-      <header className="sticky top-0 z-30 border-b border-border bg-background/85 backdrop-blur">
+      <header className="sticky top-0 z-30 border-b border-border bg-background/85 pt-[env(safe-area-inset-top)] backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
+
           <Link to="/" className="shrink-0"><Logo /></Link>
           <div className="flex items-center gap-2">
             {session && (
