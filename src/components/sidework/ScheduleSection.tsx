@@ -87,35 +87,7 @@ function summarizeAvailability(weekly?: WeeklyAvailability): string {
 }
 
 
-// Default shift specs by position (24h)
-function defaultShift(pos: Position | undefined, isWeekend: boolean): { start: string; end: string } | null {
-  switch (pos) {
-    case "Hostess": return { start: "16:30", end: "22:30" };
-    case "Bartender": return { start: "16:00", end: "00:00" };
-    case "Bar Back": return { start: "17:00", end: "23:30" };
-    case "Server": return { start: "16:30", end: "23:00" };
-    case "Busser": return { start: "17:00", end: "23:00" };
-    case "Server Assistant": return { start: "16:30", end: "23:00" };
-    case "Garde Manger": return { start: "10:00", end: "18:00" };
-    case "Manager": return { start: "15:00", end: "23:30" };
-    case "Assistant Manager": return { start: "11:00", end: "19:00" };
-    case "Chef": return { start: "11:00", end: "22:00" };
-    case "Sous Chef": return { start: "14:00", end: "23:00" };
-    case "Line Cook": return { start: isWeekend ? "14:00" : "15:00", end: "23:00" };
-    case "Prep Cook": return { start: "08:00", end: "16:00" };
-    case "Dishwasher": return { start: "17:00", end: "23:30" };
-    default: return null;
-  }
-}
 
-// Required staffing per day
-function staffingFor(dayIdx: number): Partial<Record<Position, number>> {
-  // dayIdx: 0=Mon..4=Fri, 5=Sat, 6=Sun
-  const weekendNight = dayIdx === 4 || dayIdx === 5; // Fri/Sat
-  return weekendNight
-    ? { Hostess: 3, Bartender: 2, Server: 9, Busser: 2, "Bar Back": 1, "Line Cook": 4, Dishwasher: 2 }
-    : { Hostess: 2, Bartender: 1, Server: 6, Busser: 1, "Bar Back": 1, "Line Cook": 3, Dishwasher: 1 };
-}
 
 export function ScheduleSection() {
   const { shifts, employees: allEmployees, timeOff, restaurantHours, mealPeriods, upsertShift, deleteShift, applyRemoteShiftUpsert, applyRemoteShiftDelete } = useStore();
@@ -169,7 +141,7 @@ export function ScheduleSection() {
   }, [ownerId, applyRemoteShiftUpsert, applyRemoteShiftDelete]);
 
   const [editing, setEditing] = useState<{ employeeId: string; date: string; existing?: Shift } | null>(null);
-  const [generating, setGenerating] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   const [confirmCopy, setConfirmCopy] = useState<{ count: number } | null>(null);
   const [confirmClear, setConfirmClear] = useState<{ count: number } | null>(null);
 
