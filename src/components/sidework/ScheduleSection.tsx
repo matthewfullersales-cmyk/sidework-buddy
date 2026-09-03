@@ -417,45 +417,37 @@ export function ScheduleSection() {
           <Button size="sm" variant="outline" onClick={() => setWeekStart(addDays(weekStart, 7))} aria-label="Next week">→</Button>
           <Button size="sm" variant="ghost" onClick={() => setWeekStart(startOfWeek(new Date()))}>This week</Button>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
           <Button
             variant="outline"
             onClick={handleClearWeek}
-            disabled={generating}
             className="gap-2 text-destructive hover:bg-destructive/5 hover:text-destructive hover:border-destructive/50"
           >
             <Eraser className="h-4 w-4" />
             Clear Week
           </Button>
-          <Button variant="outline" onClick={handleCopyToNextWeek} disabled={generating} className="gap-2">
+          <Button variant="outline" onClick={handleCopyToNextWeek} className="gap-2">
             <Copy className="h-4 w-4" />
             Copy to Next Week
           </Button>
-          <Button onClick={generateAI} disabled={generating} className="gap-2">
-            {generating ? (
-              <>
-                <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
-                AI is building your schedule…
-              </>
-            ) : (
-              <>✨ Generate AI Schedule</>
-            )}
-          </Button>
           <Button
             variant="default"
-            disabled={generating}
+            disabled={publishing}
             onClick={() => {
+              setPublishing(true);
               const empIds = Array.from(new Set(
                 shifts.filter((s) => dayISOs.includes(s.date)).map((s) => s.employeeId)
               )).filter((id) => /^[0-9a-f-]{36}$/i.test(id));
               if (empIds.length === 0) {
+                setPublishing(false);
                 toast("No shifts to publish this week");
                 return;
               }
               const weekLabel = fmtRange(weekStart);
               notifyScheduleChanged({ data: { employeeIds: empIds, kind: "published", weekLabel } })
-                .then((r) => toast.success(`Schedule published — ${r.notifCount} staff notified`))
+                .then((r) => { setPublishing(false); toast.success(`Schedule published — ${r.notifCount} staff notified`); })
                 .catch((err: unknown) => {
+                  setPublishing(false);
                   console.error("[publish]", err);
                   toast.error("Failed to publish");
                 });
@@ -464,6 +456,7 @@ export function ScheduleSection() {
             Publish week
           </Button>
         </div>
+
       </div>
 
 
