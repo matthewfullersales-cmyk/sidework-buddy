@@ -75,13 +75,22 @@ export async function enablePush(): Promise<{ ok: true } | { ok: false; reason: 
     try { reg = await navigator.serviceWorker.register(SW_PATH); }
     catch { return { ok: false, reason: "Service worker not available." }; }
   }
+
+  const activeReg = await Promise.race([
+    navigator.serviceWorker.ready,
+    new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), 10000)),
+  ]).catch<ServiceWorkerRegistration | null>(() => null);
+  if (!activeReg || !activeReg.active) {
+    return { ok: false, reason: "Service worker did not activate. Close the app fully and reopen it, then try again." };
+  }
+
   const { key } = await getVapidPublicKey();
   if (!key) return { ok: false, reason: "Server push keys not configured." };
   let sub: PushSubscription;
   try {
     const raw = urlBase64ToUint8Array(key);
     const appServerKey = raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength) as ArrayBuffer;
-    sub = await reg.pushManager.subscribe({
+    sub = await activeReg.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: appServerKey,
     });
