@@ -33,8 +33,9 @@ export default defineConfig({
             { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any maskable" },
           ],
         },
-
+        workbox: {
           navigateFallback: null,
+
           navigateFallbackDenylist: [/^\/~oauth/, /^\/api\//],
           globPatterns: ["**/*.{js,css,html,svg,png,ico,webp,woff,woff2}"],
           importScripts: ["/push-sw.js"],
