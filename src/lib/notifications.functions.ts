@@ -29,7 +29,7 @@ export const saveSubscription = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     // Resolve caller's employee row.
     const { data: emp, error: eErr } = await context.supabase
-      .from("restaurant_employees")
+      .from("people")
       .select("id, owner_id")
       .eq("auth_user_id", context.userId)
       .maybeSingle();
@@ -52,7 +52,7 @@ export const saveSubscription = createServerFn({ method: "POST" })
 
     // Flip opt-in flag on if not already.
     await context.supabase
-      .from("restaurant_employees")
+      .from("people")
       .update({ push_opt_in: true })
       .eq("id", emp.id);
 
@@ -75,13 +75,13 @@ export const setPushOptIn = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ optIn: z.boolean() }).parse(d))
   .handler(async ({ data, context }) => {
     const { data: emp } = await context.supabase
-      .from("restaurant_employees")
+      .from("people")
       .select("id")
       .eq("auth_user_id", context.userId)
       .maybeSingle();
     if (!emp) throw new Error("No employee profile");
     await context.supabase
-      .from("restaurant_employees")
+      .from("people")
       .update({ push_opt_in: data.optIn })
       .eq("id", emp.id);
     if (!data.optIn) {
@@ -123,7 +123,7 @@ async function fanOut(args: {
 
   // 2) Push, only to opted-in employees with active subscriptions.
   const { data: emps } = await supabaseAdmin
-    .from("restaurant_employees")
+    .from("people")
     .select("id, push_opt_in")
     .in("id", args.employeeIds);
   const optedIds = (emps ?? []).filter((e) => e.push_opt_in).map((e) => e.id);
@@ -162,7 +162,7 @@ async function authorizeOwnerContext(context: { supabase: import("@supabase/supa
     .maybeSingle();
   if (prof?.role === "owner") return { ownerId: prof.id };
   const { data: emp } = await context.supabase
-    .from("restaurant_employees")
+    .from("people")
     .select("owner_id")
     .eq("auth_user_id", context.userId)
     .maybeSingle();
@@ -239,7 +239,7 @@ export const listMyNotifications = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { data: emp } = await context.supabase
-      .from("restaurant_employees")
+      .from("people")
       .select("id")
       .eq("auth_user_id", context.userId)
       .maybeSingle();
@@ -257,7 +257,7 @@ export const markMyNotificationsRead = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { data: emp } = await context.supabase
-      .from("restaurant_employees")
+      .from("people")
       .select("id")
       .eq("auth_user_id", context.userId)
       .maybeSingle();
