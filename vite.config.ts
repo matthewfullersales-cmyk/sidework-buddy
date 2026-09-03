@@ -18,7 +18,22 @@ export default defineConfig({
         injectRegister: null,
         filename: "sw.js",
         devOptions: { enabled: false },
-        workbox: {
+        manifestFilename: "manifest.webmanifest",
+        manifest: {
+          name: "86Paper",
+          short_name: "86Paper",
+          description: "Run your whole restaurant team in one place.",
+          start_url: "/",
+          scope: "/",
+          display: "standalone",
+          theme_color: "#14532d",
+          background_color: "#14532d",
+          icons: [
+            { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any maskable" },
+            { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any maskable" },
+          ],
+        },
+
           navigateFallback: null,
           navigateFallbackDenylist: [/^\/~oauth/, /^\/api\//],
           globPatterns: ["**/*.{js,css,html,svg,png,ico,webp,woff,woff2}"],
