@@ -48,36 +48,6 @@ function fmtRange(start: Date) {
   return `${s} – ${e}`;
 }
 
-function summarizeAvailability(weekly?: WeeklyAvailability): string {
-  if (!weekly) return "";
-  if (DAY_KEYS.every((d) => weekly[d]?.kind === "full")) return "Available all week";
-
-  const groups: { label: string; startIdx: number; endIdx: number }[] = [];
-  for (let i = 0; i < DAY_KEYS.length; i++) {
-    const d = DAY_KEYS[i];
-    const av = weekly[d];
-    if (!av || av.kind === "full") continue;
-    const half = halfForAvailability(av);
-    const label = av.kind === "none"
-      ? "Off"
-      : half === "day" ? "Days only"
-      : half === "night" ? "Nights only"
-      : "Partial";
-    const last = groups[groups.length - 1];
-    if (last && last.label === label && last.endIdx === i - 1) {
-      last.endIdx = i;
-    } else {
-      groups.push({ label, startIdx: i, endIdx: i });
-    }
-  }
-
-  return groups.map((g) => {
-    const start = DAY_LABELS[g.startIdx];
-    const end = DAY_LABELS[g.endIdx];
-    const days = start === end ? start : `${start}–${end}`;
-    return `${g.label} ${days}`;
-  }).join(", ");
-}
 
 
 
