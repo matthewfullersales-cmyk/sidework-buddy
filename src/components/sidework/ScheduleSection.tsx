@@ -364,14 +364,14 @@ export function ScheduleSection() {
             <div className="overflow-auto scroll-touch max-h-[calc(100vh-9rem)]">
               <table className="w-full min-w-[820px] border-collapse text-sm">
                 <thead>
-                  <tr className="bg-muted/40">
-                    <th className="sticky left-0 top-0 z-30 bg-muted/40 border-b border-r border-border p-2 text-left text-xs font-semibold w-48">
+                  <tr className="bg-muted">
+                    <th className="sticky left-0 top-0 z-30 bg-muted border-b border-r border-border p-2 text-left text-xs font-semibold w-48">
                       Employee
                     </th>
                     {days.map((d, i) => {
                       const isWeekend = i === 4 || i === 5;
                       return (
-                        <th key={i} className={`sticky top-0 z-20 border-b border-border p-2 text-center text-xs font-semibold ${isWeekend ? "bg-primary/5" : "bg-muted/40"}`}>
+                        <th key={i} className={`sticky top-0 z-20 border-b border-border p-2 text-center text-xs font-semibold ${isWeekend ? "bg-primary-soft" : "bg-muted"}`}>
                           <div>{DAY_LABELS[i]}</div>
                           <div className="text-[10px] font-normal text-muted-foreground">
                             {d.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
