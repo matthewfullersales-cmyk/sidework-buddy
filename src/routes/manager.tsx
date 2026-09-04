@@ -509,6 +509,13 @@ function TeamTab() {
 
 
       <div className="flex flex-wrap justify-end gap-2">
+        <Button
+          variant={showArchived ? "default" : "outline"}
+          className="min-h-11"
+          onClick={() => setShowArchived((v) => !v)}
+        >
+          {showArchived ? "Back to active" : "Show archived"}
+        </Button>
         <Popover open={sfOpen} onOpenChange={setSfOpen}>
           <PopoverTrigger asChild>
             <Button variant="outline" className="min-h-11 gap-1.5">
@@ -571,7 +578,7 @@ function TeamTab() {
           </PopoverContent>
         </Popover>
 
-        {employees.length > 0 && (
+        {employees.length > 0 && !showArchived && (
           <Button
             variant="outline"
             className="text-destructive hover:bg-destructive/5 hover:text-destructive hover:border-destructive/50"
