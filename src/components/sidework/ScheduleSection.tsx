@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { Copy, Eraser, ChevronDown } from "lucide-react";
@@ -158,15 +158,28 @@ export function ScheduleSection() {
 
   const grouped = useMemo(() => {
     const withRole = employees.filter((e) => !!e.primaryRole);
-    const foh = withRole.filter((e) => sectionForRole(e.primaryRole, customRoles) === "FOH");
-    const boh = withRole.filter((e) => sectionForRole(e.primaryRole, customRoles) === "BOH");
     const lastNameOf = (e: typeof employees[number]) => e.lastName ?? e.name.split(" ").slice(1).join(" ");
-    const sortFn = (a: typeof employees[number], b: typeof employees[number]) => {
-      const byRole = a.primaryRole.localeCompare(b.primaryRole);
-      if (byRole !== 0) return byRole;
-      return lastNameOf(a).localeCompare(lastNameOf(b));
+
+    const buildGroups = (section: Section) => {
+      const inSection = withRole.filter((e) => sectionForRole(e.primaryRole, customRoles) === section);
+      const byPosition = new Map<string, typeof employees>();
+      for (const e of inSection) {
+        const key = e.primaryRole;
+        if (!byPosition.has(key)) byPosition.set(key, []);
+        byPosition.get(key)!.push(e);
+      }
+      const groups = Array.from(byPosition.entries()).map(([position, people]) => ({
+        position,
+        people: [...people].sort((a, b) => lastNameOf(a).localeCompare(lastNameOf(b))),
+      }));
+      groups.sort((a, b) => {
+        if (b.people.length !== a.people.length) return b.people.length - a.people.length;
+        return a.position.localeCompare(b.position);
+      });
+      return groups;
     };
-    return { FOH: foh.sort(sortFn), BOH: boh.sort(sortFn) };
+
+    return { FOH: buildGroups("FOH"), BOH: buildGroups("BOH") };
   }, [employees, customRoles]);
 
 
@@ -344,7 +357,7 @@ export function ScheduleSection() {
               <p className="text-sm font-semibold text-primary">
                 {section === "FOH" ? "Front of House" : "Back of House"}
                 <span className="ml-2 text-xs font-normal text-muted-foreground">
-                  {grouped[section].length} staff
+                  {grouped[section].reduce((n, g) => n + g.people.length, 0)} staff
                 </span>
               </p>
             </div>
