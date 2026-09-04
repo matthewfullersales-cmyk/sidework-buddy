@@ -886,7 +886,10 @@ function TeamTab() {
 }
 
 function EmployeeProfileDialog({ employee, onClose }: { employee: Employee; onClose: () => void }) {
-  const { updateEmployee, activeRoles, customRoles, mealPeriods } = useStore();
+  const { updateEmployee, deleteEmployeeRecord, activeRoles, customRoles, mealPeriods } = useStore();
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const displayName = employee.firstName && employee.lastName ? `${employee.firstName} ${employee.lastName}` : employee.name;
   const fohActive = fohRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r) || employee.approvedRoles.includes(r));
   const bohActive = bohRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r) || employee.approvedRoles.includes(r));
   const [firstName, setFirstName] = useState(employee.firstName ?? employee.name.split(" ")[0] ?? "");
@@ -1012,12 +1015,61 @@ function EmployeeProfileDialog({ employee, onClose }: { employee: Employee; onCl
               </div>
             </div>
           </div>
+
+          <div className="border-t border-border pt-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-destructive hover:bg-destructive/5 hover:text-destructive"
+              onClick={() => setConfirmDelete(true)}
+            >
+              Delete employee
+            </Button>
+          </div>
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
           <Button onClick={save}>Save changes</Button>
         </DialogFooter>
       </DialogContent>
+      <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>Delete {displayName} permanently?</DialogTitle></DialogHeader>
+          <div className="space-y-2 py-2 text-sm text-muted-foreground">
+            <p>
+              Their shift, trade, and time-off history will stay on record but will no longer show their name — this doesn't delete that history, it just orphans it. This can't be undone.
+            </p>
+            <p>
+              If you want them off the schedule but might bring them back, use Archive instead from the Team list — Cancel this and close the dialog to do that.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmDelete(false)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              disabled={deleting}
+              onClick={async () => {
+                setDeleting(true);
+                try {
+                  await deleteEmployeeRecord(employee.id);
+                  setConfirmDelete(false);
+                  onClose();
+                  toast.success(`${displayName} deleted`);
+                } catch (err) {
+                  console.error("[deleteEmployeeRecord]", err);
+                  toast.error(`Couldn't delete ${displayName}`, {
+                    description: err instanceof Error ? err.message : String(err),
+                  });
+                } finally {
+                  setDeleting(false);
+                }
+              }}
+            >
+              {deleting ? "Deleting…" : "Delete permanently"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }
