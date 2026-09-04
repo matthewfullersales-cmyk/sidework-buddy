@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
-import { Copy, Eraser, Settings2, ChevronDown } from "lucide-react";
+import { Copy, Eraser, ChevronDown } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +17,7 @@ import { toast } from "sonner";
 import { notifyScheduleChanged } from "@/lib/notifications.functions";
 import { formatTime12h } from "@/lib/utils";
 
-import { ROLE_COLORS, roleStyle, STATUS_COLORS, contrastText, fohRolesWithCustom, bohRolesWithCustom, allRolesWithCustom, nextCustomColor } from "@/lib/role-colors";
+import { STATUS_COLORS, contrastText, allRolesWithCustom } from "@/lib/role-colors";
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -411,12 +411,11 @@ export function ScheduleSection() {
                                 title={offDay ? `${emp.name} marked ${dayKey}s as unavailable — you can still schedule them` : undefined}
                                 className={`w-full min-h-[52px] rounded-md text-[11px] px-2 py-1 transition border ${
                                   s
-                                    ? "hover:opacity-80"
+                                    ? "bg-primary/10 border-primary/30 text-foreground hover:bg-primary/15"
                                     : offDay
                                       ? "bg-muted/40 border-dashed border-muted-foreground/30 text-muted-foreground hover:border-primary/40 hover:text-primary"
                                       : "bg-background border-dashed border-border text-muted-foreground hover:border-primary/40 hover:text-primary"
                                 }`}
-                                style={s ? roleStyle(s.role) : undefined}
                               >
                                 {s ? (
                                   <div className="flex flex-col">
@@ -479,52 +478,9 @@ export function ScheduleSection() {
 }
 
 function Legend() {
-  const { activeRoles, setActiveRoles, customRoles, addCustomRole, removeCustomRole } = useStore();
-  const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState<Role[]>(activeRoles);
-  const [newName, setNewName] = useState("");
-  const [newSection, setNewSection] = useState<"FOH" | "BOH">("FOH");
-  const allRoles = allRolesWithCustom(customRoles);
-  const shown = allRoles.filter((r) => activeRoles.includes(r));
-
-  function openDialog() {
-    setDraft(activeRoles);
-    setNewName("");
-    setNewSection("FOH");
-    setOpen(true);
-  }
-  function toggle(r: Role, on: boolean) {
-    setDraft((prev) => on ? [...new Set([...prev, r])] : prev.filter((x) => x !== r));
-  }
-  function submitCustom() {
-    const name = newName.trim();
-    if (!name) return toast.error("Enter a role name");
-    if (allRoles.some((r) => r.toLowerCase() === name.toLowerCase())) {
-      return toast.error("That role already exists");
-    }
-    const color = nextCustomColor(customRoles);
-    addCustomRole({ name, section: newSection, color });
-    setDraft((prev) => [...new Set([...prev, name])]);
-    setNewName("");
-    toast.success(`Added "${name}"`);
-  }
-  function deleteCustom(name: string) {
-    removeCustomRole(name);
-    setDraft((prev) => prev.filter((r) => r !== name));
-  }
-
-  const fohList = fohRolesWithCustom(customRoles);
-  const bohList = bohRolesWithCustom(customRoles);
-  const isCustom = (name: string) => customRoles.some((c) => c.name === name);
-
   return (
     <div className="flex flex-wrap items-center gap-2 text-[11px]">
       <span className="text-muted-foreground">Legend:</span>
-      {shown.map((r) => (
-        <span key={r} className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5" style={roleStyle(r)}>
-          <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: contrastText(roleStyle(r).backgroundColor as string) }} />{r}
-        </span>
-      ))}
       <span
         className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5"
         style={{ backgroundColor: STATUS_COLORS.timeOff, color: contrastText(STATUS_COLORS.timeOff), borderColor: STATUS_COLORS.timeOff }}
@@ -537,95 +493,6 @@ function Legend() {
       >
         PTO pending
       </span>
-      <Button size="sm" variant="ghost" className="h-6 gap-1 px-2 text-[11px]" onClick={openDialog}>
-        <Settings2 className="h-3 w-3" />
-        Customize roles
-      </Button>
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Customize roles in use</DialogTitle>
-            <DialogDescription>
-              Turn off any roles this restaurant doesn't use, or add your own. Existing shifts already assigned to a deactivated or deleted role keep their color and data.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" onClick={() => setDraft([...allRolesWithCustom(customRoles)])}>Select all</Button>
-            <Button size="sm" variant="outline" onClick={() => setDraft([])}>Deselect all</Button>
-          </div>
-          <div className="grid gap-6 sm:grid-cols-2">
-            {[
-              { title: "Front of House", roles: fohList },
-              { title: "Back of House", roles: bohList },
-            ].map((group) => (
-              <div key={group.title}>
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{group.title}</p>
-                <div className="space-y-1.5">
-                  {group.roles.map((r) => {
-                    const checked = draft.includes(r);
-                    const custom = isCustom(r);
-                    return (
-                      <div key={r} className="flex items-center gap-2 rounded-md border border-border px-2 py-1.5 text-sm">
-                        <label className="flex flex-1 cursor-pointer items-center gap-2">
-                          <Checkbox checked={checked} onCheckedChange={(v) => toggle(r, !!v)} />
-                          <span className="h-3 w-3 rounded-sm border border-border" style={{ backgroundColor: ROLE_COLORS[r] ?? "#7F8C8D" }} />
-                          <span>{r}</span>
-                          {custom && <span className="text-[10px] uppercase tracking-wide text-muted-foreground">custom</span>}
-                        </label>
-                        {custom && (
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                            onClick={() => deleteCustom(r)}
-                            aria-label={`Delete ${r}`}
-                          >
-                            ×
-                          </Button>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-2 rounded-md border border-dashed border-border p-3">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Add custom role</p>
-            <div className="flex flex-wrap items-end gap-2">
-              <div className="flex-1 min-w-[160px]">
-                <Label className="text-xs">Role name</Label>
-                <Input
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  placeholder="e.g. Sommelier"
-                />
-              </div>
-              <div className="w-40">
-                <Label className="text-xs">Department</Label>
-                <Select value={newSection} onValueChange={(v) => setNewSection(v as "FOH" | "BOH")}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="FOH">Front of House</SelectItem>
-                    <SelectItem value="BOH">Back of House</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="h-6 w-6 rounded-sm border border-border" style={{ backgroundColor: nextCustomColor(customRoles) }} title="Auto-assigned color" />
-                <Button size="sm" onClick={submitCustom}>Add</Button>
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={() => { setActiveRoles(allRolesWithCustom(customRoles).filter((r) => draft.includes(r))); setOpen(false); toast.success("Roles updated"); }}>Done</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

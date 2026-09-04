@@ -2290,7 +2290,7 @@ function RolesCard() {
       const n = assignedCount(role);
       if (n > 0) {
         toast.warning(`${n} ${n === 1 ? "person is" : "people are"} assigned to ${role}`, {
-          description: "They keep the role — it just won't be offered for new assignments.",
+          description: "They keep the position — it just won't be offered for new assignments.",
         });
       }
     }
@@ -2308,7 +2308,7 @@ function RolesCard() {
       ROLES_ORDERED.some((r) => r.toLowerCase() === key) ||
       customRoles.some((c) => c.name.trim().toLowerCase() === key);
     if (clash) {
-      toast.error("That role already exists.");
+      toast.error("That position already exists.");
       return;
     }
     addCustomRole({ name, section, color: nextCustomColor(customRoles) });
@@ -2338,9 +2338,9 @@ function RolesCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Roles</CardTitle>
+        <CardTitle className="text-base">Positions</CardTitle>
         <p className="mt-1 text-xs text-muted-foreground">
-          Turn off the roles your restaurant doesn't staff, and add your own. Anyone already assigned a role keeps it.
+          Turn off the positions your restaurant doesn't staff, and add your own. Anyone already assigned a position keeps it.
         </p>
       </CardHeader>
       <CardContent className="space-y-5">
@@ -2348,7 +2348,7 @@ function RolesCard() {
         {group("Back of house", BOH_ROLES_ORDERED)}
 
         <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Your own roles</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Your own positions</p>
           {customRoles.length === 0 ? (
             <p className="text-sm text-muted-foreground">None yet.</p>
           ) : (
@@ -2370,7 +2370,7 @@ function RolesCard() {
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addRole(); } }}
-              placeholder="Add your own role"
+              placeholder="Add your own position"
               className="min-w-[12rem] flex-1"
             />
             <Select value={section} onValueChange={(v) => setSection(v as "FOH" | "BOH")}>
