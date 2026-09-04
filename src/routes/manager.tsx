@@ -398,7 +398,7 @@ function PendingJoinRequestsQueue({
 }
 
 function TeamTab() {
-  const { employees: allEmployees, inviteEmployee, restaurantProfile, activeRoles, customRoles, shifts, trades, timeOff, clearAllEmployees, updateEmployee, approveJoinRequest, declineJoinRequest, archiveEmployee, reactivateEmployee } = useStore();
+  const { employees: allEmployees, inviteEmployee, restaurantProfile, activeRoles, customRoles, shifts, trades, timeOff, updateEmployee, approveJoinRequest, declineJoinRequest, archiveEmployee, reactivateEmployee } = useStore();
   const pendingJoins = useMemo(() => allEmployees.filter(isPendingJoin), [allEmployees]);
   const [showArchived, setShowArchived] = useState(false);
   const employees = useMemo(
@@ -415,7 +415,6 @@ function TeamTab() {
   const [sending, setSending] = useState(false);
 
   const [editing, setEditing] = useState<Employee | null>(null);
-  const [confirmClearAll, setConfirmClearAll] = useState(false);
   const [confirmArchive, setConfirmArchive] = useState<Employee | null>(null);
 
   const [sortKey, setSortKey] = useState<TeamSortKey>("firstNameAsc");
@@ -577,16 +576,6 @@ function TeamTab() {
             </div>
           </PopoverContent>
         </Popover>
-
-        {employees.length > 0 && !showArchived && (
-          <Button
-            variant="outline"
-            className="text-destructive hover:bg-destructive/5 hover:text-destructive hover:border-destructive/50"
-            onClick={() => setConfirmClearAll(true)}
-          >
-            Clear all employees
-          </Button>
-        )}
 
         <Dialog open={addStaffOpen} onOpenChange={setAddStaffOpen}>
           <DialogTrigger asChild><Button>+ Add Staff</Button></DialogTrigger>
@@ -846,37 +835,6 @@ function TeamTab() {
               }}
             >
               Archive
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <Dialog open={confirmClearAll} onOpenChange={setConfirmClearAll}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle>Clear all employees?</DialogTitle></DialogHeader>
-          <div className="space-y-2 py-2 text-sm text-muted-foreground">
-            <p>
-              This will permanently remove <span className="font-semibold text-foreground">{employees.length}</span> {employees.length === 1 ? "employee" : "employees"} from your roster.
-            </p>
-            <p>
-              It also removes all of their scheduled shifts ({shifts.length}), trade history ({trades.length}), and time-off requests ({timeOff.length}), since those reference deleted employees.
-            </p>
-            <p className="font-medium text-destructive">This can't be undone.</p>
-            <p className="text-xs">Your restaurant profile, hours, roles, job postings, and applications will not be affected.</p>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmClearAll(false)}>Cancel</Button>
-            <Button
-              variant="destructive"
-              onClick={() => {
-                const count = employees.length;
-                clearAllEmployees();
-                setConfirmClearAll(false);
-                toast.success(`Cleared ${count} ${count === 1 ? "employee" : "employees"}`, {
-                  description: "Your roster is empty and ready for real staff to be added.",
-                });
-              }}
-            >
-              Clear all employees
             </Button>
           </DialogFooter>
         </DialogContent>
