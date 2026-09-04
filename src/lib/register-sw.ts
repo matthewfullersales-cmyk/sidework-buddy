@@ -51,9 +51,15 @@ export function registerServiceWorker() {
     return;
   }
 
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register(SW_PATH).catch(() => {
-      // swallow registration errors
+  function doRegister() {
+    navigator.serviceWorker.register(SW_PATH).catch((err: unknown) => {
+      console.warn("[sw] registration failed", err);
     });
-  });
+  }
+
+  if (document.readyState === "complete") {
+    doRegister();
+  } else {
+    window.addEventListener("load", doRegister, { once: true });
+  }
 }
