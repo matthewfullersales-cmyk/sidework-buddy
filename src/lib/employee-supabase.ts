@@ -54,7 +54,6 @@ export async function fetchMyShifts(employeeId: string): Promise<Shift[]> {
     start: (r as { start_time: string }).start_time,
     end: (r as { end_time: string }).end_time,
     notes: (r as { notes: string | null }).notes ?? undefined,
-    position: ((r as { position: string | null }).position ?? undefined) as Shift["position"],
   }));
 }
 
@@ -110,7 +109,6 @@ export async function fetchShiftsByIds(ids: string[]): Promise<Shift[]> {
       start: row.start_time,
       end: row.end_time,
       notes: row.notes ?? undefined,
-      position: (row.position ?? undefined) as Shift["position"],
     };
   });
 }

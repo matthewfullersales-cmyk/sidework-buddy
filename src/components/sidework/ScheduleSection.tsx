@@ -12,7 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { useStore, isPendingJoin, type Role, type Shift, type Position, type Section, type WeeklyAvailability, type Meal, DAY_KEYS, isAvailableFor, halfForShiftStart, halfForAvailability, mealForShiftStart, suggestedShiftTimes, hoursConfigured, isPendingRoleAssignment } from "@/lib/sidework-store";
+import { useStore, isPendingJoin, sectionForRole, type Role, type Shift, type Section, type WeeklyAvailability, type Meal, DAY_KEYS, isAvailableFor, halfForShiftStart, halfForAvailability, mealForShiftStart, suggestedShiftTimes, hoursConfigured, isPendingRoleAssignment } from "@/lib/sidework-store";
 import { toast } from "sonner";
 import { notifyScheduleChanged } from "@/lib/notifications.functions";
 import { formatTime12h } from "@/lib/utils";
@@ -20,13 +20,6 @@ import { formatTime12h } from "@/lib/utils";
 import { ROLE_COLORS, roleStyle, STATUS_COLORS, contrastText, fohRolesWithCustom, bohRolesWithCustom, allRolesWithCustom, nextCustomColor } from "@/lib/role-colors";
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
-// Order positions roughly by hierarchy
-const POSITION_ORDER: Position[] = [
-  "Manager", "Assistant Manager", "Hostess", "Bartender", "Bar Back",
-  "Server", "Server Assistant", "Busser",
-  "Chef", "Sous Chef", "Line Cook", "Garde Manger", "Prep Cook", "Dishwasher",
-];
 
 function startOfWeek(d: Date) {
   const x = new Date(d);
@@ -90,7 +83,7 @@ function summarizeAvailability(weekly?: WeeklyAvailability): string {
 
 
 export function ScheduleSection() {
-  const { shifts, employees: allEmployees, timeOff, upsertShift, deleteShift, applyRemoteShiftUpsert, applyRemoteShiftDelete } = useStore();
+  const { shifts, employees: allEmployees, customRoles, timeOff, upsertShift, deleteShift, applyRemoteShiftUpsert, applyRemoteShiftDelete } = useStore();
   // Pending self-joins are not staff yet — never schedulable.
   const employees = useMemo(() => allEmployees.filter((e) => !isPendingJoin(e)), [allEmployees]);
 
@@ -118,7 +111,7 @@ export function ScheduleSection() {
           const r = payload.new as {
             id: string; employee_id: string | null; role: string;
             date: string; start_time: string; end_time: string;
-            notes: string | null; position: string | null; updated_at: string | null;
+            notes: string | null; updated_at: string | null;
           } | null;
           if (!r?.id) return;
           applyRemoteShiftUpsert({
@@ -129,7 +122,6 @@ export function ScheduleSection() {
             start: r.start_time,
             end: r.end_time,
             notes: r.notes ?? undefined,
-            position: (r.position as Position | null) ?? undefined,
             updatedAt: r.updated_at ?? undefined,
           });
         },
@@ -165,16 +157,17 @@ export function ScheduleSection() {
   };
 
   const grouped = useMemo(() => {
-    const foh = employees.filter((e) => (e.section ?? "FOH") === "FOH");
-    const boh = employees.filter((e) => e.section === "BOH");
+    const withRole = employees.filter((e) => !!e.primaryRole);
+    const foh = withRole.filter((e) => sectionForRole(e.primaryRole, customRoles) === "FOH");
+    const boh = withRole.filter((e) => sectionForRole(e.primaryRole, customRoles) === "BOH");
+    const lastNameOf = (e: typeof employees[number]) => e.lastName ?? e.name.split(" ").slice(1).join(" ");
     const sortFn = (a: typeof employees[number], b: typeof employees[number]) => {
-      const ai = POSITION_ORDER.indexOf(a.position ?? "Server");
-      const bi = POSITION_ORDER.indexOf(b.position ?? "Server");
-      if (ai !== bi) return ai - bi;
-      return (b.seniority ?? 0) - (a.seniority ?? 0);
+      const byRole = a.primaryRole.localeCompare(b.primaryRole);
+      if (byRole !== 0) return byRole;
+      return lastNameOf(a).localeCompare(lastNameOf(b));
     };
     return { FOH: foh.sort(sortFn), BOH: boh.sort(sortFn) };
-  }, [employees]);
+  }, [employees, customRoles]);
 
 
 
@@ -216,7 +209,6 @@ export function ScheduleSection() {
         start: s.start,
         end: s.end,
         notes: s.notes,
-        position: s.position,
       });
       copied += 1;
     });
@@ -383,8 +375,7 @@ export function ScheduleSection() {
                         <div className="min-w-0">
                           <p className="text-xs font-semibold truncate">{emp.name}</p>
                           <p className="text-[10px] text-muted-foreground truncate">
-                            {emp.position}
-                            {emp.seniority && emp.seniority >= 4 && <span className="ml-1 text-primary">★</span>}
+                            {emp.primaryRole}
                           </p>
                           {(() => {
                             const summary = summarizeAvailability(emp.weeklyAvailability);
@@ -663,13 +654,12 @@ function ShiftDetailsDialog({
   const suggestions = useMemo(
     () => suggestedShiftTimes({
       dayKey: dayKey0,
-      position: emp?.position,
-      section: emp?.section,
+      section: emp ? sectionForRole(emp.primaryRole, customRoles) : undefined,
       restaurantHours,
       mealPeriods,
       preferredMeals,
     }),
-    [dayKey0, emp?.position, emp?.section, restaurantHours, mealPeriods, preferredMeals],
+    [dayKey0, emp, customRoles, restaurantHours, mealPeriods, preferredMeals],
   );
   const seed = existing ? null : suggestions[0];
   const [start, setStart] = useState(existing?.start ?? seed?.start ?? "17:00");
@@ -733,7 +723,7 @@ function ShiftDetailsDialog({
           <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm">
             <p className="font-semibold">{emp?.name}</p>
             <p className="text-xs text-muted-foreground">
-              {emp?.position} · {dateLabel}
+              {emp?.primaryRole} · {dateLabel}
             </p>
           </div>
           {timeOffConflict && (
@@ -808,7 +798,7 @@ function ShiftDetailsDialog({
                 </PopoverTrigger>
                 <PopoverContent align="start" className="w-[320px] p-1">
                   <p className="px-2 py-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-                    Based on this restaurant's hours + {emp?.section === "BOH" ? "BOH" : "FOH"} arrival lead time
+                    Based on this restaurant's hours + {emp && sectionForRole(emp.primaryRole, customRoles) === "BOH" ? "BOH" : "FOH"} arrival lead time
                   </p>
                   <div className="max-h-[240px] overflow-y-auto">
                     {suggestions.map((s, i) => (
@@ -882,7 +872,6 @@ function ShiftDetailsDialog({
                   id: existing?.id ?? `s_${employeeId}_${date}`,
                   employeeId, role, date, start, end,
                   notes: notes || undefined,
-                  position: emp?.position,
                   updatedAt: existing?.updatedAt,
                 });
               }}

@@ -3,7 +3,7 @@
 // migration — extends the same "effective owner" pattern used by employees
 // and the hiring pipeline.
 import { supabase } from "@/integrations/supabase/client";
-import type { Shift, TimeOffRequest, Trade, TradeStatus, TimeOffStatus, Role, Position } from "@/lib/sidework-store";
+import type { Shift, TimeOffRequest, Trade, TradeStatus, TimeOffStatus, Role } from "@/lib/sidework-store";
 
 /* ---------------- shifts ---------------- */
 
@@ -16,7 +16,6 @@ type ShiftRow = {
   start_time: string;
   end_time: string;
   role: string;
-  position: string | null;
   notes: string | null;
   updated_at: string | null;
 };
@@ -30,7 +29,6 @@ function shiftFromRow(r: ShiftRow): Shift {
     start: r.start_time,
     end: r.end_time,
     notes: r.notes ?? undefined,
-    position: (r.position as Position | null) ?? undefined,
     updatedAt: r.updated_at ?? undefined,
   };
 }
@@ -45,7 +43,6 @@ function shiftToRow(ownerId: string, s: Shift, employeeIdOverride?: string | nul
     start_time: s.start,
     end_time: s.end,
     role: s.role,
-    position: s.position ?? null,
     notes: s.notes ?? null,
   };
 }
@@ -314,8 +311,7 @@ export async function bootstrapLocalSchedule(
       start_time: s.start,
       end_time: s.end,
       role: s.role,
-      position: s.position ?? null,
-      notes: s.notes ?? null,
+        notes: s.notes ?? null,
     }));
     const { error } = await supabase
       .from("shifts")
