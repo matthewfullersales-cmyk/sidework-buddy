@@ -70,9 +70,6 @@ const SORT_OPTIONS: { key: TeamSortKey; label: string }[] = [
 
 const TEAM_SORT_STORAGE_KEY = "sidework.team.sort";
 
-const FOH_ROLES: Role[] = ["Host", "Busser", "Server Assistant", "Bar Back", "Bartender", "Server", "Manager", "Assistant Manager"];
-const BOH_ROLES: Role[] = ["Chef", "Sous Chef", "Line Cook", "Fry Cook", "Saute", "Grill", "Pizza", "Garde Manger", "Dishwasher", "Prep"];
-const ROLES: Role[] = [...FOH_ROLES, ...BOH_ROLES];
 
 const nav = [
   { to: "/manager", label: "Dashboard", icon: <IconHome /> },
@@ -445,7 +442,7 @@ function TeamTab() {
     const list = employees.filter((e) => {
       if (filters.has("all")) return true;
       const role = e.primaryRole;
-      const isFoh = (FOH_ROLES as string[]).includes(role);
+      const isFoh = sectionForRole(role, customRoles) === "FOH";
       const status = onboardingStatus(e, customRoles);
       for (const f of filters) {
         if (f === "foh" && isFoh) return true;
@@ -540,8 +537,8 @@ function TeamTab() {
                   { key: "all", label: "All Staff" },
                   { key: "foh", label: "Front of House only" },
                   { key: "boh", label: "Back of House only" },
-                  ...FOH_ROLES.map((r) => ({ key: r, label: r })),
-                  ...BOH_ROLES.map((r) => ({ key: r, label: r })),
+                  ...FOH_ROLES_ORDERED.map((r) => ({ key: r, label: r })),
+                  ...BOH_ROLES_ORDERED.map((r) => ({ key: r, label: r })),
                   { key: "onboarded", label: "Fully onboarded only" },
                   { key: "inprogress", label: "In progress only" },
                 ].map((o) => {
