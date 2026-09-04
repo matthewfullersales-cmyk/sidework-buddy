@@ -57,6 +57,7 @@ export function employeeFromRow(r: PersonRow): Employee {
     applicationPitch: undefined,
     appliedAt: undefined,
     workExperience: (r.work_experience as WorkExperience[] | null) ?? undefined,
+    state: r.state,
     joinStatus: r.state === "pending_approval" ? "pending" : "active",
     joinedVia: r.joined_via ?? undefined,
   };
@@ -181,6 +182,18 @@ export async function deleteEmployeeRow(id: string): Promise<void> {
     return;
   }
   const { error } = await supabase.from("people").delete().eq("id", id);
+  if (error) throw error;
+}
+
+/** Mark a person inactive: they drop off the schedule but keep their record. */
+export async function archiveEmployeeRow(id: string): Promise<void> {
+  const { error } = await supabase.from("people").update({ state: "inactive" }).eq("id", id);
+  if (error) throw error;
+}
+
+/** Bring an archived person back onto the active roster. */
+export async function reactivateEmployeeRow(id: string): Promise<void> {
+  const { error } = await supabase.from("people").update({ state: "active" }).eq("id", id);
   if (error) throw error;
 }
 
