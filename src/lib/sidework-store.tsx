@@ -769,7 +769,7 @@ interface Store {
   disabledRoles: string[];
   setDisabledRoles: (roles: string[]) => void;
   /** Adapter kept for existing callers: stores the complement as disabledRoles. */
-  setActiveRoles: (roles: Role[]) => void;
+  
   customRoles: CustomRole[];
   addCustomRole: (role: CustomRole) => void;
   removeCustomRole: (name: string) => void;
@@ -1588,16 +1588,6 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     setDisabledRoles: (roles) =>
       setState((s) => {
         const next = { ...s, disabledRoles: Array.from(new Set(roles)) };
-        persistRoleConfig(next.disabledRoles, next.customRoles);
-        return next;
-      }),
-    // Callers still think in terms of "these are the roles we staff"; we store
-    // the complement over the BUILT-IN list only. Custom roles are never
-    // disabled — removing one deletes it outright.
-    setActiveRoles: (roles) =>
-      setState((s) => {
-        const on = new Set(roles);
-        const next = { ...s, disabledRoles: ROLES_ORDERED.filter((r) => !on.has(r)) };
         persistRoleConfig(next.disabledRoles, next.customRoles);
         return next;
       }),
