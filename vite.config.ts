@@ -38,6 +38,9 @@ export default defineConfig({
 
           navigateFallbackDenylist: [/^\/~oauth/, /^\/api\//],
           globPatterns: ["**/*.{js,css,html,svg,png,ico,webp,woff,woff2}"],
+          // Build output nests client assets under dist/client/ but they are
+          // served at the origin root, so strip the directory segment.
+          modifyURLPrefix: { "client/": "" },
           importScripts: ["/push-sw.js"],
           runtimeCaching: [
             {
