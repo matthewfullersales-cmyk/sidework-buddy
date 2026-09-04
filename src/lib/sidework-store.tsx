@@ -18,6 +18,8 @@ import {
   updateEmployeeRow,
   approveEmployeeRow,
   deleteEmployeeRow,
+  archiveEmployeeRow,
+  reactivateEmployeeRow,
   deleteAllOwnerEmployees,
 
   fetchRestaurantHours,
@@ -549,6 +551,8 @@ export interface Employee {
   applicationPitch?: string;
   appliedAt?: string;
   workExperience?: WorkExperience[];
+  /** Lifecycle state from the people row ("active", "inactive", "hired", ...). */
+  state?: string;
   /** "pending" = joined via the public link and awaiting owner approval. */
   joinStatus?: "active" | "pending";
   /** How this person got onto the roster ("join_link" for public self-joins). */
@@ -558,6 +562,10 @@ export interface Employee {
 /** Fail closed: only an explicit "active" (or a locally-created row) counts as staff. */
 export function isPendingJoin(e: Pick<Employee, "joinStatus">): boolean {
   return e.joinStatus === "pending";
+}
+
+export function isArchivedEmployee(e: Pick<Employee, "state">): boolean {
+  return e.state === "inactive";
 }
 
 
@@ -808,6 +816,12 @@ interface Store {
   approveJoinRequest: (id: string) => void;
   /** Decline a pending self-join: removes the roster row only (auth user stays). */
   declineJoinRequest: (id: string) => void;
+  /** Archive an employee: sets their people state to "inactive" (optimistic). */
+  archiveEmployee: (id: string) => void;
+  /** Reactivate an archived employee back to "active". */
+  reactivateEmployee: (id: string) => Promise<void>;
+  /** Hard-delete an employee's person record; history rows are orphaned, not deleted. */
+  deleteEmployeeRecord: (id: string) => Promise<void>;
 
   /**
    * Apply a quiz attempt result graded by the server. Only updates local
@@ -1628,6 +1642,34 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     declineJoinRequest: (id) => {
       setState((s) => ({ ...s, employees: s.employees.filter((e) => e.id !== id) }));
       deleteEmployeeRow(id).catch((e) => console.error("[declineJoinRequest]", e));
+    },
+    archiveEmployee: (id) => {
+      setState((s) => ({
+        ...s,
+        employees: s.employees.map((e) => (e.id === id ? { ...e, state: "inactive" } : e)),
+      }));
+      archiveEmployeeRow(id).catch((e) => console.error("[archiveEmployee]", e));
+    },
+    reactivateEmployee: async (id) => {
+      setState((s) => ({
+        ...s,
+        employees: s.employees.map((e) => (e.id === id ? { ...e, state: "active" } : e)),
+      }));
+      try {
+        await reactivateEmployeeRow(id);
+      } catch (e) {
+        console.error("[reactivateEmployee]", e);
+      }
+    },
+    deleteEmployeeRecord: async (id) => {
+      const previous = state.employees;
+      setState((s) => ({ ...s, employees: s.employees.filter((e) => e.id !== id) }));
+      try {
+        await deleteEmployeeRow(id);
+      } catch (e) {
+        setState((s) => ({ ...s, employees: previous }));
+        throw e;
+      }
     },
 
     inviteEmployee: async ({ firstName, lastName, email, phone, role }) => {
