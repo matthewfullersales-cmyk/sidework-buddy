@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { Copy, Eraser, ChevronDown } from "lucide-react";
@@ -158,15 +158,28 @@ export function ScheduleSection() {
 
   const grouped = useMemo(() => {
     const withRole = employees.filter((e) => !!e.primaryRole);
-    const foh = withRole.filter((e) => sectionForRole(e.primaryRole, customRoles) === "FOH");
-    const boh = withRole.filter((e) => sectionForRole(e.primaryRole, customRoles) === "BOH");
     const lastNameOf = (e: typeof employees[number]) => e.lastName ?? e.name.split(" ").slice(1).join(" ");
-    const sortFn = (a: typeof employees[number], b: typeof employees[number]) => {
-      const byRole = a.primaryRole.localeCompare(b.primaryRole);
-      if (byRole !== 0) return byRole;
-      return lastNameOf(a).localeCompare(lastNameOf(b));
+
+    const buildGroups = (section: Section) => {
+      const inSection = withRole.filter((e) => sectionForRole(e.primaryRole, customRoles) === section);
+      const byPosition = new Map<string, typeof employees>();
+      for (const e of inSection) {
+        const key = e.primaryRole;
+        if (!byPosition.has(key)) byPosition.set(key, []);
+        byPosition.get(key)!.push(e);
+      }
+      const groups = Array.from(byPosition.entries()).map(([position, people]) => ({
+        position,
+        people: [...people].sort((a, b) => lastNameOf(a).localeCompare(lastNameOf(b))),
+      }));
+      groups.sort((a, b) => {
+        if (b.people.length !== a.people.length) return b.people.length - a.people.length;
+        return a.position.localeCompare(b.position);
+      });
+      return groups;
     };
-    return { FOH: foh.sort(sortFn), BOH: boh.sort(sortFn) };
+
+    return { FOH: buildGroups("FOH"), BOH: buildGroups("BOH") };
   }, [employees, customRoles]);
 
 
@@ -344,7 +357,7 @@ export function ScheduleSection() {
               <p className="text-sm font-semibold text-primary">
                 {section === "FOH" ? "Front of House" : "Back of House"}
                 <span className="ml-2 text-xs font-normal text-muted-foreground">
-                  {grouped[section].length} staff
+                  {grouped[section].reduce((n, g) => n + g.people.length, 0)} staff
                 </span>
               </p>
             </div>
@@ -369,81 +382,90 @@ export function ScheduleSection() {
                   </tr>
                 </thead>
                 <tbody>
-                  {grouped[section].map((emp) => (
-                    <tr key={emp.id}>
-                      <td className="sticky left-0 z-10 bg-card border-b border-r border-border p-2 w-48">
-                        <div className="min-w-0">
-                          <p className="text-xs font-semibold truncate">{emp.name}</p>
-                          <p className="text-[10px] text-muted-foreground truncate">
-                            {emp.primaryRole}
-                          </p>
-                          {(() => {
-                            const summary = summarizeAvailability(emp.weeklyAvailability);
-                            return summary ? (
-                              <p className="text-[10px] text-muted-foreground truncate" title={summary}>
-                                {summary}
+                  {grouped[section].map((group) => (
+                    <Fragment key={group.position}>
+                      <tr>
+                        <td colSpan={days.length + 1} className="bg-muted/60 border-b border-border px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                          {group.position} ({group.people.length})
+                        </td>
+                      </tr>
+                      {group.people.map((emp) => (
+                        <tr key={emp.id}>
+                          <td className="sticky left-0 z-10 bg-card border-b border-r border-border p-2 w-48">
+                            <div className="min-w-0">
+                              <p className="text-xs font-semibold truncate">{emp.name}</p>
+                              <p className="text-[10px] text-muted-foreground truncate">
+                                {emp.primaryRole}
                               </p>
-                            ) : null;
-                          })()}
-                        </div>
-                      </td>
-                      {dayISOs.map((date, dayIdx) => {
-                        const s = shiftFor(emp.id, date);
-                        const toStatus = timeOffStatusFor(emp.id, date);
-                        const dayKey = DAY_KEYS[dayIdx];
-                        const availDay = emp.weeklyAvailability?.[dayKey];
-                        // Off days stay clickable — managers must be able to
-                        // record a shift picked up on a day off. The cell just
-                        // reads differently at a glance.
-                        const offDay = availDay?.kind === "none";
-                        return (
-                          <td key={date} className="border-b border-border p-1 align-middle">
-                            {toStatus === "approved" ? (
-                              <div
-                                className="w-full min-h-[52px] rounded-md text-[11px] grid place-items-center border"
-                                style={{ backgroundColor: STATUS_COLORS.timeOff, color: contrastText(STATUS_COLORS.timeOff), borderColor: STATUS_COLORS.timeOff }}
-                              >
-                                Time off
-                              </div>
-                            ) : (
-                              <button
-                                onClick={() => setEditing({ employeeId: emp.id, date, existing: s })}
-                                title={offDay ? `${emp.name} marked ${dayKey}s as unavailable — you can still schedule them` : undefined}
-                                className={`w-full min-h-[52px] rounded-md text-[11px] px-2 py-1 transition border ${
-                                  s
-                                    ? "bg-primary/10 border-primary/30 text-foreground hover:bg-primary/15"
-                                    : offDay
-                                      ? "bg-muted/40 border-dashed border-muted-foreground/30 text-muted-foreground hover:border-primary/40 hover:text-primary"
-                                      : "bg-background border-dashed border-border text-muted-foreground hover:border-primary/40 hover:text-primary"
-                                }`}
-                              >
-                                {s ? (
-                                  <div className="flex flex-col">
-                                    <span className="font-semibold">{formatTime12h(s.start)} – {formatTime12h(s.end)}</span>
-                                    {toStatus === "pending" && (
-                                      <span className="mt-0.5 text-[9px] uppercase tracking-wide" style={{ color: "#8a4b00" }}>PTO pending</span>
-                                    )}
-                                    {s.notes && <span className="mt-0.5 text-[9px] truncate">📝 {s.notes}</span>}
-                                  </div>
-                                ) : toStatus === "pending" ? (
-                                  <span
-                                    className="inline-block w-full rounded px-1 py-0.5"
-                                    style={{ backgroundColor: STATUS_COLORS.ptoPending, color: contrastText(STATUS_COLORS.ptoPending) }}
-                                  >
-                                    PTO pending
-                                  </span>
-                                ) : offDay ? (
-                                  <span className="text-[10px] leading-tight">Off · +</span>
-                                ) : (
-                                  <span>+</span>
-                                )}
-                              </button>
-                            )}
+                              {(() => {
+                                const summary = summarizeAvailability(emp.weeklyAvailability);
+                                return summary ? (
+                                  <p className="text-[10px] text-muted-foreground truncate" title={summary}>
+                                    {summary}
+                                  </p>
+                                ) : null;
+                              })()}
+                            </div>
                           </td>
-                        );
-                      })}
+                          {dayISOs.map((date, dayIdx) => {
+                            const s = shiftFor(emp.id, date);
+                            const toStatus = timeOffStatusFor(emp.id, date);
+                            const dayKey = DAY_KEYS[dayIdx];
+                            const availDay = emp.weeklyAvailability?.[dayKey];
+                            // Off days stay clickable — managers must be able to
+                            // record a shift picked up on a day off. The cell just
+                            // reads differently at a glance.
+                            const offDay = availDay?.kind === "none";
+                            return (
+                              <td key={date} className="border-b border-border p-1 align-middle">
+                                {toStatus === "approved" ? (
+                                  <div
+                                    className="w-full min-h-[52px] rounded-md text-[11px] grid place-items-center border"
+                                    style={{ backgroundColor: STATUS_COLORS.timeOff, color: contrastText(STATUS_COLORS.timeOff), borderColor: STATUS_COLORS.timeOff }}
+                                  >
+                                    Time off
+                                  </div>
+                                ) : (
+                                  <button
+                                    onClick={() => setEditing({ employeeId: emp.id, date, existing: s })}
+                                    title={offDay ? `${emp.name} marked ${dayKey}s as unavailable — you can still schedule them` : undefined}
+                                    className={`w-full min-h-[52px] rounded-md text-[11px] px-2 py-1 transition border ${
+                                      s
+                                        ? "bg-primary/10 border-primary/30 text-foreground hover:bg-primary/15"
+                                        : offDay
+                                          ? "bg-muted/40 border-dashed border-muted-foreground/30 text-muted-foreground hover:border-primary/40 hover:text-primary"
+                                          : "bg-background border-dashed border-border text-muted-foreground hover:border-primary/40 hover:text-primary"
+                                    }`}
+                                  >
+                                    {s ? (
+                                      <div className="flex flex-col">
+                                        <span className="font-semibold">{formatTime12h(s.start)} – {formatTime12h(s.end)}</span>
+                                        {toStatus === "pending" && (
+                                          <span className="mt-0.5 text-[9px] uppercase tracking-wide" style={{ color: "#8a4b00" }}>PTO pending</span>
+                                        )}
+                                        {s.notes && <span className="mt-0.5 text-[9px] truncate">📝 {s.notes}</span>}
+                                      </div>
+                                    ) : toStatus === "pending" ? (
+                                      <span
+                                        className="inline-block w-full rounded px-1 py-0.5"
+                                        style={{ backgroundColor: STATUS_COLORS.ptoPending, color: contrastText(STATUS_COLORS.ptoPending) }}
+                                      >
+                                        PTO pending
+                                      </span>
+                                    ) : offDay ? (
+                                      <span className="text-[10px] leading-tight">Off · +</span>
+                                    ) : (
+                                      <span>+</span>
+                                    )}
+                                  </button>
+                                )}
+                              </td>
+                            );
+                          })}
 
-                    </tr>
+                        </tr>
+                      ))}
+                    </Fragment>
                   ))}
                 </tbody>
               </table>
