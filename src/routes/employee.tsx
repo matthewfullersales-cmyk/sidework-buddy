@@ -141,6 +141,7 @@ function EmployeePage() {
           <div className="grid gap-4">
             <OnboardingTab employeeId={me.id} />
             <PushSettings />
+            <PushDiagnostics />
           </div>
         </TabsContent>
         <TabsContent value="schedule"><MyScheduleTab employeeId={me.id} /></TabsContent>
