@@ -126,7 +126,7 @@ export function PushDiagnostics() {
       }
       setReadyResult({
         kind: "ok",
-        text: `ready resolved in ${elapsed}ms\nactive.state: ${reg.active.state}\nscriptURL: ${reg.scriptURL}\nscope: ${reg.scope}`,
+        text: `ready resolved in ${elapsed}ms\nactive.state: ${reg.active.state}\nscriptURL: ${(reg as ServiceWorkerRegistration & { scriptURL: string }).scriptURL}\nscope: ${reg.scope}`,
       });
     } catch (e) {
       const elapsed = Math.round(performance.now() - started);
