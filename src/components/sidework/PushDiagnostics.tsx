@@ -17,12 +17,13 @@ type Result =
   | { kind: "error"; name: string; message: string };
 
 function formatReg(r: ServiceWorkerRegistration): RegInfo {
+  const reg = r as ServiceWorkerRegistration & { scriptURL: string };
   return {
-    scriptURL: r.scriptURL,
-    scope: r.scope,
-    installing: r.installing?.state ?? null,
-    waiting: r.waiting?.state ?? null,
-    active: r.active?.state ?? null,
+    scriptURL: reg.scriptURL,
+    scope: reg.scope,
+    installing: reg.installing?.state ?? null,
+    waiting: reg.waiting?.state ?? null,
+    active: reg.active?.state ?? null,
   };
 }
 
