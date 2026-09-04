@@ -6,7 +6,6 @@ import { nextCustomColor } from "@/lib/role-colors";
 import type {
   Employee,
   Role,
-  Position,
   Section,
   WeeklyAvailability,
   EmergencyContact,
