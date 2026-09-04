@@ -12,7 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { useStore, isPendingJoin, isArchivedEmployee, sectionForRole, type Role, type Shift, type Section, type WeeklyAvailability, type Meal, DAY_KEYS, isAvailableFor, halfForShiftStart, halfForAvailability, mealForShiftStart, suggestedShiftTimes, hoursConfigured, isPendingRoleAssignment } from "@/lib/sidework-store";
+import { useStore, isPendingJoin, isArchivedEmployee, sectionForRole, type Role, type Shift, type Section, type Meal, DAY_KEYS, isAvailableFor, halfForShiftStart, halfForAvailability, mealForShiftStart, suggestedShiftTimes, hoursConfigured, isPendingRoleAssignment } from "@/lib/sidework-store";
 import { toast } from "sonner";
 import { notifyScheduleChanged } from "@/lib/notifications.functions";
 import { formatTime12h } from "@/lib/utils";
@@ -367,14 +367,6 @@ export function ScheduleSection() {
                               <p className="text-[10px] text-muted-foreground truncate">
                                 {emp.primaryRole}
                               </p>
-                              {(() => {
-                                const summary = summarizeAvailability(emp.weeklyAvailability);
-                                return summary ? (
-                                  <p className="text-[10px] text-muted-foreground truncate" title={summary}>
-                                    {summary}
-                                  </p>
-                                ) : null;
-                              })()}
                             </div>
                           </td>
                           {dayISOs.map((date, dayIdx) => {
@@ -411,7 +403,7 @@ export function ScheduleSection() {
                                       <div className="flex flex-col">
                                         <span className="font-semibold">{formatTime12h(s.start)} – {formatTime12h(s.end)}</span>
                                         {toStatus === "pending" && (
-                                          <span className="mt-0.5 text-[9px] uppercase tracking-wide" style={{ color: "#8a4b00" }}>PTO pending</span>
+                                          <span className="mt-0.5 text-[9px] uppercase tracking-wide" style={{ color: "#8a4b00" }}>Time off pending</span>
                                         )}
                                         {s.notes && <span className="mt-0.5 text-[9px] truncate">📝 {s.notes}</span>}
                                       </div>
@@ -420,7 +412,8 @@ export function ScheduleSection() {
                                         className="inline-block w-full rounded px-1 py-0.5"
                                         style={{ backgroundColor: STATUS_COLORS.ptoPending, color: contrastText(STATUS_COLORS.ptoPending) }}
                                       >
-                                        PTO pending
+                                        Time off pending
+
                                       </span>
                                     ) : offDay ? (
                                       <span className="text-[10px] leading-tight">Off · +</span>
@@ -483,7 +476,7 @@ function Legend() {
         className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5"
         style={{ backgroundColor: STATUS_COLORS.ptoPending, color: contrastText(STATUS_COLORS.ptoPending), borderColor: STATUS_COLORS.ptoPending }}
       >
-        PTO pending
+        Time off pending
       </span>
     </div>
   );
