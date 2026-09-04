@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useRef, type ReactNode } from "react";
-import { ROLE_COLORS, ROLES_ORDERED, effectiveRoles } from "@/lib/role-colors";
+import { ROLE_COLORS, ROLES_ORDERED, BOH_ROLES_ORDERED, effectiveRoles } from "@/lib/role-colors";
 import { formatTime12h } from "@/lib/utils";
 import {
   fetchOwnerPostings,
@@ -65,11 +65,8 @@ import { useAuth } from "@/lib/auth-context";
 import { toast } from "sonner";
 
 export type Role = string;
-export const BUILT_IN_ROLES = [
-  "Host","Busser","Server Assistant","Bar Back","Bartender","Server","Manager","Assistant Manager",
-  "Chef","Sous Chef","Line Cook","Fry Cook","Saute","Grill","Pizza","Garde Manger","Dishwasher","Prep","Expo","Food Runner",
-] as const;
-export type BuiltInRole = typeof BUILT_IN_ROLES[number];
+export const BUILT_IN_ROLES = ROLES_ORDERED;
+export type BuiltInRole = string;
 export interface CustomRole { name: string; section: "FOH" | "BOH"; color: string }
 
 
@@ -96,11 +93,6 @@ export interface VideoProgress {
 
 
 export type Section = "FOH" | "BOH";
-export type Position =
-  | "Hostess" | "Bartender" | "Server" | "Server Assistant" | "Busser" | "Bar Back"
-  | "Manager" | "Assistant Manager"
-  | "Chef" | "Sous Chef" | "Line Cook" | "Garde Manger" | "Dishwasher" | "Prep Cook";
-
 export type DayKey = "Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat" | "Sun";
 export const DAY_KEYS: DayKey[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 export type Meal = "Breakfast" | "Lunch" | "Dinner";
@@ -135,7 +127,7 @@ export type RestaurantHoursConfigV2 = { version: 2; days: RestaurantHours; mealP
 // used to enforce or loosen availability conflict checks.
 export type ArrivalOffsets = {
   bySection: { FOH: number; BOH: number };
-  byPosition?: Partial<Record<Position, number>>;
+  byPosition?: Partial<Record<string, number>>;
 };
 export type RestaurantHoursConfigV3 = {
   version: 3;
@@ -220,7 +212,7 @@ export function defaultArrivalOffsets(): ArrivalOffsets {
 }
 
 export function arrivalOffsetFor(
-  position: Position | undefined,
+  position: string | undefined,
   section: Section | undefined,
   offsets: ArrivalOffsets,
 ): number {
@@ -333,7 +325,6 @@ export interface ShiftSuggestion {
 // remains available — these are convenience presets only.
 export function suggestedShiftTimes(input: {
   dayKey: DayKey;
-  position: Position | undefined;
   section: Section | undefined;
   restaurantHours: RestaurantHours;
   mealPeriods: MealPeriods;
@@ -553,9 +544,6 @@ export interface Employee {
   onboardingStarted: boolean;
   personalInfoComplete: boolean;
   progress: VideoProgress[];
-  position?: Position;
-  section?: Section;
-  seniority?: number; // 1-5, higher = more experienced
   // Carry-forward context from the application that created this employee
   hiredFromApplicationId?: string;
   applicationPitch?: string;
@@ -581,7 +569,6 @@ export interface Shift {
   start: string;
   end: string;
   notes?: string;
-  position?: Position;
   /** Server-maintained mtime; used for optimistic concurrency on updates. */
   updatedAt?: string;
 }
@@ -875,12 +862,11 @@ export const MENU_MODULE_ID = "menu-quiz";
 export const MENU_TEST_TITLE = "Menu Knowledge Test";
 
 export function sectionForRole(role: Role, customRoles: CustomRole[] = []): Section {
-  if (BOH_BUILT_IN.includes(role)) return "BOH";
+  if (BOH_ROLES_ORDERED.includes(role)) return "BOH";
   const custom = customRoles.find((c) => c.name === role);
   if (custom) return custom.section;
   return "FOH";
 }
-const BOH_BUILT_IN: Role[] = ["Chef", "Sous Chef", "Line Cook", "Fry Cook", "Saute", "Grill", "Pizza", "Garde Manger", "Dishwasher", "Prep"];
 
 /** Knowledge tests required for an employee. Today: the Menu Knowledge Test. */
 export function testIdsForEmployee(emp: { primaryRole: Role; approvedRoles?: Role[] }): string[] {
@@ -2123,9 +2109,6 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           onboardingStarted: false,
           personalInfoComplete: false,
           progress: [],
-          section: overrides?.section,
-          position: overrides?.position,
-          seniority: overrides?.seniority ?? 1,
           hiredFromApplicationId: a.id,
           applicationPitch: a.pitch ?? a.note,
           appliedAt: a.appliedAt,
