@@ -27,6 +27,7 @@ import { formatPhone } from "@/lib/format-phone";
 import { formatTime12h } from "@/lib/utils";
 import { toast } from "sonner";
 import { EnablePushBanner, NotificationInbox, PushSettings } from "@/components/sidework/NotificationsUI";
+import { PushDiagnostics } from "@/components/sidework/PushDiagnostics";
 import { notifyTradePosted } from "@/lib/notifications.functions";
 
 const nav = [
