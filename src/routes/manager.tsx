@@ -397,9 +397,13 @@ function PendingJoinRequestsQueue({
 }
 
 function TeamTab() {
-  const { employees: allEmployees, inviteEmployee, restaurantProfile, activeRoles, customRoles, shifts, trades, timeOff, clearAllEmployees, updateEmployee, approveJoinRequest, declineJoinRequest } = useStore();
+  const { employees: allEmployees, inviteEmployee, restaurantProfile, activeRoles, customRoles, shifts, trades, timeOff, clearAllEmployees, updateEmployee, approveJoinRequest, declineJoinRequest, archiveEmployee, reactivateEmployee } = useStore();
   const pendingJoins = useMemo(() => allEmployees.filter(isPendingJoin), [allEmployees]);
-  const employees = useMemo(() => allEmployees.filter((e) => !isPendingJoin(e)), [allEmployees]);
+  const [showArchived, setShowArchived] = useState(false);
+  const employees = useMemo(
+    () => allEmployees.filter((e) => !isPendingJoin(e) && (showArchived ? isArchivedEmployee(e) : !isArchivedEmployee(e))),
+    [allEmployees, showArchived],
+  );
 
   const fohActive = fohRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r));
   const bohActive = bohRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r));
@@ -411,6 +415,7 @@ function TeamTab() {
 
   const [editing, setEditing] = useState<Employee | null>(null);
   const [confirmClearAll, setConfirmClearAll] = useState(false);
+  const [confirmArchive, setConfirmArchive] = useState<Employee | null>(null);
 
   const [sortKey, setSortKey] = useState<TeamSortKey>("firstNameAsc");
   const [filters, setFilters] = useState<Set<string>>(new Set(["all"]));
