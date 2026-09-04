@@ -26,7 +26,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
-import { onboardingStatus, useStore, type Role, type ApplicationStatus, type Employee, type Relationship, DAY_KEYS, hoursConfigured, type JobApplication, type HiringStage, type ShadowShiftDetails, type InterviewType, getHiringStage, isPendingRoleAssignment, isPendingJoin, isScheduleEligible, sectionForRole } from "@/lib/sidework-store";
+import { onboardingStatus, useStore, type Role, type ApplicationStatus, type Employee, type Relationship, DAY_KEYS, hoursConfigured, type JobApplication, type HiringStage, type ShadowShiftDetails, type InterviewType, getHiringStage, isPendingRoleAssignment, isPendingJoin, isArchivedEmployee, isScheduleEligible, sectionForRole } from "@/lib/sidework-store";
+import { sendReactivationEmail } from "@/lib/reactivation.functions";
 import { roleStyle, fohRolesWithCustom, bohRolesWithCustom, allRolesWithCustom, FOH_ROLES_ORDERED, BOH_ROLES_ORDERED, ROLES_ORDERED, nextCustomColor } from "@/lib/role-colors";
 import { defaultDressGroupForRole } from "@/lib/shadow-packet-roles";
 
@@ -397,9 +398,13 @@ function PendingJoinRequestsQueue({
 }
 
 function TeamTab() {
-  const { employees: allEmployees, inviteEmployee, restaurantProfile, activeRoles, customRoles, shifts, trades, timeOff, clearAllEmployees, updateEmployee, approveJoinRequest, declineJoinRequest } = useStore();
+  const { employees: allEmployees, inviteEmployee, restaurantProfile, activeRoles, customRoles, shifts, trades, timeOff, clearAllEmployees, updateEmployee, approveJoinRequest, declineJoinRequest, archiveEmployee, reactivateEmployee } = useStore();
   const pendingJoins = useMemo(() => allEmployees.filter(isPendingJoin), [allEmployees]);
-  const employees = useMemo(() => allEmployees.filter((e) => !isPendingJoin(e)), [allEmployees]);
+  const [showArchived, setShowArchived] = useState(false);
+  const employees = useMemo(
+    () => allEmployees.filter((e) => !isPendingJoin(e) && (showArchived ? isArchivedEmployee(e) : !isArchivedEmployee(e))),
+    [allEmployees, showArchived],
+  );
 
   const fohActive = fohRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r));
   const bohActive = bohRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r));
@@ -411,6 +416,7 @@ function TeamTab() {
 
   const [editing, setEditing] = useState<Employee | null>(null);
   const [confirmClearAll, setConfirmClearAll] = useState(false);
+  const [confirmArchive, setConfirmArchive] = useState<Employee | null>(null);
 
   const [sortKey, setSortKey] = useState<TeamSortKey>("firstNameAsc");
   const [filters, setFilters] = useState<Set<string>>(new Set(["all"]));
@@ -503,6 +509,13 @@ function TeamTab() {
 
 
       <div className="flex flex-wrap justify-end gap-2">
+        <Button
+          variant={showArchived ? "default" : "outline"}
+          className="min-h-11"
+          onClick={() => setShowArchived((v) => !v)}
+        >
+          {showArchived ? "Back to active" : "Show archived"}
+        </Button>
         <Popover open={sfOpen} onOpenChange={setSfOpen}>
           <PopoverTrigger asChild>
             <Button variant="outline" className="min-h-11 gap-1.5">
@@ -565,7 +578,7 @@ function TeamTab() {
           </PopoverContent>
         </Popover>
 
-        {employees.length > 0 && (
+        {employees.length > 0 && !showArchived && (
           <Button
             variant="outline"
             className="text-destructive hover:bg-destructive/5 hover:text-destructive hover:border-destructive/50"
@@ -764,6 +777,43 @@ function TeamTab() {
 
                 <div className="mt-3 flex flex-wrap justify-end gap-2">
                   <Button size="sm" variant="outline" onClick={() => setEditing(e)}>Edit profile</Button>
+                  {!showArchived ? (
+                    <Button size="sm" variant="outline" onClick={() => setConfirmArchive(e)}>Archive</Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      onClick={async () => {
+                        const displayName = e.firstName ?? e.name;
+                        await reactivateEmployee(e.id);
+                        let emailOk = false;
+                        let emailErr: string | undefined;
+                        try {
+                          const res = await sendReactivationEmail({ data: {
+                            email: e.email,
+                            firstName: e.firstName ?? e.name,
+                            restaurantName: restaurantProfile?.name ?? "",
+                            signInUrl: `${window.location.origin}/login`,
+                            senderName: restaurantProfile?.name ?? "86Paper",
+                          }});
+                          emailOk = res.email.ok;
+                          emailErr = res.email.error;
+                        } catch (err) {
+                          console.error("[sendReactivationEmail]", err);
+                          emailErr = err instanceof Error ? err.message : String(err);
+                        }
+                        if (emailOk) {
+                          toast.success(`${displayName} reactivated — welcome-back email sent`, { duration: 10000 });
+                        } else {
+                          toast.warning(`${displayName} reactivated`, {
+                            description: `welcome-back email failed${emailErr ? `: ${emailErr}` : ""}`,
+                            duration: 10000,
+                          });
+                        }
+                      }}
+                    >
+                      Reactivate
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -776,6 +826,30 @@ function TeamTab() {
           onClose={() => setEditing(null)}
         />
       )}
+      <Dialog open={!!confirmArchive} onOpenChange={(o) => { if (!o) setConfirmArchive(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>Archive employee?</DialogTitle></DialogHeader>
+          <div className="space-y-2 py-2 text-sm text-muted-foreground">
+            <p>
+              Archive <span className="font-semibold text-foreground">{confirmArchive ? (confirmArchive.firstName && confirmArchive.lastName ? `${confirmArchive.firstName} ${confirmArchive.lastName}` : confirmArchive.name) : ""}</span>? They'll drop off the schedule until you reactivate them. Nothing about their record is deleted.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmArchive(null)}>Cancel</Button>
+            <Button
+              onClick={() => {
+                if (!confirmArchive) return;
+                const displayName = confirmArchive.firstName && confirmArchive.lastName ? `${confirmArchive.firstName} ${confirmArchive.lastName}` : confirmArchive.name;
+                archiveEmployee(confirmArchive.id);
+                setConfirmArchive(null);
+                toast.success(`${displayName} archived`);
+              }}
+            >
+              Archive
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Dialog open={confirmClearAll} onOpenChange={setConfirmClearAll}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle>Clear all employees?</DialogTitle></DialogHeader>
@@ -812,7 +886,10 @@ function TeamTab() {
 }
 
 function EmployeeProfileDialog({ employee, onClose }: { employee: Employee; onClose: () => void }) {
-  const { updateEmployee, activeRoles, customRoles, mealPeriods } = useStore();
+  const { updateEmployee, deleteEmployeeRecord, activeRoles, customRoles, mealPeriods } = useStore();
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const displayName = employee.firstName && employee.lastName ? `${employee.firstName} ${employee.lastName}` : employee.name;
   const fohActive = fohRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r) || employee.approvedRoles.includes(r));
   const bohActive = bohRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r) || employee.approvedRoles.includes(r));
   const [firstName, setFirstName] = useState(employee.firstName ?? employee.name.split(" ")[0] ?? "");
@@ -938,12 +1015,61 @@ function EmployeeProfileDialog({ employee, onClose }: { employee: Employee; onCl
               </div>
             </div>
           </div>
+
+          <div className="border-t border-border pt-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-destructive hover:bg-destructive/5 hover:text-destructive"
+              onClick={() => setConfirmDelete(true)}
+            >
+              Delete employee
+            </Button>
+          </div>
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
           <Button onClick={save}>Save changes</Button>
         </DialogFooter>
       </DialogContent>
+      <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>Delete {displayName} permanently?</DialogTitle></DialogHeader>
+          <div className="space-y-2 py-2 text-sm text-muted-foreground">
+            <p>
+              Their shift, trade, and time-off history will stay on record but will no longer show their name — this doesn't delete that history, it just orphans it. This can't be undone.
+            </p>
+            <p>
+              If you want them off the schedule but might bring them back, use Archive instead from the Team list — Cancel this and close the dialog to do that.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmDelete(false)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              disabled={deleting}
+              onClick={async () => {
+                setDeleting(true);
+                try {
+                  await deleteEmployeeRecord(employee.id);
+                  setConfirmDelete(false);
+                  onClose();
+                  toast.success(`${displayName} deleted`);
+                } catch (err) {
+                  console.error("[deleteEmployeeRecord]", err);
+                  toast.error(`Couldn't delete ${displayName}`, {
+                    description: err instanceof Error ? err.message : String(err),
+                  });
+                } finally {
+                  setDeleting(false);
+                }
+              }}
+            >
+              {deleting ? "Deleting…" : "Delete permanently"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }

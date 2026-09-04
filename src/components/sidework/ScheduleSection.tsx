@@ -12,7 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { useStore, isPendingJoin, sectionForRole, type Role, type Shift, type Section, type WeeklyAvailability, type Meal, DAY_KEYS, isAvailableFor, halfForShiftStart, halfForAvailability, mealForShiftStart, suggestedShiftTimes, hoursConfigured, isPendingRoleAssignment } from "@/lib/sidework-store";
+import { useStore, isPendingJoin, isArchivedEmployee, sectionForRole, type Role, type Shift, type Section, type WeeklyAvailability, type Meal, DAY_KEYS, isAvailableFor, halfForShiftStart, halfForAvailability, mealForShiftStart, suggestedShiftTimes, hoursConfigured, isPendingRoleAssignment } from "@/lib/sidework-store";
 import { toast } from "sonner";
 import { notifyScheduleChanged } from "@/lib/notifications.functions";
 import { formatTime12h } from "@/lib/utils";
@@ -85,7 +85,7 @@ function summarizeAvailability(weekly?: WeeklyAvailability): string {
 export function ScheduleSection() {
   const { shifts, employees: allEmployees, customRoles, timeOff, upsertShift, deleteShift, applyRemoteShiftUpsert, applyRemoteShiftDelete } = useStore();
   // Pending self-joins are not staff yet — never schedulable.
-  const employees = useMemo(() => allEmployees.filter((e) => !isPendingJoin(e)), [allEmployees]);
+  const employees = useMemo(() => allEmployees.filter((e) => !isPendingJoin(e) && !isArchivedEmployee(e)), [allEmployees]);
 
   const { effectiveOwner } = useAuth();
   const ownerId = effectiveOwner?.ownerId ?? null;
