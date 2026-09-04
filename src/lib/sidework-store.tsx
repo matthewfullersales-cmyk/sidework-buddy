@@ -20,7 +20,6 @@ import {
   deleteEmployeeRow,
   archiveEmployeeRow,
   reactivateEmployeeRow,
-  deleteAllOwnerEmployees,
 
   fetchRestaurantHours,
   saveRestaurantHours,
@@ -811,7 +810,7 @@ interface Store {
   }) => Promise<string>;
   updateRestaurantSlug: (slug: string) => void;
   updateEmployee: (id: string, patch: Partial<Employee>) => void;
-  clearAllEmployees: () => void;
+  
   /** Approve a pending public self-join so they count as staff. */
   approveJoinRequest: (id: string) => void;
   /** Decline a pending self-join: removes the roster row only (auth user stays). */
@@ -1627,11 +1626,6 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
       }),
 
     setCurrentUser: (u) => setState((s) => ({ ...s, currentUser: u })),
-    clearAllEmployees: () => {
-      setState((s) => ({ ...s, employees: [], shifts: [], trades: [], timeOff: [] }));
-      const oid = ownerIdRef.current;
-      if (oid) deleteAllOwnerEmployees(oid).catch((e) => console.error("[clearAllEmployees]", e));
-    },
     approveJoinRequest: (id) => {
       setState((s) => ({
         ...s,
