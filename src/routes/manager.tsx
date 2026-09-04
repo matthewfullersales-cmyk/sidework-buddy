@@ -777,6 +777,43 @@ function TeamTab() {
 
                 <div className="mt-3 flex flex-wrap justify-end gap-2">
                   <Button size="sm" variant="outline" onClick={() => setEditing(e)}>Edit profile</Button>
+                  {!showArchived ? (
+                    <Button size="sm" variant="outline" onClick={() => setConfirmArchive(e)}>Archive</Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      onClick={async () => {
+                        const displayName = e.firstName ?? e.name;
+                        await reactivateEmployee(e.id);
+                        let emailOk = false;
+                        let emailErr: string | undefined;
+                        try {
+                          const res = await sendReactivationEmail({ data: {
+                            email: e.email,
+                            firstName: e.firstName ?? e.name,
+                            restaurantName: restaurantProfile?.name ?? "",
+                            signInUrl: `${window.location.origin}/login`,
+                            senderName: restaurantProfile?.name ?? "86Paper",
+                          }});
+                          emailOk = res.email.ok;
+                          emailErr = res.email.error;
+                        } catch (err) {
+                          console.error("[sendReactivationEmail]", err);
+                          emailErr = err instanceof Error ? err.message : String(err);
+                        }
+                        if (emailOk) {
+                          toast.success(`${displayName} reactivated — welcome-back email sent`, { duration: 10000 });
+                        } else {
+                          toast.warning(`${displayName} reactivated`, {
+                            description: `welcome-back email failed${emailErr ? `: ${emailErr}` : ""}`,
+                            duration: 10000,
+                          });
+                        }
+                      }}
+                    >
+                      Reactivate
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -789,6 +826,30 @@ function TeamTab() {
           onClose={() => setEditing(null)}
         />
       )}
+      <Dialog open={!!confirmArchive} onOpenChange={(o) => { if (!o) setConfirmArchive(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>Archive employee?</DialogTitle></DialogHeader>
+          <div className="space-y-2 py-2 text-sm text-muted-foreground">
+            <p>
+              Archive <span className="font-semibold text-foreground">{confirmArchive ? (confirmArchive.firstName && confirmArchive.lastName ? `${confirmArchive.firstName} ${confirmArchive.lastName}` : confirmArchive.name) : ""}</span>? They'll drop off the schedule until you reactivate them. Nothing about their record is deleted.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmArchive(null)}>Cancel</Button>
+            <Button
+              onClick={() => {
+                if (!confirmArchive) return;
+                const displayName = confirmArchive.firstName && confirmArchive.lastName ? `${confirmArchive.firstName} ${confirmArchive.lastName}` : confirmArchive.name;
+                archiveEmployee(confirmArchive.id);
+                setConfirmArchive(null);
+                toast.success(`${displayName} archived`);
+              }}
+            >
+              Archive
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Dialog open={confirmClearAll} onOpenChange={setConfirmClearAll}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle>Clear all employees?</DialogTitle></DialogHeader>
