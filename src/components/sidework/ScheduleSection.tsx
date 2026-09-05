@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { useStore, isPendingJoin, isArchivedEmployee, sectionForRole, type Role, type Shift, type Section, type Meal, DAY_KEYS, isAvailableFor, halfForShiftStart, halfForAvailability, mealForShiftStart, suggestedShiftTimes, hoursConfigured, isPendingRoleAssignment } from "@/lib/sidework-store";
@@ -17,7 +17,7 @@ import { toast } from "sonner";
 import { notifyScheduleChanged } from "@/lib/notifications.functions";
 import { formatTime12h } from "@/lib/utils";
 
-import { STATUS_COLORS, contrastText, allRolesWithCustom } from "@/lib/role-colors";
+import { STATUS_COLORS, contrastText } from "@/lib/role-colors";
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
