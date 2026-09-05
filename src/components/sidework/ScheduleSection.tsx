@@ -48,9 +48,8 @@ function timesOverlap(aStart: string, aEnd: string, bStart: string, bEnd: string
 }
 function fmtRange(start: Date) {
   const end = addDays(start, 6);
-  const sameMo = start.getMonth() === end.getMonth();
   const s = start.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-  const e = end.toLocaleDateString(undefined, { month: sameMo ? undefined : "short", day: "numeric", year: "numeric" });
+  const e = end.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
   return `${s} – ${e}`;
 }
 
@@ -387,14 +386,7 @@ export function ScheduleSection() {
                             const offDay = availDay?.kind === "none";
                             return (
                               <td key={date} className="border-b border-border p-1 align-middle">
-                                {toStatus === "approved" ? (
-                                  <div
-                                    className="w-full min-h-[52px] rounded-md text-[11px] grid place-items-center border"
-                                    style={{ backgroundColor: STATUS_COLORS.timeOff, color: contrastText(STATUS_COLORS.timeOff), borderColor: STATUS_COLORS.timeOff }}
-                                  >
-                                    Time off
-                                  </div>
-                                ) : rowShifts.length > 0 ? (
+                                {rowShifts.length > 0 ? (
                                   <div className="flex flex-col gap-1">
                                     {rowShifts.map((s) => (
                                       <button
@@ -412,6 +404,15 @@ export function ScheduleSection() {
                                       </button>
                                     ))}
                                   </div>
+                                ) : toStatus === "approved" ? (
+                                  <button
+                                    onClick={() => setEditing({ employeeId: emp.id, date, role: group.position })}
+                                    title={`${emp.name} has approved time off this day — click to schedule anyway`}
+                                    className="w-full min-h-[52px] rounded-md text-[11px] grid place-items-center border transition hover:opacity-80"
+                                    style={{ backgroundColor: STATUS_COLORS.timeOff, color: contrastText(STATUS_COLORS.timeOff), borderColor: STATUS_COLORS.timeOff }}
+                                  >
+                                    Time off
+                                  </button>
                                 ) : otherShift ? (
                                   <button
                                     onClick={() => setEditing({ employeeId: emp.id, date, role: group.position })}
