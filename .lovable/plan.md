@@ -36,9 +36,37 @@ Database check for `%scorecheck%`:
    discards it (`void submitApplication;` at line 118). The store path has no other
    caller, so nothing in the live intake path changed.
 
+## Follow-up: does the live path have its own applicant score? — No
+
+Checked every layer of the real intake path:
+
+1. **Intake helper** (`src/lib/people-supabase.ts:310`) — no score/quality/rating
+   logic; it passes name, contact info, availability, and the two structured
+   experience answers straight through.
+2. **Database function** (`submit_application`) — full body read; no scoring
+   anywhere. It sanitizes input, resolves the restaurant, throttles bursts, and
+   dedupes by email/phone. Nothing derived from application completeness.
+3. **`people` table** — column list confirmed: no `ai_score`, `applicant_score`,
+   `quality_score`, or anything similar. The only counters are `submission_count`.
+4. **Manager applicant UI** (`src/components/sidework/ApplicantPipeline.tsx`, the
+   live pipeline reading `people`) — no score display. A full-tree sweep found the
+   only remaining "score" hits are: shift-suggestion sorting, the dormant menu-quiz
+   code, and the generated `ai_score` type declarations for the legacy
+   `job_applications` table.
+
+Conclusion: the scoring feature you removed earlier was the only one, and the live
+path never had an equivalent. The discrimination exposure is fully removed from the
+live product.
+
+Adjacent flag, not a score: the manager interview-notes field is a free-text box
+("Strengths, concerns, follow-ups…") written about a candidate pre-decision, which
+conflicts with the standing "no free text about a person before a decision" rule.
+Separate issue; nothing changed.
+
 ## Optional follow-ups (say the word and I'll plan them)
 
 - Delete the dead store `submitApplication` / `insertApplication` path and the unused
   store import in `careers.tsx`, so there is only one intake path.
 - Retire the legacy `job_applications` table (separate database step).
+- Replace interview notes with structured capture (separate scoped task).
 - Test with a distinct phone number as well as a distinct email when you want two rows.
