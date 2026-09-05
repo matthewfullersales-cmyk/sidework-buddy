@@ -371,13 +371,11 @@ export function ScheduleSection() {
                             </div>
                           </td>
                           {dayISOs.map((date, dayIdx) => {
-                            const s = shiftFor(emp.id, date);
+                            const rowShifts = shifts.filter((s) => s.employeeId === emp.id && s.date === date && s.role === group.position);
+                            const otherShift = shifts.find((s) => s.employeeId === emp.id && s.date === date && s.role !== group.position);
                             const toStatus = timeOffStatusFor(emp.id, date);
                             const dayKey = DAY_KEYS[dayIdx];
                             const availDay = emp.weeklyAvailability?.[dayKey];
-                            // Off days stay clickable — managers must be able to
-                            // record a shift picked up on a day off. The cell just
-                            // reads differently at a glance.
                             const offDay = availDay?.kind === "none";
                             return (
                               <td key={date} className="border-b border-border p-1 align-middle">
@@ -388,33 +386,47 @@ export function ScheduleSection() {
                                   >
                                     Time off
                                   </div>
+                                ) : rowShifts.length > 0 ? (
+                                  <div className="flex flex-col gap-1">
+                                    {rowShifts.map((s) => (
+                                      <button
+                                        key={s.id}
+                                        onClick={() => setEditing({ employeeId: emp.id, date, role: group.position, existing: s })}
+                                        className="w-full min-h-[52px] rounded-md text-[11px] px-2 py-1 transition border bg-primary/10 border-primary/30 text-foreground hover:bg-primary/15"
+                                      >
+                                        <div className="flex flex-col">
+                                          <span className="font-semibold">{formatTime12h(s.start)} – {formatTime12h(s.end)}</span>
+                                          {toStatus === "pending" && (
+                                            <span className="mt-0.5 text-[9px] uppercase tracking-wide" style={{ color: "#8a4b00" }}>Time off pending</span>
+                                          )}
+                                          {s.notes && <span className="mt-0.5 text-[9px] truncate">📝 {s.notes}</span>}
+                                        </div>
+                                      </button>
+                                    ))}
+                                  </div>
+                                ) : otherShift ? (
+                                  <div
+                                    className="w-full min-h-[52px] rounded-md text-[11px] px-2 py-1 grid place-items-center border border-dashed border-muted-foreground/30 bg-muted/30 text-muted-foreground"
+                                    title={`${emp.name} is scheduled as ${otherShift.role} this day`}
+                                  >
+                                    Working ({otherShift.role})
+                                  </div>
                                 ) : (
                                   <button
-                                    onClick={() => setEditing({ employeeId: emp.id, date, existing: s })}
+                                    onClick={() => setEditing({ employeeId: emp.id, date, role: group.position })}
                                     title={offDay ? `${emp.name} marked ${dayKey}s as unavailable — you can still schedule them` : undefined}
                                     className={`w-full min-h-[52px] rounded-md text-[11px] px-2 py-1 transition border ${
-                                      s
-                                        ? "bg-primary/10 border-primary/30 text-foreground hover:bg-primary/15"
-                                        : offDay
-                                          ? "bg-muted/40 border-dashed border-muted-foreground/30 text-muted-foreground hover:border-primary/40 hover:text-primary"
-                                          : "bg-background border-dashed border-border text-muted-foreground hover:border-primary/40 hover:text-primary"
+                                      offDay
+                                        ? "bg-muted/40 border-dashed border-muted-foreground/30 text-muted-foreground hover:border-primary/40 hover:text-primary"
+                                        : "bg-background border-dashed border-border text-muted-foreground hover:border-primary/40 hover:text-primary"
                                     }`}
                                   >
-                                    {s ? (
-                                      <div className="flex flex-col">
-                                        <span className="font-semibold">{formatTime12h(s.start)} – {formatTime12h(s.end)}</span>
-                                        {toStatus === "pending" && (
-                                          <span className="mt-0.5 text-[9px] uppercase tracking-wide" style={{ color: "#8a4b00" }}>Time off pending</span>
-                                        )}
-                                        {s.notes && <span className="mt-0.5 text-[9px] truncate">📝 {s.notes}</span>}
-                                      </div>
-                                    ) : toStatus === "pending" ? (
+                                    {toStatus === "pending" ? (
                                       <span
                                         className="inline-block w-full rounded px-1 py-0.5"
                                         style={{ backgroundColor: STATUS_COLORS.ptoPending, color: contrastText(STATUS_COLORS.ptoPending) }}
                                       >
                                         Time off pending
-
                                       </span>
                                     ) : offDay ? (
                                       <span className="text-[10px] leading-tight">Off · +</span>
