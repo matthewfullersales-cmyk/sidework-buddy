@@ -520,10 +520,10 @@ function Legend() {
 }
 
 function ShiftDetailsDialog({
-  employeeId, date, role, existing, onClose, onAddAnother, onSave, onDelete,
+  employeeId, date, role, existing, otherShiftsToday, onClose, onAddAnother, onSave, onDelete,
 }: {
-  employeeId: string; date: string; role: Role; existing?: Shift;
-  onClose: () => void; onAddAnother: () => void; onSave: (s: Shift) => void; onDelete: (id: string) => void;
+  employeeId: string; date: string; role: Role; existing?: Shift; otherShiftsToday: Shift[];
+  onClose: () => void; onAddAnother: () => void; onSave: (s: Shift, usedOverride: boolean) => void; onDelete: (id: string) => void;
 }) {
   const { employees, customRoles, timeOff, mealPeriods, restaurantHours } = useStore();
   const emp = employees.find((e) => e.id === employeeId);
@@ -555,6 +555,8 @@ function ShiftDetailsDialog({
   const [end, setEnd] = useState(existing?.end ?? seed?.end ?? "23:00");
   const [notes, setNotes] = useState(existing?.notes ?? "");
   const [overrideAvailability, setOverrideAvailability] = useState(false);
+  const [overrideTimeOff, setOverrideTimeOff] = useState(false);
+  const [overrideOverlap, setOverrideOverlap] = useState(false);
   const [suggestOpen, setSuggestOpen] = useState(false);
   const showSuggestions = hoursConfigured(restaurantHours, mealPeriods) && suggestions.length > 0;
 
@@ -571,7 +573,9 @@ function ShiftDetailsDialog({
     return null;
   })();
 
-  const blocked = timeOffConflict?.status === "approved";
+  const needsTimeOffOverride = timeOffConflict?.status === "approved" && !overrideTimeOff;
+  const overlappingShift = otherShiftsToday.find((s) => timesOverlap(start, end, s.start, s.end));
+  const needsOverlapOverride = !!overlappingShift && !overrideOverlap;
   // Parse date as LOCAL midnight, not UTC. `new Date("YYYY-MM-DD")` is parsed
   // as UTC and returns the previous day's weekday west of UTC — the same
   // timezone bug class that hid the time-off check earlier.
