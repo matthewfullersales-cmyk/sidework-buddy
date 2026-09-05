@@ -531,11 +531,9 @@ function ShiftDetailsDialog({
   const seed = existing ? null : suggestions[0];
   const [start, setStart] = useState(existing?.start ?? seed?.start ?? "17:00");
   const [end, setEnd] = useState(existing?.end ?? seed?.end ?? "23:00");
-  const [role, setRole] = useState<Role>(existing?.role ?? (emp?.primaryRole ?? "Server"));
   const [notes, setNotes] = useState(existing?.notes ?? "");
   const [overrideAvailability, setOverrideAvailability] = useState(false);
   const [suggestOpen, setSuggestOpen] = useState(false);
-  const rolesForPicker = allRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r) || r === role);
   const showSuggestions = hoursConfigured(restaurantHours, mealPeriods) && suggestions.length > 0;
 
   const timeOffConflict = (() => {
