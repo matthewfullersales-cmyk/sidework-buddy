@@ -452,11 +452,13 @@ export function ScheduleSection() {
 
       {editing && (
         <ShiftDetailsDialog
-          key={`${editing.employeeId}-${editing.date}`}
+          key={`${editing.employeeId}-${editing.date}-${editing.role}-${editing.existing?.id ?? "new"}`}
           employeeId={editing.employeeId}
           date={editing.date}
+          role={editing.role}
           existing={editing.existing}
           onClose={() => setEditing(null)}
+          onAddAnother={() => setEditing({ employeeId: editing.employeeId, date: editing.date, role: editing.role })}
           onSave={(shift) => {
             upsertShift(shift);
             setEditing(null);
