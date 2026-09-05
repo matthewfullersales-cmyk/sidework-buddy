@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { useStore, isPendingJoin, isArchivedEmployee, sectionForRole, type Role, type Shift, type Section, type Meal, DAY_KEYS, isAvailableFor, halfForShiftStart, halfForAvailability, mealForShiftStart, suggestedShiftTimes, hoursConfigured, isPendingRoleAssignment } from "@/lib/sidework-store";
@@ -17,7 +17,7 @@ import { toast } from "sonner";
 import { notifyScheduleChanged } from "@/lib/notifications.functions";
 import { formatTime12h } from "@/lib/utils";
 
-import { STATUS_COLORS, contrastText, allRolesWithCustom } from "@/lib/role-colors";
+import { STATUS_COLORS, contrastText } from "@/lib/role-colors";
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -102,7 +102,7 @@ export function ScheduleSection() {
     };
   }, [ownerId, applyRemoteShiftUpsert, applyRemoteShiftDelete]);
 
-  const [editing, setEditing] = useState<{ employeeId: string; date: string; existing?: Shift } | null>(null);
+  const [editing, setEditing] = useState<{ employeeId: string; date: string; role: Role; existing?: Shift } | null>(null);
   const [publishing, setPublishing] = useState(false);
   const [confirmCopy, setConfirmCopy] = useState<{ count: number } | null>(null);
   const [confirmClear, setConfirmClear] = useState<{ count: number } | null>(null);
@@ -113,8 +113,6 @@ export function ScheduleSection() {
   );
   const dayISOs = days.map(fmtISO);
 
-  const shiftFor = (empId: string, date: string) =>
-    shifts.find((s) => s.employeeId === empId && s.date === date);
 
   const timeOffStatusFor = (empId: string, date: string): "approved" | "pending" | null => {
     const reqs = timeOff.filter((t) => t.employeeId === empId);
@@ -129,14 +127,17 @@ export function ScheduleSection() {
   const grouped = useMemo(() => {
     const withRole = employees.filter((e) => !!e.primaryRole);
     const lastNameOf = (e: typeof employees[number]) => e.lastName ?? e.name.split(" ").slice(1).join(" ");
+    const positionsFor = (e: typeof employees[number]) =>
+      Array.from(new Set([e.primaryRole, ...(e.approvedRoles ?? [])].filter(Boolean)));
 
     const buildGroups = (section: Section) => {
-      const inSection = withRole.filter((e) => sectionForRole(e.primaryRole, customRoles) === section);
       const byPosition = new Map<string, typeof employees>();
-      for (const e of inSection) {
-        const key = e.primaryRole;
-        if (!byPosition.has(key)) byPosition.set(key, []);
-        byPosition.get(key)!.push(e);
+      for (const e of withRole) {
+        for (const p of positionsFor(e)) {
+          if (sectionForRole(p, customRoles) !== section) continue;
+          if (!byPosition.has(p)) byPosition.set(p, []);
+          byPosition.get(p)!.push(e);
+        }
       }
       const groups = Array.from(byPosition.entries()).map(([position, people]) => ({
         position,
@@ -327,7 +328,7 @@ export function ScheduleSection() {
               <p className="text-sm font-semibold text-primary">
                 {section === "FOH" ? "Front of House" : "Back of House"}
                 <span className="ml-2 text-xs font-normal text-muted-foreground">
-                  {grouped[section].reduce((n, g) => n + g.people.length, 0)} staff
+                  {new Set(grouped[section].flatMap((g) => g.people.map((p) => p.id))).size} staff
                 </span>
               </p>
             </div>
@@ -370,13 +371,11 @@ export function ScheduleSection() {
                             </div>
                           </td>
                           {dayISOs.map((date, dayIdx) => {
-                            const s = shiftFor(emp.id, date);
+                            const rowShifts = shifts.filter((s) => s.employeeId === emp.id && s.date === date && s.role === group.position);
+                            const otherShift = shifts.find((s) => s.employeeId === emp.id && s.date === date && s.role !== group.position);
                             const toStatus = timeOffStatusFor(emp.id, date);
                             const dayKey = DAY_KEYS[dayIdx];
                             const availDay = emp.weeklyAvailability?.[dayKey];
-                            // Off days stay clickable — managers must be able to
-                            // record a shift picked up on a day off. The cell just
-                            // reads differently at a glance.
                             const offDay = availDay?.kind === "none";
                             return (
                               <td key={date} className="border-b border-border p-1 align-middle">
@@ -387,33 +386,47 @@ export function ScheduleSection() {
                                   >
                                     Time off
                                   </div>
+                                ) : rowShifts.length > 0 ? (
+                                  <div className="flex flex-col gap-1">
+                                    {rowShifts.map((s) => (
+                                      <button
+                                        key={s.id}
+                                        onClick={() => setEditing({ employeeId: emp.id, date, role: group.position, existing: s })}
+                                        className="w-full min-h-[52px] rounded-md text-[11px] px-2 py-1 transition border bg-primary/10 border-primary/30 text-foreground hover:bg-primary/15"
+                                      >
+                                        <div className="flex flex-col">
+                                          <span className="font-semibold">{formatTime12h(s.start)} – {formatTime12h(s.end)}</span>
+                                          {toStatus === "pending" && (
+                                            <span className="mt-0.5 text-[9px] uppercase tracking-wide" style={{ color: "#8a4b00" }}>Time off pending</span>
+                                          )}
+                                          {s.notes && <span className="mt-0.5 text-[9px] truncate">📝 {s.notes}</span>}
+                                        </div>
+                                      </button>
+                                    ))}
+                                  </div>
+                                ) : otherShift ? (
+                                  <div
+                                    className="w-full min-h-[52px] rounded-md text-[11px] px-2 py-1 grid place-items-center border border-dashed border-muted-foreground/30 bg-muted/30 text-muted-foreground"
+                                    title={`${emp.name} is scheduled as ${otherShift.role} this day`}
+                                  >
+                                    Working ({otherShift.role})
+                                  </div>
                                 ) : (
                                   <button
-                                    onClick={() => setEditing({ employeeId: emp.id, date, existing: s })}
+                                    onClick={() => setEditing({ employeeId: emp.id, date, role: group.position })}
                                     title={offDay ? `${emp.name} marked ${dayKey}s as unavailable — you can still schedule them` : undefined}
                                     className={`w-full min-h-[52px] rounded-md text-[11px] px-2 py-1 transition border ${
-                                      s
-                                        ? "bg-primary/10 border-primary/30 text-foreground hover:bg-primary/15"
-                                        : offDay
-                                          ? "bg-muted/40 border-dashed border-muted-foreground/30 text-muted-foreground hover:border-primary/40 hover:text-primary"
-                                          : "bg-background border-dashed border-border text-muted-foreground hover:border-primary/40 hover:text-primary"
+                                      offDay
+                                        ? "bg-muted/40 border-dashed border-muted-foreground/30 text-muted-foreground hover:border-primary/40 hover:text-primary"
+                                        : "bg-background border-dashed border-border text-muted-foreground hover:border-primary/40 hover:text-primary"
                                     }`}
                                   >
-                                    {s ? (
-                                      <div className="flex flex-col">
-                                        <span className="font-semibold">{formatTime12h(s.start)} – {formatTime12h(s.end)}</span>
-                                        {toStatus === "pending" && (
-                                          <span className="mt-0.5 text-[9px] uppercase tracking-wide" style={{ color: "#8a4b00" }}>Time off pending</span>
-                                        )}
-                                        {s.notes && <span className="mt-0.5 text-[9px] truncate">📝 {s.notes}</span>}
-                                      </div>
-                                    ) : toStatus === "pending" ? (
+                                    {toStatus === "pending" ? (
                                       <span
                                         className="inline-block w-full rounded px-1 py-0.5"
                                         style={{ backgroundColor: STATUS_COLORS.ptoPending, color: contrastText(STATUS_COLORS.ptoPending) }}
                                       >
                                         Time off pending
-
                                       </span>
                                     ) : offDay ? (
                                       <span className="text-[10px] leading-tight">Off · +</span>
@@ -439,11 +452,13 @@ export function ScheduleSection() {
 
       {editing && (
         <ShiftDetailsDialog
-          key={`${editing.employeeId}-${editing.date}`}
+          key={`${editing.employeeId}-${editing.date}-${editing.role}-${editing.existing?.id ?? "new"}`}
           employeeId={editing.employeeId}
           date={editing.date}
+          role={editing.role}
           existing={editing.existing}
           onClose={() => setEditing(null)}
+          onAddAnother={() => setEditing({ employeeId: editing.employeeId, date: editing.date, role: editing.role })}
           onSave={(shift) => {
             upsertShift(shift);
             setEditing(null);
@@ -483,12 +498,12 @@ function Legend() {
 }
 
 function ShiftDetailsDialog({
-  employeeId, date, existing, onClose, onSave, onDelete,
+  employeeId, date, role, existing, onClose, onAddAnother, onSave, onDelete,
 }: {
-  employeeId: string; date: string; existing?: Shift;
-  onClose: () => void; onSave: (s: Shift) => void; onDelete: (id: string) => void;
+  employeeId: string; date: string; role: Role; existing?: Shift;
+  onClose: () => void; onAddAnother: () => void; onSave: (s: Shift) => void; onDelete: (id: string) => void;
 }) {
-  const { employees, activeRoles, customRoles, timeOff, mealPeriods, restaurantHours } = useStore();
+  const { employees, customRoles, timeOff, mealPeriods, restaurantHours } = useStore();
   const emp = employees.find((e) => e.id === employeeId);
   // Compute suggestions up-front so a brand-new shift is seeded with the
   // first suggestion (Dinner arrival for the employee's section/position),
@@ -506,7 +521,7 @@ function ShiftDetailsDialog({
   const suggestions = useMemo(
     () => suggestedShiftTimes({
       dayKey: dayKey0,
-      section: emp ? sectionForRole(emp.primaryRole, customRoles) : undefined,
+      section: sectionForRole(role, customRoles),
       restaurantHours,
       mealPeriods,
       preferredMeals,
@@ -516,11 +531,9 @@ function ShiftDetailsDialog({
   const seed = existing ? null : suggestions[0];
   const [start, setStart] = useState(existing?.start ?? seed?.start ?? "17:00");
   const [end, setEnd] = useState(existing?.end ?? seed?.end ?? "23:00");
-  const [role, setRole] = useState<Role>(existing?.role ?? (emp?.primaryRole ?? "Server"));
   const [notes, setNotes] = useState(existing?.notes ?? "");
   const [overrideAvailability, setOverrideAvailability] = useState(false);
   const [suggestOpen, setSuggestOpen] = useState(false);
-  const rolesForPicker = allRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r) || r === role);
   const showSuggestions = hoursConfigured(restaurantHours, mealPeriods) && suggestions.length > 0;
 
   const timeOffConflict = (() => {
@@ -575,7 +588,7 @@ function ShiftDetailsDialog({
           <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm">
             <p className="font-semibold">{emp?.name}</p>
             <p className="text-xs text-muted-foreground">
-              {emp?.primaryRole} · {dateLabel}
+              {role} · {dateLabel}
             </p>
           </div>
           {timeOffConflict && (
@@ -650,7 +663,7 @@ function ShiftDetailsDialog({
                 </PopoverTrigger>
                 <PopoverContent align="start" className="w-[320px] p-1">
                   <p className="px-2 py-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-                    Based on this restaurant's hours + {emp && sectionForRole(emp.primaryRole, customRoles) === "BOH" ? "BOH" : "FOH"} arrival lead time
+                    Based on this restaurant's hours + {sectionForRole(role, customRoles) === "BOH" ? "BOH" : "FOH"} arrival lead time
                   </p>
                   <div className="max-h-[240px] overflow-y-auto">
                     {suggestions.map((s, i) => (
@@ -686,22 +699,16 @@ function ShiftDetailsDialog({
             </div>
           </div>
           <div>
-            <Label className="text-xs">Role for this shift</Label>
-            <Select value={role} onValueChange={(v: Role) => setRole(v)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {rolesForPicker.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
             <Label className="text-xs">Notes</Label>
             <Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g. closing duties, training new hire…" />
           </div>
         </div>
         <DialogFooter className="flex-row justify-between sm:justify-between gap-2">
           {existing ? (
-            <Button variant="outline" onClick={() => onDelete(existing.id)}>Remove shift</Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => onDelete(existing.id)}>Remove shift</Button>
+              <Button variant="outline" onClick={onAddAnother}>Add another shift</Button>
+            </div>
           ) : <span />}
           <div className="flex gap-2">
             <Button variant="ghost" onClick={onClose}>Cancel</Button>
