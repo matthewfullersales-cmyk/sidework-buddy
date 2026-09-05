@@ -113,8 +113,6 @@ export function ScheduleSection() {
   );
   const dayISOs = days.map(fmtISO);
 
-  const shiftFor = (empId: string, date: string) =>
-    shifts.find((s) => s.employeeId === empId && s.date === date);
 
   const timeOffStatusFor = (empId: string, date: string): "approved" | "pending" | null => {
     const reqs = timeOff.filter((t) => t.employeeId === empId);
