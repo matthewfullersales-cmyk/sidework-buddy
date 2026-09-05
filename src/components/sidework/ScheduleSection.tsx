@@ -498,12 +498,12 @@ function Legend() {
 }
 
 function ShiftDetailsDialog({
-  employeeId, date, existing, onClose, onSave, onDelete,
+  employeeId, date, role, existing, onClose, onAddAnother, onSave, onDelete,
 }: {
-  employeeId: string; date: string; existing?: Shift;
-  onClose: () => void; onSave: (s: Shift) => void; onDelete: (id: string) => void;
+  employeeId: string; date: string; role: Role; existing?: Shift;
+  onClose: () => void; onAddAnother: () => void; onSave: (s: Shift) => void; onDelete: (id: string) => void;
 }) {
-  const { employees, activeRoles, customRoles, timeOff, mealPeriods, restaurantHours } = useStore();
+  const { employees, customRoles, timeOff, mealPeriods, restaurantHours } = useStore();
   const emp = employees.find((e) => e.id === employeeId);
   // Compute suggestions up-front so a brand-new shift is seeded with the
   // first suggestion (Dinner arrival for the employee's section/position),
@@ -521,7 +521,7 @@ function ShiftDetailsDialog({
   const suggestions = useMemo(
     () => suggestedShiftTimes({
       dayKey: dayKey0,
-      section: emp ? sectionForRole(emp.primaryRole, customRoles) : undefined,
+      section: sectionForRole(role, customRoles),
       restaurantHours,
       mealPeriods,
       preferredMeals,
@@ -590,7 +590,7 @@ function ShiftDetailsDialog({
           <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm">
             <p className="font-semibold">{emp?.name}</p>
             <p className="text-xs text-muted-foreground">
-              {emp?.primaryRole} · {dateLabel}
+              {role} · {dateLabel}
             </p>
           </div>
           {timeOffConflict && (
