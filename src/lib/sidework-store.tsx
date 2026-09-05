@@ -608,7 +608,7 @@ export interface JobPosting {
 
 export type ApplicationStatus = "new" | "reviewing" | "interview" | "hired" | "rejected";
 export type ApplicationSource = "Walk-in" | "Instagram" | "Indeed" | "Friend" | "Google" | "Other";
-export type AiScore = "Strong" | "Average" | "Weak";
+
 
 export type HiringStage =
   | "new"
@@ -655,7 +655,7 @@ export interface JobApplication {
   status: ApplicationStatus;
   stage?: HiringStage;
   verified: boolean;
-  aiScore?: AiScore;
+  
   interviewSentAt?: string;
   interviewNotes?: string;
   interviewType?: InterviewType;
@@ -843,7 +843,7 @@ interface Store {
   postJob: (data: Omit<JobPosting, "id" | "postedAt" | "open">) => void;
   toggleJobOpen: (id: string) => void;
   removeJob: (id: string) => void;
-  submitApplication: (data: Omit<JobApplication, "id" | "appliedAt" | "status" | "aiScore">) => string;
+  submitApplication: (data: Omit<JobApplication, "id" | "appliedAt" | "status">) => string;
   setApplicationStatus: (id: string, status: ApplicationStatus) => void;
   scheduleInterview: (id: string) => void;
   setInterviewNotes: (id: string, notes: string) => void;
@@ -2044,9 +2044,8 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
       // For a signed-in owner previewing their own careers page, the row will
       // load via fetchOwnerApplications on next refresh; we also optimistically
       // append when the current user owns the referenced job.
-      const withScore = { ...data, aiScore: aiScoreFor(data as JobApplication) };
       const tempId = uid("a");
-      insertApplication(withScore)
+      insertApplication(data)
         .then((app) => {
           setState((s) => {
             // Replace optimistic row if present, else prepend.
@@ -2066,7 +2065,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
       setState((s) => ({
         ...s,
         applications: [
-          { id: tempId, appliedAt: new Date().toISOString(), status: "new", ...withScore } as JobApplication,
+          { id: tempId, appliedAt: new Date().toISOString(), status: "new", ...data } as JobApplication,
           ...s.applications,
         ],
       }));
@@ -2356,28 +2355,6 @@ export function useStore() {
 
 
 
-export function aiScoreFor(a: Partial<JobApplication>): AiScore {
-  let pts = 0;
-  if (a.firstName && a.lastName) pts += 1;
-  if (a.email) pts += 1;
-  if (a.phone) pts += 1;
-  if (a.role) pts += 1;
-  const pitchText = (a.pitch ?? a.note ?? "").trim();
-  const words = pitchText ? pitchText.split(/\s+/).length : 0;
-  if (words >= 100) pts += 3;
-  else if (words >= 40) pts += 2;
-  else if (words >= 15) pts += 1;
-  // Legacy applications may still carry weeklyAvailability/availabilityDays;
-  // give them credit but don't require it from new short-form applications.
-  const days = a.weeklyAvailability
-    ? DAY_KEYS.filter((d) => a.weeklyAvailability![d]?.kind !== "none").length
-    : (a.availabilityDays?.length ?? 0);
-  if (days >= 5) pts += 2;
-  else if (days >= 3) pts += 1;
-  if (pts >= 7) return "Strong";
-  if (pts >= 4) return "Average";
-  return "Weak";
-}
 
 export function onboardingStatus(
   employee: Employee,

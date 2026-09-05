@@ -8,7 +8,6 @@ import type {
   Role,
   ApplicationStatus,
   HiringStage,
-  AiScore,
   ApplicationSource,
   InterviewType,
   ShadowShiftDetails,
@@ -48,7 +47,7 @@ type ApplicationRow = {
   status: string;
   stage: string | null;
   verified: boolean;
-  ai_score: string | null;
+  
   interview_sent_at: string | null;
   interview_notes: string | null;
   interview_type: string | null;
@@ -137,7 +136,7 @@ export function applicationFromRow(r: ApplicationRow): JobApplication {
     status: r.status as ApplicationStatus,
     stage: (r.stage as HiringStage) ?? undefined,
     verified: r.verified,
-    aiScore: (r.ai_score as AiScore) ?? undefined,
+    
     interviewSentAt: r.interview_sent_at ?? undefined,
     interviewNotes: r.interview_notes ?? undefined,
     interviewType: (r.interview_type as InterviewType) ?? undefined,
@@ -235,9 +234,7 @@ export async function deletePosting(id: string): Promise<void> {
 
 /** Public: submit an application. owner_id is force-set server-side by trigger. */
 export async function insertApplication(
-  data: Omit<JobApplication, "id" | "appliedAt" | "status" | "aiScore"> & {
-    aiScore?: AiScore;
-  },
+  data: Omit<JobApplication, "id" | "appliedAt" | "status">,
 ): Promise<JobApplication> {
   if (!data.jobId) throw new Error("jobId is required to submit an application");
   const id =
@@ -262,7 +259,7 @@ export async function insertApplication(
     availability_hours: data.availabilityHours,
     note: data.note ?? null,
     verified: data.verified,
-    ai_score: data.aiScore ?? null,
+    
     work_experience: (data.workExperience ?? null) as never,
     status: "new",
     applied_at: appliedAt,
@@ -288,7 +285,7 @@ export async function updateApplication(
   if (patch.stage !== undefined) row.stage = patch.stage;
   if (patch.archived !== undefined) row.archived = patch.archived;
   if (patch.verified !== undefined) row.verified = patch.verified;
-  if (patch.aiScore !== undefined) row.ai_score = patch.aiScore;
+  
   if (patch.interviewSentAt !== undefined) row.interview_sent_at = patch.interviewSentAt;
   if (patch.interviewNotes !== undefined) row.interview_notes = patch.interviewNotes;
   if (patch.interviewType !== undefined) row.interview_type = patch.interviewType;
