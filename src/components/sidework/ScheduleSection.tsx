@@ -765,26 +765,31 @@ function ShiftDetailsDialog({
           <div className="flex gap-2">
             <Button variant="ghost" onClick={onClose}>Cancel</Button>
             <Button
-              disabled={blocked || needsOverride || (pendingRole && !existing)}
+              disabled={needsTimeOffOverride || needsOverride || needsOverlapOverride || (pendingRole && !existing)}
               onClick={() => {
-                if (blocked) {
-                  toast.error(`${emp?.name ?? "Employee"} has approved time off on this date`);
+                if (needsTimeOffOverride) {
+                  toast.error(`Confirm scheduling despite ${emp?.name ?? "employee"}'s approved time off`);
                   return;
                 }
                 if (needsOverride) {
                   toast.error(`Confirm scheduling despite ${emp?.name ?? "employee"}'s marked unavailability`);
                   return;
                 }
+                if (needsOverlapOverride) {
+                  toast.error("Confirm scheduling despite the overlapping shift");
+                  return;
+                }
                 if (pendingRole && !existing) {
                   toast.error(trainingBlockMsg);
                   return;
                 }
+                const usedOverride = overrideTimeOff || overrideOverlap;
                 onSave({
                   id: existing?.id ?? `s_${employeeId}_${date}_${Math.random().toString(36).slice(2, 8)}`,
                   employeeId, role, date, start, end,
                   notes: notes || undefined,
                   updatedAt: existing?.updatedAt,
-                });
+                }, usedOverride);
               }}
             >
               Save
