@@ -620,23 +620,28 @@ function ShiftDetailsDialog({
           {timeOffConflict && (
             <div
               role="alert"
-              className={`rounded-lg border p-3 text-sm ${
-                blocked
-                  ? "border-destructive/60 bg-destructive/10 text-destructive"
-                  : "border-amber-500/60 bg-amber-500/10 text-amber-900 dark:text-amber-200"
-              }`}
+              className="rounded-lg border border-amber-500/60 bg-amber-500/10 p-3 text-sm text-amber-900 dark:text-amber-200"
             >
               <p className="font-semibold">
-                {blocked
+                {timeOffConflict.status === "approved"
                   ? `⚠️ ${emp?.name ?? "This employee"} has approved time off on ${dateLabel}`
                   : `⚠️ ${emp?.name ?? "This employee"} has a pending time-off request for ${dateLabel}`}
               </p>
               <p className="mt-1 text-xs">
-
-                {blocked
-                  ? "Saving is blocked. If this shift really needs to happen, deny or cancel the time-off request first in the Time Off tab."
+                {timeOffConflict.status === "approved"
+                  ? "They'll be scheduled anyway — their time-off request stays approved on record. Confirm you've checked with them first."
                   : "The request hasn't been approved yet — you can still save this shift, but consider resolving the request first."}
               </p>
+              {timeOffConflict.status === "approved" && (
+                <label className="mt-2 flex items-center gap-2 text-xs font-medium">
+                  <Checkbox
+                    checked={overrideTimeOff}
+                    onCheckedChange={(v) => setOverrideTimeOff(v === true)}
+                    aria-label="Schedule despite approved time off"
+                  />
+                  Schedule anyway
+                </label>
+              )}
             </div>
           )}
           {pendingRole && !existing && (
@@ -668,6 +673,27 @@ function ShiftDetailsDialog({
                   checked={overrideAvailability}
                   onCheckedChange={(v) => setOverrideAvailability(v === true)}
                   aria-label="Schedule despite unavailability"
+                />
+                Schedule anyway
+              </label>
+            </div>
+          )}
+          {overlappingShift && (
+            <div
+              role="alert"
+              className="rounded-lg border border-amber-500/60 bg-amber-500/10 p-3 text-sm text-amber-900 dark:text-amber-200"
+            >
+              <p className="font-semibold">
+                ⚠️ This overlaps {emp?.name ?? "their"} {overlappingShift.role} shift {formatTime12h(overlappingShift.start)}–{formatTime12h(overlappingShift.end)} on this day
+              </p>
+              <p className="mt-1 text-xs">
+                Back-to-back shifts (one ending exactly when the other starts) are fine and won't trigger this — this means the times genuinely overlap.
+              </p>
+              <label className="mt-2 flex items-center gap-2 text-xs font-medium">
+                <Checkbox
+                  checked={overrideOverlap}
+                  onCheckedChange={(v) => setOverrideOverlap(v === true)}
+                  aria-label="Schedule despite overlapping shift"
                 />
                 Schedule anyway
               </label>
