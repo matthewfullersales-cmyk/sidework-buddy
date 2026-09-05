@@ -176,6 +176,12 @@ export const notifyScheduleChanged = createServerFn({ method: "POST" })
     employeeIds: z.array(z.string().uuid()).min(1).max(500),
     kind: z.enum(["published", "adjusted"]),
     weekLabel: z.string().max(120).optional().default(""),
+    shiftDetail: z.object({
+      role: z.string().max(80),
+      dateLabel: z.string().max(160),
+      start: z.string().max(20),
+      end: z.string().max(20),
+    }).optional(),
   }).parse(d))
   .handler(async ({ data, context }) => {
     const { ownerId } = await authorizeOwnerContext(context);
@@ -185,9 +191,11 @@ export const notifyScheduleChanged = createServerFn({ method: "POST" })
       employeeIds: data.employeeIds,
       kind: isPub ? "schedule_published" : "schedule_changed",
       title: isPub ? "New schedule posted" : "Your schedule was updated",
-      body: data.weekLabel
-        ? `${isPub ? "Schedule for" : "Changes to"} ${data.weekLabel} — tap to view your shifts.`
-        : "Tap to view your shifts.",
+      body: data.shiftDetail
+        ? `You're scheduled to work ${data.shiftDetail.role} on ${data.shiftDetail.dateLabel}, ${data.shiftDetail.start}–${data.shiftDetail.end}.`
+        : data.weekLabel
+          ? `${isPub ? "Schedule for" : "Changes to"} ${data.weekLabel} — tap to view your shifts.`
+          : "Tap to view your shifts.",
       url: "/employee",
     });
   });

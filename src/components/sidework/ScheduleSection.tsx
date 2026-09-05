@@ -40,6 +40,12 @@ function fmtISO(d: Date) {
   return `${y}-${m}-${day}`;
 }
 function addDays(d: Date, n: number) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
+function timesOverlap(aStart: string, aEnd: string, bStart: string, bEnd: string): boolean {
+  const toMin = (t: string) => { const [h, m] = t.split(":").map(Number); return (h ?? 0) * 60 + (m ?? 0); };
+  const aS = toMin(aStart); let aE = toMin(aEnd); if (aE <= aS) aE += 24 * 60;
+  const bS = toMin(bStart); let bE = toMin(bEnd); if (bE <= bS) bE += 24 * 60;
+  return aS < bE && bS < aE;
+}
 function fmtRange(start: Date) {
   const end = addDays(start, 6);
   const sameMo = start.getMonth() === end.getMonth();
@@ -463,17 +469,27 @@ export function ScheduleSection() {
           date={editing.date}
           role={editing.role}
           existing={editing.existing}
+          otherShiftsToday={shifts.filter((s) => s.employeeId === editing.employeeId && s.date === editing.date && s.id !== editing.existing?.id)}
           onClose={() => setEditing(null)}
           onAddAnother={() => setEditing({ employeeId: editing.employeeId, date: editing.date, role: editing.role })}
-          onSave={(shift) => {
+          onSave={(shift, usedOverride) => {
             upsertShift(shift);
             setEditing(null);
             toast.success(editing.existing ? "Shift updated" : "Shift added");
-            // Notify affected employee of a schedule change (only if their id is a real uuid).
-            if (editing.existing && /^[0-9a-f-]{36}$/i.test(shift.employeeId)) {
+            const shouldNotify = (editing.existing || usedOverride) && /^[0-9a-f-]{36}$/i.test(shift.employeeId);
+            if (shouldNotify) {
               const weekLabel = fmtRange(weekStart);
-              notifyScheduleChanged({ data: { employeeIds: [shift.employeeId], kind: "adjusted", weekLabel } })
-                .catch((err: unknown) => console.error("[notifyScheduleChanged]", err));
+              const [ny, nm, nd] = shift.date.split("-").map(Number);
+              const localDate = new Date(ny, (nm ?? 1) - 1, nd ?? 1);
+              const dateLabel = localDate.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" });
+              notifyScheduleChanged({
+                data: {
+                  employeeIds: [shift.employeeId],
+                  kind: "adjusted",
+                  weekLabel,
+                  shiftDetail: { role: shift.role, dateLabel, start: formatTime12h(shift.start), end: formatTime12h(shift.end) },
+                },
+              }).catch((err: unknown) => console.error("[notifyScheduleChanged]", err));
             }
           }}
           onDelete={(id) => { deleteShift(id); setEditing(null); toast.success("Shift removed"); }}
@@ -504,10 +520,10 @@ function Legend() {
 }
 
 function ShiftDetailsDialog({
-  employeeId, date, role, existing, onClose, onAddAnother, onSave, onDelete,
+  employeeId, date, role, existing, otherShiftsToday, onClose, onAddAnother, onSave, onDelete,
 }: {
-  employeeId: string; date: string; role: Role; existing?: Shift;
-  onClose: () => void; onAddAnother: () => void; onSave: (s: Shift) => void; onDelete: (id: string) => void;
+  employeeId: string; date: string; role: Role; existing?: Shift; otherShiftsToday: Shift[];
+  onClose: () => void; onAddAnother: () => void; onSave: (s: Shift, usedOverride: boolean) => void; onDelete: (id: string) => void;
 }) {
   const { employees, customRoles, timeOff, mealPeriods, restaurantHours } = useStore();
   const emp = employees.find((e) => e.id === employeeId);
@@ -539,6 +555,8 @@ function ShiftDetailsDialog({
   const [end, setEnd] = useState(existing?.end ?? seed?.end ?? "23:00");
   const [notes, setNotes] = useState(existing?.notes ?? "");
   const [overrideAvailability, setOverrideAvailability] = useState(false);
+  const [overrideTimeOff, setOverrideTimeOff] = useState(false);
+  const [overrideOverlap, setOverrideOverlap] = useState(false);
   const [suggestOpen, setSuggestOpen] = useState(false);
   const showSuggestions = hoursConfigured(restaurantHours, mealPeriods) && suggestions.length > 0;
 
@@ -555,7 +573,9 @@ function ShiftDetailsDialog({
     return null;
   })();
 
-  const blocked = timeOffConflict?.status === "approved";
+  const needsTimeOffOverride = timeOffConflict?.status === "approved" && !overrideTimeOff;
+  const overlappingShift = otherShiftsToday.find((s) => timesOverlap(start, end, s.start, s.end));
+  const needsOverlapOverride = !!overlappingShift && !overrideOverlap;
   // Parse date as LOCAL midnight, not UTC. `new Date("YYYY-MM-DD")` is parsed
   // as UTC and returns the previous day's weekday west of UTC — the same
   // timezone bug class that hid the time-off check earlier.
@@ -600,23 +620,28 @@ function ShiftDetailsDialog({
           {timeOffConflict && (
             <div
               role="alert"
-              className={`rounded-lg border p-3 text-sm ${
-                blocked
-                  ? "border-destructive/60 bg-destructive/10 text-destructive"
-                  : "border-amber-500/60 bg-amber-500/10 text-amber-900 dark:text-amber-200"
-              }`}
+              className="rounded-lg border border-amber-500/60 bg-amber-500/10 p-3 text-sm text-amber-900 dark:text-amber-200"
             >
               <p className="font-semibold">
-                {blocked
+                {timeOffConflict.status === "approved"
                   ? `⚠️ ${emp?.name ?? "This employee"} has approved time off on ${dateLabel}`
                   : `⚠️ ${emp?.name ?? "This employee"} has a pending time-off request for ${dateLabel}`}
               </p>
               <p className="mt-1 text-xs">
-
-                {blocked
-                  ? "Saving is blocked. If this shift really needs to happen, deny or cancel the time-off request first in the Time Off tab."
+                {timeOffConflict.status === "approved"
+                  ? "They'll be scheduled anyway — their time-off request stays approved on record. Confirm you've checked with them first."
                   : "The request hasn't been approved yet — you can still save this shift, but consider resolving the request first."}
               </p>
+              {timeOffConflict.status === "approved" && (
+                <label className="mt-2 flex items-center gap-2 text-xs font-medium">
+                  <Checkbox
+                    checked={overrideTimeOff}
+                    onCheckedChange={(v) => setOverrideTimeOff(v === true)}
+                    aria-label="Schedule despite approved time off"
+                  />
+                  Schedule anyway
+                </label>
+              )}
             </div>
           )}
           {pendingRole && !existing && (
@@ -648,6 +673,27 @@ function ShiftDetailsDialog({
                   checked={overrideAvailability}
                   onCheckedChange={(v) => setOverrideAvailability(v === true)}
                   aria-label="Schedule despite unavailability"
+                />
+                Schedule anyway
+              </label>
+            </div>
+          )}
+          {overlappingShift && (
+            <div
+              role="alert"
+              className="rounded-lg border border-amber-500/60 bg-amber-500/10 p-3 text-sm text-amber-900 dark:text-amber-200"
+            >
+              <p className="font-semibold">
+                ⚠️ This overlaps {emp?.name ?? "their"} {overlappingShift.role} shift {formatTime12h(overlappingShift.start)}–{formatTime12h(overlappingShift.end)} on this day
+              </p>
+              <p className="mt-1 text-xs">
+                Back-to-back shifts (one ending exactly when the other starts) are fine and won't trigger this — this means the times genuinely overlap.
+              </p>
+              <label className="mt-2 flex items-center gap-2 text-xs font-medium">
+                <Checkbox
+                  checked={overrideOverlap}
+                  onCheckedChange={(v) => setOverrideOverlap(v === true)}
+                  aria-label="Schedule despite overlapping shift"
                 />
                 Schedule anyway
               </label>
@@ -719,26 +765,31 @@ function ShiftDetailsDialog({
           <div className="flex gap-2">
             <Button variant="ghost" onClick={onClose}>Cancel</Button>
             <Button
-              disabled={blocked || needsOverride || (pendingRole && !existing)}
+              disabled={needsTimeOffOverride || needsOverride || needsOverlapOverride || (pendingRole && !existing)}
               onClick={() => {
-                if (blocked) {
-                  toast.error(`${emp?.name ?? "Employee"} has approved time off on this date`);
+                if (needsTimeOffOverride) {
+                  toast.error(`Confirm scheduling despite ${emp?.name ?? "employee"}'s approved time off`);
                   return;
                 }
                 if (needsOverride) {
                   toast.error(`Confirm scheduling despite ${emp?.name ?? "employee"}'s marked unavailability`);
                   return;
                 }
+                if (needsOverlapOverride) {
+                  toast.error("Confirm scheduling despite the overlapping shift");
+                  return;
+                }
                 if (pendingRole && !existing) {
                   toast.error(trainingBlockMsg);
                   return;
                 }
+                const usedOverride = overrideTimeOff || overrideOverlap;
                 onSave({
                   id: existing?.id ?? `s_${employeeId}_${date}_${Math.random().toString(36).slice(2, 8)}`,
                   employeeId, role, date, start, end,
                   notes: notes || undefined,
                   updatedAt: existing?.updatedAt,
-                });
+                }, usedOverride);
               }}
             >
               Save
