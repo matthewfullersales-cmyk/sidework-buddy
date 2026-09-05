@@ -40,6 +40,12 @@ function fmtISO(d: Date) {
   return `${y}-${m}-${day}`;
 }
 function addDays(d: Date, n: number) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
+function timesOverlap(aStart: string, aEnd: string, bStart: string, bEnd: string): boolean {
+  const toMin = (t: string) => { const [h, m] = t.split(":").map(Number); return (h ?? 0) * 60 + (m ?? 0); };
+  const aS = toMin(aStart); let aE = toMin(aEnd); if (aE <= aS) aE += 24 * 60;
+  const bS = toMin(bStart); let bE = toMin(bEnd); if (bE <= bS) bE += 24 * 60;
+  return aS < bE && bS < aE;
+}
 function fmtRange(start: Date) {
   const end = addDays(start, 6);
   const sameMo = start.getMonth() === end.getMonth();
@@ -463,17 +469,27 @@ export function ScheduleSection() {
           date={editing.date}
           role={editing.role}
           existing={editing.existing}
+          otherShiftsToday={shifts.filter((s) => s.employeeId === editing.employeeId && s.date === editing.date && s.id !== editing.existing?.id)}
           onClose={() => setEditing(null)}
           onAddAnother={() => setEditing({ employeeId: editing.employeeId, date: editing.date, role: editing.role })}
-          onSave={(shift) => {
+          onSave={(shift, usedOverride) => {
             upsertShift(shift);
             setEditing(null);
             toast.success(editing.existing ? "Shift updated" : "Shift added");
-            // Notify affected employee of a schedule change (only if their id is a real uuid).
-            if (editing.existing && /^[0-9a-f-]{36}$/i.test(shift.employeeId)) {
+            const shouldNotify = (editing.existing || usedOverride) && /^[0-9a-f-]{36}$/i.test(shift.employeeId);
+            if (shouldNotify) {
               const weekLabel = fmtRange(weekStart);
-              notifyScheduleChanged({ data: { employeeIds: [shift.employeeId], kind: "adjusted", weekLabel } })
-                .catch((err: unknown) => console.error("[notifyScheduleChanged]", err));
+              const [ny, nm, nd] = shift.date.split("-").map(Number);
+              const localDate = new Date(ny, (nm ?? 1) - 1, nd ?? 1);
+              const dateLabel = localDate.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" });
+              notifyScheduleChanged({
+                data: {
+                  employeeIds: [shift.employeeId],
+                  kind: "adjusted",
+                  weekLabel,
+                  shiftDetail: { role: shift.role, dateLabel, start: formatTime12h(shift.start), end: formatTime12h(shift.end) },
+                },
+              }).catch((err: unknown) => console.error("[notifyScheduleChanged]", err));
             }
           }}
           onDelete={(id) => { deleteShift(id); setEditing(null); toast.success("Shift removed"); }}
