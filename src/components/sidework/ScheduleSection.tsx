@@ -371,7 +371,9 @@ export function ScheduleSection() {
                             </div>
                           </td>
                           {dayISOs.map((date, dayIdx) => {
-                            const rowShifts = shifts.filter((s) => s.employeeId === emp.id && s.date === date && s.role === group.position);
+                            const rowShifts = shifts
+                              .filter((s) => s.employeeId === emp.id && s.date === date && s.role === group.position)
+                              .sort((a, b) => a.start.localeCompare(b.start));
                             const otherShift = shifts.find((s) => s.employeeId === emp.id && s.date === date && s.role !== group.position);
                             const toStatus = timeOffStatusFor(emp.id, date);
                             const dayKey = DAY_KEYS[dayIdx];
@@ -405,12 +407,16 @@ export function ScheduleSection() {
                                     ))}
                                   </div>
                                 ) : otherShift ? (
-                                  <div
-                                    className="w-full min-h-[52px] rounded-md text-[11px] px-2 py-1 grid place-items-center border border-dashed border-muted-foreground/30 bg-muted/30 text-muted-foreground"
-                                    title={`${emp.name} is scheduled as ${otherShift.role} this day`}
+                                  <button
+                                    onClick={() => setEditing({ employeeId: emp.id, date, role: group.position })}
+                                    title={`${emp.name} is already scheduled as ${otherShift.role} ${formatTime12h(otherShift.start)}–${formatTime12h(otherShift.end)} this day`}
+                                    className="w-full min-h-[52px] rounded-md text-[11px] px-2 py-1 transition border border-dashed border-muted-foreground/30 bg-muted/30 text-muted-foreground hover:border-primary/40 hover:text-primary"
                                   >
-                                    Working ({otherShift.role})
-                                  </div>
+                                    <div className="flex flex-col">
+                                      <span className="font-medium">{otherShift.role}</span>
+                                      <span>{formatTime12h(otherShift.start)}–{formatTime12h(otherShift.end)}</span>
+                                    </div>
+                                  </button>
                                 ) : (
                                   <button
                                     onClick={() => setEditing({ employeeId: emp.id, date, role: group.position })}
