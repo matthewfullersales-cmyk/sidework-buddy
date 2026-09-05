@@ -663,7 +663,7 @@ function ShiftDetailsDialog({
                 </PopoverTrigger>
                 <PopoverContent align="start" className="w-[320px] p-1">
                   <p className="px-2 py-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-                    Based on this restaurant's hours + {emp && sectionForRole(emp.primaryRole, customRoles) === "BOH" ? "BOH" : "FOH"} arrival lead time
+                    Based on this restaurant's hours + {sectionForRole(role, customRoles) === "BOH" ? "BOH" : "FOH"} arrival lead time
                   </p>
                   <div className="max-h-[240px] overflow-y-auto">
                     {suggestions.map((s, i) => (
@@ -699,22 +699,16 @@ function ShiftDetailsDialog({
             </div>
           </div>
           <div>
-            <Label className="text-xs">Role for this shift</Label>
-            <Select value={role} onValueChange={(v: Role) => setRole(v)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {rolesForPicker.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
             <Label className="text-xs">Notes</Label>
             <Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g. closing duties, training new hire…" />
           </div>
         </div>
         <DialogFooter className="flex-row justify-between sm:justify-between gap-2">
           {existing ? (
-            <Button variant="outline" onClick={() => onDelete(existing.id)}>Remove shift</Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => onDelete(existing.id)}>Remove shift</Button>
+              <Button variant="outline" onClick={onAddAnother}>Add another shift</Button>
+            </div>
           ) : <span />}
           <div className="flex gap-2">
             <Button variant="ghost" onClick={onClose}>Cancel</Button>
