@@ -22,7 +22,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
@@ -1951,18 +1951,6 @@ function ApplicationSection({
   );
 }
 
-function aiScoreReasons(a: JobApplication): string[] {
-  const reasons: string[] = [];
-  if (!a.firstName || !a.lastName) reasons.push("missing full name");
-  if (!a.email) reasons.push("missing email");
-  if (!a.phone) reasons.push("missing phone");
-  if (!a.role) reasons.push("missing position");
-  const pitchText = (a.pitch ?? a.note ?? "").trim();
-  const words = pitchText ? pitchText.split(/\s+/).length : 0;
-  if (words < 20) reasons.push("brief experience");
-  if (reasons.length === 0) return ["complete profile, detailed experience, extras filled in"];
-  return reasons;
-}
 
 function ApplicantCard({
   a, actions, extra, compact,
@@ -1973,12 +1961,6 @@ function ApplicantCard({
   compact?: boolean;
 }) {
   const fullName = a.firstName && a.lastName ? `${a.firstName} ${a.lastName}` : a.name;
-  const score = a.aiScore ?? "Average";
-  const scoreClass =
-    score === "Strong" ? "bg-success text-success-foreground hover:bg-success" :
-    score === "Weak" ? "bg-destructive text-destructive-foreground hover:bg-destructive" :
-    "bg-secondary text-secondary-foreground hover:bg-secondary";
-  const scoreReasons = aiScoreReasons(a);
 
   return (
     <div className="rounded-lg border border-border bg-background p-4">
@@ -1986,21 +1968,6 @@ function ApplicantCard({
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <p className="font-semibold">{fullName}</p>
-            <TooltipProvider delayDuration={100}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Badge className={`cursor-help ${scoreClass}`}>AI: {score}</Badge>
-                </TooltipTrigger>
-                <TooltipContent side="top" className="max-w-xs">
-                  <p className="font-semibold">AI score: {score}</p>
-                  <ul className="mt-1 list-disc pl-4">
-                    {scoreReasons.map((r, i) => (
-                      <li key={i}>{r}</li>
-                    ))}
-                  </ul>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
             <StatusBadge status={a.status} />
           </div>
           {a.role && (
