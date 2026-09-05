@@ -721,7 +721,7 @@ function ShiftDetailsDialog({
                   return;
                 }
                 onSave({
-                  id: existing?.id ?? `s_${employeeId}_${date}`,
+                  id: existing?.id ?? `s_${employeeId}_${date}_${Math.random().toString(36).slice(2, 8)}`,
                   employeeId, role, date, start, end,
                   notes: notes || undefined,
                   updatedAt: existing?.updatedAt,
