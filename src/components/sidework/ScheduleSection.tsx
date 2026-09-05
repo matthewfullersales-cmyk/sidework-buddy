@@ -102,7 +102,7 @@ export function ScheduleSection() {
     };
   }, [ownerId, applyRemoteShiftUpsert, applyRemoteShiftDelete]);
 
-  const [editing, setEditing] = useState<{ employeeId: string; date: string; existing?: Shift } | null>(null);
+  const [editing, setEditing] = useState<{ employeeId: string; date: string; role: Role; existing?: Shift } | null>(null);
   const [publishing, setPublishing] = useState(false);
   const [confirmCopy, setConfirmCopy] = useState<{ count: number } | null>(null);
   const [confirmClear, setConfirmClear] = useState<{ count: number } | null>(null);
@@ -129,14 +129,17 @@ export function ScheduleSection() {
   const grouped = useMemo(() => {
     const withRole = employees.filter((e) => !!e.primaryRole);
     const lastNameOf = (e: typeof employees[number]) => e.lastName ?? e.name.split(" ").slice(1).join(" ");
+    const positionsFor = (e: typeof employees[number]) =>
+      Array.from(new Set([e.primaryRole, ...(e.approvedRoles ?? [])].filter(Boolean)));
 
     const buildGroups = (section: Section) => {
-      const inSection = withRole.filter((e) => sectionForRole(e.primaryRole, customRoles) === section);
       const byPosition = new Map<string, typeof employees>();
-      for (const e of inSection) {
-        const key = e.primaryRole;
-        if (!byPosition.has(key)) byPosition.set(key, []);
-        byPosition.get(key)!.push(e);
+      for (const e of withRole) {
+        for (const p of positionsFor(e)) {
+          if (sectionForRole(p, customRoles) !== section) continue;
+          if (!byPosition.has(p)) byPosition.set(p, []);
+          byPosition.get(p)!.push(e);
+        }
       }
       const groups = Array.from(byPosition.entries()).map(([position, people]) => ({
         position,
@@ -327,7 +330,7 @@ export function ScheduleSection() {
               <p className="text-sm font-semibold text-primary">
                 {section === "FOH" ? "Front of House" : "Back of House"}
                 <span className="ml-2 text-xs font-normal text-muted-foreground">
-                  {grouped[section].reduce((n, g) => n + g.people.length, 0)} staff
+                  {new Set(grouped[section].flatMap((g) => g.people.map((p) => p.id))).size} staff
                 </span>
               </p>
             </div>
