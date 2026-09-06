@@ -602,76 +602,12 @@ export interface JobPosting {
   open: boolean;
 }
 
-export type ApplicationStatus = "new" | "reviewing" | "interview" | "hired" | "rejected";
-export type ApplicationSource = "Walk-in" | "Instagram" | "Indeed" | "Friend" | "Google" | "Other";
-
-
-export type HiringStage =
-  | "new"
-  | "video_offered"
-  | "video_scheduled"
-  | "interviewed"
-  | "shadow_scheduled"
-  | "hired"
-  | "rejected";
-
 export type AvailabilityHours = "Mornings" | "Afternoons" | "Evenings" | "Open availability";
-
-export type InterviewType = "video" | "in_person" | "phone";
-
-export interface ShadowShiftDetails {
-  date: string;
-  time: string;
-  instructions: string;
-  dressCode?: string;
-}
 
 export interface WorkExperience {
   employer: string;
   position: string;
   duration: "Less than 6 months" | "6 months - 1 year" | "1 - 2 years" | "2 - 5 years" | "5+ years" | "";
-}
-
-export interface JobApplication {
-  id: string;
-  jobId?: string;
-  name: string;
-  firstName?: string;
-  lastName?: string;
-  email?: string;
-  phone: string;
-  role?: Role;
-  pitch?: string;
-  source?: ApplicationSource;
-  weeklyAvailability?: WeeklyAvailability;
-  availabilityDays: string[];
-  availabilityHours: AvailabilityHours;
-  note?: string;
-  appliedAt: string;
-  status: ApplicationStatus;
-  stage?: HiringStage;
-  verified: boolean;
-  
-  interviewSentAt?: string;
-  interviewNotes?: string;
-  interviewType?: InterviewType;
-  offeredSlots?: string[];
-  selectedSlot?: string;
-  shadowShift?: ShadowShiftDetails;
-  shadowConfirmedAt?: string | null;
-  shadowResponseNote?: string | null;
-  archived?: boolean;
-  hiredEmployeeId?: string;
-  workExperience?: WorkExperience[];
-  
-}
-
-export function getHiringStage(a: Pick<JobApplication, "stage" | "status">): HiringStage {
-  if (a.stage) return a.stage;
-  if (a.status === "hired") return "hired";
-  if (a.status === "rejected") return "rejected";
-  if (a.status === "interview") return "video_offered";
-  return "new";
 }
 
 export type TimeOffStatus = "pending" | "approved" | "denied";
@@ -838,18 +774,7 @@ interface Store {
   postJob: (data: Omit<JobPosting, "id" | "postedAt" | "open">) => void;
   toggleJobOpen: (id: string) => void;
   removeJob: (id: string) => void;
-  
-  setApplicationStatus: (id: string, status: ApplicationStatus) => void;
-  scheduleInterview: (id: string) => void;
-  setInterviewNotes: (id: string, notes: string) => void;
-  declineApplication: (id: string) => void;
-  reconsiderApplication: (id: string) => void;
-  hireApplication: (id: string, overrides?: Partial<Employee>) => string | null;
-  approveForInterview: (id: string, type: InterviewType, slots: string[]) => void;
-  applicantSelectSlot: (id: string, slot: string) => void;
-  completeInterview: (id: string, notes?: string) => void;
-  inviteShadowShift: (id: string, details: ShadowShiftDetails) => void;
-  requestTimeOff: (data: Omit<TimeOffRequest, "id" | "createdAt" | "status">) => void;
+    requestTimeOff: (data: Omit<TimeOffRequest, "id" | "createdAt" | "status">) => void;
   resolveTimeOff: (id: string, approved: boolean) => void;
   cancelTimeOff: (id: string) => Promise<void>;
 }
