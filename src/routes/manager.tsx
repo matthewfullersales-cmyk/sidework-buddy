@@ -1100,32 +1100,28 @@ function JobsTab() {
   const [pipelineRefresh, setPipelineRefresh] = useState(0);
   const {
     jobs,
-    applications,
     postJob,
     toggleJobOpen,
     removeJob,
-    setInterviewNotes,
-    declineApplication,
-    reconsiderApplication,
-    hireApplication,
-    approveForInterview,
-    applicantSelectSlot,
-    completeInterview,
-    inviteShadowShift,
     restaurantProfile,
     activeRoles,
     customRoles,
   } = useStore();
+  const { user } = useAuth();
+  const [applicantPeople, setApplicantPeople] = useState<Person[]>([]);
+  useEffect(() => {
+    const ownerId = user?.id;
+    if (!ownerId) { setApplicantPeople([]); return; }
+    let cancelled = false;
+    fetchPeople(ownerId, { states: ["applicant"], archived: false })
+      .then((rows) => { if (!cancelled) setApplicantPeople(rows); })
+      .catch((e) => console.error("[JobsTab applicants]", e));
+    return () => { cancelled = true; };
+  }, [user?.id]);
   const fohActive = fohRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r));
   const bohActive = bohRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r));
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ title: "", role: "Server" as Role, type: "Full-time" as "Full-time" | "Part-time", payRange: "", description: "" });
-  const [hireFor, setHireFor] = useState<string | null>(null);
-  const [pickTypeFor, setPickTypeFor] = useState<string | null>(null);
-  const [approveFor, setApproveFor] = useState<{ id: string; type: InterviewType } | null>(null);
-  const [callFor, setCallFor] = useState<string | null>(null);
-  const [shadowFor, setShadowFor] = useState<string | null>(null);
-  const [declineConfirmFor, setDeclineConfirmFor] = useState<{ id: string; postInterview?: boolean } | null>(null);
 
   const submit = () => {
     if (!form.title || !form.payRange || !form.description) return toast.error("Fill in title, pay range, and description.");
@@ -1135,76 +1131,10 @@ function JobsTab() {
     setForm({ title: "", role: "Server", type: "Full-time", payRange: "", description: "" });
   };
 
-  const restaurantName = restaurantProfile?.name ?? "our restaurant";
-
-  const active = applications.filter((a) => !a.archived);
-  const newApps = active.filter((a) => getHiringStage(a) === "new");
-  const videoApps = active.filter((a) => {
-    const st = getHiringStage(a);
-    return st === "video_offered" || st === "video_scheduled" || st === "interviewed";
-  });
-  const shadowApps = active.filter((a) => getHiringStage(a) === "shadow_scheduled");
-  const archived = applications.filter((a) => a.archived);
-
-  const hireApp = applications.find((a) => a.id === hireFor) ?? null;
-  const approveApp = approveFor ? applications.find((a) => a.id === approveFor.id) ?? null : null;
-  const pickTypeApp = pickTypeFor ? applications.find((a) => a.id === pickTypeFor) ?? null : null;
-  const callApp = applications.find((a) => a.id === callFor) ?? null;
-  const shadowApp = applications.find((a) => a.id === shadowFor) ?? null;
-  const declineApp = declineConfirmFor ? applications.find((a) => a.id === declineConfirmFor.id) ?? null : null;
-
   const copyApplicationLink = (jobId: string) => {
     copyLinkWithToast(`${window.location.origin}/careers?job=${jobId}`, "Application link copied");
   };
 
-  // Sends the applicant-facing link via email (Resend). Surfaces a copy-link
-  // fallback in the toast so the manager can share it manually if email fails.
-  const notifyApplicant = async (args: {
-    kind: "interview_offer" | "shadow_invite" | "hire_signup";
-    app: JobApplication;
-    link: string;
-    successVerb: string; // e.g. "Interview invite"
-    extra?: { slotCount?: number; shadowDate?: string; shadowTime?: string };
-  }) => {
-    const name = args.app.firstName ?? args.app.name ?? "applicant";
-    let emailOk = false;
-    let emailErr: string | undefined;
-    let emailAttempted = false;
-    try {
-      const res = await sendApplicantNotification({ data: {
-        kind: args.kind,
-        link: args.link,
-        firstName: args.app.firstName ?? args.app.name ?? "",
-        restaurantName,
-        email: args.app.email ?? "",
-        phoneDigits: (args.app.phone ?? "").replace(/\D/g, ""),
-        slotCount: args.extra?.slotCount,
-        shadowDate: args.extra?.shadowDate,
-        shadowTime: args.extra?.shadowTime,
-      }});
-      emailOk = res.email.ok;
-      emailErr = res.email.error;
-      emailAttempted = res.email.attempted;
-    } catch (e) {
-      console.error("[notifyApplicant]", e);
-    }
-    const problems: string[] = [];
-    if (emailAttempted && !emailOk) problems.push(`email failed${emailErr ? `: ${emailErr}` : ""}`);
-    if (!emailAttempted) problems.push("no email on file");
-    const isFailure = !emailOk;
-    const title = emailOk
-      ? `${args.successVerb} emailed to ${name}`
-      : `${args.successVerb} ready for ${name} — send link manually`;
-    const notify = isFailure ? toast.warning : toast.success;
-    notify(title, {
-      description: `${problems.length ? problems.join(" · ") + " — " : ""}Backup link: ${args.link}`,
-      duration: 12000,
-      action: {
-        label: "Copy link",
-        onClick: () => copyLinkWithToast(args.link, "Link copied"),
-      },
-    });
-  };
 
 
 
