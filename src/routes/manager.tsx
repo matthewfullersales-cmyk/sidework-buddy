@@ -38,7 +38,7 @@ import { sendStaffInvite } from "@/lib/staff-invite.functions";
 import { loadMyJoinSlug } from "@/lib/restaurant-slug";
 import { notifyTimeOffResolved, notifyScheduleChanged } from "@/lib/notifications.functions";
 
-import { AvailabilityEditor, RestaurantHoursEditor, MealPeriodsEditor, BusinessInfoEditor } from "@/components/sidework/AvailabilityEditor";
+import { AvailabilityEditor, RestaurantHoursEditor, MealPeriodsEditor, BusinessInfoEditor, RestaurantProfileEditor } from "@/components/sidework/AvailabilityEditor";
 import { AvailabilitySummary, hasAnyAvailability } from "@/components/sidework/AvailabilitySummary";
 import { fetchShadowPacket, saveShadowPacket, emptyShadowPacket, type ShadowPacket } from "@/lib/employees-supabase";
 import { StaffJoinBanner, FullscreenQrDialog, StaffOnboardingCard, useJoinUrl } from "@/components/sidework/StaffOnboarding";
@@ -85,9 +85,8 @@ export const Route = createFileRoute("/manager")({
 });
 
 function ManagerPage() {
-  const { setupCompleted, restaurantProfile, resetSetup, currentUser, setCurrentUser } = useStore();
+  const { restaurantProfile, currentUser, setCurrentUser } = useStore();
   const [tab, setTab] = useState("dashboard");
-  const [showSetupWizard, setShowSetupWizard] = useState(false);
   const { checking } = useRequireManagerAccess("/login");
   useEffect(() => {
     if (currentUser.type !== "manager") {
@@ -103,59 +102,18 @@ function ManagerPage() {
     );
   }
 
-  if (showSetupWizard) {
-    return (
-      <SetupWizard
-        onComplete={() => {
-          setShowSetupWizard(false);
-          setTab("dashboard");
-        }}
-      />
-    );
-  }
-
-
   return (
     <AppShell nav={[{ to: "/manager", label: "Dashboard", icon: <IconHome /> }]}>
       <PageHeader
         title={restaurantProfile?.name ? `${restaurantProfile.name} — Dashboard` : "Manager Dashboard"}
         subtitle="Onboarding, schedule, and trades at a glance."
-        action={
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              if (setupCompleted) {
-                if (window.confirm("Redo restaurant setup? This will reset your profile.")) {
-                  resetSetup();
-                  setShowSetupWizard(true);
-                }
-              } else {
-                setShowSetupWizard(true);
-              }
-            }}
-          >
-            {setupCompleted ? "Restaurant Setup" : "Complete your setup"}
-          </Button>
-        }
       />
-      {!setupCompleted && (
-        <Card className="mb-6 border-primary/30 bg-primary/5">
-          <CardContent className="flex flex-wrap items-center justify-between gap-4 p-5">
-            <div>
-              <p className="font-semibold text-primary">Your restaurant setup is incomplete</p>
-              <p className="text-sm text-muted-foreground">Finish setting up your restaurant profile and roles.</p>
-            </div>
-            <Button size="sm" onClick={() => setShowSetupWizard(true)}>Complete your setup</Button>
-          </CardContent>
-        </Card>
-      )}
-      <ManagerTabs tab={tab} setTab={setTab} onOpenSetup={() => setShowSetupWizard(true)} />
+      <ManagerTabs tab={tab} setTab={setTab} />
     </AppShell>
   );
 }
 
-function ManagerTabs({ tab, setTab, onOpenSetup }: { tab: string; setTab: (v: string) => void; onOpenSetup: () => void }) {
+function ManagerTabs({ tab, setTab }: { tab: string; setTab: (v: string) => void }) {
   const { user } = useAuth();
   const [newAppsCount, setNewAppsCount] = useState(0);
   useEffect(() => {
