@@ -1188,7 +1188,7 @@ function JobsTab() {
         <CardContent className="space-y-3">
           {jobs.length === 0 && <p className="text-sm text-muted-foreground">No jobs posted yet.</p>}
           {jobs.map((j) => {
-            const count = applications.filter((a) => a.jobId === j.id).length;
+            const count = applicantPeople.filter((p) => p.jobId === j.id).length;
             return (
               <div key={j.id} className="rounded-lg border border-border bg-background p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
