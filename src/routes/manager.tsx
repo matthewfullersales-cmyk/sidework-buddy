@@ -26,7 +26,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
-import { onboardingStatus, useStore, type Role, type ApplicationStatus, type Employee, type Relationship, DAY_KEYS, hoursConfigured, type JobApplication, type HiringStage, type ShadowShiftDetails, type InterviewType, getHiringStage, isPendingRoleAssignment, isPendingJoin, isArchivedEmployee, isScheduleEligible, sectionForRole } from "@/lib/sidework-store";
+import { onboardingStatus, useStore, type Role, type Employee, type Relationship, DAY_KEYS, hoursConfigured, isPendingRoleAssignment, isPendingJoin, isArchivedEmployee, isScheduleEligible, sectionForRole } from "@/lib/sidework-store";
+import { fetchPeople, type Person } from "@/lib/people-supabase";
 import { sendReactivationEmail } from "@/lib/reactivation.functions";
 import { roleStyle, fohRolesWithCustom, bohRolesWithCustom, allRolesWithCustom, FOH_ROLES_ORDERED, BOH_ROLES_ORDERED, ROLES_ORDERED, nextCustomColor } from "@/lib/role-colors";
 import { defaultDressGroupForRole } from "@/lib/shadow-packet-roles";
