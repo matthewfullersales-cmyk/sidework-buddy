@@ -162,132 +162,6 @@ export type Database = {
           },
         ]
       }
-      job_applications: {
-        Row: {
-          ai_score: string | null
-          applied_at: string
-          archived: boolean
-          availability_days: string[]
-          availability_hours: string
-          created_at: string
-          email: string | null
-          first_name: string | null
-          hired_employee_id: string | null
-          id: string
-          interview_notes: string | null
-          interview_sent_at: string | null
-          interview_type: string | null
-          job_id: string
-          last_name: string | null
-          name: string
-          note: string | null
-          offered_slots: string[] | null
-          owner_id: string
-          phone: string
-          pitch: string | null
-          role: string | null
-          selected_slot: string | null
-          shadow_confirmed_at: string | null
-          shadow_response_note: string | null
-          shadow_shift: Json | null
-          source: string | null
-          special_talents: string | null
-          stage: string | null
-          status: string
-          updated_at: string
-          verified: boolean
-          weekly_availability: Json | null
-          work_experience: Json | null
-        }
-        Insert: {
-          ai_score?: string | null
-          applied_at?: string
-          archived?: boolean
-          availability_days?: string[]
-          availability_hours?: string
-          created_at?: string
-          email?: string | null
-          first_name?: string | null
-          hired_employee_id?: string | null
-          id?: string
-          interview_notes?: string | null
-          interview_sent_at?: string | null
-          interview_type?: string | null
-          job_id: string
-          last_name?: string | null
-          name?: string
-          note?: string | null
-          offered_slots?: string[] | null
-          owner_id: string
-          phone?: string
-          pitch?: string | null
-          role?: string | null
-          selected_slot?: string | null
-          shadow_confirmed_at?: string | null
-          shadow_response_note?: string | null
-          shadow_shift?: Json | null
-          source?: string | null
-          special_talents?: string | null
-          stage?: string | null
-          status?: string
-          updated_at?: string
-          verified?: boolean
-          weekly_availability?: Json | null
-          work_experience?: Json | null
-        }
-        Update: {
-          ai_score?: string | null
-          applied_at?: string
-          archived?: boolean
-          availability_days?: string[]
-          availability_hours?: string
-          created_at?: string
-          email?: string | null
-          first_name?: string | null
-          hired_employee_id?: string | null
-          id?: string
-          interview_notes?: string | null
-          interview_sent_at?: string | null
-          interview_type?: string | null
-          job_id?: string
-          last_name?: string | null
-          name?: string
-          note?: string | null
-          offered_slots?: string[] | null
-          owner_id?: string
-          phone?: string
-          pitch?: string | null
-          role?: string | null
-          selected_slot?: string | null
-          shadow_confirmed_at?: string | null
-          shadow_response_note?: string | null
-          shadow_shift?: Json | null
-          source?: string | null
-          special_talents?: string | null
-          stage?: string | null
-          status?: string
-          updated_at?: string
-          verified?: boolean
-          weekly_availability?: Json | null
-          work_experience?: Json | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "job_applications_job_id_fkey"
-            columns: ["job_id"]
-            isOneToOne: false
-            referencedRelation: "job_postings"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "job_applications_owner_id_fkey"
-            columns: ["owner_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       job_postings: {
         Row: {
           created_at: string
@@ -489,6 +363,7 @@ export type Database = {
           prior_slugs: string[]
           restaurant_hours: Json | null
           restaurant_name: string | null
+          restaurant_profile: Json | null
           role: Database["public"]["Enums"]["user_role"]
           shadow_packet: Json | null
           slug: string | null
@@ -511,6 +386,7 @@ export type Database = {
           prior_slugs?: string[]
           restaurant_hours?: Json | null
           restaurant_name?: string | null
+          restaurant_profile?: Json | null
           role: Database["public"]["Enums"]["user_role"]
           shadow_packet?: Json | null
           slug?: string | null
@@ -533,6 +409,7 @@ export type Database = {
           prior_slugs?: string[]
           restaurant_hours?: Json | null
           restaurant_name?: string | null
+          restaurant_profile?: Json | null
           role?: Database["public"]["Enums"]["user_role"]
           shadow_packet?: Json | null
           slug?: string | null
@@ -1112,18 +989,6 @@ export type Database = {
         Args: { p_base: string; p_owner_id: string }
         Returns: string
       }
-      applicant_confirm_interview_slot: {
-        Args: { p_application_id: string; p_slot: string }
-        Returns: undefined
-      }
-      applicant_confirm_shadow_shift: {
-        Args: { p_application_id: string }
-        Returns: undefined
-      }
-      applicant_decline_shadow_shift: {
-        Args: { p_application_id: string; p_note: string }
-        Returns: undefined
-      }
       approve_pending_person: {
         Args: { p_person_id: string }
         Returns: undefined
@@ -1145,10 +1010,6 @@ export type Database = {
       }
       claim_employee_invite: {
         Args: { p_auth_user_id: string; p_patch: Json; p_token: string }
-        Returns: undefined
-      }
-      claim_hire_invite: {
-        Args: { p_application_id: string; p_employee_profile_id: string }
         Returns: undefined
       }
       claim_interview_slot: {
@@ -1349,39 +1210,6 @@ export type Database = {
           restaurant_name: string
         }[]
       }
-      get_public_hire_invite: {
-        Args: { p_application_id: string }
-        Returns: {
-          email: string
-          first_name: string
-          hired_employee_id: string
-          id: string
-          job_title: string
-          last_name: string
-          name: string
-          phone: string
-          restaurant_name: string
-          role: string
-          stage: string
-        }[]
-      }
-      get_public_interview: {
-        Args: { p_application_id: string }
-        Returns: {
-          first_name: string
-          id: string
-          interview_notes: string
-          interview_type: string
-          job_title: string
-          name: string
-          offered_slots: string[]
-          phone: string
-          restaurant_name: string
-          role: string
-          selected_slot: string
-          stage: string
-        }[]
-      }
       get_public_interview_by_token: {
         Args: { p_token: string }
         Returns: {
@@ -1422,21 +1250,6 @@ export type Database = {
           phone: string
           primary_role: string
           restaurant_name: string
-        }[]
-      }
-      get_public_shadow_shift: {
-        Args: { p_application_id: string }
-        Returns: {
-          first_name: string
-          id: string
-          job_title: string
-          name: string
-          restaurant_name: string
-          role: string
-          shadow_confirmed_at: string
-          shadow_response_note: string
-          shadow_shift: Json
-          stage: string
         }[]
       }
       get_public_shadow_shift_by_token: {
@@ -1509,10 +1322,6 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
-      }
-      host_complete_interview: {
-        Args: { p_application_id: string; p_notes: string }
-        Returns: undefined
       }
       join_restaurant_by_slug: {
         Args: { p_auth_user_id: string; p_patch: Json; p_slug: string }

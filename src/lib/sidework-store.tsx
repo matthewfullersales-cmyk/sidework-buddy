@@ -21,6 +21,8 @@ import {
   saveRestaurantHours,
   fetchBusinessInfo,
   saveBusinessInfo,
+  fetchRestaurantProfile,
+  saveRestaurantProfile,
   fetchMenuTestConfig,
   fetchMenuTestConfigViaRpc,
   saveMenuTestConfig,
@@ -1206,7 +1208,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     }
     (async () => {
       try {
-        const [postings, remoteEmployeesInitial, remoteHours, remoteShiftsInitial, remoteTimeOffInitial, remoteTradesInitial, remoteBusinessInfo, remoteTrainingProgress, menuBankMeta, remoteMenuTestConfig, remoteRoleConfig] = await Promise.all([
+        const [postings, remoteEmployeesInitial, remoteHours, remoteShiftsInitial, remoteTimeOffInitial, remoteTradesInitial, remoteBusinessInfo, remoteTrainingProgress, menuBankMeta, remoteMenuTestConfig, remoteRoleConfig, remoteRestaurantProfile] = await Promise.all([
           fetchOwnerPostings(effectiveOwnerId),
           fetchOwnerEmployees(effectiveOwnerId),
           fetchRestaurantHours(effectiveOwnerId),
@@ -1221,6 +1223,10 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           Promise.resolve(null),
           fetchRoleConfig(effectiveOwnerId).catch((e) => {
             console.warn("[owner-sync] role config load failed", e);
+            return null;
+          }),
+          fetchRestaurantProfile(effectiveOwnerId).catch((e) => {
+            console.warn("[owner-sync] restaurant profile load failed", e);
             return null;
           }),
         ]);
@@ -1293,7 +1299,24 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           // Never configured and nothing local: leave state as is.
         }
 
-
+        // Restaurant profile. The database is authoritative whenever it has
+        // been saved at all. A device that already completed setup locally
+        // should push its profile up once, making the column non-null so every
+        // later load takes the server branch.
+        let profilePatch: Partial<typeof state> = {};
+        if (remoteRestaurantProfile && typeof remoteRestaurantProfile === "object" && "name" in remoteRestaurantProfile) {
+          // Server has a real profile — authoritative, even if it differs from what's cached locally.
+          profilePatch = { restaurantProfile: remoteRestaurantProfile as RestaurantProfile, setupCompleted: true };
+        } else if (local.restaurantProfile && local.setupCompleted && acting === "owner") {
+          // Never configured in the cloud, but this device already completed setup
+          // locally — push it up once. The save makes the column non-null, so every
+          // later load takes the branch above — this stays idempotent.
+          profilePatch = { restaurantProfile: local.restaurantProfile, setupCompleted: true };
+          saveRestaurantProfile(effectiveOwnerId, local.restaurantProfile).catch((e) =>
+            console.error("[restaurant-profile-bootstrap] failed", e),
+          );
+        }
+        // Never configured anywhere: leave state as is (setupCompleted stays false).
 
         // Merge cloud-stored training progress into each employee. Additive:
         // if a given employee has no cloud rows, fall back to whatever the
@@ -1318,6 +1341,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           trades: remoteTrades,
           ...hoursPatch,
           ...rolesPatch,
+          ...profilePatch,
           businessInfo: normalizeBusinessInfo(remoteBusinessInfo),
           menuBankMeta,
           menuTestConfig: normalizeMenuTestConfig(remoteMenuTestConfig),
@@ -2035,8 +2059,14 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           setupCompleted: true,
         };
       });
+      const oid = ownerIdRef.current;
+      if (oid) saveRestaurantProfile(oid, { ...profile, completedAt: stamp }).catch((e) => console.error("[completeSetup:save]", e));
     },
-    resetSetup: () => setState((s) => ({ ...s, setupCompleted: false, restaurantProfile: null })),
+    resetSetup: () => {
+      setState((s) => ({ ...s, setupCompleted: false, restaurantProfile: null }));
+      const oid = ownerIdRef.current;
+      if (oid) saveRestaurantProfile(oid, null).catch((e) => console.error("[resetSetup:save]", e));
+    },
     markNotificationsRead: () =>
       setState((s) => ({ ...s, notifications: s.notifications.map((n) => ({ ...n, read: true })) })),
   };
