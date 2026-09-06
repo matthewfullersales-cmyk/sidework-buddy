@@ -157,8 +157,17 @@ function ManagerPage() {
 }
 
 function ManagerTabs({ tab, setTab, onOpenSetup }: { tab: string; setTab: (v: string) => void; onOpenSetup: () => void }) {
-  const { applications } = useStore();
-  const newAppsCount = applications.filter((a) => !a.archived && getHiringStage(a) === "new").length;
+  const { user } = useAuth();
+  const [newAppsCount, setNewAppsCount] = useState(0);
+  useEffect(() => {
+    const ownerId = user?.id;
+    if (!ownerId) { setNewAppsCount(0); return; }
+    let cancelled = false;
+    fetchPeople(ownerId, { states: ["applicant"], archived: false })
+      .then((rows) => { if (!cancelled) setNewAppsCount(rows.length); })
+      .catch((e) => console.error("[newAppsCount]", e));
+    return () => { cancelled = true; };
+  }, [user?.id]);
   return (
     <Tabs value={tab} onValueChange={setTab}>
       <TabsList className="mb-6 grid h-auto w-full grid-cols-2 gap-1 sm:grid-cols-4 md:grid-cols-7">
