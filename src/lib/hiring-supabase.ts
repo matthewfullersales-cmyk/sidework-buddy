@@ -1,19 +1,7 @@
-// Data-access helpers for the hiring pipeline (job_postings + job_applications).
+// Data-access helpers for job postings.
 // Postings are publicly readable; only the authenticated owner can mutate.
-// Applications can be inserted by any visitor; only the owner can read/update/delete.
 import { supabase } from "@/integrations/supabase/client";
-import type {
-  JobPosting,
-  JobApplication,
-  Role,
-  ApplicationStatus,
-  HiringStage,
-  ApplicationSource,
-  InterviewType,
-  ShadowShiftDetails,
-  WeeklyAvailability,
-  WorkExperience,
-} from "@/lib/sidework-store";
+import type { JobPosting, Role } from "@/lib/sidework-store";
 
 type PostingRow = {
   id: string;
@@ -27,82 +15,6 @@ type PostingRow = {
   open: boolean;
 };
 
-type ApplicationRow = {
-  id: string;
-  owner_id: string;
-  job_id: string;
-  name: string;
-  first_name: string | null;
-  last_name: string | null;
-  email: string | null;
-  phone: string;
-  role: string | null;
-  pitch: string | null;
-  source: string | null;
-  weekly_availability: unknown;
-  availability_days: string[];
-  availability_hours: string;
-  note: string | null;
-  applied_at: string;
-  status: string;
-  stage: string | null;
-  verified: boolean;
-  
-  interview_sent_at: string | null;
-  interview_notes: string | null;
-  interview_type: string | null;
-  offered_slots: string[] | null;
-  selected_slot: string | null;
-  shadow_shift: unknown;
-  shadow_confirmed_at: string | null;
-  shadow_response_note: string | null;
-  archived: boolean;
-  hired_employee_id: string | null;
-  work_experience: unknown;
-};
-
-export type PublicInterviewInfo = {
-  id: string;
-  firstName: string | null;
-  name: string;
-  phone: string;
-  role: string | null;
-  stage: string | null;
-  interviewType: string | null;
-  offeredSlots: string[] | null;
-  selectedSlot: string | null;
-  interviewNotes: string | null;
-  restaurantName: string | null;
-  jobTitle: string | null;
-};
-
-export type PublicShadowShiftInfo = {
-  id: string;
-  firstName: string | null;
-  name: string;
-  role: string | null;
-  stage: string | null;
-  shadowShift: ShadowShiftDetails | null;
-  shadowConfirmedAt: string | null;
-  shadowResponseNote: string | null;
-  restaurantName: string | null;
-  jobTitle: string | null;
-};
-
-export type PublicHireInviteInfo = {
-  id: string;
-  firstName: string | null;
-  lastName: string | null;
-  name: string;
-  email: string | null;
-  phone: string | null;
-  role: string | null;
-  stage: string | null;
-  hiredEmployeeId: string | null;
-  restaurantName: string | null;
-  jobTitle: string | null;
-};
-
 export function postingFromRow(r: PostingRow): JobPosting {
   return {
     id: r.id,
@@ -114,58 +26,6 @@ export function postingFromRow(r: PostingRow): JobPosting {
     postedAt: r.posted_at,
     open: r.open,
   };
-}
-
-export function applicationFromRow(r: ApplicationRow): JobApplication {
-  return {
-    id: r.id,
-    jobId: r.job_id,
-    name: r.name,
-    firstName: r.first_name ?? undefined,
-    lastName: r.last_name ?? undefined,
-    email: r.email ?? undefined,
-    phone: r.phone,
-    role: (r.role as Role) ?? undefined,
-    pitch: r.pitch ?? undefined,
-    source: (r.source as ApplicationSource) ?? undefined,
-    weeklyAvailability: (r.weekly_availability as WeeklyAvailability | null) ?? undefined,
-    availabilityDays: r.availability_days ?? [],
-    availabilityHours: r.availability_hours as JobApplication["availabilityHours"],
-    note: r.note ?? undefined,
-    appliedAt: r.applied_at,
-    status: r.status as ApplicationStatus,
-    stage: (r.stage as HiringStage) ?? undefined,
-    verified: r.verified,
-    
-    interviewSentAt: r.interview_sent_at ?? undefined,
-    interviewNotes: r.interview_notes ?? undefined,
-    interviewType: (r.interview_type as InterviewType) ?? undefined,
-    offeredSlots: r.offered_slots ?? undefined,
-    selectedSlot: r.selected_slot ?? undefined,
-    shadowShift: (r.shadow_shift as ShadowShiftDetails | null) ?? undefined,
-    shadowConfirmedAt: r.shadow_confirmed_at ?? null,
-    shadowResponseNote: r.shadow_response_note ?? null,
-    archived: r.archived,
-    hiredEmployeeId: r.hired_employee_id ?? undefined,
-    workExperience: (r.work_experience as WorkExperience[] | null) ?? undefined,
-  };
-}
-
-/** Owner-scoped: fetch already-booked interview slots for conflict-detection. */
-export async function fetchBookedInterviewSlots(
-  ownerId: string,
-): Promise<{ id: string; selectedSlot: string }[]> {
-  const { data, error } = await supabase
-    .from("job_applications")
-    .select("id, selected_slot")
-    .eq("owner_id", ownerId)
-    .eq("stage", "video_scheduled")
-    .not("selected_slot", "is", null);
-  if (error) throw error;
-  return (data ?? []).map((r) => ({
-    id: (r as { id: string }).id,
-    selectedSlot: (r as { selected_slot: string }).selected_slot,
-  }));
 }
 
 /** Public: fetch a single job posting by id. */
@@ -188,17 +48,6 @@ export async function fetchOwnerPostings(ownerId: string): Promise<JobPosting[]>
     .order("posted_at", { ascending: false });
   if (error) throw error;
   return (data ?? []).map((r) => postingFromRow(r as PostingRow));
-}
-
-/** Owner-scoped: fetch all applications for a signed-in owner. */
-export async function fetchOwnerApplications(ownerId: string): Promise<JobApplication[]> {
-  const { data, error } = await supabase
-    .from("job_applications")
-    .select("*")
-    .eq("owner_id", ownerId)
-    .order("applied_at", { ascending: false });
-  if (error) throw error;
-  return (data ?? []).map((r) => applicationFromRow(r as unknown as ApplicationRow));
 }
 
 export async function insertPosting(
@@ -229,140 +78,5 @@ export async function updatePostingOpen(id: string, open: boolean): Promise<void
 
 export async function deletePosting(id: string): Promise<void> {
   const { error } = await supabase.from("job_postings").delete().eq("id", id);
-  if (error) throw error;
-}
-
-
-
-/** Owner-scoped patch. Maps camelCase fields to snake_case columns. */
-export async function updateApplication(
-  id: string,
-  patch: Partial<JobApplication>,
-): Promise<void> {
-  const row: Record<string, unknown> = {};
-  if (patch.status !== undefined) row.status = patch.status;
-  if (patch.stage !== undefined) row.stage = patch.stage;
-  if (patch.archived !== undefined) row.archived = patch.archived;
-  if (patch.verified !== undefined) row.verified = patch.verified;
-  
-  if (patch.interviewSentAt !== undefined) row.interview_sent_at = patch.interviewSentAt;
-  if (patch.interviewNotes !== undefined) row.interview_notes = patch.interviewNotes;
-  if (patch.interviewType !== undefined) row.interview_type = patch.interviewType;
-  if (patch.offeredSlots !== undefined) row.offered_slots = patch.offeredSlots;
-  if (patch.selectedSlot !== undefined) row.selected_slot = patch.selectedSlot;
-  if (patch.shadowShift !== undefined) row.shadow_shift = patch.shadowShift as unknown;
-  if (patch.hiredEmployeeId !== undefined) row.hired_employee_id = patch.hiredEmployeeId;
-  if (Object.keys(row).length === 0) return;
-  const { error } = await supabase.from("job_applications").update(row as never).eq("id", id);
-  if (error) throw error;
-}
-
-/**
- * Public: applicant confirms their chosen interview slot.
- */
-export async function confirmApplicantSlot(
-  applicationId: string,
-  slot: string,
-): Promise<void> {
-  const { error } = await supabase.rpc("applicant_confirm_interview_slot", {
-    p_application_id: applicationId,
-    p_slot: slot,
-  });
-  if (error) throw error;
-}
-
-/** Public: fetch minimal interview details for the applicant/host page. */
-export async function fetchPublicInterview(id: string): Promise<PublicInterviewInfo | null> {
-  const { data, error } = await supabase.rpc("get_public_interview", { p_application_id: id });
-  if (error) throw error;
-  const row = Array.isArray(data) ? data[0] : null;
-  if (!row) return null;
-  return {
-    id: row.id,
-    firstName: row.first_name ?? null,
-    name: row.name,
-    phone: row.phone,
-    role: row.role ?? null,
-    stage: row.stage ?? null,
-    interviewType: row.interview_type ?? null,
-    offeredSlots: row.offered_slots ?? null,
-    selectedSlot: row.selected_slot ?? null,
-    interviewNotes: row.interview_notes ?? null,
-    restaurantName: row.restaurant_name ?? null,
-    jobTitle: row.job_title ?? null,
-  };
-}
-
-/** Public: host marks interview complete + saves notes (anon). */
-export async function hostCompleteInterview(id: string, notes: string): Promise<void> {
-  const { error } = await supabase.rpc("host_complete_interview", {
-    p_application_id: id,
-    p_notes: notes,
-  });
-  if (error) throw error;
-}
-
-/** Public: fetch minimal shadow-shift details for the applicant confirmation page. */
-export async function fetchPublicShadowShift(id: string): Promise<PublicShadowShiftInfo | null> {
-  const { data, error } = await supabase.rpc("get_public_shadow_shift", { p_application_id: id });
-  if (error) throw error;
-  const row = Array.isArray(data) ? data[0] : null;
-  if (!row) return null;
-  return {
-    id: row.id,
-    firstName: row.first_name ?? null,
-    name: row.name,
-    role: row.role ?? null,
-    stage: row.stage ?? null,
-    shadowShift: (row.shadow_shift as ShadowShiftDetails | null) ?? null,
-    shadowConfirmedAt: row.shadow_confirmed_at ?? null,
-    shadowResponseNote: row.shadow_response_note ?? null,
-    restaurantName: row.restaurant_name ?? null,
-    jobTitle: row.job_title ?? null,
-  };
-}
-
-/** Public: applicant confirms the shadow shift (anon). */
-export async function confirmApplicantShadowShift(id: string): Promise<void> {
-  const { error } = await supabase.rpc("applicant_confirm_shadow_shift", { p_application_id: id });
-  if (error) throw error;
-}
-
-/** Public: applicant can't make it — stores a note (anon). */
-export async function declineApplicantShadowShift(id: string, note: string): Promise<void> {
-  const { error } = await supabase.rpc("applicant_decline_shadow_shift", {
-    p_application_id: id,
-    p_note: note,
-  });
-  if (error) throw error;
-}
-
-/** Public: fetch minimal hire-invite details for the applicant signup page. */
-export async function fetchPublicHireInvite(id: string): Promise<PublicHireInviteInfo | null> {
-  const { data, error } = await supabase.rpc("get_public_hire_invite", { p_application_id: id });
-  if (error) throw error;
-  const row = Array.isArray(data) ? data[0] : null;
-  if (!row) return null;
-  return {
-    id: row.id,
-    firstName: row.first_name ?? null,
-    lastName: row.last_name ?? null,
-    name: row.name,
-    email: row.email ?? null,
-    phone: row.phone ?? null,
-    role: row.role ?? null,
-    stage: row.stage ?? null,
-    hiredEmployeeId: row.hired_employee_id ?? null,
-    restaurantName: row.restaurant_name ?? null,
-    jobTitle: row.job_title ?? null,
-  };
-}
-
-/** Public: link a new employee profile back to the hired application (anon, single-use). */
-export async function claimHireInvite(applicationId: string, employeeProfileId: string): Promise<void> {
-  const { error } = await supabase.rpc("claim_hire_invite", {
-    p_application_id: applicationId,
-    p_employee_profile_id: employeeProfileId,
-  });
   if (error) throw error;
 }
