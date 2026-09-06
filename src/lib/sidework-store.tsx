@@ -7,7 +7,6 @@ import {
   insertPosting,
   updatePostingOpen,
   deletePosting,
-  insertApplication,
   updateApplication,
   confirmApplicantSlot,
 } from "@/lib/hiring-supabase";
@@ -843,7 +842,7 @@ interface Store {
   postJob: (data: Omit<JobPosting, "id" | "postedAt" | "open">) => void;
   toggleJobOpen: (id: string) => void;
   removeJob: (id: string) => void;
-  submitApplication: (data: Omit<JobApplication, "id" | "appliedAt" | "status">) => string;
+  
   setApplicationStatus: (id: string, status: ApplicationStatus) => void;
   scheduleInterview: (id: string) => void;
   setInterviewNotes: (id: string, notes: string) => void;
@@ -2037,39 +2036,6 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
         toast.error("Couldn't delete job.");
         setState((s) => ({ ...s, jobs: prev }));
       });
-    },
-    submitApplication: (data) => {
-      // Public path: insert to Supabase. Local state append is skipped because
-      // unauthenticated submitters can't read applications back (RLS).
-      // For a signed-in owner previewing their own careers page, the row will
-      // load via fetchOwnerApplications on next refresh; we also optimistically
-      // append when the current user owns the referenced job.
-      const tempId = uid("a");
-      insertApplication(data)
-        .then((app) => {
-          setState((s) => {
-            // Replace optimistic row if present, else prepend.
-            const exists = s.applications.some((a) => a.id === tempId);
-            const applications = exists
-              ? s.applications.map((a) => (a.id === tempId ? app : a))
-              : [app, ...s.applications];
-            return { ...s, applications };
-          });
-        })
-        .catch((e) => {
-          console.error("[submitApplication] failed", e);
-          toast.error("Couldn't submit application. Please try again.");
-          setState((s) => ({ ...s, applications: s.applications.filter((a) => a.id !== tempId) }));
-        });
-      // Optimistic local append so the manager preview sees it right away.
-      setState((s) => ({
-        ...s,
-        applications: [
-          { id: tempId, appliedAt: new Date().toISOString(), status: "new", ...data } as JobApplication,
-          ...s.applications,
-        ],
-      }));
-      return tempId;
     },
     setApplicationStatus: (id, status) => {
       setState((s) => ({ ...s, applications: s.applications.map((a) => (a.id === id ? { ...a, status } : a)) }));

@@ -32,7 +32,7 @@ export const Route = createFileRoute("/careers")({
 });
 
 function CareersPage() {
-  const { jobs, submitApplication, restaurantProfile } = useStore();
+  const { jobs, restaurantProfile } = useStore();
   const { job: jobIdParam } = Route.useSearch();
   const [targetJob, setTargetJob] = useState<JobPosting | null>(null);
   const [loadingJob, setLoadingJob] = useState(!!jobIdParam);
@@ -115,7 +115,7 @@ function CareersPage() {
       setSubmitting(false);
     }
   };
-  void submitApplication;
+  
 
   if (done) {
     return (
