@@ -1341,6 +1341,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           trades: remoteTrades,
           ...hoursPatch,
           ...rolesPatch,
+          ...profilePatch,
           businessInfo: normalizeBusinessInfo(remoteBusinessInfo),
           menuBankMeta,
           menuTestConfig: normalizeMenuTestConfig(remoteMenuTestConfig),
