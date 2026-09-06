@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useRequireManagerAccess } from "@/lib/use-require-manager-access";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AppShell, PageHeader } from "@/components/sidework/AppShell";
-import { SetupWizard } from "@/components/sidework/SetupWizard";
+
 import { ScheduleSection } from "@/components/sidework/ScheduleSection";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -38,7 +38,7 @@ import { sendStaffInvite } from "@/lib/staff-invite.functions";
 import { loadMyJoinSlug } from "@/lib/restaurant-slug";
 import { notifyTimeOffResolved, notifyScheduleChanged } from "@/lib/notifications.functions";
 
-import { AvailabilityEditor, RestaurantHoursEditor, MealPeriodsEditor, BusinessInfoEditor } from "@/components/sidework/AvailabilityEditor";
+import { AvailabilityEditor, RestaurantHoursEditor, MealPeriodsEditor, BusinessInfoEditor, RestaurantProfileEditor } from "@/components/sidework/AvailabilityEditor";
 import { AvailabilitySummary, hasAnyAvailability } from "@/components/sidework/AvailabilitySummary";
 import { fetchShadowPacket, saveShadowPacket, emptyShadowPacket, type ShadowPacket } from "@/lib/employees-supabase";
 import { StaffJoinBanner, FullscreenQrDialog, StaffOnboardingCard, useJoinUrl } from "@/components/sidework/StaffOnboarding";
@@ -85,9 +85,8 @@ export const Route = createFileRoute("/manager")({
 });
 
 function ManagerPage() {
-  const { setupCompleted, restaurantProfile, resetSetup, currentUser, setCurrentUser } = useStore();
+  const { restaurantProfile, currentUser, setCurrentUser } = useStore();
   const [tab, setTab] = useState("dashboard");
-  const [showSetupWizard, setShowSetupWizard] = useState(false);
   const { checking } = useRequireManagerAccess("/login");
   useEffect(() => {
     if (currentUser.type !== "manager") {
@@ -103,59 +102,18 @@ function ManagerPage() {
     );
   }
 
-  if (showSetupWizard) {
-    return (
-      <SetupWizard
-        onComplete={() => {
-          setShowSetupWizard(false);
-          setTab("dashboard");
-        }}
-      />
-    );
-  }
-
-
   return (
     <AppShell nav={[{ to: "/manager", label: "Dashboard", icon: <IconHome /> }]}>
       <PageHeader
         title={restaurantProfile?.name ? `${restaurantProfile.name} — Dashboard` : "Manager Dashboard"}
         subtitle="Onboarding, schedule, and trades at a glance."
-        action={
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              if (setupCompleted) {
-                if (window.confirm("Redo restaurant setup? This will reset your profile.")) {
-                  resetSetup();
-                  setShowSetupWizard(true);
-                }
-              } else {
-                setShowSetupWizard(true);
-              }
-            }}
-          >
-            {setupCompleted ? "Restaurant Setup" : "Complete your setup"}
-          </Button>
-        }
       />
-      {!setupCompleted && (
-        <Card className="mb-6 border-primary/30 bg-primary/5">
-          <CardContent className="flex flex-wrap items-center justify-between gap-4 p-5">
-            <div>
-              <p className="font-semibold text-primary">Your restaurant setup is incomplete</p>
-              <p className="text-sm text-muted-foreground">Finish setting up your restaurant profile and roles.</p>
-            </div>
-            <Button size="sm" onClick={() => setShowSetupWizard(true)}>Complete your setup</Button>
-          </CardContent>
-        </Card>
-      )}
-      <ManagerTabs tab={tab} setTab={setTab} onOpenSetup={() => setShowSetupWizard(true)} />
+      <ManagerTabs tab={tab} setTab={setTab} />
     </AppShell>
   );
 }
 
-function ManagerTabs({ tab, setTab, onOpenSetup }: { tab: string; setTab: (v: string) => void; onOpenSetup: () => void }) {
+function ManagerTabs({ tab, setTab }: { tab: string; setTab: (v: string) => void }) {
   const { user } = useAuth();
   const [newAppsCount, setNewAppsCount] = useState(0);
   useEffect(() => {
@@ -192,7 +150,7 @@ function ManagerTabs({ tab, setTab, onOpenSetup }: { tab: string; setTab: (v: st
       <TabsContent value="trades"><TradesTab /></TabsContent>
       <TabsContent value="jobs"><JobsTab /></TabsContent>
       <TabsContent value="timeoff"><TimeOffTab /></TabsContent>
-      <TabsContent value="settings"><SettingsTab onOpenSetup={onOpenSetup} /></TabsContent>
+      <TabsContent value="settings"><SettingsTab /></TabsContent>
     </Tabs>
   );
 }
@@ -1432,27 +1390,23 @@ function RolesCard() {
   );
 }
 
-function SettingsTab({ onOpenSetup }: { onOpenSetup: () => void }) {
-  const { setupCompleted, restaurantProfile, resetSetup, restaurantHours, updateRestaurantDay, mealPeriods, updateMealPeriod, businessInfo, setBusinessInfo } = useStore();
+function SettingsTab() {
+  const { restaurantProfile, setRestaurantProfile, restaurantHours, updateRestaurantDay, mealPeriods, updateMealPeriod, businessInfo, setBusinessInfo } = useStore();
   const configured = hoursConfigured(restaurantHours, mealPeriods);
 
 
   return (
     <div className="space-y-4">
       <Card>
-        <CardHeader><CardTitle className="text-base">Restaurant Setup</CardTitle></CardHeader>
-        <CardContent className="space-y-4">
-          {setupCompleted ? (
-            <>
-              <p className="text-sm text-muted-foreground">Setup completed for <span className="font-medium text-foreground">{restaurantProfile?.name ?? "your restaurant"}</span>.</p>
-              <Button variant="outline" onClick={() => { if (window.confirm("Redo setup? This will reset your profile.")) { resetSetup(); onOpenSetup(); } }}>Redo restaurant setup</Button>
-            </>
-          ) : (
-            <>
-              <p className="text-sm text-muted-foreground">Your restaurant profile is incomplete. Finish setup to get your restaurant running.</p>
-              <Button onClick={onOpenSetup}>Complete your setup</Button>
-            </>
-          )}
+        <CardHeader>
+          <CardTitle className="text-base">Restaurant profile</CardTitle>
+          <p className="mt-1 text-xs text-muted-foreground">Your restaurant's name and type. Shown on your dashboard and public-facing pages.</p>
+        </CardHeader>
+        <CardContent>
+          <RestaurantProfileEditor
+            value={{ name: restaurantProfile?.name ?? "", type: restaurantProfile?.type ?? "" }}
+            onChange={setRestaurantProfile}
+          />
         </CardContent>
       </Card>
       {!configured && (
@@ -1496,7 +1450,7 @@ function SettingsTab({ onOpenSetup }: { onOpenSetup: () => void }) {
       <InterviewLengthCard />
       <ShadowPacketCard />
       <RolesCard />
-      {setupCompleted && <StaffOnboardingCard />}
+      <StaffOnboardingCard />
     </div>
   );
 }
