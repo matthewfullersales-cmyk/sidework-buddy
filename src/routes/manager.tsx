@@ -26,7 +26,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
-import { onboardingStatus, useStore, type Role, type ApplicationStatus, type Employee, type Relationship, DAY_KEYS, hoursConfigured, type JobApplication, type HiringStage, type ShadowShiftDetails, type InterviewType, getHiringStage, isPendingRoleAssignment, isPendingJoin, isArchivedEmployee, isScheduleEligible, sectionForRole } from "@/lib/sidework-store";
+import { onboardingStatus, useStore, type Role, type Employee, type Relationship, DAY_KEYS, hoursConfigured, isPendingRoleAssignment, isPendingJoin, isArchivedEmployee, isScheduleEligible, sectionForRole } from "@/lib/sidework-store";
+import { fetchPeople, type Person } from "@/lib/people-supabase";
 import { sendReactivationEmail } from "@/lib/reactivation.functions";
 import { roleStyle, fohRolesWithCustom, bohRolesWithCustom, allRolesWithCustom, FOH_ROLES_ORDERED, BOH_ROLES_ORDERED, ROLES_ORDERED, nextCustomColor } from "@/lib/role-colors";
 import { defaultDressGroupForRole } from "@/lib/shadow-packet-roles";
@@ -35,7 +36,6 @@ import { PhoneInput } from "@/components/ui/phone-input";
 import { copyLinkWithToast } from "@/lib/copy-to-clipboard";
 import { sendStaffInvite } from "@/lib/staff-invite.functions";
 import { loadMyJoinSlug } from "@/lib/restaurant-slug";
-import { sendApplicantNotification } from "@/lib/applicant-notifications.functions";
 import { notifyTimeOffResolved, notifyScheduleChanged } from "@/lib/notifications.functions";
 
 import { AvailabilityEditor, RestaurantHoursEditor, MealPeriodsEditor, BusinessInfoEditor } from "@/components/sidework/AvailabilityEditor";
@@ -49,7 +49,6 @@ import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { useAuth } from "@/lib/auth-context";
 // (removed) team-permissions registry — single-login owner model.
-import { fetchBookedInterviewSlots } from "@/lib/hiring-supabase";
 import { cn, formatTime12h } from "@/lib/utils";
 import { useServerFn } from "@tanstack/react-start";
 
@@ -157,8 +156,17 @@ function ManagerPage() {
 }
 
 function ManagerTabs({ tab, setTab, onOpenSetup }: { tab: string; setTab: (v: string) => void; onOpenSetup: () => void }) {
-  const { applications } = useStore();
-  const newAppsCount = applications.filter((a) => !a.archived && getHiringStage(a) === "new").length;
+  const { user } = useAuth();
+  const [newAppsCount, setNewAppsCount] = useState(0);
+  useEffect(() => {
+    const ownerId = user?.id;
+    if (!ownerId) { setNewAppsCount(0); return; }
+    let cancelled = false;
+    fetchPeople(ownerId, { states: ["applicant"], archived: false })
+      .then((rows) => { if (!cancelled) setNewAppsCount(rows.length); })
+      .catch((e) => console.error("[newAppsCount]", e));
+    return () => { cancelled = true; };
+  }, [user?.id]);
   return (
     <Tabs value={tab} onValueChange={setTab}>
       <TabsList className="mb-6 grid h-auto w-full grid-cols-2 gap-1 sm:grid-cols-4 md:grid-cols-7">
@@ -191,18 +199,28 @@ function ManagerTabs({ tab, setTab, onOpenSetup }: { tab: string; setTab: (v: st
 
 
 function OverviewTab() {
-  const { employees: allEmployees, customRoles, trades, shifts, applications, timeOff } = useStore();
+  const { employees: allEmployees, customRoles, trades, shifts, timeOff } = useStore();
+  const { user } = useAuth();
+  const [newApps, setNewApps] = useState(0);
+  useEffect(() => {
+    const ownerId = user?.id;
+    if (!ownerId) { setNewApps(0); return; }
+    let cancelled = false;
+    fetchPeople(ownerId, { states: ["applicant"], archived: false })
+      .then((rows) => { if (!cancelled) setNewApps(rows.length); })
+      .catch((e) => console.error("[OverviewTab applicants]", e));
+    return () => { cancelled = true; };
+  }, [user?.id]);
   // Pending self-joins don't count as staff until the owner approves them.
   const employees = useMemo(() => allEmployees.filter((e) => !isPendingJoin(e)), [allEmployees]);
   const stats = useMemo(() => {
     const onboarded = employees.filter((e) => onboardingStatus(e, customRoles).fullyOnboarded).length;
 
     const pending = trades.filter((t) => t.status === "pending_approval").length;
-    const newApps = applications.filter((a) => a.status === "new").length;
     const pendingTO = timeOff.filter((t) => t.status === "pending").length;
     return { onboarded, total: employees.length, pending, newApps, pendingTO, shifts: shifts.length };
 
-  }, [employees, customRoles, trades, shifts, applications, timeOff]);
+  }, [employees, customRoles, trades, shifts, newApps, timeOff]);
 
   return (
     <div className="grid gap-6">
@@ -1100,32 +1118,28 @@ function JobsTab() {
   const [pipelineRefresh, setPipelineRefresh] = useState(0);
   const {
     jobs,
-    applications,
     postJob,
     toggleJobOpen,
     removeJob,
-    setInterviewNotes,
-    declineApplication,
-    reconsiderApplication,
-    hireApplication,
-    approveForInterview,
-    applicantSelectSlot,
-    completeInterview,
-    inviteShadowShift,
     restaurantProfile,
     activeRoles,
     customRoles,
   } = useStore();
+  const { user } = useAuth();
+  const [applicantPeople, setApplicantPeople] = useState<Person[]>([]);
+  useEffect(() => {
+    const ownerId = user?.id;
+    if (!ownerId) { setApplicantPeople([]); return; }
+    let cancelled = false;
+    fetchPeople(ownerId, { states: ["applicant"], archived: false })
+      .then((rows) => { if (!cancelled) setApplicantPeople(rows); })
+      .catch((e) => console.error("[JobsTab applicants]", e));
+    return () => { cancelled = true; };
+  }, [user?.id]);
   const fohActive = fohRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r));
   const bohActive = bohRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r));
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ title: "", role: "Server" as Role, type: "Full-time" as "Full-time" | "Part-time", payRange: "", description: "" });
-  const [hireFor, setHireFor] = useState<string | null>(null);
-  const [pickTypeFor, setPickTypeFor] = useState<string | null>(null);
-  const [approveFor, setApproveFor] = useState<{ id: string; type: InterviewType } | null>(null);
-  const [callFor, setCallFor] = useState<string | null>(null);
-  const [shadowFor, setShadowFor] = useState<string | null>(null);
-  const [declineConfirmFor, setDeclineConfirmFor] = useState<{ id: string; postInterview?: boolean } | null>(null);
 
   const submit = () => {
     if (!form.title || !form.payRange || !form.description) return toast.error("Fill in title, pay range, and description.");
@@ -1135,76 +1149,10 @@ function JobsTab() {
     setForm({ title: "", role: "Server", type: "Full-time", payRange: "", description: "" });
   };
 
-  const restaurantName = restaurantProfile?.name ?? "our restaurant";
-
-  const active = applications.filter((a) => !a.archived);
-  const newApps = active.filter((a) => getHiringStage(a) === "new");
-  const videoApps = active.filter((a) => {
-    const st = getHiringStage(a);
-    return st === "video_offered" || st === "video_scheduled" || st === "interviewed";
-  });
-  const shadowApps = active.filter((a) => getHiringStage(a) === "shadow_scheduled");
-  const archived = applications.filter((a) => a.archived);
-
-  const hireApp = applications.find((a) => a.id === hireFor) ?? null;
-  const approveApp = approveFor ? applications.find((a) => a.id === approveFor.id) ?? null : null;
-  const pickTypeApp = pickTypeFor ? applications.find((a) => a.id === pickTypeFor) ?? null : null;
-  const callApp = applications.find((a) => a.id === callFor) ?? null;
-  const shadowApp = applications.find((a) => a.id === shadowFor) ?? null;
-  const declineApp = declineConfirmFor ? applications.find((a) => a.id === declineConfirmFor.id) ?? null : null;
-
   const copyApplicationLink = (jobId: string) => {
     copyLinkWithToast(`${window.location.origin}/careers?job=${jobId}`, "Application link copied");
   };
 
-  // Sends the applicant-facing link via email (Resend). Surfaces a copy-link
-  // fallback in the toast so the manager can share it manually if email fails.
-  const notifyApplicant = async (args: {
-    kind: "interview_offer" | "shadow_invite" | "hire_signup";
-    app: JobApplication;
-    link: string;
-    successVerb: string; // e.g. "Interview invite"
-    extra?: { slotCount?: number; shadowDate?: string; shadowTime?: string };
-  }) => {
-    const name = args.app.firstName ?? args.app.name ?? "applicant";
-    let emailOk = false;
-    let emailErr: string | undefined;
-    let emailAttempted = false;
-    try {
-      const res = await sendApplicantNotification({ data: {
-        kind: args.kind,
-        link: args.link,
-        firstName: args.app.firstName ?? args.app.name ?? "",
-        restaurantName,
-        email: args.app.email ?? "",
-        phoneDigits: (args.app.phone ?? "").replace(/\D/g, ""),
-        slotCount: args.extra?.slotCount,
-        shadowDate: args.extra?.shadowDate,
-        shadowTime: args.extra?.shadowTime,
-      }});
-      emailOk = res.email.ok;
-      emailErr = res.email.error;
-      emailAttempted = res.email.attempted;
-    } catch (e) {
-      console.error("[notifyApplicant]", e);
-    }
-    const problems: string[] = [];
-    if (emailAttempted && !emailOk) problems.push(`email failed${emailErr ? `: ${emailErr}` : ""}`);
-    if (!emailAttempted) problems.push("no email on file");
-    const isFailure = !emailOk;
-    const title = emailOk
-      ? `${args.successVerb} emailed to ${name}`
-      : `${args.successVerb} ready for ${name} — send link manually`;
-    const notify = isFailure ? toast.warning : toast.success;
-    notify(title, {
-      description: `${problems.length ? problems.join(" · ") + " — " : ""}Backup link: ${args.link}`,
-      duration: 12000,
-      action: {
-        label: "Copy link",
-        onClick: () => copyLinkWithToast(args.link, "Link copied"),
-      },
-    });
-  };
 
 
 
@@ -1258,7 +1206,7 @@ function JobsTab() {
         <CardContent className="space-y-3">
           {jobs.length === 0 && <p className="text-sm text-muted-foreground">No jobs posted yet.</p>}
           {jobs.map((j) => {
-            const count = applications.filter((a) => a.jobId === j.id).length;
+            const count = applicantPeople.filter((p) => p.jobId === j.id).length;
             return (
               <div key={j.id} className="rounded-lg border border-border bg-background p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -1290,881 +1238,10 @@ function JobsTab() {
       <InterviewSlotsCard refreshKey={slotRefresh} onInterviewChange={() => setPipelineRefresh((n) => n + 1)} />
 
       <ApplicantPipeline refreshKey={pipelineRefresh} onInterviewChange={() => setSlotRefresh((n) => n + 1)} />
-
-
-      {pickTypeApp && (
-        <InterviewTypeDialog
-          application={pickTypeApp}
-          onClose={() => setPickTypeFor(null)}
-          onPick={(type) => {
-            setPickTypeFor(null);
-            setApproveFor({ id: pickTypeApp.id, type });
-          }}
-        />
-      )}
-
-      {approveApp && approveFor && (
-        <ApproveInterviewDialog
-          application={approveApp}
-          type={approveFor.type}
-          onClose={() => setApproveFor(null)}
-          onConfirm={(slots) => {
-            approveForInterview(approveApp.id, approveFor.type, slots);
-            const label = approveFor.type === "video" ? "Video interview invite" : approveFor.type === "in_person" ? "In-person interview invite" : "Phone interview invite";
-            void notifyApplicant({
-              kind: "interview_offer",
-              app: approveApp,
-              link: `${window.location.origin}/interview/${approveApp.id}`,
-              successVerb: label,
-              extra: { slotCount: slots.length },
-            });
-            setApproveFor(null);
-          }}
-        />
-      )}
-
-      {callApp && (
-        <VideoCallDialog
-          application={callApp}
-          restaurantName={restaurantName}
-          onClose={() => setCallFor(null)}
-          onEnd={(notes) => {
-            completeInterview(callApp.id, notes);
-            toast.success("Interview complete", { description: "Ready for your decision." });
-            setCallFor(null);
-          }}
-        />
-      )}
-
-      {shadowApp && (
-        <ShadowShiftDialog
-          application={shadowApp}
-          restaurantName={restaurantName}
-          onClose={() => setShadowFor(null)}
-          onConfirm={(details) => {
-            inviteShadowShift(shadowApp.id, details);
-            void notifyApplicant({
-              kind: "shadow_invite",
-              app: shadowApp,
-              link: `${window.location.origin}/shadow/${shadowApp.id}`,
-              successVerb: "Shadow shift invite",
-              extra: { shadowDate: details.date, shadowTime: details.time },
-            });
-            setShadowFor(null);
-          }}
-        />
-      )}
-
-      {declineApp && declineConfirmFor && (
-        <Dialog open onOpenChange={(o) => { if (!o) setDeclineConfirmFor(null); }}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader><DialogTitle>{declineConfirmFor.postInterview ? "Pass on this candidate?" : "Decline application?"}</DialogTitle></DialogHeader>
-            <div className="py-2 text-sm text-muted-foreground">
-              {declineConfirmFor.postInterview ? (
-                <>
-                  <p>Send the following message to <span className="font-semibold text-foreground">{declineApp.firstName ?? declineApp.name}</span> and archive the application?</p>
-                  <p className="mt-2 rounded-md bg-muted p-3 italic">
-                    "Hi {declineApp.firstName ?? declineApp.name}, thank you for taking the time to speak with us. We've decided to move forward with other candidates at this time. We wish you the best!"
-                  </p>
-                </>
-              ) : (
-                <>
-                  <p>Send the following message to <span className="font-semibold text-foreground">{declineApp.firstName ?? declineApp.name}</span>?</p>
-                  <p className="mt-2 rounded-md bg-muted p-3 italic">
-                    "Hi {declineApp.firstName ?? declineApp.name}, thank you for your interest in {restaurantName}. We appreciate your time and will keep your application on file for future opportunities. Best of luck!"
-                  </p>
-                </>
-              )}
-            </div>
-            <DialogFooter>
-              <Button variant="ghost" onClick={() => setDeclineConfirmFor(null)}>Cancel</Button>
-              <Button onClick={() => {
-                declineApplication(declineApp.id);
-                toast.message(declineConfirmFor.postInterview ? `Passed on ${declineApp.firstName ?? declineApp.name}` : `Decline message sent to ${declineApp.firstName ?? declineApp.name}`);
-                setDeclineConfirmFor(null);
-              }}>{declineConfirmFor.postInterview ? "Send & Pass" : "Send & Decline"}</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
-
-      {hireApp && (
-        <HireReviewDialog
-          application={hireApp}
-          onClose={() => setHireFor(null)}
-          onConfirm={(overrides) => {
-            const id = hireApplication(hireApp.id, overrides);
-            if (id) {
-              const mergedApp: JobApplication = { ...hireApp, ...overrides } as JobApplication;
-              void notifyApplicant({
-                kind: "hire_signup",
-                app: mergedApp,
-                link: `${window.location.origin}/hired/${hireApp.id}`,
-                successVerb: `${mergedApp.firstName ?? mergedApp.name} hired — signup link`,
-              });
-            }
-            setHireFor(null);
-          }}
-        />
-      )}
     </div>
   );
 }
 
-const INTERVIEW_TYPE_META: Record<InterviewType, { emoji: string; label: string; tagline: string; bullets: string[] }> = {
-  video: {
-    emoji: "📹",
-    label: "Video Call",
-    tagline: "5 minute video call inside 86Paper",
-    bullets: [
-      "You pick available time slots",
-      "Applicant picks a time that works",
-      "Video happens inside 86Paper via Daily.co",
-      "5-minute timer visible during call",
-    ],
-  },
-  in_person: {
-    emoji: "🤝",
-    label: "In Person",
-    tagline: "Meet at your restaurant",
-    bullets: [
-      "You pick available dates and times",
-      "Applicant picks a time that works",
-      "Confirmation includes restaurant address",
-      "Reminders 24 hours and 1 hour before",
-    ],
-  },
-  phone: {
-    emoji: "📞",
-    label: "Phone Call",
-    tagline: "Quick phone screen",
-    bullets: [
-      "You pick available time slots",
-      "Applicant picks a time that works",
-      "Confirmation includes your phone number",
-      "Reminder 30 minutes before",
-    ],
-  },
-};
-
-
-function InterviewStageDetails({
-  app,
-  restaurantName,
-  onSaveNotes,
-}: {
-  app: JobApplication;
-  restaurantName: string;
-  onSaveNotes?: (id: string, notes: string) => void;
-}) {
-  const stage = getHiringStage(app);
-  const type = app.interviewType ?? "video";
-  const meta = INTERVIEW_TYPE_META[type];
-  const [draftNotes, setDraftNotes] = useState(app.interviewNotes ?? "");
-  const [savedFlash, setSavedFlash] = useState(false);
-  useEffect(() => { setDraftNotes(app.interviewNotes ?? ""); }, [app.interviewNotes]);
-
-  const hostRow = (
-    <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/30 p-2 text-xs">
-      <span className="text-muted-foreground">Host link: <code className="rounded bg-background px-1.5 py-0.5">/interview/{app.id}/host</code></span>
-    </div>
-  );
-
-  let block: React.ReactNode = null;
-  if (stage === "video_offered" && app.offeredSlots) {
-    block = (
-      <div className="mt-3 rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm">
-        <p className="font-semibold">{meta.emoji} {meta.label} — awaiting applicant time selection</p>
-        <p className="mt-1 text-xs text-muted-foreground">Offered {app.offeredSlots.length} slot{app.offeredSlots.length === 1 ? "" : "s"}. They'll get a text + email with the link.</p>
-        <p className="mt-2 text-xs">Applicant link: <code className="rounded bg-background px-1.5 py-0.5">/interview/{app.id}</code></p>
-      </div>
-    );
-  } else if (stage === "video_scheduled" && app.selectedSlot) {
-    const reminderCopy =
-      type === "video" ? "Both parties get a reminder 30 minutes before with the join link."
-      : type === "in_person" ? `Both parties get reminders 24 hours and 1 hour before. They'll meet at ${restaurantName}.`
-      : "Both parties get a reminder 30 minutes before the call.";
-    block = (
-      <div className="mt-3 rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm">
-        <p className="font-semibold text-primary">{meta.emoji} {meta.label} confirmed</p>
-        <p className="mt-1">{new Date(app.selectedSlot).toLocaleString([], { weekday: "long", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</p>
-        <p className="mt-1 text-xs text-muted-foreground">{reminderCopy}</p>
-      </div>
-    );
-  } else if (stage === "interviewed") {
-    const dirty = (draftNotes ?? "") !== (app.interviewNotes ?? "");
-    block = (
-      <div className="mt-3 grid gap-3 rounded-lg border border-primary/30 bg-primary/5 p-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-primary">Decision time</p>
-          <p className="mt-1 text-sm text-foreground/90">
-            Interview complete. Bring {app.firstName ?? app.name} in for a <span className="font-semibold">Shadow Shift</span>, or <span className="font-semibold">Pass</span> and send a polite decline.
-          </p>
-        </div>
-        <div className="grid gap-1.5">
-          <Label htmlFor={`notes-${app.id}`} className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Interview notes ({meta.label.toLowerCase()})
-          </Label>
-          <Textarea
-            id={`notes-${app.id}`}
-            rows={3}
-            value={draftNotes}
-            onChange={(e) => { setDraftNotes(e.target.value); setSavedFlash(false); }}
-            placeholder="Strengths, concerns, follow-ups…"
-            className="bg-background"
-          />
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={!dirty || !onSaveNotes}
-              onClick={() => {
-                onSaveNotes?.(app.id, draftNotes);
-                setSavedFlash(true);
-                toast.success("Notes saved");
-              }}
-            >
-              {dirty ? "Save notes" : "Saved"}
-            </Button>
-            {savedFlash && !dirty && (
-              <span className="text-xs text-success">✓ Saved</span>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!block) return null;
-  return (<>{block}{hostRow}</>);
-}
-
-
-function InterviewTypeDialog({
-  application, onClose, onPick,
-}: {
-  application: JobApplication;
-  onClose: () => void;
-  onPick: (type: InterviewType) => void;
-}) {
-  const name = application.firstName ?? application.name;
-  const types: InterviewType[] = ["video", "in_person", "phone"];
-  return (
-    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>How would you like to interview {name}?</DialogTitle>
-          <p className="text-sm text-muted-foreground">Choose a format. Next, you'll pick the times that work for you.</p>
-        </DialogHeader>
-        <div className="grid gap-3 py-2">
-          {types.map((t) => {
-            const meta = INTERVIEW_TYPE_META[t];
-            return (
-              <button
-                key={t}
-                type="button"
-                onClick={() => onPick(t)}
-                className="group flex w-full items-start gap-3 rounded-xl border-2 border-border bg-background p-4 text-left transition-colors hover:border-primary hover:bg-primary/5 focus-visible:border-primary focus-visible:outline-none"
-              >
-                <div className="text-3xl leading-none">{meta.emoji}</div>
-                <div className="flex-1">
-                  <div className="text-base font-semibold text-foreground">{meta.label}</div>
-                  <p className="mt-0.5 text-sm text-muted-foreground">{meta.tagline}</p>
-                  <ul className="mt-2 grid gap-0.5 text-xs text-muted-foreground">
-                    {meta.bullets.map((b) => <li key={b}>• {b}</li>)}
-                  </ul>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-        <DialogFooter>
-          <Button variant="ghost" onClick={onClose}>Cancel</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function ApproveInterviewDialog({
-  application, type, onClose, onConfirm,
-}: {
-  application: JobApplication;
-  type: InterviewType;
-  onClose: () => void;
-  onConfirm: (slots: string[]) => void;
-}) {
-  const meta = INTERVIEW_TYPE_META[type];
-  const { user } = useAuth();
-  const ownerId = user?.id ?? null;
-
-  const [bookedSlots, setBookedSlots] = useState<Set<string>>(new Set());
-  useEffect(() => {
-    if (!ownerId) return;
-    let cancelled = false;
-    fetchBookedInterviewSlots(ownerId)
-      .then((rows) => {
-        if (cancelled) return;
-        const conflicts = rows.filter((r) => r.id !== application.id);
-        setBookedSlots(new Set(conflicts.map((c) => c.selectedSlot)));
-      })
-      .catch((e) => console.error("[booked slots]", e));
-    return () => { cancelled = true; };
-  }, [ownerId, application.id]);
-
-  const suggested = useMemo(() => {
-    const out: string[] = [];
-    const now = new Date();
-    const hours = [10, 12, 14, 16, 18];
-    for (let day = 1; day <= 7 && out.length < 15; day++) {
-      const d = new Date(now);
-      d.setDate(d.getDate() + day);
-      hours.forEach((h) => {
-        const slot = new Date(d);
-        slot.setHours(h, 0, 0, 0);
-        out.push(slot.toISOString());
-      });
-    }
-    return out;
-  }, [application.id]);
-  const [selected, setSelected] = useState<string[]>([]);
-  const [customDate, setCustomDate] = useState<Date | undefined>(undefined);
-  const [customTime, setCustomTime] = useState<string>("");
-  const [dateOpen, setDateOpen] = useState(false);
-
-  // Time options every 15 minutes from 6:00 to 23:00 inclusive.
-  const timeOptions = useMemo(() => {
-    const out: { value: string; label: string }[] = [];
-    for (let h = 6; h <= 23; h++) {
-      for (let m = 0; m < 60; m += 15) {
-        const value = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-        const d = new Date();
-        d.setHours(h, m, 0, 0);
-        const label = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-        out.push({ value, label });
-      }
-    }
-    return out;
-  }, []);
-
-  const toggle = (s: string) => {
-    if (bookedSlots.has(s)) {
-      toast.error("That time is already booked for this interviewer.");
-      return;
-    }
-    setSelected((prev) => {
-      if (prev.includes(s)) return prev.filter((x) => x !== s);
-      if (prev.length >= 5) {
-        toast.message("Max 5 slots", { description: "Deselect one to add another." });
-        return prev;
-      }
-      return [...prev, s];
-    });
-  };
-
-  const addCustom = () => {
-    if (!customDate) return toast.error("Pick a date first.");
-    if (!customTime) return toast.error("Pick a time first.");
-    const [hh, mm] = customTime.split(":").map(Number);
-    const d = new Date(customDate);
-    d.setHours(hh, mm, 0, 0);
-    if (Number.isNaN(d.getTime())) return toast.error("That doesn't look like a valid date/time.");
-    if (d.getTime() < Date.now()) return toast.error("Pick a time in the future.");
-    const iso = d.toISOString();
-    if (bookedSlots.has(iso)) return toast.error("That time is already booked for this interviewer.");
-    if (selected.includes(iso)) return toast.message("That time is already added.");
-    if (selected.length >= 5) return toast.error("Max 5 slots. Deselect one to add another.");
-    setSelected((prev) => [...prev, iso]);
-    setCustomDate(undefined);
-    setCustomTime("");
-  };
-
-  const submit = () => {
-    if (selected.length < 1) return toast.error("Pick at least one time slot.");
-    if (selected.length > 5) return toast.error("Pick up to 5 time slots.");
-    onConfirm(selected);
-  };
-
-  const name = application.firstName ?? application.name;
-  const customSelected = selected.filter((s) => !suggested.includes(s));
-
-  return (
-    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{meta.emoji} Pick your available times</DialogTitle>
-          <p className="text-sm text-muted-foreground">Tap any time slot below, or add a custom date/time. Up to 5 total. {name} will pick their preferred time.</p>
-        </DialogHeader>
-        <div className="grid max-h-[40vh] gap-2 overflow-y-auto py-2 sm:grid-cols-2">
-          {suggested.map((s) => {
-            const on = selected.includes(s);
-            const booked = bookedSlots.has(s);
-            const d = new Date(s);
-            return (
-              <button
-                key={s}
-                type="button"
-                onClick={() => toggle(s)}
-                disabled={booked}
-                className={`min-h-12 rounded-lg border px-3 py-2 text-left text-sm font-medium transition-colors ${
-                  booked
-                    ? "cursor-not-allowed border-border bg-muted/40 text-muted-foreground opacity-60"
-                    : on
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-border bg-background hover:bg-muted"
-                }`}
-              >
-                {d.toLocaleString([], { weekday: "long", month: "short", day: "numeric" })}
-                <span className="block text-xs opacity-80">at {d.toLocaleString([], { hour: "numeric", minute: "2-digit" })}</span>
-                {booked && <span className="mt-0.5 block text-[10px] font-semibold uppercase tracking-wide text-destructive">Already booked</span>}
-              </button>
-            );
-          })}
-        </div>
-        <div className="space-y-2 border-t pt-3">
-          <Label className="text-sm font-semibold">Add a custom time</Label>
-          <div className="flex flex-wrap gap-2">
-            <Popover open={dateOpen} onOpenChange={setDateOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className={cn("min-w-[10rem] flex-1 justify-start text-left font-normal", !customDate && "text-muted-foreground")}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {customDate ? format(customDate, "PPP") : <span>Pick a date</span>}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={customDate}
-                  onSelect={(d) => { setCustomDate(d ?? undefined); setDateOpen(false); }}
-                  disabled={(d) => d < new Date(new Date().setHours(0, 0, 0, 0))}
-                  initialFocus
-                  className={cn("p-3 pointer-events-auto")}
-                />
-              </PopoverContent>
-            </Popover>
-            <Select value={customTime} onValueChange={setCustomTime}>
-              <SelectTrigger className="w-[9rem]">
-                <SelectValue placeholder="Time" />
-              </SelectTrigger>
-              <SelectContent className="max-h-[16rem]">
-                {timeOptions.map((t) => (
-                  <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button type="button" variant="secondary" onClick={addCustom}>Add</Button>
-          </div>
-          {customSelected.length > 0 && (
-            <div className="flex flex-wrap gap-2 pt-1">
-              {customSelected.map((s) => {
-                const d = new Date(s);
-                return (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => toggle(s)}
-                    className="inline-flex items-center gap-1 rounded-full border border-primary bg-primary px-3 py-1 text-xs font-medium text-primary-foreground hover:opacity-90"
-                    title="Click to remove"
-                  >
-                    {d.toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
-                    <span aria-hidden>×</span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-        <DialogFooter>
-          <Button variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button onClick={submit} disabled={selected.length === 0}>
-            Confirm {selected.length || ""} slot{selected.length === 1 ? "" : "s"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function VideoCallDialog({
-  application, restaurantName, onClose, onEnd,
-}: {
-  application: JobApplication;
-  restaurantName: string;
-  onClose: () => void;
-  onEnd: (notes: string) => void;
-}) {
-  const [roomUrl, setRoomUrl] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [ended, setEnded] = useState(false);
-  const [notes, setNotes] = useState("");
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const { getOrCreateInterviewRoom } = await import("@/lib/daily.functions");
-        const res = await getOrCreateInterviewRoom({ data: { applicationId: application.id } });
-        if (!cancelled) setRoomUrl(res.url);
-      } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : "Could not start video call");
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [application.id]);
-
-  const name = application.firstName && application.lastName ? `${application.firstName} ${application.lastName}` : application.name;
-
-  return (
-    <Dialog open onOpenChange={(o) => { if (!o) { if (!ended) setEnded(true); else onClose(); } }}>
-      <DialogContent className="sm:max-w-3xl">
-        <DialogHeader>
-          <DialogTitle>{ended ? "Interview ended" : `Video interview with ${name}`}</DialogTitle>
-        </DialogHeader>
-        {!ended ? (
-          <div className="space-y-3">
-            <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-black">
-              {error ? (
-                <div className="grid h-full place-items-center p-6 text-center text-sm text-destructive-foreground">
-                  {error}
-                </div>
-              ) : !roomUrl ? (
-                <div className="grid h-full place-items-center text-sm text-white/80">
-                  Connecting to video…
-                </div>
-              ) : (
-                <iframe
-                  title={`Daily video call with ${name}`}
-                  src={`${roomUrl}?userName=${encodeURIComponent(restaurantName)}`}
-                  allow="camera; microphone; fullscreen; speaker; display-capture; autoplay"
-                  className="h-full w-full border-0"
-                />
-              )}
-            </div>
-            <p className="text-center text-xs text-muted-foreground">
-              Powered by Daily.co · Applicant joins from their interview link
-            </p>
-            <div className="flex justify-center">
-              <Button variant="destructive" size="lg" onClick={() => setEnded(true)}>End call</Button>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <Label className="text-sm font-semibold">Add your interview notes</Label>
-            <Textarea rows={5} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Add your interview notes here…" />
-            <DialogFooter className="gap-2">
-              <Button variant="ghost" onClick={onClose}>Save & close</Button>
-              <Button onClick={() => onEnd(notes)}>Save notes</Button>
-            </DialogFooter>
-          </div>
-        )}
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-
-function ShadowShiftDialog({
-  application, restaurantName, onClose, onConfirm,
-}: {
-  application: JobApplication;
-  restaurantName: string;
-  onClose: () => void;
-  onConfirm: (details: ShadowShiftDetails) => void;
-}) {
-  const [date, setDate] = useState("");
-  const [time, setTime] = useState("");
-  const [instructions, setInstructions] = useState("Ask for the manager on duty when you arrive.");
-  const [dressCode, setDressCode] = useState("Black non-slip shoes, black pants, white collared shirt.");
-
-  const submit = () => {
-    if (!date || !time) return toast.error("Pick a date and time.");
-    onConfirm({ date, time, instructions, dressCode });
-  };
-
-  const name = application.firstName ?? application.name;
-
-  return (
-    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Invite {name} for a shadow shift</DialogTitle>
-          <p className="text-sm text-muted-foreground">They'll receive a text and email confirmation immediately.</p>
-        </DialogHeader>
-        <div className="grid gap-4 py-2">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="grid gap-1.5"><Label>Date</Label><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
-            <div className="grid gap-1.5"><Label>Time</Label><Input type="time" value={time} onChange={(e) => setTime(e.target.value)} /></div>
-          </div>
-          <div className="grid gap-1.5"><Label>Dress code</Label><Input value={dressCode} onChange={(e) => setDressCode(e.target.value)} /></div>
-          <div className="grid gap-1.5"><Label>Instructions</Label><Textarea rows={3} value={instructions} onChange={(e) => setInstructions(e.target.value)} /></div>
-          <div className="rounded-lg border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
-            Preview: "Congratulations {name}! We'd like to invite you for a shadow shift at {restaurantName}. {date && time ? `Please arrive on ${date} at ${time}. ` : ""}Dress code: {dressCode} {instructions} We look forward to meeting you!"
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button onClick={submit}>Send invite</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-
-function ApplicationSection({
-  title, subtitle, items, emptyText, renderActions, renderExtra, accent, compact,
-}: {
-  title: string;
-  subtitle?: string;
-  items: ReturnType<typeof useStore>["applications"];
-  emptyText: string;
-  renderActions: (a: ReturnType<typeof useStore>["applications"][number]) => React.ReactNode;
-  renderExtra?: (a: ReturnType<typeof useStore>["applications"][number]) => React.ReactNode;
-  accent?: "warn";
-  compact?: boolean;
-}) {
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between gap-2">
-          <div>
-            <CardTitle className="text-base">{title} ({items.length})</CardTitle>
-            {subtitle && <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>}
-          </div>
-          {accent === "warn" && items.length > 0 && (
-            <Badge className="bg-warning text-warning-foreground hover:bg-warning">{items.length} new</Badge>
-          )}
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {items.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{emptyText}</p>
-        ) : (
-          items.map((a) => <ApplicantCard key={a.id} a={a} actions={renderActions(a)} extra={renderExtra?.(a)} compact={compact} />)
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-
-function ApplicantCard({
-  a, actions, extra, compact,
-}: {
-  a: ReturnType<typeof useStore>["applications"][number];
-  actions: React.ReactNode;
-  extra?: React.ReactNode;
-  compact?: boolean;
-}) {
-  const fullName = a.firstName && a.lastName ? `${a.firstName} ${a.lastName}` : a.name;
-
-  return (
-    <div className="rounded-lg border border-border bg-background p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="font-semibold">{fullName}</p>
-            <StatusBadge status={a.status} />
-          </div>
-          {a.role && (
-            <p className="mt-0.5 text-sm text-muted-foreground">Applying for <span className="font-medium text-foreground">{a.role}</span></p>
-          )}
-          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-            {a.email && <a href={`mailto:${a.email}`} className="underline break-all">{a.email}</a>}
-            <a href={`tel:${a.phone}`} className="underline">{a.phone}</a>
-            <span>Applied {new Date(a.appliedAt).toLocaleDateString()}</span>
-            {a.source && <span>· via {a.source}</span>}
-          </div>
-        </div>
-      </div>
-
-      {!compact && (
-        <div className="mt-3 grid gap-3">
-          {(() => {
-            const hasLegacyAvail = a.weeklyAvailability
-              ? DAY_KEYS.some((d) => a.weeklyAvailability![d]?.kind !== "none")
-              : a.availabilityDays.length > 0;
-            if (!hasLegacyAvail) return null;
-            return (
-              <div className="rounded-lg border border-border bg-muted/30 p-3">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Availability</p>
-                <div className="mt-1.5 grid grid-cols-7 gap-1 text-center">
-                  {DAY_KEYS.map((d) => {
-                    const on = a.weeklyAvailability
-                      ? a.weeklyAvailability[d]?.kind !== "none"
-                      : a.availabilityDays.includes(d);
-                    return (
-                      <div
-                        key={d}
-                        className={`rounded border px-1 py-1 text-[10px] ${on ? "border-primary/30 bg-primary/15 text-primary" : "border-border bg-muted text-muted-foreground"}`}
-                      >
-                        <div className="font-semibold">{d}</div>
-                        <div>{on ? "✓" : "—"}</div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })()}
-          {(a.pitch || a.note) && (
-            <div className="rounded-lg border border-border bg-muted/30 p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Experience</p>
-              <p className="mt-1 text-sm italic text-foreground/90">"{a.pitch ?? a.note}"</p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {extra}
-
-      {actions && (
-        <div className="mt-3 flex flex-wrap justify-end gap-2">{actions}</div>
-      )}
-    </div>
-  );
-}
-
-function HireReviewDialog({
-  application, onClose, onConfirm,
-}: {
-  application: ReturnType<typeof useStore>["applications"][number];
-  onClose: () => void;
-  onConfirm: (overrides: Partial<Employee>) => void;
-}) {
-  const [firstName, setFirstName] = useState(application.firstName ?? application.name.split(" ")[0] ?? "");
-  const [lastName, setLastName] = useState(application.lastName ?? application.name.split(" ").slice(1).join(" ") ?? "");
-  const [email, setEmail] = useState(application.email ?? "");
-  const [phone, setPhone] = useState(application.phone);
-  const [role, setRole] = useState<Role>(application.role ?? "Server");
-  const [submitting, setSubmitting] = useState(false);
-  const { activeRoles, customRoles } = useStore();
-  const fohActive = fohRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r) || r === role);
-  const bohActive = bohRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r) || r === role);
-
-  const confirm = async () => {
-    if (!firstName.trim() || !lastName.trim()) return toast.error("Name required.");
-    setSubmitting(true);
-    await new Promise((r) => setTimeout(r, 500));
-    onConfirm({
-      firstName: firstName.trim(),
-      lastName: lastName.trim(),
-      email: email.trim(),
-      phone: phone.trim(),
-      primaryRole: role,
-      approvedRoles: [role],
-      weeklyAvailability: application.weeklyAvailability,
-    });
-  };
-
-  return (
-    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Confirm hire</DialogTitle>
-          <p className="text-sm text-muted-foreground">All info from the application is pre-filled. Review and edit anything if needed, then confirm.</p>
-        </DialogHeader>
-        <div className="grid gap-4 py-2 max-h-[60vh] overflow-y-auto pr-1">
-          <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-xs">
-            <p className="font-semibold text-primary">From application</p>
-            <p className="mt-1 text-muted-foreground">
-              Applied {new Date(application.appliedAt).toLocaleDateString()}
-              {application.source ? ` · via ${application.source}` : ""}
-              {application.availabilityHours ? ` · ${application.availabilityHours}` : ""}
-            </p>
-            {(application.pitch || application.note) && (
-              <p className="mt-2 italic text-foreground/90">"{application.pitch ?? application.note}"</p>
-            )}
-            {application.workExperience && application.workExperience.length > 0 && (
-              <div className="mt-2 space-y-1">
-                <p className="font-semibold text-primary">Work experience</p>
-                {application.workExperience.map((w, i) => (
-                  <div key={i} className="text-muted-foreground">
-                    {w.employer && w.position ? (
-                      <span>{w.employer} — {w.position}{w.duration ? ` · ${w.duration}` : ""}</span>
-                    ) : w.employer ? (
-                      <span>{w.employer}{w.duration ? ` · ${w.duration}` : ""}</span>
-                    ) : w.position ? (
-                      <span>{w.position}{w.duration ? ` · ${w.duration}` : ""}</span>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-            )}
-            {(() => {
-              const hasLegacyAvail = application.weeklyAvailability
-                ? DAY_KEYS.some((d) => application.weeklyAvailability![d]?.kind !== "none")
-                : application.availabilityDays.length > 0;
-              if (!hasLegacyAvail) return null;
-              return (
-                <div className="mt-2 grid grid-cols-7 gap-1 text-center">
-                  {DAY_KEYS.map((d) => {
-                    const on = application.weeklyAvailability
-                      ? application.weeklyAvailability[d]?.kind !== "none"
-                      : application.availabilityDays.includes(d);
-                    return (
-                      <div key={d} className={`rounded border px-1 py-0.5 text-[10px] ${on ? "border-primary/30 bg-primary/15 text-primary" : "border-border bg-muted text-muted-foreground"}`}>
-                        <div className="font-semibold">{d}</div>
-                        <div>{on ? "✓" : "—"}</div>
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })()}
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="grid gap-1.5"><Label>First name</Label><Input value={firstName} onChange={(e) => setFirstName(e.target.value)} /></div>
-            <div className="grid gap-1.5"><Label>Last name</Label><Input value={lastName} onChange={(e) => setLastName(e.target.value)} /></div>
-            <div className="grid gap-1.5"><Label>Email</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
-            <div className="grid gap-1.5"><Label>Phone</Label><PhoneInput value={phone} onChange={setPhone} /></div>
-          </div>
-          <div className="grid gap-1.5">
-            <Label>Position</Label>
-            <Select value={role} onValueChange={(v: Role) => setRole(v)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  <SelectLabel>Front of House</SelectLabel>
-                  {fohActive.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-                </SelectGroup>
-                <SelectSeparator />
-                <SelectGroup>
-                  <SelectLabel>Back of House</SelectLabel>
-                  {bohActive.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="rounded-lg border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
-            Availability from the application carries over automatically. Emergency contact details will be added by the employee from the welcome link.
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="ghost" onClick={onClose} disabled={submitting}>Cancel</Button>
-          <Button onClick={confirm} disabled={submitting}>
-            {submitting ? "Hiring…" : "Confirm hire"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function StatusBadge({ status }: { status: ApplicationStatus }) {
-  const map: Record<ApplicationStatus, string> = {
-    new: "bg-warning text-warning-foreground hover:bg-warning",
-    reviewing: "bg-secondary text-secondary-foreground hover:bg-secondary",
-    interview: "bg-primary text-primary-foreground hover:bg-primary",
-    hired: "bg-success text-success-foreground hover:bg-success",
-    rejected: "bg-destructive text-destructive-foreground hover:bg-destructive",
-  };
-  return <Badge className={map[status]}>{status}</Badge>;
-}
 
 function TimeOffTab() {
   const { timeOff, employees, resolveTimeOff } = useStore();

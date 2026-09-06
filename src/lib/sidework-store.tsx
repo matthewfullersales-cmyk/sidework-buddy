@@ -3,12 +3,9 @@ import { ROLE_COLORS, ROLES_ORDERED, BOH_ROLES_ORDERED, effectiveRoles } from "@
 import { formatTime12h } from "@/lib/utils";
 import {
   fetchOwnerPostings,
-  fetchOwnerApplications,
   insertPosting,
   updatePostingOpen,
   deletePosting,
-  updateApplication,
-  confirmApplicantSlot,
 } from "@/lib/hiring-supabase";
 import {
   fetchOwnerEmployees,
@@ -605,76 +602,12 @@ export interface JobPosting {
   open: boolean;
 }
 
-export type ApplicationStatus = "new" | "reviewing" | "interview" | "hired" | "rejected";
-export type ApplicationSource = "Walk-in" | "Instagram" | "Indeed" | "Friend" | "Google" | "Other";
-
-
-export type HiringStage =
-  | "new"
-  | "video_offered"
-  | "video_scheduled"
-  | "interviewed"
-  | "shadow_scheduled"
-  | "hired"
-  | "rejected";
-
 export type AvailabilityHours = "Mornings" | "Afternoons" | "Evenings" | "Open availability";
-
-export type InterviewType = "video" | "in_person" | "phone";
-
-export interface ShadowShiftDetails {
-  date: string;
-  time: string;
-  instructions: string;
-  dressCode?: string;
-}
 
 export interface WorkExperience {
   employer: string;
   position: string;
   duration: "Less than 6 months" | "6 months - 1 year" | "1 - 2 years" | "2 - 5 years" | "5+ years" | "";
-}
-
-export interface JobApplication {
-  id: string;
-  jobId?: string;
-  name: string;
-  firstName?: string;
-  lastName?: string;
-  email?: string;
-  phone: string;
-  role?: Role;
-  pitch?: string;
-  source?: ApplicationSource;
-  weeklyAvailability?: WeeklyAvailability;
-  availabilityDays: string[];
-  availabilityHours: AvailabilityHours;
-  note?: string;
-  appliedAt: string;
-  status: ApplicationStatus;
-  stage?: HiringStage;
-  verified: boolean;
-  
-  interviewSentAt?: string;
-  interviewNotes?: string;
-  interviewType?: InterviewType;
-  offeredSlots?: string[];
-  selectedSlot?: string;
-  shadowShift?: ShadowShiftDetails;
-  shadowConfirmedAt?: string | null;
-  shadowResponseNote?: string | null;
-  archived?: boolean;
-  hiredEmployeeId?: string;
-  workExperience?: WorkExperience[];
-  
-}
-
-export function getHiringStage(a: Pick<JobApplication, "stage" | "status">): HiringStage {
-  if (a.stage) return a.stage;
-  if (a.status === "hired") return "hired";
-  if (a.status === "rejected") return "rejected";
-  if (a.status === "interview") return "video_offered";
-  return "new";
 }
 
 export type TimeOffStatus = "pending" | "approved" | "denied";
@@ -739,7 +672,6 @@ interface Store {
   shifts: Shift[];
   trades: Trade[];
   jobs: JobPosting[];
-  applications: JobApplication[];
   timeOff: TimeOffRequest[];
   menu: MenuUpload | null;
   drinkMenu: MenuUpload | null;
@@ -842,18 +774,7 @@ interface Store {
   postJob: (data: Omit<JobPosting, "id" | "postedAt" | "open">) => void;
   toggleJobOpen: (id: string) => void;
   removeJob: (id: string) => void;
-  
-  setApplicationStatus: (id: string, status: ApplicationStatus) => void;
-  scheduleInterview: (id: string) => void;
-  setInterviewNotes: (id: string, notes: string) => void;
-  declineApplication: (id: string) => void;
-  reconsiderApplication: (id: string) => void;
-  hireApplication: (id: string, overrides?: Partial<Employee>) => string | null;
-  approveForInterview: (id: string, type: InterviewType, slots: string[]) => void;
-  applicantSelectSlot: (id: string, slot: string) => void;
-  completeInterview: (id: string, notes?: string) => void;
-  inviteShadowShift: (id: string, details: ShadowShiftDetails) => void;
-  requestTimeOff: (data: Omit<TimeOffRequest, "id" | "createdAt" | "status">) => void;
+    requestTimeOff: (data: Omit<TimeOffRequest, "id" | "createdAt" | "status">) => void;
   resolveTimeOff: (id: string, approved: boolean) => void;
   cancelTimeOff: (id: string) => Promise<void>;
 }
@@ -1148,11 +1069,6 @@ function seedJobs(): JobPosting[] {
   return [];
 }
 
-function seedApplications(): JobApplication[] {
-  return [];
-}
-
-
 const STORAGE_KEY = "sidework-store-v10";
 
 // Defensively strip any legacy "Porter" role from persisted data and remap to Busser.
@@ -1214,7 +1130,6 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     shifts: seedShifts(),
     trades: seedTrades(),
     jobs: seedJobs(),
-    applications: seedApplications(),
     timeOff: [] as TimeOffRequest[],
     menu: null as MenuUpload | null,
     drinkMenu: null as MenuUpload | null,
@@ -1262,7 +1177,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     }
   }, [state.customRoles]);
 
-  // Owner-scoped Supabase sync for the hiring pipeline (jobs + applications)
+  // Owner-scoped Supabase sync for the hiring pipeline (job postings)
   // AND the employee roster + restaurant hours (Wave A of scheduling).
   // Uses the "effective owner id" from AuthContext so both real owners and
   // hiring-managers (with can_manage_hiring granted for that owner) hydrate
@@ -1286,14 +1201,13 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     if (!hydrated || authLoading) return;
     let cancelled = false;
     if (!effectiveOwnerId) {
-      setState((s) => ({ ...s, jobs: [], applications: [], shifts: [], trades: [], timeOff: [] }));
+      setState((s) => ({ ...s, jobs: [], shifts: [], trades: [], timeOff: [] }));
       return () => { cancelled = true; };
     }
     (async () => {
       try {
-        const [postings, apps, remoteEmployeesInitial, remoteHours, remoteShiftsInitial, remoteTimeOffInitial, remoteTradesInitial, remoteBusinessInfo, remoteTrainingProgress, menuBankMeta, remoteMenuTestConfig, remoteRoleConfig] = await Promise.all([
+        const [postings, remoteEmployeesInitial, remoteHours, remoteShiftsInitial, remoteTimeOffInitial, remoteTradesInitial, remoteBusinessInfo, remoteTrainingProgress, menuBankMeta, remoteMenuTestConfig, remoteRoleConfig] = await Promise.all([
           fetchOwnerPostings(effectiveOwnerId),
-          fetchOwnerApplications(effectiveOwnerId),
           fetchOwnerEmployees(effectiveOwnerId),
           fetchRestaurantHours(effectiveOwnerId),
           fetchOwnerShifts(effectiveOwnerId),
@@ -1395,7 +1309,6 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
         setState((s) => ({
           ...s,
           jobs: postings,
-          applications: apps,
           // A successful fetch is authoritative, including an empty result:
           // [] means "this owner has none," not "no data — keep the cache."
           // On failure we never get here (the Promise.all throws first).
@@ -1451,7 +1364,6 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           employees: [me],
           currentUser: { type: "employee", id: employeeCtxEmployeeId },
           jobs: [],
-          applications: [],
         }));
         if (isPendingJoin(me)) return;
 
@@ -1501,7 +1413,6 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           timeOff: myTimeOff,
           // Owner-only surfaces cleared for employee sessions
           jobs: [],
-          applications: [],
           menuBankMeta,
           menuTestConfig: normalizeMenuTestConfig(remoteMenuTestConfig),
         }));
@@ -2036,185 +1947,6 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
         toast.error("Couldn't delete job.");
         setState((s) => ({ ...s, jobs: prev }));
       });
-    },
-    setApplicationStatus: (id, status) => {
-      setState((s) => ({ ...s, applications: s.applications.map((a) => (a.id === id ? { ...a, status } : a)) }));
-      updateApplication(id, { status }).catch((e) => console.error("[setApplicationStatus]", e));
-    },
-    scheduleInterview: (id) => {
-      const patch = { status: "interview" as ApplicationStatus, interviewSentAt: new Date().toISOString(), archived: false };
-      setState((s) => ({
-        ...s,
-        applications: s.applications.map((a) => (a.id === id ? { ...a, ...patch } : a)),
-      }));
-      updateApplication(id, patch).catch((e) => console.error("[scheduleInterview]", e));
-    },
-    setInterviewNotes: (id, notes) => {
-      setState((s) => ({
-        ...s,
-        applications: s.applications.map((a) => (a.id === id ? { ...a, interviewNotes: notes } : a)),
-      }));
-      updateApplication(id, { interviewNotes: notes }).catch((e) => console.error("[setInterviewNotes]", e));
-    },
-    declineApplication: (id) => {
-      const patch = { status: "rejected" as ApplicationStatus, stage: "rejected" as HiringStage, archived: true };
-      setState((s) => ({
-        ...s,
-        applications: s.applications.map((a) => (a.id === id ? { ...a, ...patch } : a)),
-      }));
-      updateApplication(id, patch).catch((e) => console.error("[declineApplication]", e));
-    },
-    reconsiderApplication: (id) => {
-      const patch = { status: "new" as ApplicationStatus, stage: "new" as HiringStage, archived: false, hiredEmployeeId: undefined };
-      setState((s) => ({
-        ...s,
-        applications: s.applications.map((a) => (a.id === id ? { ...a, ...patch } : a)),
-      }));
-      updateApplication(id, patch).catch((e) => console.error("[reconsiderApplication]", e));
-    },
-    hireApplication: (id, overrides) => {
-      let createdId: string | null = null;
-      let createdEmployee: Employee | null = null;
-      setState((s) => {
-        const a = s.applications.find((x) => x.id === id);
-        if (!a) return s;
-        const empId = newUuid();
-        createdId = empId;
-        const first = overrides?.firstName ?? a.firstName ?? a.name.split(" ")[0] ?? "";
-        const last = overrides?.lastName ?? a.lastName ?? a.name.split(" ").slice(1).join(" ") ?? "";
-        const role: Role = overrides?.primaryRole ?? a.role ?? "Server";
-        const employee: Employee = {
-          id: empId,
-          name: `${first} ${last}`.trim() || a.name,
-          firstName: first,
-          lastName: last,
-          email: overrides?.email ?? a.email ?? "",
-          phone: overrides?.phone ?? a.phone,
-          primaryRole: role,
-          approvedRoles: overrides?.approvedRoles ?? [role],
-          autoApproveRoles: overrides?.autoApproveRoles ?? [],
-          availability: overrides?.availability ?? a.availabilityHours ?? "",
-          weeklyAvailability: overrides?.weeklyAvailability ?? a.weeklyAvailability ?? defaultWeeklyAvailability(),
-          emergencyContact: overrides?.emergencyContact,
-          invitedAt: new Date().toISOString().slice(0, 10),
-          onboardingStarted: false,
-          personalInfoComplete: false,
-          progress: [],
-          hiredFromApplicationId: a.id,
-          applicationPitch: a.pitch ?? a.note,
-          appliedAt: a.appliedAt,
-          workExperience: a.workExperience,
-        };
-        createdEmployee = employee;
-        const restaurantName = s.restaurantProfile?.name ?? "86Paper";
-        return {
-          ...s,
-          employees: [...s.employees, employee],
-          applications: s.applications.map((x) =>
-            x.id === id ? { ...x, status: "hired", stage: "hired", archived: true, hiredEmployeeId: empId } : x,
-          ),
-          notifications: [
-            // The training-assignment notification is gone (training is parked).
-            // The welcome line is kept for its non-training meaning — a new hire
-            // was added and their signup link went out — reworded accordingly.
-            {
-              id: uid("n"),
-              type: "training_passed",
-              message: `Welcome to ${restaurantName}! ${employee.name} has been added to 86Paper. Welcome link sent so they can finish setting up their profile.`,
-              employeeId: empId,
-              createdAt: new Date().toISOString(),
-              read: false,
-            },
-            ...s.notifications,
-          ],
-
-        };
-      });
-      if (createdId) {
-        // Persist application → hired
-        updateApplication(id, {
-          status: "hired",
-          stage: "hired",
-          archived: true,
-          hiredEmployeeId: createdId,
-        }).catch((e) => console.error("[hireApplication:updateApp]", e));
-        // Persist the new employee row
-        const oid = ownerIdRef.current;
-        if (oid && createdEmployee) {
-          insertEmployee(oid, createdEmployee, { localId: createdId }).catch((e) =>
-            console.error("[hireApplication:insertEmployee]", e),
-          );
-        }
-      }
-      return createdId;
-    },
-    approveForInterview: (id, type, slots) => {
-      const patch = {
-        status: "interview" as ApplicationStatus,
-        stage: "video_offered" as HiringStage,
-        interviewType: type,
-        offeredSlots: slots,
-        interviewSentAt: new Date().toISOString(),
-        archived: false,
-      };
-      setState((s) => {
-        const label = type === "video" ? "Video interview" : type === "in_person" ? "In-person interview" : "Phone interview";
-        return {
-          ...s,
-          applications: s.applications.map((a) => (a.id === id ? { ...a, ...patch } : a)),
-          notifications: [
-            {
-              id: uid("n"),
-              type: "training_passed",
-              message: `${label} invite sent — ${slots.length} time slot${slots.length === 1 ? "" : "s"} offered.`,
-              createdAt: new Date().toISOString(),
-              read: false,
-            },
-            ...s.notifications,
-          ],
-        };
-      });
-      updateApplication(id, patch).catch((e) => console.error("[approveForInterview]", e));
-    },
-    applicantSelectSlot: (id, slot) => {
-      const patch = { stage: "video_scheduled" as HiringStage, selectedSlot: slot };
-      setState((s) => {
-        const app = s.applications.find((a) => a.id === id);
-        return {
-          ...s,
-          applications: s.applications.map((a) => (a.id === id ? { ...a, ...patch } : a)),
-          notifications: [
-            {
-              id: uid("n"),
-              type: "training_passed",
-              message: `${app?.firstName ?? app?.name ?? "Applicant"} confirmed ${app?.interviewType === "in_person" ? "in-person" : app?.interviewType === "phone" ? "phone" : "video"} interview for ${new Date(slot).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}.`,
-              createdAt: new Date().toISOString(),
-              read: false,
-            },
-            ...s.notifications,
-          ],
-        };
-      });
-      confirmApplicantSlot(id, slot).catch((e) => console.error("[applicantSelectSlot]", e));
-    },
-    completeInterview: (id, notes) => {
-      setState((s) => ({
-        ...s,
-        applications: s.applications.map((a) =>
-          a.id === id ? { ...a, stage: "interviewed", interviewNotes: notes ?? a.interviewNotes } : a,
-        ),
-      }));
-      const patch: Partial<JobApplication> = { stage: "interviewed" };
-      if (notes !== undefined) patch.interviewNotes = notes;
-      updateApplication(id, patch).catch((e) => console.error("[completeInterview]", e));
-    },
-    inviteShadowShift: (id, details) => {
-      const patch = { stage: "shadow_scheduled" as HiringStage, shadowShift: details };
-      setState((s) => ({
-        ...s,
-        applications: s.applications.map((a) => (a.id === id ? { ...a, ...patch } : a)),
-      }));
-      updateApplication(id, patch).catch((e) => console.error("[inviteShadowShift]", e));
     },
     requestTimeOff: (data) => {
       const tempId = uid("to");
