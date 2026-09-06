@@ -232,47 +232,6 @@ export async function deletePosting(id: string): Promise<void> {
   if (error) throw error;
 }
 
-/** Public: submit an application. owner_id is force-set server-side by trigger. */
-export async function insertApplication(
-  data: Omit<JobApplication, "id" | "appliedAt" | "status">,
-): Promise<JobApplication> {
-  if (!data.jobId) throw new Error("jobId is required to submit an application");
-  const id =
-    typeof crypto !== "undefined" && "randomUUID" in crypto
-      ? crypto.randomUUID()
-      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  const appliedAt = new Date().toISOString();
-  const { error } = await supabase.from("job_applications").insert({
-    id,
-    owner_id: "00000000-0000-0000-0000-000000000000",
-    job_id: data.jobId,
-    name: data.name,
-    first_name: data.firstName ?? null,
-    last_name: data.lastName ?? null,
-    email: data.email ?? null,
-    phone: data.phone,
-    role: data.role ?? null,
-    pitch: data.pitch ?? null,
-    source: data.source ?? null,
-    weekly_availability: (data.weeklyAvailability ?? null) as never,
-    availability_days: data.availabilityDays ?? [],
-    availability_hours: data.availabilityHours,
-    note: data.note ?? null,
-    verified: data.verified,
-    
-    work_experience: (data.workExperience ?? null) as never,
-    status: "new",
-    applied_at: appliedAt,
-  });
-  if (error) throw error;
-  return {
-    ...data,
-    id,
-    appliedAt,
-    status: "new",
-    verified: data.verified,
-  } as JobApplication;
-}
 
 
 /** Owner-scoped patch. Maps camelCase fields to snake_case columns. */
