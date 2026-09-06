@@ -247,6 +247,26 @@ export async function saveBusinessInfo(ownerId: string, info: unknown): Promise<
   if (error) throw error;
 }
 
+/* ---------------- Restaurant profile (jsonb on profiles) ---------------- */
+
+export async function fetchRestaurantProfile(ownerId: string): Promise<unknown | null> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("restaurant_profile" as never)
+    .eq("id", ownerId)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as { restaurant_profile: unknown } | null)?.restaurant_profile ?? null;
+}
+
+export async function saveRestaurantProfile(ownerId: string, profile: unknown | null): Promise<void> {
+  const { error } = await supabase
+    .from("profiles")
+    .update({ restaurant_profile: profile as never } as never)
+    .eq("id", ownerId);
+  if (error) throw error;
+}
+
 /* ---------------- Role configuration (jsonb on profiles) ---------------- */
 
 /**

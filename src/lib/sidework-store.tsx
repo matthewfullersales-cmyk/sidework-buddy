@@ -21,6 +21,8 @@ import {
   saveRestaurantHours,
   fetchBusinessInfo,
   saveBusinessInfo,
+  fetchRestaurantProfile,
+  saveRestaurantProfile,
   fetchMenuTestConfig,
   fetchMenuTestConfigViaRpc,
   saveMenuTestConfig,
