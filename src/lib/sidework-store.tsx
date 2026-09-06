@@ -3,12 +3,9 @@ import { ROLE_COLORS, ROLES_ORDERED, BOH_ROLES_ORDERED, effectiveRoles } from "@
 import { formatTime12h } from "@/lib/utils";
 import {
   fetchOwnerPostings,
-  fetchOwnerApplications,
   insertPosting,
   updatePostingOpen,
   deletePosting,
-  updateApplication,
-  confirmApplicantSlot,
 } from "@/lib/hiring-supabase";
 import {
   fetchOwnerEmployees,
@@ -739,7 +736,6 @@ interface Store {
   shifts: Shift[];
   trades: Trade[];
   jobs: JobPosting[];
-  applications: JobApplication[];
   timeOff: TimeOffRequest[];
   menu: MenuUpload | null;
   drinkMenu: MenuUpload | null;
@@ -1148,11 +1144,6 @@ function seedJobs(): JobPosting[] {
   return [];
 }
 
-function seedApplications(): JobApplication[] {
-  return [];
-}
-
-
 const STORAGE_KEY = "sidework-store-v10";
 
 // Defensively strip any legacy "Porter" role from persisted data and remap to Busser.
@@ -1214,7 +1205,6 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     shifts: seedShifts(),
     trades: seedTrades(),
     jobs: seedJobs(),
-    applications: seedApplications(),
     timeOff: [] as TimeOffRequest[],
     menu: null as MenuUpload | null,
     drinkMenu: null as MenuUpload | null,
@@ -1262,7 +1252,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     }
   }, [state.customRoles]);
 
-  // Owner-scoped Supabase sync for the hiring pipeline (jobs + applications)
+  // Owner-scoped Supabase sync for the hiring pipeline (job postings)
   // AND the employee roster + restaurant hours (Wave A of scheduling).
   // Uses the "effective owner id" from AuthContext so both real owners and
   // hiring-managers (with can_manage_hiring granted for that owner) hydrate
@@ -1286,14 +1276,13 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     if (!hydrated || authLoading) return;
     let cancelled = false;
     if (!effectiveOwnerId) {
-      setState((s) => ({ ...s, jobs: [], applications: [], shifts: [], trades: [], timeOff: [] }));
+      setState((s) => ({ ...s, jobs: [], shifts: [], trades: [], timeOff: [] }));
       return () => { cancelled = true; };
     }
     (async () => {
       try {
-        const [postings, apps, remoteEmployeesInitial, remoteHours, remoteShiftsInitial, remoteTimeOffInitial, remoteTradesInitial, remoteBusinessInfo, remoteTrainingProgress, menuBankMeta, remoteMenuTestConfig, remoteRoleConfig] = await Promise.all([
+        const [postings, remoteEmployeesInitial, remoteHours, remoteShiftsInitial, remoteTimeOffInitial, remoteTradesInitial, remoteBusinessInfo, remoteTrainingProgress, menuBankMeta, remoteMenuTestConfig, remoteRoleConfig] = await Promise.all([
           fetchOwnerPostings(effectiveOwnerId),
-          fetchOwnerApplications(effectiveOwnerId),
           fetchOwnerEmployees(effectiveOwnerId),
           fetchRestaurantHours(effectiveOwnerId),
           fetchOwnerShifts(effectiveOwnerId),
@@ -1395,7 +1384,6 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
         setState((s) => ({
           ...s,
           jobs: postings,
-          applications: apps,
           // A successful fetch is authoritative, including an empty result:
           // [] means "this owner has none," not "no data — keep the cache."
           // On failure we never get here (the Promise.all throws first).
@@ -1451,7 +1439,6 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           employees: [me],
           currentUser: { type: "employee", id: employeeCtxEmployeeId },
           jobs: [],
-          applications: [],
         }));
         if (isPendingJoin(me)) return;
 
@@ -1501,7 +1488,6 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           timeOff: myTimeOff,
           // Owner-only surfaces cleared for employee sessions
           jobs: [],
-          applications: [],
           menuBankMeta,
           menuTestConfig: normalizeMenuTestConfig(remoteMenuTestConfig),
         }));
