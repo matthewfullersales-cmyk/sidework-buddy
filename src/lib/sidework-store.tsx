@@ -1299,7 +1299,24 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           // Never configured and nothing local: leave state as is.
         }
 
-
+        // Restaurant profile. The database is authoritative whenever it has
+        // been saved at all. A device that already completed setup locally
+        // should push its profile up once, making the column non-null so every
+        // later load takes the server branch.
+        let profilePatch: Partial<typeof state> = {};
+        if (remoteRestaurantProfile && typeof remoteRestaurantProfile === "object" && "name" in remoteRestaurantProfile) {
+          // Server has a real profile — authoritative, even if it differs from what's cached locally.
+          profilePatch = { restaurantProfile: remoteRestaurantProfile as RestaurantProfile, setupCompleted: true };
+        } else if (local.restaurantProfile && local.setupCompleted && acting === "owner") {
+          // Never configured in the cloud, but this device already completed setup
+          // locally — push it up once. The save makes the column non-null, so every
+          // later load takes the branch above — this stays idempotent.
+          profilePatch = { restaurantProfile: local.restaurantProfile, setupCompleted: true };
+          saveRestaurantProfile(effectiveOwnerId, local.restaurantProfile).catch((e) =>
+            console.error("[restaurant-profile-bootstrap] failed", e),
+          );
+        }
+        // Never configured anywhere: leave state as is (setupCompleted stays false).
 
         // Merge cloud-stored training progress into each employee. Additive:
         // if a given employee has no cloud rows, fall back to whatever the
