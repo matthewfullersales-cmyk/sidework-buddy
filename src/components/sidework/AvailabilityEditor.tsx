@@ -490,3 +490,72 @@ export function BusinessInfoEditor({
     </div>
   );
 }
+
+const RESTAURANT_TYPE_OPTIONS = [
+  "Fine Dining", "Casual Dining", "Fast Casual", "Bar/Nightlife", "Cafe", "Food Truck",
+];
+
+export function RestaurantProfileEditor({
+  value,
+  onChange,
+}: {
+  value: { name: string; type: string };
+  onChange: (next: { name: string; type: string }) => void;
+}) {
+  const [draft, setDraft] = useState(value);
+  const [lastSyncedKey, setLastSyncedKey] = useState<string>(JSON.stringify(value));
+  const currentKey = JSON.stringify(value);
+  if (currentKey !== lastSyncedKey) {
+    setDraft(value);
+    setLastSyncedKey(currentKey);
+  }
+  const dirty = JSON.stringify(draft) !== JSON.stringify(value);
+
+  const isCustomType = draft.type !== "" && !RESTAURANT_TYPE_OPTIONS.includes(draft.type);
+  const selectValue = isCustomType ? "Other" : draft.type;
+
+  const save = () => {
+    onChange({ name: draft.name.trim(), type: draft.type.trim() });
+  };
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Restaurant name</Label>
+        <Input
+          className="mt-1"
+          placeholder="Your Restaurant"
+          value={draft.name}
+          onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
+          aria-label="Restaurant name"
+        />
+      </div>
+      <div>
+        <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Restaurant type</Label>
+        <Select
+          value={selectValue}
+          onValueChange={(v) => setDraft((d) => ({ ...d, type: v === "Other" ? (isCustomType ? d.type : "") : v }))}
+        >
+          <SelectTrigger className="mt-1"><SelectValue placeholder="Choose a type" /></SelectTrigger>
+          <SelectContent>
+            {RESTAURANT_TYPE_OPTIONS.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+            <SelectItem value="Other">Other</SelectItem>
+          </SelectContent>
+        </Select>
+        {selectValue === "Other" && (
+          <Input
+            className="mt-2"
+            placeholder="Type your own"
+            value={isCustomType ? draft.type : ""}
+            onChange={(e) => setDraft((d) => ({ ...d, type: e.target.value }))}
+            aria-label="Custom restaurant type"
+          />
+        )}
+      </div>
+      <div className="flex items-center justify-end gap-2">
+        {dirty && <span className="text-xs text-muted-foreground">Unsaved changes</span>}
+        <Button type="button" onClick={save} disabled={!dirty}>Save restaurant profile</Button>
+      </div>
+    </div>
+  );
+}
