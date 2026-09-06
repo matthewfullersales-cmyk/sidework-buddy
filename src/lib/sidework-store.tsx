@@ -2059,8 +2059,14 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           setupCompleted: true,
         };
       });
+      const oid = ownerIdRef.current;
+      if (oid) saveRestaurantProfile(oid, { ...profile, completedAt: stamp }).catch((e) => console.error("[completeSetup:save]", e));
     },
-    resetSetup: () => setState((s) => ({ ...s, setupCompleted: false, restaurantProfile: null })),
+    resetSetup: () => {
+      setState((s) => ({ ...s, setupCompleted: false, restaurantProfile: null }));
+      const oid = ownerIdRef.current;
+      if (oid) saveRestaurantProfile(oid, null).catch((e) => console.error("[resetSetup:save]", e));
+    },
     markNotificationsRead: () =>
       setState((s) => ({ ...s, notifications: s.notifications.map((n) => ({ ...n, read: true })) })),
   };
