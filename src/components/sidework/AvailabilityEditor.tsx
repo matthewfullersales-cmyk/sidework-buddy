@@ -511,7 +511,8 @@ export function RestaurantProfileEditor({
   }
   const dirty = JSON.stringify(draft) !== JSON.stringify(value);
 
-  const isCustomType = draft.type !== "" && !RESTAURANT_TYPE_OPTIONS.includes(draft.type);
+  const [forcedOther, setForcedOther] = useState(false);
+  const isCustomType = forcedOther || (draft.type !== "" && !RESTAURANT_TYPE_OPTIONS.includes(draft.type));
   const selectValue = isCustomType ? "Other" : draft.type;
 
   const save = () => {
@@ -534,7 +535,14 @@ export function RestaurantProfileEditor({
         <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Restaurant type</Label>
         <Select
           value={selectValue}
-          onValueChange={(v) => setDraft((d) => ({ ...d, type: v === "Other" ? (isCustomType ? d.type : "") : v }))}
+          onValueChange={(v) => {
+            if (v === "Other") {
+              setForcedOther(true);
+            } else {
+              setForcedOther(false);
+              setDraft((d) => ({ ...d, type: v }));
+            }
+          }}
         >
           <SelectTrigger className="mt-1"><SelectValue placeholder="Choose a type" /></SelectTrigger>
           <SelectContent>
@@ -546,7 +554,7 @@ export function RestaurantProfileEditor({
           <Input
             className="mt-2"
             placeholder="Type your own"
-            value={isCustomType ? draft.type : ""}
+            value={draft.type}
             onChange={(e) => setDraft((d) => ({ ...d, type: e.target.value }))}
             aria-label="Custom restaurant type"
           />
