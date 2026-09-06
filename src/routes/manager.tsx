@@ -150,7 +150,7 @@ function ManagerTabs({ tab, setTab }: { tab: string; setTab: (v: string) => void
       <TabsContent value="trades"><TradesTab /></TabsContent>
       <TabsContent value="jobs"><JobsTab /></TabsContent>
       <TabsContent value="timeoff"><TimeOffTab /></TabsContent>
-      <TabsContent value="settings"><SettingsTab onOpenSetup={onOpenSetup} /></TabsContent>
+      <TabsContent value="settings"><SettingsTab /></TabsContent>
     </Tabs>
   );
 }
@@ -1390,27 +1390,23 @@ function RolesCard() {
   );
 }
 
-function SettingsTab({ onOpenSetup }: { onOpenSetup: () => void }) {
-  const { setupCompleted, restaurantProfile, resetSetup, restaurantHours, updateRestaurantDay, mealPeriods, updateMealPeriod, businessInfo, setBusinessInfo } = useStore();
+function SettingsTab() {
+  const { restaurantProfile, setRestaurantProfile, restaurantHours, updateRestaurantDay, mealPeriods, updateMealPeriod, businessInfo, setBusinessInfo } = useStore();
   const configured = hoursConfigured(restaurantHours, mealPeriods);
 
 
   return (
     <div className="space-y-4">
       <Card>
-        <CardHeader><CardTitle className="text-base">Restaurant Setup</CardTitle></CardHeader>
-        <CardContent className="space-y-4">
-          {setupCompleted ? (
-            <>
-              <p className="text-sm text-muted-foreground">Setup completed for <span className="font-medium text-foreground">{restaurantProfile?.name ?? "your restaurant"}</span>.</p>
-              <Button variant="outline" onClick={() => { if (window.confirm("Redo setup? This will reset your profile.")) { resetSetup(); onOpenSetup(); } }}>Redo restaurant setup</Button>
-            </>
-          ) : (
-            <>
-              <p className="text-sm text-muted-foreground">Your restaurant profile is incomplete. Finish setup to get your restaurant running.</p>
-              <Button onClick={onOpenSetup}>Complete your setup</Button>
-            </>
-          )}
+        <CardHeader>
+          <CardTitle className="text-base">Restaurant profile</CardTitle>
+          <p className="mt-1 text-xs text-muted-foreground">Your restaurant's name and type. Shown on your dashboard and public-facing pages.</p>
+        </CardHeader>
+        <CardContent>
+          <RestaurantProfileEditor
+            value={{ name: restaurantProfile?.name ?? "", type: restaurantProfile?.type ?? "" }}
+            onChange={setRestaurantProfile}
+          />
         </CardContent>
       </Card>
       {!configured && (
@@ -1454,7 +1450,7 @@ function SettingsTab({ onOpenSetup }: { onOpenSetup: () => void }) {
       <InterviewLengthCard />
       <ShadowPacketCard />
       <RolesCard />
-      {setupCompleted && <StaffOnboardingCard />}
+      <StaffOnboardingCard />
     </div>
   );
 }
