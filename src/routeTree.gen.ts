@@ -22,13 +22,9 @@ import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as TermsRouteImport } from './routes/terms'
-import { Route as HiredIdRouteImport } from './routes/hired.$id'
-import { Route as InterviewIdRouteImport } from './routes/interview.$id'
 import { Route as JoinSlugRouteImport } from './routes/join.$slug'
-import { Route as ShadowIdRouteImport } from './routes/shadow.$id'
 import { Route as StaffInviteTokenRouteImport } from './routes/staff-invite.$token'
 import { Route as ApiPublicStripeWebhookRouteImport } from './routes/api/public/stripe-webhook'
-import { Route as InterviewIdHostRouteImport } from './routes/interview.$id.host'
 import { Route as InterviewTTokenRouteImport } from './routes/interview.t.$token'
 import { Route as ShadowTTokenRouteImport } from './routes/shadow.t.$token'
 
@@ -97,24 +93,9 @@ const TermsRoute = TermsRouteImport.update({
   path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
-const HiredIdRoute = HiredIdRouteImport.update({
-  id: '/hired/$id',
-  path: '/hired/$id',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const InterviewIdRoute = InterviewIdRouteImport.update({
-  id: '/interview/$id',
-  path: '/interview/$id',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const JoinSlugRoute = JoinSlugRouteImport.update({
   id: '/join/$slug',
   path: '/join/$slug',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ShadowIdRoute = ShadowIdRouteImport.update({
-  id: '/shadow/$id',
-  path: '/shadow/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
 const StaffInviteTokenRoute = StaffInviteTokenRouteImport.update({
@@ -126,11 +107,6 @@ const ApiPublicStripeWebhookRoute = ApiPublicStripeWebhookRouteImport.update({
   id: '/api/public/stripe-webhook',
   path: '/api/public/stripe-webhook',
   getParentRoute: () => rootRouteImport,
-} as any)
-const InterviewIdHostRoute = InterviewIdHostRouteImport.update({
-  id: '/host',
-  path: '/host',
-  getParentRoute: () => InterviewIdRoute,
 } as any)
 const InterviewTTokenRoute = InterviewTTokenRouteImport.update({
   id: '/interview/t/$token',
@@ -157,13 +133,9 @@ export interface FileRoutesByFullPath {
   '/privacy': typeof PrivacyRoute
   '/signup': typeof SignupRoute
   '/terms': typeof TermsRoute
-  '/hired/$id': typeof HiredIdRoute
-  '/interview/$id': typeof InterviewIdRouteWithChildren
   '/join/$slug': typeof JoinSlugRoute
-  '/shadow/$id': typeof ShadowIdRoute
   '/staff-invite/$token': typeof StaffInviteTokenRoute
   '/api/public/stripe-webhook': typeof ApiPublicStripeWebhookRoute
-  '/interview/$id/host': typeof InterviewIdHostRoute
   '/interview/t/$token': typeof InterviewTTokenRoute
   '/shadow/t/$token': typeof ShadowTTokenRoute
 }
@@ -181,13 +153,9 @@ export interface FileRoutesByTo {
   '/privacy': typeof PrivacyRoute
   '/signup': typeof SignupRoute
   '/terms': typeof TermsRoute
-  '/hired/$id': typeof HiredIdRoute
-  '/interview/$id': typeof InterviewIdRouteWithChildren
   '/join/$slug': typeof JoinSlugRoute
-  '/shadow/$id': typeof ShadowIdRoute
   '/staff-invite/$token': typeof StaffInviteTokenRoute
   '/api/public/stripe-webhook': typeof ApiPublicStripeWebhookRoute
-  '/interview/$id/host': typeof InterviewIdHostRoute
   '/interview/t/$token': typeof InterviewTTokenRoute
   '/shadow/t/$token': typeof ShadowTTokenRoute
 }
@@ -206,13 +174,9 @@ export interface FileRoutesById {
   '/privacy': typeof PrivacyRoute
   '/signup': typeof SignupRoute
   '/terms': typeof TermsRoute
-  '/hired/$id': typeof HiredIdRoute
-  '/interview/$id': typeof InterviewIdRouteWithChildren
   '/join/$slug': typeof JoinSlugRoute
-  '/shadow/$id': typeof ShadowIdRoute
   '/staff-invite/$token': typeof StaffInviteTokenRoute
   '/api/public/stripe-webhook': typeof ApiPublicStripeWebhookRoute
-  '/interview/$id/host': typeof InterviewIdHostRoute
   '/interview/t/$token': typeof InterviewTTokenRoute
   '/shadow/t/$token': typeof ShadowTTokenRoute
 }
@@ -232,13 +196,9 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/signup'
     | '/terms'
-    | '/hired/$id'
-    | '/interview/$id'
     | '/join/$slug'
-    | '/shadow/$id'
     | '/staff-invite/$token'
     | '/api/public/stripe-webhook'
-    | '/interview/$id/host'
     | '/interview/t/$token'
     | '/shadow/t/$token'
   fileRoutesByTo: FileRoutesByTo
@@ -256,13 +216,9 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/signup'
     | '/terms'
-    | '/hired/$id'
-    | '/interview/$id'
     | '/join/$slug'
-    | '/shadow/$id'
     | '/staff-invite/$token'
     | '/api/public/stripe-webhook'
-    | '/interview/$id/host'
     | '/interview/t/$token'
     | '/shadow/t/$token'
   id:
@@ -280,13 +236,9 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/signup'
     | '/terms'
-    | '/hired/$id'
-    | '/interview/$id'
     | '/join/$slug'
-    | '/shadow/$id'
     | '/staff-invite/$token'
     | '/api/public/stripe-webhook'
-    | '/interview/$id/host'
     | '/interview/t/$token'
     | '/shadow/t/$token'
   fileRoutesById: FileRoutesById
@@ -305,10 +257,7 @@ export interface RootRouteChildren {
   PrivacyRoute: typeof PrivacyRoute
   SignupRoute: typeof SignupRoute
   TermsRoute: typeof TermsRoute
-  HiredIdRoute: typeof HiredIdRoute
-  InterviewIdRoute: typeof InterviewIdRouteWithChildren
   JoinSlugRoute: typeof JoinSlugRoute
-  ShadowIdRoute: typeof ShadowIdRoute
   StaffInviteTokenRoute: typeof StaffInviteTokenRoute
   ApiPublicStripeWebhookRoute: typeof ApiPublicStripeWebhookRoute
   InterviewTTokenRoute: typeof InterviewTTokenRoute
@@ -408,32 +357,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/hired/$id': {
-      id: '/hired/$id'
-      path: '/hired/$id'
-      fullPath: '/hired/$id'
-      preLoaderRoute: typeof HiredIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/interview/$id': {
-      id: '/interview/$id'
-      path: '/interview/$id'
-      fullPath: '/interview/$id'
-      preLoaderRoute: typeof InterviewIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/join/$slug': {
       id: '/join/$slug'
       path: '/join/$slug'
       fullPath: '/join/$slug'
       preLoaderRoute: typeof JoinSlugRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/shadow/$id': {
-      id: '/shadow/$id'
-      path: '/shadow/$id'
-      fullPath: '/shadow/$id'
-      preLoaderRoute: typeof ShadowIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/staff-invite/$token': {
@@ -449,13 +377,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/public/stripe-webhook'
       preLoaderRoute: typeof ApiPublicStripeWebhookRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/interview/$id/host': {
-      id: '/interview/$id/host'
-      path: '/host'
-      fullPath: '/interview/$id/host'
-      preLoaderRoute: typeof InterviewIdHostRouteImport
-      parentRoute: typeof InterviewIdRoute
     }
     '/interview/t/$token': {
       id: '/interview/t/$token'
@@ -474,18 +395,6 @@ declare module '@tanstack/react-router' {
   }
 }
 
-interface InterviewIdRouteChildren {
-  InterviewIdHostRoute: typeof InterviewIdHostRoute
-}
-
-const InterviewIdRouteChildren: InterviewIdRouteChildren = {
-  InterviewIdHostRoute: InterviewIdHostRoute,
-}
-
-const InterviewIdRouteWithChildren = InterviewIdRoute._addFileChildren(
-  InterviewIdRouteChildren,
-)
-
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
@@ -500,10 +409,7 @@ const rootRouteChildren: RootRouteChildren = {
   PrivacyRoute: PrivacyRoute,
   SignupRoute: SignupRoute,
   TermsRoute: TermsRoute,
-  HiredIdRoute: HiredIdRoute,
-  InterviewIdRoute: InterviewIdRouteWithChildren,
   JoinSlugRoute: JoinSlugRoute,
-  ShadowIdRoute: ShadowIdRoute,
   StaffInviteTokenRoute: StaffInviteTokenRoute,
   ApiPublicStripeWebhookRoute: ApiPublicStripeWebhookRoute,
   InterviewTTokenRoute: InterviewTTokenRoute,

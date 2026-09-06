@@ -36,7 +36,6 @@ import { PhoneInput } from "@/components/ui/phone-input";
 import { copyLinkWithToast } from "@/lib/copy-to-clipboard";
 import { sendStaffInvite } from "@/lib/staff-invite.functions";
 import { loadMyJoinSlug } from "@/lib/restaurant-slug";
-import { sendApplicantNotification } from "@/lib/applicant-notifications.functions";
 import { notifyTimeOffResolved, notifyScheduleChanged } from "@/lib/notifications.functions";
 
 import { AvailabilityEditor, RestaurantHoursEditor, MealPeriodsEditor, BusinessInfoEditor } from "@/components/sidework/AvailabilityEditor";
@@ -50,7 +49,6 @@ import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { useAuth } from "@/lib/auth-context";
 // (removed) team-permissions registry — single-login owner model.
-import { fetchBookedInterviewSlots } from "@/lib/hiring-supabase";
 import { cn, formatTime12h } from "@/lib/utils";
 import { useServerFn } from "@tanstack/react-start";
 
