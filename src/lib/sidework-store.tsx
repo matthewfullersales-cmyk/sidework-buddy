@@ -636,19 +636,9 @@ export interface MenuUpload {
 /** Menu types an owner can upload in the setup wizard. */
 export type MenuKind = "food" | "drink" | "dessert";
 
-export type ServiceStyle = "Casual Dining" | "Upscale Casual" | "Fine Dining" | "Bar and Nightlife" | "Fast Casual";
-export type Priority = "Speed of service" | "Warm hospitality" | "Product knowledge" | "Upselling" | "All equally important";
-
 export interface RestaurantProfile {
   name: string;
-  concept: string;
-  serviceStyle: ServiceStyle;
-  priority: Priority;
-  guestExperience: string;
-  nonNegotiables: string;
-  pastProblems: string;
-  completedAt: string;
-  slug?: string;
+  type: string;
 }
 
 export interface Notification {
@@ -706,7 +696,6 @@ interface Store {
   customRoles: CustomRole[];
   addCustomRole: (role: CustomRole) => void;
   removeCustomRole: (name: string) => void;
-  setupCompleted: boolean;
   notifications: Notification[];
   setMenu: (m: MenuUpload | null) => void;
   setDrinkMenu: (m: MenuUpload | null) => void;
@@ -714,14 +703,7 @@ interface Store {
   markMenuGenerated: () => void;
   setMenuBankMeta: (m: MenuBankMeta | null) => void;
   refreshMenuBankMeta: () => Promise<void>;
-  completeSetup: (
-    profile: Omit<RestaurantProfile, "completedAt">,
-    food: MenuUpload | null,
-    drink: MenuUpload | null,
-    dessert?: MenuUpload | null,
-  ) => void;
-
-  resetSetup: () => void;
+  setRestaurantProfile: (profile: RestaurantProfile) => void;
   markNotificationsRead: () => void;
   inviteEmployee: (data: {
     firstName: string;
@@ -1146,7 +1128,6 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     // No snapshot: an empty disabledRoles means every built-in role is available.
     disabledRoles: [] as string[],
     customRoles: [] as CustomRole[],
-    setupCompleted: false,
     notifications: [] as Notification[],
     menuBankMeta: null as MenuBankMeta | null,
   }));
@@ -1300,23 +1281,23 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
         }
 
         // Restaurant profile. The database is authoritative whenever it has
-        // been saved at all. A device that already completed setup locally
-        // should push its profile up once, making the column non-null so every
+        // been saved at all. A device that already has a profile locally
+        // should push it up once, making the column non-null so every
         // later load takes the server branch.
         let profilePatch: Partial<typeof state> = {};
         if (remoteRestaurantProfile && typeof remoteRestaurantProfile === "object" && "name" in remoteRestaurantProfile) {
           // Server has a real profile — authoritative, even if it differs from what's cached locally.
-          profilePatch = { restaurantProfile: remoteRestaurantProfile as RestaurantProfile, setupCompleted: true };
-        } else if (local.restaurantProfile && local.setupCompleted && acting === "owner") {
-          // Never configured in the cloud, but this device already completed setup
-          // locally — push it up once. The save makes the column non-null, so every
-          // later load takes the branch above — this stays idempotent.
-          profilePatch = { restaurantProfile: local.restaurantProfile, setupCompleted: true };
+          profilePatch = { restaurantProfile: remoteRestaurantProfile as RestaurantProfile };
+        } else if (local.restaurantProfile && acting === "owner") {
+          // Never configured in the cloud, but this device already has a
+          // profile locally — push it up once. The save makes the column
+          // non-null, so every later load takes the branch above.
+          profilePatch = { restaurantProfile: local.restaurantProfile };
           saveRestaurantProfile(effectiveOwnerId, local.restaurantProfile).catch((e) =>
             console.error("[restaurant-profile-bootstrap] failed", e),
           );
         }
-        // Never configured anywhere: leave state as is (setupCompleted stays false).
+        // Never configured anywhere: leave state as is.
 
         // Merge cloud-stored training progress into each employee. Additive:
         // if a given employee has no cloud rows, fall back to whatever the
@@ -2039,33 +2020,10 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
       }
     },
 
-    completeSetup: (profile, food, drink, dessert) => {
-      const stamp = new Date().toISOString();
-      setState((s) => {
-        const nextFood = food ? { ...food, generatedAt: stamp } : s.menu;
-        const nextDrink = drink ? { ...drink, generatedAt: stamp } : s.drinkMenu;
-        const nextDessert = dessert ? { ...dessert, generatedAt: stamp } : s.dessertMenu;
-        const types: MenuKind[] = [];
-        if (nextFood) types.push("food");
-        if (nextDrink) types.push("drink");
-        if (nextDessert) types.push("dessert");
-        return {
-          ...s,
-          restaurantProfile: { ...profile, completedAt: stamp },
-          menu: nextFood,
-          drinkMenu: nextDrink,
-          dessertMenu: nextDessert,
-          uploadedMenuTypes: types,
-          setupCompleted: true,
-        };
-      });
+    setRestaurantProfile: (profile) => {
+      setState((s) => ({ ...s, restaurantProfile: profile }));
       const oid = ownerIdRef.current;
-      if (oid) saveRestaurantProfile(oid, { ...profile, completedAt: stamp }).catch((e) => console.error("[completeSetup:save]", e));
-    },
-    resetSetup: () => {
-      setState((s) => ({ ...s, setupCompleted: false, restaurantProfile: null }));
-      const oid = ownerIdRef.current;
-      if (oid) saveRestaurantProfile(oid, null).catch((e) => console.error("[resetSetup:save]", e));
+      if (oid) saveRestaurantProfile(oid, profile).catch((e) => console.error("[setRestaurantProfile]", e));
     },
     markNotificationsRead: () =>
       setState((s) => ({ ...s, notifications: s.notifications.map((n) => ({ ...n, read: true })) })),
