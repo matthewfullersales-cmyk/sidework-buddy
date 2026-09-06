@@ -1208,7 +1208,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     }
     (async () => {
       try {
-        const [postings, remoteEmployeesInitial, remoteHours, remoteShiftsInitial, remoteTimeOffInitial, remoteTradesInitial, remoteBusinessInfo, remoteTrainingProgress, menuBankMeta, remoteMenuTestConfig, remoteRoleConfig] = await Promise.all([
+        const [postings, remoteEmployeesInitial, remoteHours, remoteShiftsInitial, remoteTimeOffInitial, remoteTradesInitial, remoteBusinessInfo, remoteTrainingProgress, menuBankMeta, remoteMenuTestConfig, remoteRoleConfig, remoteRestaurantProfile] = await Promise.all([
           fetchOwnerPostings(effectiveOwnerId),
           fetchOwnerEmployees(effectiveOwnerId),
           fetchRestaurantHours(effectiveOwnerId),
@@ -1223,6 +1223,10 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           Promise.resolve(null),
           fetchRoleConfig(effectiveOwnerId).catch((e) => {
             console.warn("[owner-sync] role config load failed", e);
+            return null;
+          }),
+          fetchRestaurantProfile(effectiveOwnerId).catch((e) => {
+            console.warn("[owner-sync] restaurant profile load failed", e);
             return null;
           }),
         ]);
