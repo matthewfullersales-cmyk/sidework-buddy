@@ -200,18 +200,28 @@ function ManagerTabs({ tab, setTab, onOpenSetup }: { tab: string; setTab: (v: st
 
 
 function OverviewTab() {
-  const { employees: allEmployees, customRoles, trades, shifts, applications, timeOff } = useStore();
+  const { employees: allEmployees, customRoles, trades, shifts, timeOff } = useStore();
+  const { user } = useAuth();
+  const [newApps, setNewApps] = useState(0);
+  useEffect(() => {
+    const ownerId = user?.id;
+    if (!ownerId) { setNewApps(0); return; }
+    let cancelled = false;
+    fetchPeople(ownerId, { states: ["applicant"], archived: false })
+      .then((rows) => { if (!cancelled) setNewApps(rows.length); })
+      .catch((e) => console.error("[OverviewTab applicants]", e));
+    return () => { cancelled = true; };
+  }, [user?.id]);
   // Pending self-joins don't count as staff until the owner approves them.
   const employees = useMemo(() => allEmployees.filter((e) => !isPendingJoin(e)), [allEmployees]);
   const stats = useMemo(() => {
     const onboarded = employees.filter((e) => onboardingStatus(e, customRoles).fullyOnboarded).length;
 
     const pending = trades.filter((t) => t.status === "pending_approval").length;
-    const newApps = applications.filter((a) => a.status === "new").length;
     const pendingTO = timeOff.filter((t) => t.status === "pending").length;
     return { onboarded, total: employees.length, pending, newApps, pendingTO, shifts: shifts.length };
 
-  }, [employees, customRoles, trades, shifts, applications, timeOff]);
+  }, [employees, customRoles, trades, shifts, newApps, timeOff]);
 
   return (
     <div className="grid gap-6">
