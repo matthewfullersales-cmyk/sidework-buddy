@@ -134,6 +134,21 @@ export async function createInterviewOffer(
   return mapInterview(data as unknown as InterviewRow);
 }
 
+/**
+ * Candidates who've been sent an invite but haven't picked a time yet
+ * (status "offered"). Once they pick a slot they're "scheduled" and already
+ * hold a time, so they no longer count as waiting.
+ */
+export async function countPendingOffers(ownerId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from("interviews")
+    .select("id", { count: "exact", head: true })
+    .eq("owner_id", ownerId)
+    .eq("status", "offered");
+  if (error) throw error;
+  return count ?? 0;
+}
+
 export async function fetchInterviewsForPeople(personIds: string[]): Promise<Interview[]> {
   if (personIds.length === 0) return [];
   const { data, error } = await supabase

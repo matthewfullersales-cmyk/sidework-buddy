@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { sendApplicantNotification } from "@/lib/applicant-notifications.functions";
-import { cancelInterview, closeInterviewDay, sendInterviewCancelledEmail } from "@/lib/interviews-supabase";
+import { cancelInterview, closeInterviewDay, countPendingOffers, sendInterviewCancelledEmail } from "@/lib/interviews-supabase";
 import { useAuth } from "@/lib/auth-context";
 import { formatDateLong, formatTime12h } from "@/lib/utils";
 import {
