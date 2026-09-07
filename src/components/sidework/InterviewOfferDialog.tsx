@@ -20,6 +20,7 @@ import { todayLocalISO } from "@/lib/interview-slots-supabase";
 import { formatDateLong, formatTime12h } from "@/lib/utils";
 import {
   cancelInterview,
+  countPendingOffers,
   createInterviewOffer,
   type Interview,
   type InterviewType,
@@ -52,19 +53,27 @@ export function InterviewOfferDialog({
   const [type, setType] = useState<InterviewType | null>(null);
   const [busy, setBusy] = useState(false);
   const [openCount, setOpenCount] = useState<number | null>(null);
+  const [pendingOffers, setPendingOffers] = useState<number | null>(null);
 
-  // Informational only: an empty pool warns, it never blocks sending.
+  // Informational only: capacity numbers warn, they never block sending.
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const { count, error } = await supabase
-        .from("interview_slots")
-        .select("id", { count: "exact", head: true })
-        .eq("owner_id", ownerId)
-        .eq("status", "open")
-        .gte("slot_date", todayLocalISO());
-      if (cancelled || error) return;
-      setOpenCount(count ?? 0);
+      const [slotsRes, pending] = await Promise.all([
+        supabase
+          .from("interview_slots")
+          .select("id", { count: "exact", head: true })
+          .eq("owner_id", ownerId)
+          .eq("status", "open")
+          .gte("slot_date", todayLocalISO()),
+        countPendingOffers(ownerId).catch((e) => {
+          console.error("[interview offer] pending count failed", e);
+          return null;
+        }),
+      ]);
+      if (cancelled) return;
+      if (!slotsRes.error) setOpenCount(slotsRes.count ?? 0);
+      if (pending !== null) setPendingOffers(pending);
     })();
     return () => { cancelled = true; };
   }, [ownerId]);
@@ -199,16 +208,29 @@ export function InterviewOfferDialog({
                 They&apos;ll be emailed about the cancellation, then emailed this new invite.
               </div>
             )}
-            {openCount === 0 && (
-              <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm">
-                No interview times are open yet. You can still send this — {person.firstName} will
-                see an empty page until you open some.
+            {openCount !== null && pendingOffers !== null && (
+              <div
+                className={
+                  "rounded-lg border p-3 text-sm " +
+                  (openCount < pendingOffers
+                    ? "border-destructive/50 bg-destructive/5 text-destructive"
+                    : openCount === pendingOffers && pendingOffers > 0
+                    ? "border-amber-500/50 bg-amber-500/10 text-amber-900 dark:text-amber-200"
+                    : "border-border bg-muted/30 text-muted-foreground")
+                }
+              >
+                {pendingOffers} candidate{pendingOffers === 1 ? "" : "s"} already waiting for a time ·{" "}
+                {openCount} slot{openCount === 1 ? "" : "s"} open
+                {openCount < pendingOffers && " — not enough open times for everyone waiting."}
+                {openCount === pendingOffers && pendingOffers > 0 &&
+                  " — exactly enough, but no one gets a real choice of time."}
+                {openCount === 0 && (
+                  <p className="mt-1 text-xs">
+                    No interview times are open yet. You can still send this — {person.firstName} will
+                    see an empty page until you open some.
+                  </p>
+                )}
               </div>
-            )}
-            {openCount !== null && openCount > 0 && (
-              <p className="text-sm text-muted-foreground">
-                {openCount} time{openCount === 1 ? "" : "s"} currently open.
-              </p>
             )}
           </>
         )}

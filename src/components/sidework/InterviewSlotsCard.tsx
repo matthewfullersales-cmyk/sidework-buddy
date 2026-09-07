@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { sendApplicantNotification } from "@/lib/applicant-notifications.functions";
-import { cancelInterview, closeInterviewDay, sendInterviewCancelledEmail } from "@/lib/interviews-supabase";
+import { cancelInterview, closeInterviewDay, countPendingOffers, sendInterviewCancelledEmail } from "@/lib/interviews-supabase";
 import { useAuth } from "@/lib/auth-context";
 import { formatDateLong, formatTime12h } from "@/lib/utils";
 import {
@@ -36,8 +36,12 @@ export function InterviewSlotsCard({ refreshKey = 0, onInterviewChange }: { refr
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
   const [interval, setIntervalMinutes] = useState<InterviewInterval>(30);
-  const [preview, setPreview] = useState<string[] | null>(null);
+  // Day-blocks the manager has queued but not yet opened.
+  const [queue, setQueue] = useState<{ date: string; times: string[] }[]>([]);
   const [slots, setSlots] = useState<InterviewSlot[]>([]);
+  // Capacity failsafe: real counts only, never a suggested target.
+  const [pendingOffers, setPendingOffers] = useState<number | null>(null);
+  const [openSlotsFromToday, setOpenSlotsFromToday] = useState<number | null>(null);
   const [names, setNames] = useState<Record<string, string>>({});
   // interview id -> public token, so a cancellation email can link them back.
   const [tokens, setTokens] = useState<Record<string, string>>({});
@@ -65,8 +69,14 @@ export function InterviewSlotsCard({ refreshKey = 0, onInterviewChange }: { refr
   const load = useCallback(async () => {
     if (!ownerId) return;
     try {
-      const rows = await fetchSlotsForDate(ownerId, date);
+      const [rows, pending, openFromToday] = await Promise.all([
+        fetchSlotsForDate(ownerId, date),
+        countPendingOffers(ownerId),
+        countOpenSlotsFromToday(ownerId),
+      ]);
       setSlots(rows);
+      setPendingOffers(pending);
+      setOpenSlotsFromToday(openFromToday);
 
       // Booked slots show who holds them; resolved separately so a name lookup
       // failure never hides the schedule itself.
@@ -110,7 +120,7 @@ export function InterviewSlotsCard({ refreshKey = 0, onInterviewChange }: { refr
     const onVisible = () => {
       if (document.visibilityState !== "visible") return;
       if (!ownerId) return;
-      if (busy || confirmOpen || cancelTarget || preview || loadingRef.current) return;
+      if (busy || confirmOpen || cancelTarget || queue.length > 0 || loadingRef.current) return;
       loadingRef.current = true;
       load()
         .catch((e) => console.error("[interview slots] visibility refresh failed", e))
@@ -118,7 +128,7 @@ export function InterviewSlotsCard({ refreshKey = 0, onInterviewChange }: { refr
     };
     document.addEventListener("visibilitychange", onVisible);
     return () => { document.removeEventListener("visibilitychange", onVisible); };
-  }, [ownerId, busy, confirmOpen, cancelTarget, preview, load]);
+  }, [ownerId, busy, confirmOpen, cancelTarget, queue.length, load]);
 
   const bookedCount = useMemo(() => slots.filter((s) => s.status === "booked").length, [slots]);
   const openCount = useMemo(() => slots.filter((s) => s.status === "open").length, [slots]);
@@ -142,7 +152,9 @@ export function InterviewSlotsCard({ refreshKey = 0, onInterviewChange }: { refr
     }
   };
 
-  const buildPreview = () => {
+  /** Validates one day-block and queues it. Re-adding a date replaces its entry. */
+  const addToBatch = () => {
+    if (!date) return void toast.error("Pick a date.");
     if (date < todayLocalISO()) return void toast.error("That date is in the past.");
     if (!start || !end) return void toast.error("Pick a start and an end time.");
     if (start >= end) return void toast.error("The start time has to be before the end time.");
@@ -150,22 +162,29 @@ export function InterviewSlotsCard({ refreshKey = 0, onInterviewChange }: { refr
     if (times.length === 0) {
       return void toast.error(`That window is shorter than one ${interval}-minute interview.`);
     }
-    setPreview(times);
+    setQueue((q) => [...q.filter((b) => b.date !== date), { date, times }]);
+    setDate("");
+    setStart("");
+    setEnd("");
   };
 
-  const saveBlock = async () => {
-    if (!ownerId || !preview) return;
+  const totalQueuedTimes = queue.reduce((n, b) => n + b.times.length, 0);
+
+  const saveQueue = async () => {
+    if (!ownerId || queue.length === 0) return;
     setBusy(true);
     try {
-      const created = await createSlots(ownerId, date, preview);
-      const skipped = preview.length - created;
+      let created = 0;
+      for (const block of queue) {
+        created += await createSlots(ownerId, block.date, block.times);
+      }
+      const skipped = totalQueuedTimes - created;
       toast.success(
-        `${created} time${created === 1 ? "" : "s"} opened` +
+        `${created} time${created === 1 ? "" : "s"} opened across ${queue.length} day${queue.length === 1 ? "" : "s"}` +
           (skipped > 0 ? ` · ${skipped} already existed` : ""),
       );
-      setPreview(null);
-      setStart("");
-      setEnd("");
+      setQueue([]);
+      setDate(todayLocalISO());
       await load();
     } catch (e) {
       console.error("[interview slots] create failed", e);
@@ -309,41 +328,81 @@ export function InterviewSlotsCard({ refreshKey = 0, onInterviewChange }: { refr
         </p>
       </CardHeader>
       <CardContent className="space-y-5">
+        {/* Capacity failsafe: warn, never block. Two real counts only — no
+            suggested target. Red when waiting candidates outnumber open times,
+            amber when exactly matched, neutral otherwise. */}
+        {pendingOffers !== null && openSlotsFromToday !== null && (
+          <div
+            className={
+              "rounded-lg border p-3 text-sm " +
+              (pendingOffers > openSlotsFromToday
+                ? "border-destructive/50 bg-destructive/5 text-destructive"
+                : pendingOffers === openSlotsFromToday && pendingOffers > 0
+                ? "border-amber-500/50 bg-amber-500/10 text-amber-900 dark:text-amber-200"
+                : "border-border bg-muted/30 text-muted-foreground")
+            }
+          >
+            {pendingOffers} candidate{pendingOffers === 1 ? "" : "s"} waiting for a time ·{" "}
+            {openSlotsFromToday} slot{openSlotsFromToday === 1 ? "" : "s"} open
+            {pendingOffers > openSlotsFromToday && " — not enough open times for everyone waiting."}
+            {pendingOffers === openSlotsFromToday && pendingOffers > 0 &&
+              " — exactly enough, but no one gets a real choice of time."}
+            {queue.length > 0 && (
+              <p className="mt-1 text-xs">
+                If you open all queued times: {openSlotsFromToday + totalQueuedTimes} slot
+                {openSlotsFromToday + totalQueuedTimes === 1 ? "" : "s"} open
+              </p>
+            )}
+          </div>
+        )}
+
         <div className="grid gap-3 sm:grid-cols-4">
           <div className="space-y-2">
             <Label htmlFor="slot-date">Date</Label>
-            <Input id="slot-date" type="date" value={date} onChange={(e) => { setDate(e.target.value); setPreview(null); }} />
+            <Input id="slot-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="slot-start">From</Label>
-            <Input id="slot-start" type="time" value={start} onChange={(e) => { setStart(e.target.value); setPreview(null); }} />
+            <Input id="slot-start" type="time" value={start} onChange={(e) => setStart(e.target.value)} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="slot-end">To</Label>
-            <Input id="slot-end" type="time" value={end} onChange={(e) => { setEnd(e.target.value); setPreview(null); }} />
+            <Input id="slot-end" type="time" value={end} onChange={(e) => setEnd(e.target.value)} />
           </div>
           <div className="flex items-end">
-            <Button className="w-full" variant="outline" onClick={buildPreview} disabled={busy}>
-              Preview times
+            <Button className="w-full" variant="outline" onClick={addToBatch} disabled={busy}>
+              Add to batch
             </Button>
           </div>
         </div>
 
-        {preview && (
+        {queue.length > 0 && (
           <div className="rounded-lg border border-border p-3">
             <p className="text-xs font-semibold">
-              {preview.length} time{preview.length === 1 ? "" : "s"} on {formatDateLong(date)}
+              {totalQueuedTimes} time{totalQueuedTimes === 1 ? "" : "s"} across {queue.length} day
+              {queue.length === 1 ? "" : "s"} queued
             </p>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {preview.map((t) => (
-                <span key={t} className="rounded-md border border-border px-2 py-1 text-xs">
-                  {formatTime12h(t)}
-                </span>
+            <ul className="mt-2 space-y-1.5">
+              {queue.map((b) => (
+                <li key={b.date} className="flex items-center justify-between gap-3">
+                  <span className="text-sm">
+                    {formatDateLong(b.date)} · {b.times.length} time{b.times.length === 1 ? "" : "s"}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={busy}
+                    onClick={() => setQueue((q) => q.filter((x) => x.date !== b.date))}
+                  >
+                    Remove
+                  </Button>
+                </li>
               ))}
-            </div>
-            <div className="mt-3 flex gap-2">
-              <Button size="sm" onClick={() => void saveBlock()} disabled={busy}>Open these times</Button>
-              <Button size="sm" variant="ghost" onClick={() => setPreview(null)} disabled={busy}>Cancel</Button>
+            </ul>
+            <div className="mt-3">
+              <Button size="sm" onClick={() => void saveQueue()} disabled={busy || queue.length === 0}>
+                Open all queued times
+              </Button>
             </div>
           </div>
         )}
