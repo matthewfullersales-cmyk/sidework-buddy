@@ -69,8 +69,14 @@ export function InterviewSlotsCard({ refreshKey = 0, onInterviewChange }: { refr
   const load = useCallback(async () => {
     if (!ownerId) return;
     try {
-      const rows = await fetchSlotsForDate(ownerId, date);
+      const [rows, pending, openFromToday] = await Promise.all([
+        fetchSlotsForDate(ownerId, date),
+        countPendingOffers(ownerId),
+        countOpenSlotsFromToday(ownerId),
+      ]);
       setSlots(rows);
+      setPendingOffers(pending);
+      setOpenSlotsFromToday(openFromToday);
 
       // Booked slots show who holds them; resolved separately so a name lookup
       // failure never hides the schedule itself.
