@@ -20,6 +20,7 @@ import { todayLocalISO } from "@/lib/interview-slots-supabase";
 import { formatDateLong, formatTime12h } from "@/lib/utils";
 import {
   cancelInterview,
+  countPendingOffers,
   createInterviewOffer,
   type Interview,
   type InterviewType,
@@ -52,19 +53,27 @@ export function InterviewOfferDialog({
   const [type, setType] = useState<InterviewType | null>(null);
   const [busy, setBusy] = useState(false);
   const [openCount, setOpenCount] = useState<number | null>(null);
+  const [pendingOffers, setPendingOffers] = useState<number | null>(null);
 
-  // Informational only: an empty pool warns, it never blocks sending.
+  // Informational only: capacity numbers warn, they never block sending.
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const { count, error } = await supabase
-        .from("interview_slots")
-        .select("id", { count: "exact", head: true })
-        .eq("owner_id", ownerId)
-        .eq("status", "open")
-        .gte("slot_date", todayLocalISO());
-      if (cancelled || error) return;
-      setOpenCount(count ?? 0);
+      const [slotsRes, pending] = await Promise.all([
+        supabase
+          .from("interview_slots")
+          .select("id", { count: "exact", head: true })
+          .eq("owner_id", ownerId)
+          .eq("status", "open")
+          .gte("slot_date", todayLocalISO()),
+        countPendingOffers(ownerId).catch((e) => {
+          console.error("[interview offer] pending count failed", e);
+          return null;
+        }),
+      ]);
+      if (cancelled) return;
+      if (!slotsRes.error) setOpenCount(slotsRes.count ?? 0);
+      if (pending !== null) setPendingOffers(pending);
     })();
     return () => { cancelled = true; };
   }, [ownerId]);
