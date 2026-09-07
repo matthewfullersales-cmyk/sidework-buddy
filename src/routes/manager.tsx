@@ -1193,9 +1193,9 @@ function JobsTab() {
         </CardContent>
       </Card>
 
-      <InterviewSlotsCard refreshKey={slotRefresh} onInterviewChange={() => setPipelineRefresh((n) => n + 1)} />
-
       <ApplicantPipeline refreshKey={pipelineRefresh} onInterviewChange={() => setSlotRefresh((n) => n + 1)} />
+
+      <InterviewSlotsCard refreshKey={slotRefresh} onInterviewChange={() => setPipelineRefresh((n) => n + 1)} />
     </div>
   );
 }
