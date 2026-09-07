@@ -69,14 +69,24 @@ export function InterviewSlotsCard({ refreshKey = 0, onInterviewChange }: { refr
   const load = useCallback(async () => {
     if (!ownerId) return;
     try {
-      const [rows, pending, openFromToday] = await Promise.all([
-        fetchSlotsForDate(ownerId, date),
+      const [pending, openFromToday] = await Promise.all([
         countPendingOffers(ownerId),
         countOpenSlotsFromToday(ownerId),
       ]);
-      setSlots(rows);
       setPendingOffers(pending);
       setOpenSlotsFromToday(openFromToday);
+
+      if (!date) {
+        // Date field is empty — mid-typing, or nothing selected yet. Nothing to
+        // show for "this day," but the capacity counts above still loaded fine.
+        setSlots([]);
+        setNames({});
+        setTokens({});
+        return;
+      }
+
+      const rows = await fetchSlotsForDate(ownerId, date);
+      setSlots(rows);
 
       // Booked slots show who holds them; resolved separately so a name lookup
       // failure never hides the schedule itself.
