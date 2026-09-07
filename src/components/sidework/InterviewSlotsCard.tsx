@@ -163,7 +163,7 @@ export function InterviewSlotsCard({ refreshKey = 0, onInterviewChange }: { refr
       return void toast.error(`That window is shorter than one ${interval}-minute interview.`);
     }
     setQueue((q) => [...q.filter((b) => b.date !== date), { date, times }]);
-    setDate("");
+    setDate(todayLocalISO());
     setStart("");
     setEnd("");
   };
