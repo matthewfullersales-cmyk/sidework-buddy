@@ -1216,6 +1216,7 @@ export type Database = {
           address: string
           booked_date: string
           booked_time: string
+          email: string
           first_name: string
           id: string
           interview_type: string
