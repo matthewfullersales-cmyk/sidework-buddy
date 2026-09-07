@@ -36,8 +36,12 @@ export function InterviewSlotsCard({ refreshKey = 0, onInterviewChange }: { refr
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
   const [interval, setIntervalMinutes] = useState<InterviewInterval>(30);
-  const [preview, setPreview] = useState<string[] | null>(null);
+  // Day-blocks the manager has queued but not yet opened.
+  const [queue, setQueue] = useState<{ date: string; times: string[] }[]>([]);
   const [slots, setSlots] = useState<InterviewSlot[]>([]);
+  // Capacity failsafe: real counts only, never a suggested target.
+  const [pendingOffers, setPendingOffers] = useState<number | null>(null);
+  const [openSlotsFromToday, setOpenSlotsFromToday] = useState<number | null>(null);
   const [names, setNames] = useState<Record<string, string>>({});
   // interview id -> public token, so a cancellation email can link them back.
   const [tokens, setTokens] = useState<Record<string, string>>({});
