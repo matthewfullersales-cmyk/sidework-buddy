@@ -365,7 +365,7 @@ export function InterviewSlotsCard({ refreshKey = 0, onInterviewChange }: { refr
         <CardTitle className="text-base">Interview times</CardTitle>
         <p className="mt-1 text-xs text-muted-foreground">
           Times belong to the restaurant, not to one candidate. Open a block, and each slot can be
-          claimed once. Blocks split by your interview length ({interval} min), set in Settings.
+          claimed once. Blocks split by your interview length, below.
         </p>
       </CardHeader>
       <CardContent className="space-y-5">
