@@ -120,7 +120,7 @@ export function InterviewSlotsCard({ refreshKey = 0, onInterviewChange }: { refr
     const onVisible = () => {
       if (document.visibilityState !== "visible") return;
       if (!ownerId) return;
-      if (busy || confirmOpen || cancelTarget || preview || loadingRef.current) return;
+      if (busy || confirmOpen || cancelTarget || queue.length > 0 || loadingRef.current) return;
       loadingRef.current = true;
       load()
         .catch((e) => console.error("[interview slots] visibility refresh failed", e))
@@ -128,7 +128,7 @@ export function InterviewSlotsCard({ refreshKey = 0, onInterviewChange }: { refr
     };
     document.addEventListener("visibilitychange", onVisible);
     return () => { document.removeEventListener("visibilitychange", onVisible); };
-  }, [ownerId, busy, confirmOpen, cancelTarget, preview, load]);
+  }, [ownerId, busy, confirmOpen, cancelTarget, queue.length, load]);
 
   const bookedCount = useMemo(() => slots.filter((s) => s.status === "booked").length, [slots]);
   const openCount = useMemo(() => slots.filter((s) => s.status === "open").length, [slots]);
