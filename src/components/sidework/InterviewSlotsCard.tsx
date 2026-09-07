@@ -23,6 +23,8 @@ import {
   fetchInterviewInterval,
   fetchSlotsForDate,
   generateTimes,
+  INTERVIEW_INTERVALS,
+  saveInterviewInterval,
   todayLocalISO,
   type InterviewInterval,
   type InterviewSlot,
@@ -35,6 +37,7 @@ export function InterviewSlotsCard({ refreshKey = 0, onInterviewChange }: { refr
   const [date, setDate] = useState(todayLocalISO());
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
+  const [singleTime, setSingleTime] = useState("");
   const [interval, setIntervalMinutes] = useState<InterviewInterval>(30);
   // Day-blocks the manager has queued but not yet opened.
   const [queue, setQueue] = useState<{ date: string; times: string[] }[]>([]);
@@ -179,6 +182,34 @@ export function InterviewSlotsCard({ refreshKey = 0, onInterviewChange }: { refr
   };
 
   const totalQueuedTimes = queue.reduce((n, b) => n + b.times.length, 0);
+
+  const changeInterval = async (v: InterviewInterval) => {
+    if (!ownerId) return;
+    const prev = interval;
+    setIntervalMinutes(v);
+    try {
+      await saveInterviewInterval(ownerId, v);
+    } catch (e) {
+      console.error("[interview slots] interval save failed", e);
+      setIntervalMinutes(prev);
+      toast.error("Couldn't change the interview length");
+    }
+  };
+
+  const addSingleTime = () => {
+    if (!date) return void toast.error("Pick a date.");
+    if (date < todayLocalISO()) return void toast.error("That date is in the past.");
+    if (!singleTime) return void toast.error("Pick a time.");
+    setQueue((q) => {
+      const existing = q.find((b) => b.date === date);
+      if (existing) {
+        if (existing.times.includes(singleTime)) return q; // already queued
+        return q.map((b) => b.date === date ? { ...b, times: [...b.times, singleTime].sort() } : b);
+      }
+      return [...q, { date, times: [singleTime] }];
+    });
+    setSingleTime("");
+  };
 
   const saveQueue = async () => {
     if (!ownerId || queue.length === 0) return;
@@ -334,7 +365,7 @@ export function InterviewSlotsCard({ refreshKey = 0, onInterviewChange }: { refr
         <CardTitle className="text-base">Interview times</CardTitle>
         <p className="mt-1 text-xs text-muted-foreground">
           Times belong to the restaurant, not to one candidate. Open a block, and each slot can be
-          claimed once. Blocks split by your interview length ({interval} min), set in Settings.
+          claimed once. Blocks split by your interview length, below.
         </p>
       </CardHeader>
       <CardContent className="space-y-5">
@@ -366,10 +397,29 @@ export function InterviewSlotsCard({ refreshKey = 0, onInterviewChange }: { refr
           </div>
         )}
 
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="font-medium">Interviews are {interval} minutes</span>
+          <span className="text-muted-foreground">·</span>
+          {INTERVIEW_INTERVALS.map((v) => (
+            <Button
+              key={v}
+              size="sm"
+              variant={interval === v ? "default" : "outline"}
+              onClick={() => void changeInterval(v)}
+              disabled={busy || interval === v}
+            >
+              {v} min
+            </Button>
+          ))}
+        </div>
+
         <div className="grid gap-3 sm:grid-cols-4">
           <div className="space-y-2">
             <Label htmlFor="slot-date">Date</Label>
             <Input id="slot-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            {date && (
+              <p className="text-xs text-muted-foreground">{formatDateLong(date)}</p>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="slot-start">From</Label>
@@ -384,6 +434,14 @@ export function InterviewSlotsCard({ refreshKey = 0, onInterviewChange }: { refr
               Add to batch
             </Button>
           </div>
+        </div>
+
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="space-y-2">
+            <Label htmlFor="slot-single-time">Or add one specific time</Label>
+            <Input id="slot-single-time" type="time" value={singleTime} onChange={(e) => setSingleTime(e.target.value)} />
+          </div>
+          <Button variant="outline" onClick={addSingleTime} disabled={busy}>Add this time</Button>
         </div>
 
         {queue.length > 0 && (

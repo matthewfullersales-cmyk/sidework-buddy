@@ -9,7 +9,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 const GATEWAY_URL = "https://connector-gateway.lovable.dev";
 
 const payloadSchema = z.object({
-  kind: z.enum(["interview_offer", "interview_cancelled", "shadow_invite", "shadow_moved", "shadow_cancelled", "hire_signup"]),
+  kind: z.enum(["interview_offer", "interview_confirmed", "interview_cancelled", "shadow_invite", "shadow_moved", "shadow_cancelled", "hire_signup"]),
   // shadow_cancelled never carries a link, and interview_cancelled only carries
   // one when times are actually open. Every other kind REQUIRES a valid URL so
   // a CTA can never silently fall back to the marketing homepage.
@@ -32,6 +32,7 @@ const payloadSchema = z.object({
 }).superRefine((data, ctx) => {
   const linkOptional =
     data.kind === "shadow_cancelled" ||
+    data.kind === "interview_confirmed" ||
     (data.kind === "interview_cancelled" && !data.hasOpenSlots);
   if (!linkOptional && !data.link) {
     ctx.addIssue({
@@ -95,6 +96,21 @@ ${data.link}`,
 ${formatLine ? `<p>${esc(formatLine)}</p>` : ""}
 <p>${esc(pickLine)}</p>
 ${ctaButton(data.link!, "Pick your interview time")}`,
+    };
+  }
+
+  if (data.kind === "interview_confirmed") {
+    const when = [data.interviewDate, data.interviewTime].filter(Boolean).join(" at ");
+    return {
+      subject: `You're confirmed — interview at ${restaurant}`,
+      text:
+`${hi}
+
+You're all set. Your interview at ${restaurant}${when ? ` is on ${when}` : ""}.${data.interviewType === "in_person" ? " They'll see you at the restaurant." : " They'll call you at that time."}`,
+      html:
+`<p>${esc(hi)}</p>
+<p>You're all set. Your interview at <strong>${esc(restaurant)}</strong>${when ? ` is on <strong>${esc(when)}</strong>` : ""}.</p>
+<p>${data.interviewType === "in_person" ? "They'll see you at the restaurant." : "They'll call you at that time."}</p>`,
     };
   }
 

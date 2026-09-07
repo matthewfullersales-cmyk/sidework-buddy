@@ -62,6 +62,7 @@ export type PublicInterview = {
   interviewType: InterviewType;
   status: InterviewStatus;
   firstName: string | null;
+  email: string | null;
   restaurantName: string | null;
   address: string | null;
   restaurantPhone: string | null;
@@ -76,6 +77,7 @@ type PublicInterviewRow = {
   interview_type: string;
   status: string;
   first_name: string | null;
+  email: string | null;
   restaurant_name: string | null;
   address: string | null;
   restaurant_phone: string | null;
@@ -112,6 +114,7 @@ function mapPublic(row: PublicInterviewRow): PublicInterview {
     interviewType: (row.interview_type as InterviewType) ?? "phone",
     status: (row.status as InterviewStatus) ?? "offered",
     firstName: row.first_name,
+    email: row.email,
     restaurantName: row.restaurant_name,
     address: row.address,
     restaurantPhone: row.restaurant_phone,

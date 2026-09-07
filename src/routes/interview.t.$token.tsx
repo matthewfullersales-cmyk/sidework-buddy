@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/sidework/Logo";
 import { formatPhone } from "@/lib/format-phone";
 import { formatDateLong, formatTime12h } from "@/lib/utils";
+import { sendApplicantNotification } from "@/lib/applicant-notifications.functions";
 import {
   getPublicInterview,
   claimInterviewSlot,
@@ -71,6 +72,17 @@ function PublicInterviewPage() {
     try {
       const updated = await claimInterviewSlot(token, slot.id);
       if (updated) setInterview(updated);
+      if (updated?.email) {
+        sendApplicantNotification({ data: {
+          kind: "interview_confirmed",
+          firstName: updated.firstName ?? "",
+          restaurantName: updated.restaurantName ?? "",
+          email: updated.email,
+          interviewType: updated.interviewType,
+          ...(updated.bookedDate ? { interviewDate: formatDateLong(updated.bookedDate) } : {}),
+          ...(updated.bookedTime ? { interviewTime: formatTime12h(updated.bookedTime) } : {}),
+        }}).catch((e) => console.error("[interview confirmed email]", e));
+      }
       toast.success("You're all set.");
     } catch (e) {
       console.error("[claim interview slot]", e);
