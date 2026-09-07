@@ -99,6 +99,21 @@ ${ctaButton(data.link!, "Pick your interview time")}`,
     };
   }
 
+  if (data.kind === "interview_confirmed") {
+    const when = [data.interviewDate, data.interviewTime].filter(Boolean).join(" at ");
+    return {
+      subject: `You're confirmed — interview at ${restaurant}`,
+      text:
+`${hi}
+
+You're all set. Your interview at ${restaurant}${when ? ` is on ${when}` : ""}.${data.interviewType === "in_person" ? " They'll see you at the restaurant." : " They'll call you at that time."}`,
+      html:
+`<p>${esc(hi)}</p>
+<p>You're all set. Your interview at <strong>${esc(restaurant)}</strong>${when ? ` is on <strong>${esc(when)}</strong>` : ""}.</p>
+<p>${data.interviewType === "in_person" ? "They'll see you at the restaurant." : "They'll call you at that time."}</p>`,
+    };
+  }
+
 
   if (data.kind === "interview_cancelled") {
     const when = [data.interviewDate, data.interviewTime].filter(Boolean).join(" at ");
