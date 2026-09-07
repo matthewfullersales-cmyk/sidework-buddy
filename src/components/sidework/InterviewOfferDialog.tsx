@@ -208,16 +208,29 @@ export function InterviewOfferDialog({
                 They&apos;ll be emailed about the cancellation, then emailed this new invite.
               </div>
             )}
-            {openCount === 0 && (
-              <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm">
-                No interview times are open yet. You can still send this — {person.firstName} will
-                see an empty page until you open some.
+            {openCount !== null && pendingOffers !== null && (
+              <div
+                className={
+                  "rounded-lg border p-3 text-sm " +
+                  (openCount < pendingOffers
+                    ? "border-destructive/50 bg-destructive/5 text-destructive"
+                    : openCount === pendingOffers && pendingOffers > 0
+                    ? "border-amber-500/50 bg-amber-500/10 text-amber-900 dark:text-amber-200"
+                    : "border-border bg-muted/30 text-muted-foreground")
+                }
+              >
+                {pendingOffers} candidate{pendingOffers === 1 ? "" : "s"} already waiting for a time ·{" "}
+                {openCount} slot{openCount === 1 ? "" : "s"} open
+                {openCount < pendingOffers && " — not enough open times for everyone waiting."}
+                {openCount === pendingOffers && pendingOffers > 0 &&
+                  " — exactly enough, but no one gets a real choice of time."}
+                {openCount === 0 && (
+                  <p className="mt-1 text-xs">
+                    No interview times are open yet. You can still send this — {person.firstName} will
+                    see an empty page until you open some.
+                  </p>
+                )}
               </div>
-            )}
-            {openCount !== null && openCount > 0 && (
-              <p className="text-sm text-muted-foreground">
-                {openCount} time{openCount === 1 ? "" : "s"} currently open.
-              </p>
             )}
           </>
         )}
