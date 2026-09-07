@@ -397,10 +397,29 @@ export function InterviewSlotsCard({ refreshKey = 0, onInterviewChange }: { refr
           </div>
         )}
 
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="font-medium">Interviews are {interval} minutes</span>
+          <span className="text-muted-foreground">·</span>
+          {INTERVIEW_INTERVALS.map((v) => (
+            <Button
+              key={v}
+              size="sm"
+              variant={interval === v ? "default" : "outline"}
+              onClick={() => void changeInterval(v)}
+              disabled={busy || interval === v}
+            >
+              {v} min
+            </Button>
+          ))}
+        </div>
+
         <div className="grid gap-3 sm:grid-cols-4">
           <div className="space-y-2">
             <Label htmlFor="slot-date">Date</Label>
             <Input id="slot-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            {date && (
+              <p className="text-xs text-muted-foreground">{formatDateLong(date)}</p>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="slot-start">From</Label>
@@ -415,6 +434,14 @@ export function InterviewSlotsCard({ refreshKey = 0, onInterviewChange }: { refr
               Add to batch
             </Button>
           </div>
+        </div>
+
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="space-y-2">
+            <Label htmlFor="slot-single-time">Or add one specific time</Label>
+            <Input id="slot-single-time" type="time" value={singleTime} onChange={(e) => setSingleTime(e.target.value)} />
+          </div>
+          <Button variant="outline" onClick={addSingleTime} disabled={busy}>Add this time</Button>
         </div>
 
         {queue.length > 0 && (
