@@ -183,6 +183,34 @@ export function InterviewSlotsCard({ refreshKey = 0, onInterviewChange }: { refr
 
   const totalQueuedTimes = queue.reduce((n, b) => n + b.times.length, 0);
 
+  const changeInterval = async (v: InterviewInterval) => {
+    if (!ownerId) return;
+    const prev = interval;
+    setIntervalMinutes(v);
+    try {
+      await saveInterviewInterval(ownerId, v);
+    } catch (e) {
+      console.error("[interview slots] interval save failed", e);
+      setIntervalMinutes(prev);
+      toast.error("Couldn't change the interview length");
+    }
+  };
+
+  const addSingleTime = () => {
+    if (!date) return void toast.error("Pick a date.");
+    if (date < todayLocalISO()) return void toast.error("That date is in the past.");
+    if (!singleTime) return void toast.error("Pick a time.");
+    setQueue((q) => {
+      const existing = q.find((b) => b.date === date);
+      if (existing) {
+        if (existing.times.includes(singleTime)) return q; // already queued
+        return q.map((b) => b.date === date ? { ...b, times: [...b.times, singleTime].sort() } : b);
+      }
+      return [...q, { date, times: [singleTime] }];
+    });
+    setSingleTime("");
+  };
+
   const saveQueue = async () => {
     if (!ownerId || queue.length === 0) return;
     setBusy(true);
