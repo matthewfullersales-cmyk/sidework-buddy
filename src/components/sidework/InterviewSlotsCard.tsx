@@ -23,6 +23,8 @@ import {
   fetchInterviewInterval,
   fetchSlotsForDate,
   generateTimes,
+  INTERVIEW_INTERVALS,
+  saveInterviewInterval,
   todayLocalISO,
   type InterviewInterval,
   type InterviewSlot,
@@ -35,6 +37,7 @@ export function InterviewSlotsCard({ refreshKey = 0, onInterviewChange }: { refr
   const [date, setDate] = useState(todayLocalISO());
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
+  const [singleTime, setSingleTime] = useState("");
   const [interval, setIntervalMinutes] = useState<InterviewInterval>(30);
   // Day-blocks the manager has queued but not yet opened.
   const [queue, setQueue] = useState<{ date: string; times: string[] }[]>([]);
