@@ -152,7 +152,9 @@ export function InterviewSlotsCard({ refreshKey = 0, onInterviewChange }: { refr
     }
   };
 
-  const buildPreview = () => {
+  /** Validates one day-block and queues it. Re-adding a date replaces its entry. */
+  const addToBatch = () => {
+    if (!date) return void toast.error("Pick a date.");
     if (date < todayLocalISO()) return void toast.error("That date is in the past.");
     if (!start || !end) return void toast.error("Pick a start and an end time.");
     if (start >= end) return void toast.error("The start time has to be before the end time.");
@@ -160,22 +162,29 @@ export function InterviewSlotsCard({ refreshKey = 0, onInterviewChange }: { refr
     if (times.length === 0) {
       return void toast.error(`That window is shorter than one ${interval}-minute interview.`);
     }
-    setPreview(times);
+    setQueue((q) => [...q.filter((b) => b.date !== date), { date, times }]);
+    setDate("");
+    setStart("");
+    setEnd("");
   };
 
-  const saveBlock = async () => {
-    if (!ownerId || !preview) return;
+  const totalQueuedTimes = queue.reduce((n, b) => n + b.times.length, 0);
+
+  const saveQueue = async () => {
+    if (!ownerId || queue.length === 0) return;
     setBusy(true);
     try {
-      const created = await createSlots(ownerId, date, preview);
-      const skipped = preview.length - created;
+      let created = 0;
+      for (const block of queue) {
+        created += await createSlots(ownerId, block.date, block.times);
+      }
+      const skipped = totalQueuedTimes - created;
       toast.success(
-        `${created} time${created === 1 ? "" : "s"} opened` +
+        `${created} time${created === 1 ? "" : "s"} opened across ${queue.length} day${queue.length === 1 ? "" : "s"}` +
           (skipped > 0 ? ` · ${skipped} already existed` : ""),
       );
-      setPreview(null);
-      setStart("");
-      setEnd("");
+      setQueue([]);
+      setDate(todayLocalISO());
       await load();
     } catch (e) {
       console.error("[interview slots] create failed", e);
