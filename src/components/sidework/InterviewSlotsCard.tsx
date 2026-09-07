@@ -328,41 +328,81 @@ export function InterviewSlotsCard({ refreshKey = 0, onInterviewChange }: { refr
         </p>
       </CardHeader>
       <CardContent className="space-y-5">
+        {/* Capacity failsafe: warn, never block. Two real counts only — no
+            suggested target. Red when waiting candidates outnumber open times,
+            amber when exactly matched, neutral otherwise. */}
+        {pendingOffers !== null && openSlotsFromToday !== null && (
+          <div
+            className={
+              "rounded-lg border p-3 text-sm " +
+              (pendingOffers > openSlotsFromToday
+                ? "border-destructive/50 bg-destructive/5 text-destructive"
+                : pendingOffers === openSlotsFromToday && pendingOffers > 0
+                ? "border-amber-500/50 bg-amber-500/10 text-amber-900 dark:text-amber-200"
+                : "border-border bg-muted/30 text-muted-foreground")
+            }
+          >
+            {pendingOffers} candidate{pendingOffers === 1 ? "" : "s"} waiting for a time ·{" "}
+            {openSlotsFromToday} slot{openSlotsFromToday === 1 ? "" : "s"} open
+            {pendingOffers > openSlotsFromToday && " — not enough open times for everyone waiting."}
+            {pendingOffers === openSlotsFromToday && pendingOffers > 0 &&
+              " — exactly enough, but no one gets a real choice of time."}
+            {queue.length > 0 && (
+              <p className="mt-1 text-xs">
+                If you open all queued times: {openSlotsFromToday + totalQueuedTimes} slot
+                {openSlotsFromToday + totalQueuedTimes === 1 ? "" : "s"} open
+              </p>
+            )}
+          </div>
+        )}
+
         <div className="grid gap-3 sm:grid-cols-4">
           <div className="space-y-2">
             <Label htmlFor="slot-date">Date</Label>
-            <Input id="slot-date" type="date" value={date} onChange={(e) => { setDate(e.target.value); setPreview(null); }} />
+            <Input id="slot-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="slot-start">From</Label>
-            <Input id="slot-start" type="time" value={start} onChange={(e) => { setStart(e.target.value); setPreview(null); }} />
+            <Input id="slot-start" type="time" value={start} onChange={(e) => setStart(e.target.value)} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="slot-end">To</Label>
-            <Input id="slot-end" type="time" value={end} onChange={(e) => { setEnd(e.target.value); setPreview(null); }} />
+            <Input id="slot-end" type="time" value={end} onChange={(e) => setEnd(e.target.value)} />
           </div>
           <div className="flex items-end">
-            <Button className="w-full" variant="outline" onClick={buildPreview} disabled={busy}>
-              Preview times
+            <Button className="w-full" variant="outline" onClick={addToBatch} disabled={busy}>
+              Add to batch
             </Button>
           </div>
         </div>
 
-        {preview && (
+        {queue.length > 0 && (
           <div className="rounded-lg border border-border p-3">
             <p className="text-xs font-semibold">
-              {preview.length} time{preview.length === 1 ? "" : "s"} on {formatDateLong(date)}
+              {totalQueuedTimes} time{totalQueuedTimes === 1 ? "" : "s"} across {queue.length} day
+              {queue.length === 1 ? "" : "s"} queued
             </p>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {preview.map((t) => (
-                <span key={t} className="rounded-md border border-border px-2 py-1 text-xs">
-                  {formatTime12h(t)}
-                </span>
+            <ul className="mt-2 space-y-1.5">
+              {queue.map((b) => (
+                <li key={b.date} className="flex items-center justify-between gap-3">
+                  <span className="text-sm">
+                    {formatDateLong(b.date)} · {b.times.length} time{b.times.length === 1 ? "" : "s"}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={busy}
+                    onClick={() => setQueue((q) => q.filter((x) => x.date !== b.date))}
+                  >
+                    Remove
+                  </Button>
+                </li>
               ))}
-            </div>
-            <div className="mt-3 flex gap-2">
-              <Button size="sm" onClick={() => void saveBlock()} disabled={busy}>Open these times</Button>
-              <Button size="sm" variant="ghost" onClick={() => setPreview(null)} disabled={busy}>Cancel</Button>
+            </ul>
+            <div className="mt-3">
+              <Button size="sm" onClick={() => void saveQueue()} disabled={busy || queue.length === 0}>
+                Open all queued times
+              </Button>
             </div>
           </div>
         )}
