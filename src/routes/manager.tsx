@@ -1645,6 +1645,7 @@ function ShadowPacketCard() {
                       size="sm"
                       variant="outline"
                       disabled={!loaded}
+                      className="h-auto whitespace-normal text-left"
                       onClick={() => setCustomDress(editingPosition, "wear", "")}
                     >
                       Write a custom uniform for {editingPosition}
@@ -1665,7 +1666,13 @@ function ShadowPacketCard() {
                         onChange={(e) => setCustomDress(editingPosition, "provided", e.target.value)}
                         disabled={!loaded}
                       />
-                      <Button size="sm" variant="ghost" disabled={!loaded} onClick={() => clearCustomDress(editingPosition)}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={!loaded}
+                        className="h-auto whitespace-normal text-left"
+                        onClick={() => clearCustomDress(editingPosition)}
+                      >
                         Remove custom uniform — use {derivedLabel.toLowerCase()} instead
                       </Button>
                     </>
