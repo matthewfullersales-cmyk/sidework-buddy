@@ -1455,63 +1455,6 @@ function SettingsTab() {
   );
 }
 
-function InterviewLengthCard() {
-  const { effectiveOwner } = useAuth();
-  const ownerId = effectiveOwner?.ownerId ?? null;
-  const [minutes, setMinutes] = useState<InterviewInterval>(DEFAULT_INTERVIEW_INTERVAL);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (!ownerId) return;
-    let cancelled = false;
-    fetchInterviewInterval(ownerId)
-      .then((v) => { if (!cancelled) setMinutes(v); })
-      .catch((e) => console.error("[interview length] load failed", e));
-    return () => { cancelled = true; };
-  }, [ownerId]);
-
-  const pick = async (v: InterviewInterval) => {
-    if (!ownerId) return;
-    const prev = minutes;
-    setMinutes(v);
-    setSaving(true);
-    try {
-      await saveInterviewInterval(ownerId, v);
-      toast.success(`Interviews are ${v} minutes`);
-    } catch (e) {
-      console.error("[interview length] save failed", e);
-      setMinutes(prev);
-      toast.error("Couldn't save that");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Interviews</CardTitle>
-        <p className="mt-1 text-xs text-muted-foreground">How long one interview takes. This only decides how a block of open time is split into slots — it doesn't block anything.</p>
-      </CardHeader>
-      <CardContent>
-        <div className="flex flex-wrap gap-2">
-          {INTERVIEW_INTERVALS.map((v) => (
-            <Button
-              key={v}
-              size="sm"
-              variant={minutes === v ? "default" : "outline"}
-              disabled={saving}
-              onClick={() => void pick(v)}
-            >
-              {v} min
-            </Button>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
 function ShadowPacketCard() {
   const { effectiveOwner } = useAuth();
   const ownerId = effectiveOwner?.ownerId ?? null;
