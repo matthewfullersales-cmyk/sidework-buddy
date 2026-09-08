@@ -1613,6 +1613,67 @@ function ShadowPacketCard() {
             placeholder: "e.g. non-slip shoes, your knives if you have them",
           })}
         </div>
+        {positionChoices.length > 0 && (
+          <div className="space-y-3 border-t border-border pt-5">
+            <p className="text-sm font-medium">Custom uniform for one position</p>
+            <p className="text-xs text-muted-foreground">
+              Most positions just use the front or back of house dress above — this only matters for the rare position that needs its own answer, like a barista's branded polo.
+            </p>
+            {Object.keys(packet.customDress).length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                Already set: {Object.keys(packet.customDress).join(", ")}
+              </p>
+            )}
+            <Select value={editingPosition} onValueChange={setEditingPosition} disabled={!loaded}>
+              <SelectTrigger className="h-8 w-[220px] text-xs"><SelectValue placeholder="Choose a position" /></SelectTrigger>
+              <SelectContent>
+                {positionChoices.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            {editingPosition && (() => {
+              const derived = defaultDressGroupForRole(editingPosition, customRoles);
+              const derivedLabel = derived === "foh" ? "Front of house dress" : derived === "host" ? "Host dress" : "Back of house dress";
+              const isCustom = editingPosition in packet.customDress;
+              return (
+                <div className="space-y-3 rounded-lg border border-border p-3">
+                  <p className="text-xs text-muted-foreground">
+                    {editingPosition} dresses as <span className="font-medium text-foreground">{derivedLabel}</span> by default.
+                  </p>
+                  {!isCustom ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={!loaded}
+                      onClick={() => setCustomDress(editingPosition, "wear", "")}
+                    >
+                      Write a custom uniform for {editingPosition}
+                    </Button>
+                  ) : (
+                    <>
+                      <Textarea
+                        rows={2}
+                        placeholder="What to wear"
+                        value={packet.customDress[editingPosition]?.wear ?? ""}
+                        onChange={(e) => setCustomDress(editingPosition, "wear", e.target.value)}
+                        disabled={!loaded}
+                      />
+                      <Textarea
+                        rows={2}
+                        placeholder="What we provide"
+                        value={packet.customDress[editingPosition]?.provided ?? ""}
+                        onChange={(e) => setCustomDress(editingPosition, "provided", e.target.value)}
+                        disabled={!loaded}
+                      />
+                      <Button size="sm" variant="ghost" disabled={!loaded} onClick={() => clearCustomDress(editingPosition)}>
+                        Remove custom uniform — use {derivedLabel.toLowerCase()} instead
+                      </Button>
+                    </>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+        )}
         <div className="flex justify-end">
           <Button onClick={save} disabled={!loaded || saving}>{saving ? "Saving…" : "Save"}</Button>
         </div>
