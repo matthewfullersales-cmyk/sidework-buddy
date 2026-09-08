@@ -6,7 +6,8 @@
 //  - DRESS GROUP ('foh' | 'host' | 'boh') — which block of dress text a role reads.
 //
 // Host is front of house but may have its own dress. Every other role dresses
-// as its section. Owners can override the dress group per role in the packet.
+// as its section. A position needing its own wording gets custom dress text in
+// the packet instead (resolved on the read side by position name).
 //
 // This module runs MANAGER-SIDE only: customRoles is client state the
 // unauthenticated trainee page cannot see. The resolved values are stored on
@@ -43,15 +44,5 @@ export function defaultDressGroupForRole(role: string, customRoles: CustomRole[]
   return shadowSectionForRole(role, customRoles);
 }
 
-/** Owner override wins over the derived default when present. */
-export function dressGroupForRole(
-  role: string,
-  customRoles: CustomRole[] = [],
-  overrides: Record<string, ShadowDressGroup> = {},
-): ShadowDressGroup {
-  const explicit = overrides[role] ?? overrides[(role ?? "").trim()];
-  if (explicit === "foh" || explicit === "host" || explicit === "boh") return explicit;
-  return defaultDressGroupForRole(role, customRoles);
-}
 
 export type { Role };
