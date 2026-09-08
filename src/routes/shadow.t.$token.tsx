@@ -87,12 +87,15 @@ function PublicShadowShiftPage() {
   const section = shift ? (shift.section ?? "foh") : null;
   const dressGroup = shift ? (shift.dressGroup ?? "foh") : null;
   // Host is all-or-nothing: any host text at all means use the host block as-is.
+  const customDress = packet && shift ? packet.customDress[shift.role] : undefined;
   const dress =
-    packet && dressGroup
-      ? dressGroup === "host" && !packet.dress.host.wear.trim() && !packet.dress.host.provided.trim()
-        ? packet.dress.foh
-        : packet.dress[dressGroup]
-      : null;
+    customDress && (customDress.wear.trim() || customDress.provided.trim())
+      ? customDress
+      : packet && dressGroup
+        ? dressGroup === "host" && !packet.dress.host.wear.trim() && !packet.dress.host.provided.trim()
+          ? packet.dress.foh
+          : packet.dress[dressGroup]
+        : null;
   // Entrance: BOH override when set, otherwise the main entrance (fallback).
   const entrance = packet
     ? section === "boh" && packet.entranceBoh.trim()

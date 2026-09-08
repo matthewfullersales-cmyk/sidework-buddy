@@ -395,12 +395,8 @@ export type ShadowPacket = {
   };
   /** What to bring. No cross-fallback: blank boh means "nothing special". */
   bring: { foh: string; boh: string };
-  /**
-   * Explicit per-role dress group overrides, keyed by role name.
-   * Only roles the owner deliberately changed are stored; anything absent
-   * falls back to the derived default in shadow-packet-roles.ts.
-   */
-  dressGroup: Record<string, "foh" | "host" | "boh">;
+  /** Per-position custom dress text. A position with an entry here shows this instead of its derived front/back-of-house default. Only positions the owner deliberately wrote something for are stored. */
+  customDress: Record<string, ShadowDressSection>;
 };
 
 export function emptyShadowPacket(): ShadowPacket {
@@ -415,7 +411,7 @@ export function emptyShadowPacket(): ShadowPacket {
       boh: { wear: "", provided: "" },
     },
     bring: { foh: "", boh: "" },
-    dressGroup: {},
+    customDress: {},
   };
 }
 
@@ -434,11 +430,11 @@ export function normalizeShadowPacket(raw: unknown): ShadowPacket {
     };
   };
   const str = (v: unknown): string => (typeof v === "string" ? v : "");
-  const dressGroup: Record<string, "foh" | "host" | "boh"> = {};
-  if (r.dressGroup && typeof r.dressGroup === "object") {
-    for (const [k, v] of Object.entries(r.dressGroup as Record<string, unknown>)) {
-      if (v === "foh" || v === "host" || v === "boh") dressGroup[k] = v;
-    }
+  const customDress: Record<string, ShadowDressSection> = {};
+  const rawCustomDress = (r.customDress ?? {}) as Record<string, unknown>;
+  for (const [k, v] of Object.entries(rawCustomDress)) {
+    const s = sect(v);
+    if (s.wear.trim() || s.provided.trim()) customDress[k] = s;
   }
   return {
     entrance: str(r.entrance),
@@ -448,7 +444,7 @@ export function normalizeShadowPacket(raw: unknown): ShadowPacket {
     askFor: str(r.askFor),
     dress: { foh: sect(dress.foh), host: sect(dress.host), boh: sect(dress.boh) },
     bring: { foh: str(bring.foh), boh: str(bring.boh) },
-    dressGroup,
+    customDress,
   };
 }
 
