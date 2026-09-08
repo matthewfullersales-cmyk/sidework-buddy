@@ -1458,9 +1458,12 @@ function SettingsTab() {
 function ShadowPacketCard() {
   const { effectiveOwner } = useAuth();
   const ownerId = effectiveOwner?.ownerId ?? null;
+  const { activeRoles, customRoles } = useStore();
+  const positionChoices = allRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r));
   const [packet, setPacket] = useState<ShadowPacket>(emptyShadowPacket);
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [editingPosition, setEditingPosition] = useState<string>("");
 
   useEffect(() => {
     if (!ownerId) return;
@@ -1476,6 +1479,17 @@ function ShadowPacketCard() {
     setPacket((p) => ({ ...p, dress: { ...p.dress, [section]: { ...p.dress[section], [field]: value } } }));
   const setBring = (section: "foh" | "boh", value: string) =>
     setPacket((p) => ({ ...p, bring: { ...p.bring, [section]: value } }));
+  const setCustomDress = (position: string, field: "wear" | "provided", value: string) =>
+    setPacket((p) => ({
+      ...p,
+      customDress: { ...p.customDress, [position]: { ...(p.customDress[position] ?? { wear: "", provided: "" }), [field]: value } },
+    }));
+  const clearCustomDress = (position: string) =>
+    setPacket((p) => {
+      const next = { ...p.customDress };
+      delete next[position];
+      return { ...p, customDress: next };
+    });
 
 
   const save = async () => {
