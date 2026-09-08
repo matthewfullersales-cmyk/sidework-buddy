@@ -1387,8 +1387,13 @@ function SettingsTab() {
   const configured = hoursConfigured(restaurantHours, mealPeriods);
 
 
+  const sectionLabel = (text: string) => (
+    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{text}</p>
+  );
+
   return (
     <div className="space-y-4">
+      {sectionLabel("Restaurant details")}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Restaurant profile</CardTitle>
@@ -1401,12 +1406,22 @@ function SettingsTab() {
           />
         </CardContent>
       </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Restaurant info</CardTitle>
+          <p className="mt-1 text-xs text-muted-foreground">Business address, phone, website, and social handles. The address and phone are shown to candidates on their shadow-shift confirmation page, and on in-person interview confirmations (not shown for phone interviews).</p>
+        </CardHeader>
+        <CardContent>
+          <BusinessInfoEditor value={businessInfo} onChange={setBusinessInfo} />
+        </CardContent>
+      </Card>
       {!configured && (
         <div role="status" className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 text-sm text-amber-900 dark:text-amber-200">
           <p className="font-semibold">Finish setting your operating hours</p>
           <p className="mt-1 text-xs">Turn on the meal periods you actually serve (Breakfast / Lunch / Dinner) and confirm your daily open hours. Scheduling and employee availability rely on these to match staff to real service windows.</p>
         </div>
       )}
+      {sectionLabel("Hours")}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Meal periods</CardTitle>
@@ -1430,18 +1445,11 @@ function SettingsTab() {
           <RestaurantHoursEditor value={restaurantHours} onChange={updateRestaurantDay} />
         </CardContent>
       </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Restaurant info</CardTitle>
-          <p className="mt-1 text-xs text-muted-foreground">Business address, phone, website, and social handles. Shown on public-facing surfaces (careers page, hire invites) so applicants and new hires know how to reach you.</p>
-        </CardHeader>
-        <CardContent>
-          <BusinessInfoEditor value={businessInfo} onChange={setBusinessInfo} />
-        </CardContent>
-      </Card>
-      <InterviewLengthCard />
+      {sectionLabel("Hiring")}
       <ShadowPacketCard />
+      {sectionLabel("Team")}
       <RolesCard />
+      {sectionLabel("Staff access")}
       <StaffOnboardingCard />
     </div>
   );
