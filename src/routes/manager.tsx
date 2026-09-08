@@ -33,6 +33,7 @@ import { notifyTimeOffResolved, notifyScheduleChanged } from "@/lib/notification
 import { AvailabilityEditor, RestaurantHoursEditor, MealPeriodsEditor, BusinessInfoEditor, RestaurantProfileEditor } from "@/components/sidework/AvailabilityEditor";
 import { AvailabilitySummary, hasAnyAvailability } from "@/components/sidework/AvailabilitySummary";
 import { fetchShadowPacket, saveShadowPacket, emptyShadowPacket, type ShadowPacket } from "@/lib/employees-supabase";
+import { defaultDressGroupForRole } from "@/lib/shadow-packet-roles";
 import { StaffJoinBanner, FullscreenQrDialog, StaffOnboardingCard, useJoinUrl } from "@/components/sidework/StaffOnboarding";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
