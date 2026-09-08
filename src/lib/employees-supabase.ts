@@ -395,8 +395,6 @@ export type ShadowPacket = {
   };
   /** What to bring. No cross-fallback: blank boh means "nothing special". */
   bring: { foh: string; boh: string };
-  /** One optional line per role, keyed by role name. */
-  doing: Record<string, string>;
   /**
    * Explicit per-role dress group overrides, keyed by role name.
    * Only roles the owner deliberately changed are stored; anything absent
@@ -417,7 +415,6 @@ export function emptyShadowPacket(): ShadowPacket {
       boh: { wear: "", provided: "" },
     },
     bring: { foh: "", boh: "" },
-    doing: {},
     dressGroup: {},
   };
 }
@@ -437,12 +434,6 @@ export function normalizeShadowPacket(raw: unknown): ShadowPacket {
     };
   };
   const str = (v: unknown): string => (typeof v === "string" ? v : "");
-  const doing: Record<string, string> = {};
-  if (r.doing && typeof r.doing === "object") {
-    for (const [k, v] of Object.entries(r.doing as Record<string, unknown>)) {
-      if (typeof v === "string") doing[k] = v;
-    }
-  }
   const dressGroup: Record<string, "foh" | "host" | "boh"> = {};
   if (r.dressGroup && typeof r.dressGroup === "object") {
     for (const [k, v] of Object.entries(r.dressGroup as Record<string, unknown>)) {
@@ -457,7 +448,6 @@ export function normalizeShadowPacket(raw: unknown): ShadowPacket {
     askFor: str(r.askFor),
     dress: { foh: sect(dress.foh), host: sect(dress.host), boh: sect(dress.boh) },
     bring: { foh: str(bring.foh), boh: str(bring.boh) },
-    doing,
     dressGroup,
   };
 }

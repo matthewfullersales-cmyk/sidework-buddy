@@ -10,13 +10,6 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ApplicantPipeline } from "@/components/sidework/ApplicantPipeline";
 import { InterviewSlotsCard } from "@/components/sidework/InterviewSlotsCard";
-import {
-  DEFAULT_INTERVIEW_INTERVAL,
-  INTERVIEW_INTERVALS,
-  fetchInterviewInterval,
-  saveInterviewInterval,
-  type InterviewInterval,
-} from "@/lib/interview-slots-supabase";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -30,7 +23,6 @@ import { onboardingStatus, useStore, type Role, type Employee, type Relationship
 import { fetchPeople, type Person } from "@/lib/people-supabase";
 import { sendReactivationEmail } from "@/lib/reactivation.functions";
 import { roleStyle, fohRolesWithCustom, bohRolesWithCustom, allRolesWithCustom, FOH_ROLES_ORDERED, BOH_ROLES_ORDERED, ROLES_ORDERED, nextCustomColor } from "@/lib/role-colors";
-import { defaultDressGroupForRole } from "@/lib/shadow-packet-roles";
 
 import { PhoneInput } from "@/components/ui/phone-input";
 import { copyLinkWithToast } from "@/lib/copy-to-clipboard";
@@ -1395,8 +1387,13 @@ function SettingsTab() {
   const configured = hoursConfigured(restaurantHours, mealPeriods);
 
 
+  const sectionLabel = (text: string) => (
+    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{text}</p>
+  );
+
   return (
     <div className="space-y-4">
+      {sectionLabel("Restaurant details")}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Restaurant profile</CardTitle>
@@ -1409,12 +1406,22 @@ function SettingsTab() {
           />
         </CardContent>
       </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Restaurant info</CardTitle>
+          <p className="mt-1 text-xs text-muted-foreground">Business address, phone, website, and social handles. The address and phone are shown to candidates on their shadow-shift confirmation page, and on in-person interview confirmations (not shown for phone interviews).</p>
+        </CardHeader>
+        <CardContent>
+          <BusinessInfoEditor value={businessInfo} onChange={setBusinessInfo} />
+        </CardContent>
+      </Card>
       {!configured && (
         <div role="status" className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 text-sm text-amber-900 dark:text-amber-200">
           <p className="font-semibold">Finish setting your operating hours</p>
           <p className="mt-1 text-xs">Turn on the meal periods you actually serve (Breakfast / Lunch / Dinner) and confirm your daily open hours. Scheduling and employee availability rely on these to match staff to real service windows.</p>
         </div>
       )}
+      {sectionLabel("Hours")}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Meal periods</CardTitle>
@@ -1438,77 +1445,13 @@ function SettingsTab() {
           <RestaurantHoursEditor value={restaurantHours} onChange={updateRestaurantDay} />
         </CardContent>
       </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Restaurant info</CardTitle>
-          <p className="mt-1 text-xs text-muted-foreground">Business address, phone, website, and social handles. Shown on public-facing surfaces (careers page, hire invites) so applicants and new hires know how to reach you.</p>
-        </CardHeader>
-        <CardContent>
-          <BusinessInfoEditor value={businessInfo} onChange={setBusinessInfo} />
-        </CardContent>
-      </Card>
-      <InterviewLengthCard />
+      {sectionLabel("Hiring")}
       <ShadowPacketCard />
+      {sectionLabel("Team")}
       <RolesCard />
+      {sectionLabel("Staff access")}
       <StaffOnboardingCard />
     </div>
-  );
-}
-
-function InterviewLengthCard() {
-  const { effectiveOwner } = useAuth();
-  const ownerId = effectiveOwner?.ownerId ?? null;
-  const [minutes, setMinutes] = useState<InterviewInterval>(DEFAULT_INTERVIEW_INTERVAL);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (!ownerId) return;
-    let cancelled = false;
-    fetchInterviewInterval(ownerId)
-      .then((v) => { if (!cancelled) setMinutes(v); })
-      .catch((e) => console.error("[interview length] load failed", e));
-    return () => { cancelled = true; };
-  }, [ownerId]);
-
-  const pick = async (v: InterviewInterval) => {
-    if (!ownerId) return;
-    const prev = minutes;
-    setMinutes(v);
-    setSaving(true);
-    try {
-      await saveInterviewInterval(ownerId, v);
-      toast.success(`Interviews are ${v} minutes`);
-    } catch (e) {
-      console.error("[interview length] save failed", e);
-      setMinutes(prev);
-      toast.error("Couldn't save that");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Interviews</CardTitle>
-        <p className="mt-1 text-xs text-muted-foreground">How long one interview takes. This only decides how a block of open time is split into slots — it doesn't block anything.</p>
-      </CardHeader>
-      <CardContent>
-        <div className="flex flex-wrap gap-2">
-          {INTERVIEW_INTERVALS.map((v) => (
-            <Button
-              key={v}
-              size="sm"
-              variant={minutes === v ? "default" : "outline"}
-              disabled={saving}
-              onClick={() => void pick(v)}
-            >
-              {v} min
-            </Button>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
   );
 }
 
@@ -1528,24 +1471,11 @@ function ShadowPacketCard() {
     return () => { cancelled = true; };
   }, [ownerId]);
 
-  const { activeRoles, customRoles } = useStore();
-  const roleChoices = allRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r));
-
   const set = (patch: Partial<ShadowPacket>) => setPacket((p) => ({ ...p, ...patch }));
   const setDress = (section: "foh" | "host" | "boh", field: "wear" | "provided", value: string) =>
     setPacket((p) => ({ ...p, dress: { ...p.dress, [section]: { ...p.dress[section], [field]: value } } }));
   const setBring = (section: "foh" | "boh", value: string) =>
     setPacket((p) => ({ ...p, bring: { ...p.bring, [section]: value } }));
-  const setDoing = (role: string, value: string) =>
-    setPacket((p) => ({ ...p, doing: { ...p.doing, [role]: value } }));
-  // Only explicit overrides are stored: choosing the derived default removes the key.
-  const setDressGroup = (role: string, value: "foh" | "host" | "boh", derived: string) =>
-    setPacket((p) => {
-      const next = { ...p.dressGroup };
-      if (value === derived) delete next[role];
-      else next[role] = value;
-      return { ...p, dressGroup: next };
-    });
 
 
   const save = async () => {
@@ -1669,49 +1599,6 @@ function ShadowPacketCard() {
             placeholder: "e.g. non-slip shoes, your knives if you have them",
           })}
         </div>
-        {roleChoices.length > 0 && (
-          <div className="space-y-3 border-t border-border pt-5">
-            <p className="text-sm font-medium">By role</p>
-            <p className="text-xs text-muted-foreground">
-              Optional. The line is shown only to trainees shadowing that role. Dress decides which block of dress
-              text they see.
-
-            </p>
-            {roleChoices.map((r) => {
-              const derived = defaultDressGroupForRole(r, customRoles);
-              const current = packet.dressGroup[r] ?? derived;
-              return (
-                <div key={r} className="grid gap-2">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <Label>{r}</Label>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">Dress</span>
-                      <Select
-                        value={current}
-                        onValueChange={(v) => setDressGroup(r, v as "foh" | "host" | "boh", derived)}
-                        disabled={!loaded}
-                      >
-                        <SelectTrigger className="h-8 w-[190px] text-xs"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="foh">Front of house dress</SelectItem>
-                          <SelectItem value="host">Host dress</SelectItem>
-                          <SelectItem value="boh">Back of house dress</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <Textarea
-                    rows={2}
-                    placeholder="What they'll be doing"
-                    value={packet.doing[r] ?? ""}
-                    onChange={(e) => setDoing(r, e.target.value)}
-                    disabled={!loaded}
-                  />
-                </div>
-              );
-            })}
-          </div>
-        )}
         <div className="flex justify-end">
           <Button onClick={save} disabled={!loaded || saving}>{saving ? "Saving…" : "Save"}</Button>
         </div>
