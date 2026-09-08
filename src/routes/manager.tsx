@@ -10,13 +10,6 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ApplicantPipeline } from "@/components/sidework/ApplicantPipeline";
 import { InterviewSlotsCard } from "@/components/sidework/InterviewSlotsCard";
-import {
-  DEFAULT_INTERVIEW_INTERVAL,
-  INTERVIEW_INTERVALS,
-  fetchInterviewInterval,
-  saveInterviewInterval,
-  type InterviewInterval,
-} from "@/lib/interview-slots-supabase";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -30,7 +23,6 @@ import { onboardingStatus, useStore, type Role, type Employee, type Relationship
 import { fetchPeople, type Person } from "@/lib/people-supabase";
 import { sendReactivationEmail } from "@/lib/reactivation.functions";
 import { roleStyle, fohRolesWithCustom, bohRolesWithCustom, allRolesWithCustom, FOH_ROLES_ORDERED, BOH_ROLES_ORDERED, ROLES_ORDERED, nextCustomColor } from "@/lib/role-colors";
-import { defaultDressGroupForRole } from "@/lib/shadow-packet-roles";
 
 import { PhoneInput } from "@/components/ui/phone-input";
 import { copyLinkWithToast } from "@/lib/copy-to-clipboard";

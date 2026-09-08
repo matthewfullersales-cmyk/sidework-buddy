@@ -165,7 +165,6 @@ function PublicShadowShiftPage() {
           {bring.trim() && (
             <section className="space-y-4 rounded-xl border border-border p-5">
               <Field label="What to bring" value={bring} />
-              <Field label="What you'll be doing" value={doing} />
             </section>
           )}
 
