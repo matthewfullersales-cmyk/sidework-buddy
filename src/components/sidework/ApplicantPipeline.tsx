@@ -37,7 +37,7 @@ import {
 } from "@/lib/interviews-supabase";
 import { useStore } from "@/lib/sidework-store";
 import { allRolesWithCustom } from "@/lib/role-colors";
-import { shadowSectionForRole, dressGroupForRole } from "@/lib/shadow-packet-roles";
+import { shadowSectionForRole, defaultDressGroupForRole } from "@/lib/shadow-packet-roles";
 import { fetchShadowPacket, emptyShadowPacket, type ShadowPacket } from "@/lib/employees-supabase";
 import {
   fetchShadowShiftsForPeople,
@@ -491,7 +491,7 @@ export function ApplicantPipeline({ onInterviewChange, refreshKey = 0 }: { onInt
       }
     }
     const section = shadowSectionForRole(shRole, customRoles);
-    const dressGroup = dressGroupForRole(shRole, customRoles, packet.dressGroup);
+    const dressGroup = defaultDressGroupForRole(shRole, customRoles);
 
     try {
       const saved = shadowEditing
