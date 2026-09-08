@@ -148,7 +148,7 @@ export function StaffOnboardingCard() {
         <CardContent className="space-y-2">
           <p className="text-sm">Set your restaurant name before you can share a join link.</p>
           <p className="text-xs text-muted-foreground">
-            Your join link and QR code are built from your restaurant name. Add it under Settings → Restaurant info
+            Your join link and QR code are built from your restaurant name. Add it under Settings → Restaurant profile
             and the link will appear here.
           </p>
         </CardContent>

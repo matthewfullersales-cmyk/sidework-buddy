@@ -102,7 +102,6 @@ function PublicShadowShiftPage() {
   const askFor = packet ? packet.askFor : "";
   // Bring: no cross-fallback — blank BOH is a complete answer.
   const bring = packet ? (section === "boh" ? packet.bring.boh : packet.bring.foh) : "";
-  const doing = packet && shift ? (packet.doing[shift.role] ?? "") : "";
   const closed = shift ? shift.status === "cancelled" || shift.status === "completed" : false;
   // Date-only comparison, deliberately. The shift stores a local date + time
   // with no timezone and the restaurant's timezone isn't stored anywhere, so a
@@ -163,7 +162,7 @@ function PublicShadowShiftPage() {
             </section>
           )}
 
-          {(bring.trim() || doing.trim()) && (
+          {bring.trim() && (
             <section className="space-y-4 rounded-xl border border-border p-5">
               <Field label="What to bring" value={bring} />
               <Field label="What you'll be doing" value={doing} />
