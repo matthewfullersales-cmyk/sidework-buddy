@@ -1556,7 +1556,7 @@ function ShadowPacketCard() {
           </div>
         )}
         <div className="space-y-3">
-          <p className="text-sm font-medium">Arrival</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Arrival</p>
           {field("Where to enter", packet.entrance, (v) => set({ entrance: v }), {
             placeholder: "e.g. the side door by the patio, marked Staff",
           })}
@@ -1572,50 +1572,29 @@ function ShadowPacketCard() {
           {field("Where to park", packet.parking, (v) => set({ parking: v }), {
             placeholder: "e.g. the lot across the street, not the front spaces",
           })}
-          {field("Who to ask for when you arrive", packet.askFor, (v) => set({ askFor: v }), {
-            placeholder: "e.g. ask the host for the manager on duty",
-          })}
         </div>
-        <div className="space-y-3">
-          <p className="text-sm font-medium">Front of house dress</p>
-          {field("What to wear", packet.dress.foh.wear, (v) => setDress("foh", "wear", v), {
-            placeholder: "e.g. black non-slip shoes, black pants, white button-down",
-          })}
-          {field("What we provide", packet.dress.foh.provided, (v) => setDress("foh", "provided", v), {
-            placeholder: "e.g. we provide the apron and name tag",
-          })}
-        </div>
-        <div className="space-y-3">
-          <p className="text-sm font-medium">Host dress</p>
-          <p className="text-xs text-muted-foreground">Leave blank if hosts follow the front of house dress.</p>
-          {field("What to wear", packet.dress.host.wear, (v) => setDress("host", "wear", v), {
-            placeholder: "e.g. black non-slip shoes, black pants, white button-down",
-          })}
-          {field("What we provide", packet.dress.host.provided, (v) => setDress("host", "provided", v), {
-            placeholder: "e.g. we provide the apron and name tag",
-          })}
-        </div>
-        <div className="space-y-3">
-          <p className="text-sm font-medium">Back of house dress</p>
-          {field("What to wear", packet.dress.boh.wear, (v) => setDress("boh", "wear", v), {
-            placeholder: "e.g. non-slip shoes, black pants, plain black t-shirt",
-          })}
-          {field("What we provide", packet.dress.boh.provided, (v) => setDress("boh", "provided", v), {
-            placeholder: "e.g. we provide the apron and chef coat",
-          })}
-        </div>
-        <div className="space-y-3 border-t border-border pt-5">
-          <p className="text-sm font-medium">What to bring</p>
-          <p className="text-xs text-muted-foreground">Blank means nothing special. Front of house wording is also used for hosts.</p>
-          {field("Front of house", packet.bring.foh, (v) => setBring("foh", v), {
-            placeholder: "e.g. non-slip shoes, a pen, black pants",
-          })}
-          {field("Back of house", packet.bring.boh, (v) => setBring("boh", v), {
-            placeholder: "e.g. non-slip shoes, your knives if you have them",
-          })}
-        </div>
+        <div className="space-y-4">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Uniform</p>
+          <div className="space-y-3">
+            <p className="text-sm font-medium">Front of house</p>
+            {field("What to wear", packet.dress.foh.wear, (v) => setDress("foh", "wear", v), {
+              placeholder: "e.g. black non-slip shoes, black pants, white button-down",
+            })}
+            {field("What we provide", packet.dress.foh.provided, (v) => setDress("foh", "provided", v), {
+              placeholder: "e.g. we provide the apron and name tag",
+            })}
+          </div>
+          <div className="space-y-3">
+            <p className="text-sm font-medium">Back of house</p>
+            {field("What to wear", packet.dress.boh.wear, (v) => setDress("boh", "wear", v), {
+              placeholder: "e.g. non-slip shoes, black pants, plain black t-shirt",
+            })}
+            {field("What we provide", packet.dress.boh.provided, (v) => setDress("boh", "provided", v), {
+              placeholder: "e.g. we provide the apron and chef coat",
+            })}
+          </div>
         {positionChoices.length > 0 && (
-          <div className="space-y-3 border-t border-border pt-5">
+          <div className="space-y-3">
             <p className="text-sm font-medium">Custom uniform for one position</p>
             <p className="text-xs text-muted-foreground">
               Most positions just use the front or back of house dress above — this only matters for the rare position that needs its own answer, like a barista's branded polo.
@@ -1633,7 +1612,7 @@ function ShadowPacketCard() {
             </Select>
             {editingPosition && (() => {
               const derived = defaultDressGroupForRole(editingPosition, customRoles);
-              const derivedLabel = derived === "foh" ? "Front of house dress" : derived === "host" ? "Host dress" : "Back of house dress";
+              const derivedLabel = derived === "foh" ? "Front of house dress" : "Back of house dress";
               const isCustom = editingPosition in packet.customDress;
               return (
                 <div className="space-y-3 rounded-lg border border-border p-3">
@@ -1682,6 +1661,7 @@ function ShadowPacketCard() {
             })()}
           </div>
         )}
+        </div>
         <div className="flex justify-end">
           <Button onClick={save} disabled={!loaded || saving}>{saving ? "Saving…" : "Save"}</Button>
         </div>
