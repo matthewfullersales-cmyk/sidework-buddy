@@ -91,10 +91,8 @@ function PublicShadowShiftPage() {
   const dress =
     customDress && (customDress.wear.trim() || customDress.provided.trim())
       ? customDress
-      : packet && dressGroup
-        ? dressGroup === "host" && !packet.dress.host.wear.trim() && !packet.dress.host.provided.trim()
-          ? packet.dress.foh
-          : packet.dress[dressGroup]
+      : packet
+        ? packet.dress[dressGroup === "boh" ? "boh" : "foh"]
         : null;
   // Entrance: BOH override when set, otherwise the main entrance (fallback).
   const entrance = packet
@@ -102,9 +100,6 @@ function PublicShadowShiftPage() {
       ? packet.entranceBoh
       : packet.entrance
     : "";
-  const askFor = packet ? packet.askFor : "";
-  // Bring: no cross-fallback — blank BOH is a complete answer.
-  const bring = packet ? (section === "boh" ? packet.bring.boh : packet.bring.foh) : "";
   const closed = shift ? shift.status === "cancelled" || shift.status === "completed" : false;
   // Date-only comparison, deliberately. The shift stores a local date + time
   // with no timezone and the restaurant's timezone isn't stored anywhere, so a
