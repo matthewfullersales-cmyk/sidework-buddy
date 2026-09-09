@@ -86,15 +86,14 @@ function PublicShadowShiftPage() {
   // Older rows predating those columns fall back to front of house.
   const section = shift ? (shift.section ?? "foh") : null;
   const dressGroup = shift ? (shift.dressGroup ?? "foh") : null;
-  // Host is all-or-nothing: any host text at all means use the host block as-is.
+  // A per-position custom uniform wins; otherwise a legacy "host" dress_group
+  // folds into front of house, since there is no dedicated host block anymore.
   const customDress = packet && shift ? packet.customDress[shift.role] : undefined;
   const dress =
     customDress && (customDress.wear.trim() || customDress.provided.trim())
       ? customDress
-      : packet && dressGroup
-        ? dressGroup === "host" && !packet.dress.host.wear.trim() && !packet.dress.host.provided.trim()
-          ? packet.dress.foh
-          : packet.dress[dressGroup]
+      : packet
+        ? packet.dress[dressGroup === "boh" ? "boh" : "foh"]
         : null;
   // Entrance: BOH override when set, otherwise the main entrance (fallback).
   const entrance = packet
@@ -102,9 +101,6 @@ function PublicShadowShiftPage() {
       ? packet.entranceBoh
       : packet.entrance
     : "";
-  const askFor = packet ? packet.askFor : "";
-  // Bring: no cross-fallback — blank BOH is a complete answer.
-  const bring = packet ? (section === "boh" ? packet.bring.boh : packet.bring.foh) : "";
   const closed = shift ? shift.status === "cancelled" || shift.status === "completed" : false;
   // Date-only comparison, deliberately. The shift stores a local date + time
   // with no timezone and the restaurant's timezone isn't stored anywhere, so a
@@ -155,19 +151,12 @@ function PublicShadowShiftPage() {
             )}
           </section>
 
-          {packet && (askFor.trim() || entrance.trim() || packet.parking.trim() || (dress && (dress.wear.trim() || dress.provided.trim()))) && (
+          {packet && (entrance.trim() || packet.parking.trim() || (dress && (dress.wear.trim() || dress.provided.trim()))) && (
             <section className="space-y-4 rounded-xl border border-border p-5">
-              <Field label="Who to ask for" value={askFor} />
               <Field label="Where to come in" value={entrance} />
               <Field label="Parking" value={packet.parking} />
               {dress && <Field label="What to wear" value={dress.wear} />}
               {dress && <Field label="What we provide" value={dress.provided} />}
-            </section>
-          )}
-
-          {bring.trim() && (
-            <section className="space-y-4 rounded-xl border border-border p-5">
-              <Field label="What to bring" value={bring} />
             </section>
           )}
 

@@ -369,11 +369,10 @@ export async function saveRoleConfig(
 
 /* ---------------- Shadow shift packet (jsonb on profiles) ---------------- */
 
-// Fallback rule for the resolver that will eventually consume this packet:
-// - Role is Host -> use dress.host; if both of its fields are empty, fall back to dress.foh.
-// - Role is any other front of house role -> use dress.foh.
-// - Role is a back of house role -> use dress.boh.
-// The resolver does not exist yet; this comment records the rule next to the data.
+// Fallback rule for the resolver that consumes this packet:
+// - Front of house roles (Host included) -> use dress.foh.
+// - Back of house roles -> use dress.boh.
+// - Any position with a customDress entry -> use that instead.
 
 export type ShadowDressSection = { wear: string; provided: string };
 
@@ -382,19 +381,10 @@ export type ShadowPacket = {
   /** Optional BOH-only entrance override. Blank means everyone uses `entrance`. */
   entranceBoh: string;
   parking: string;
-  /**
-   * Stable, per-restaurant answer to "who do I ask for when I arrive" —
-   * holds whoever is training, including when the shift's trainer is
-   * "Assign later" or the assigned trainer calls out.
-   */
-  askFor: string;
   dress: {
     foh: ShadowDressSection;
-    host: ShadowDressSection;
     boh: ShadowDressSection;
   };
-  /** What to bring. No cross-fallback: blank boh means "nothing special". */
-  bring: { foh: string; boh: string };
   /** Per-position custom dress text. A position with an entry here shows this instead of its derived front/back-of-house default. Only positions the owner deliberately wrote something for are stored. */
   customDress: Record<string, ShadowDressSection>;
 };
@@ -404,13 +394,10 @@ export function emptyShadowPacket(): ShadowPacket {
     entrance: "",
     entranceBoh: "",
     parking: "",
-    askFor: "",
     dress: {
       foh: { wear: "", provided: "" },
-      host: { wear: "", provided: "" },
       boh: { wear: "", provided: "" },
     },
-    bring: { foh: "", boh: "" },
     customDress: {},
   };
 }
@@ -421,7 +408,6 @@ export function normalizeShadowPacket(raw: unknown): ShadowPacket {
   if (!raw || typeof raw !== "object") return base;
   const r = raw as Record<string, unknown>;
   const dress = (r.dress ?? {}) as Record<string, unknown>;
-  const bring = (r.bring ?? {}) as Record<string, unknown>;
   const sect = (v: unknown): ShadowDressSection => {
     const s = (v ?? {}) as Record<string, unknown>;
     return {
@@ -440,13 +426,11 @@ export function normalizeShadowPacket(raw: unknown): ShadowPacket {
     entrance: str(r.entrance),
     entranceBoh: str(r.entranceBoh),
     parking: str(r.parking),
-    // Rows predating this field have no key: str(undefined) fails open to "".
-    askFor: str(r.askFor),
-    dress: { foh: sect(dress.foh), host: sect(dress.host), boh: sect(dress.boh) },
-    bring: { foh: str(bring.foh), boh: str(bring.boh) },
+    dress: { foh: sect(dress.foh), boh: sect(dress.boh) },
     customDress,
   };
 }
+
 
 
 export async function fetchShadowPacket(ownerId: string): Promise<ShadowPacket> {
