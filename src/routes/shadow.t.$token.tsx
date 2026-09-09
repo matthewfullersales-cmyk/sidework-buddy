@@ -86,7 +86,8 @@ function PublicShadowShiftPage() {
   // Older rows predating those columns fall back to front of house.
   const section = shift ? (shift.section ?? "foh") : null;
   const dressGroup = shift ? (shift.dressGroup ?? "foh") : null;
-  // Host is all-or-nothing: any host text at all means use the host block as-is.
+  // A per-position custom uniform wins; otherwise a legacy "host" dress_group
+  // folds into front of house, since there is no dedicated host block anymore.
   const customDress = packet && shift ? packet.customDress[shift.role] : undefined;
   const dress =
     customDress && (customDress.wear.trim() || customDress.provided.trim())
@@ -150,19 +151,12 @@ function PublicShadowShiftPage() {
             )}
           </section>
 
-          {packet && (askFor.trim() || entrance.trim() || packet.parking.trim() || (dress && (dress.wear.trim() || dress.provided.trim()))) && (
+          {packet && (entrance.trim() || packet.parking.trim() || (dress && (dress.wear.trim() || dress.provided.trim()))) && (
             <section className="space-y-4 rounded-xl border border-border p-5">
-              <Field label="Who to ask for" value={askFor} />
               <Field label="Where to come in" value={entrance} />
               <Field label="Parking" value={packet.parking} />
               {dress && <Field label="What to wear" value={dress.wear} />}
               {dress && <Field label="What we provide" value={dress.provided} />}
-            </section>
-          )}
-
-          {bring.trim() && (
-            <section className="space-y-4 rounded-xl border border-border p-5">
-              <Field label="What to bring" value={bring} />
             </section>
           )}
 
