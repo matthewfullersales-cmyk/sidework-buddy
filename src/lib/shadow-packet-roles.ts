@@ -2,12 +2,14 @@
 // (src/lib/role-colors.ts) rather than a parallel string array.
 //
 // Two SEPARATE axes:
-//  - SECTION ('foh' | 'boh')     — department. Drives the entrance and the bring list.
-//  - DRESS GROUP ('foh' | 'host' | 'boh') — which block of dress text a role reads.
+//  - SECTION ('foh' | 'boh')     — department. Drives the entrance.
+//  - DRESS GROUP ('foh' | 'boh') — which block of dress text a role reads.
 //
-// Host is front of house but may have its own dress. Every other role dresses
-// as its section. A position needing its own wording gets custom dress text in
-// the packet instead (resolved on the read side by position name).
+// Host has no special-cased dress bucket: like every other role it defaults to
+// its section. Any position needing its own wording (Host included) uses the
+// per-position custom uniform override stored in the packet, resolved on the
+// read side by position name.
+
 //
 // This module runs MANAGER-SIDE only: customRoles is client state the
 // unauthenticated trainee page cannot see. The resolved values are stored on
