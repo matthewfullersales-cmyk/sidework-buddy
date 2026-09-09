@@ -1532,8 +1532,10 @@ function ShadowPacketCard() {
         : null;
   const nudges: string[] = [];
   if (loaded && !packet.entrance.trim()) nudges.push("Trainees won't be told where to come in.");
-  if (loaded && blankDress) nudges.push(`Trainees in ${blankDress} roles won't be told what to wear.`);
-  if (loaded && !packet.askFor.trim()) nudges.push("Trainees won't be told who to ask for.");
+  if (loaded && blankDress) {
+    const label = blankDress === "front of house" ? "Front of house" : "Back of house";
+    nudges.push(`${label} dress is blank — trainees won't see a "What to wear" section.`);
+  }
 
   return (
     <Card>
