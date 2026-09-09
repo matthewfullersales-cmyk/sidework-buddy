@@ -1446,10 +1446,10 @@ function SettingsTab() {
           <RestaurantHoursEditor value={restaurantHours} onChange={updateRestaurantDay} />
         </CardContent>
       </Card>
-      {sectionLabel("Hiring")}
-      <ShadowPacketCard />
       {sectionLabel("Team")}
       <RolesCard />
+      {sectionLabel("Hiring")}
+      <ShadowPacketCard />
       {sectionLabel("Staff access")}
       <StaffOnboardingCard />
     </div>
@@ -1476,10 +1476,8 @@ function ShadowPacketCard() {
   }, [ownerId]);
 
   const set = (patch: Partial<ShadowPacket>) => setPacket((p) => ({ ...p, ...patch }));
-  const setDress = (section: "foh" | "host" | "boh", field: "wear" | "provided", value: string) =>
+  const setDress = (section: "foh" | "boh", field: "wear" | "provided", value: string) =>
     setPacket((p) => ({ ...p, dress: { ...p.dress, [section]: { ...p.dress[section], [field]: value } } }));
-  const setBring = (section: "foh" | "boh", value: string) =>
-    setPacket((p) => ({ ...p, bring: { ...p.bring, [section]: value } }));
   const setCustomDress = (position: string, field: "wear" | "provided", value: string) =>
     setPacket((p) => ({
       ...p,
