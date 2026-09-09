@@ -18,7 +18,7 @@ import type { Role, CustomRole } from "@/lib/sidework-store";
 import { BOH_ROLES_ORDERED } from "@/lib/role-colors";
 
 export type ShadowSection = "foh" | "boh";
-export type ShadowDressGroup = "foh" | "host" | "boh";
+export type ShadowDressGroup = "foh" | "boh";
 
 const BOH_SET = new Set(BOH_ROLES_ORDERED.map((r) => r.trim().toLowerCase()));
 
@@ -26,7 +26,7 @@ function key(role: string): string {
   return (role ?? "").trim().toLowerCase();
 }
 
-/** Department only. Host is NOT a section — it is a dress group. */
+/** Department only. */
 export function shadowSectionForRole(role: string, customRoles: CustomRole[] = []): ShadowSection {
   const r = key(role);
   if (BOH_SET.has(r)) return "boh";
@@ -39,10 +39,8 @@ export function isBohRole(role: string, customRoles: CustomRole[] = []): boolean
   return shadowSectionForRole(role, customRoles) === "boh";
 }
 
-/** The dress group a role uses before any owner override. */
+/** The dress group a role uses before any per-position custom override. */
 export function defaultDressGroupForRole(role: string, customRoles: CustomRole[] = []): ShadowDressGroup {
-  const r = key(role);
-  if (r === "host" || r === "hostess") return "host";
   return shadowSectionForRole(role, customRoles);
 }
 
