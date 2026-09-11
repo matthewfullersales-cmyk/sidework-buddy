@@ -492,7 +492,7 @@ export function BusinessInfoEditor({
 }
 
 const RESTAURANT_TYPE_OPTIONS = [
-  "Fine Dining", "Casual Dining", "Fast Casual", "Bar/Nightlife", "Cafe", "Food Truck",
+  "Fine Dining", "Casual Dining", "Fast Casual", "Bar/Nightlife", "Cafe", "Food Truck", "Pizzeria", "Bakery",
 ];
 
 export function RestaurantProfileEditor({
