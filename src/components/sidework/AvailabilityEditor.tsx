@@ -511,6 +511,16 @@ export function RestaurantProfileEditor({
   }
   const dirty = JSON.stringify(draft) !== JSON.stringify(value);
 
+  useEffect(() => {
+    if (!dirty) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [dirty]);
+
   const [forcedOther, setForcedOther] = useState(false);
   const isCustomType = forcedOther || (draft.type !== "" && !RESTAURANT_TYPE_OPTIONS.includes(draft.type));
   const selectValue = isCustomType ? "Other" : draft.type;
