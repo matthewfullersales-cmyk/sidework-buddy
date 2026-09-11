@@ -30,7 +30,12 @@ import { sendStaffInvite } from "@/lib/staff-invite.functions";
 import { loadMyJoinSlug } from "@/lib/restaurant-slug";
 import { notifyTimeOffResolved, notifyScheduleChanged, notifyAvailabilityResolved } from "@/lib/notifications.functions";
 
-import { AvailabilityEditor, RestaurantHoursEditor, MealPeriodsEditor, BusinessInfoEditor, RestaurantProfileEditor } from "@/components/sidework/AvailabilityEditor";
+import { AvailabilityEditor, RestaurantHoursEditor, MealPeriodsEditor, BusinessInfoEditor, RestaurantProfileEditor, summarizeAvailability } from "@/components/sidework/AvailabilityEditor";
+
+/** Full weekday labels for the availability-request diff. */
+const DAY_FULL_LABEL: Record<string, string> = {
+  mon: "Monday", tue: "Tuesday", wed: "Wednesday", thu: "Thursday", fri: "Friday", sat: "Saturday", sun: "Sunday",
+};
 import { AvailabilitySummary, hasAnyAvailability } from "@/components/sidework/AvailabilitySummary";
 import { fetchShadowPacket, saveShadowPacket, emptyShadowPacket, type ShadowPacket } from "@/lib/employees-supabase";
 import { defaultDressGroupForRole } from "@/lib/shadow-packet-roles";
