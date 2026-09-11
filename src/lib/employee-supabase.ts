@@ -1,6 +1,6 @@
 // Employee-scoped Supabase access. Used when the signed-in user is an
 // individual employee (not the owner and not a hiring/scheduling manager).
-// RLS restricts every query to the caller's own restaurant_employees row +
+// RLS restricts every query to the caller's own people row +
 // data derived from it (own shifts, open trades in the same restaurant, own
 // time-off history).
 import { supabase } from "@/integrations/supabase/client";

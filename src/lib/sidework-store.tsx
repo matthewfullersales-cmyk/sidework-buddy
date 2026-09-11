@@ -10,7 +10,6 @@ import {
 import {
   fetchOwnerEmployees,
   hasSupabaseSession,
-  insertEmployee,
   updateEmployeeRow,
   approveEmployeeRow,
   deleteEmployeeRow,
@@ -1337,7 +1336,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
 
   // Employee-context hydration branch: runs when there's NO effective owner
   // (not the owner, not a hiring/scheduling manager) BUT the signed-in user
-  // matches a restaurant_employees.auth_user_id via get_employee_context().
+  // matches a people.auth_user_id via get_employee_context().
   // Populates the store with the employee's own row + own shifts + open
   // trades in the restaurant + own time-off history, so /employee reads real
   // cloud data instead of an empty local store. Writes are mirrored to
