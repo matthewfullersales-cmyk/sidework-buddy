@@ -619,6 +619,14 @@ function ShiftDetailsDialog({
               {role} · {dateLabel}
             </p>
           </div>
+          {restaurantHours[dayKey0]?.closed && !hasShiftsOnDate && (
+            <div
+              role="alert"
+              className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground"
+            >
+              <p className="font-semibold">Heads up — {restaurantProfile?.name ?? "this restaurant"} is usually closed {localDate0.toLocaleDateString(undefined, { weekday: "long" })}s.</p>
+            </div>
+          )}
           {timeOffConflict && (
             <div
               role="alert"
