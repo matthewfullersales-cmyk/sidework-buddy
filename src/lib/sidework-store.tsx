@@ -40,6 +40,10 @@ import {
   insertTimeOffRow,
   updateTimeOffRow,
   deleteTimeOffRow,
+  fetchOwnerAvailabilityRequests,
+  insertAvailabilityRequestRow,
+  updateAvailabilityRequestRow,
+  deleteAvailabilityRequestRow,
   fetchOwnerTrades,
   insertTradeRow,
   updateTradeRow,
@@ -50,6 +54,7 @@ import {
   fetchOwnerOpenTrades,
   fetchShiftsByIds,
   fetchMyTimeOff,
+  fetchMyAvailabilityRequests,
   fetchCoworkerNames,
 } from "@/lib/employee-supabase";
 import {
@@ -1205,12 +1210,12 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     if (!hydrated || authLoading) return;
     let cancelled = false;
     if (!effectiveOwnerId) {
-      setState((s) => ({ ...s, jobs: [], shifts: [], trades: [], timeOff: [] }));
+      setState((s) => ({ ...s, jobs: [], shifts: [], trades: [], timeOff: [], availabilityRequests: [] }));
       return () => { cancelled = true; };
     }
     (async () => {
       try {
-        const [postings, remoteEmployeesInitial, remoteHours, remoteShiftsInitial, remoteTimeOffInitial, remoteTradesInitial, remoteBusinessInfo, remoteTrainingProgress, menuBankMeta, remoteMenuTestConfig, remoteRoleConfig, remoteRestaurantProfile] = await Promise.all([
+        const [postings, remoteEmployeesInitial, remoteHours, remoteShiftsInitial, remoteTimeOffInitial, remoteTradesInitial, remoteBusinessInfo, remoteTrainingProgress, menuBankMeta, remoteMenuTestConfig, remoteRoleConfig, remoteRestaurantProfile, remoteAvailabilityRequests] = await Promise.all([
           fetchOwnerPostings(effectiveOwnerId),
           fetchOwnerEmployees(effectiveOwnerId),
           fetchRestaurantHours(effectiveOwnerId),
@@ -1230,6 +1235,10 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           fetchRestaurantProfile(effectiveOwnerId).catch((e) => {
             console.warn("[owner-sync] restaurant profile load failed", e);
             return null;
+          }),
+          fetchOwnerAvailabilityRequests(effectiveOwnerId).catch((e) => {
+            console.warn("[owner-sync] availability requests load failed", e);
+            return [] as AvailabilityChangeRequest[];
           }),
         ]);
 
