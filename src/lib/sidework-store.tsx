@@ -775,6 +775,12 @@ interface Store {
     requestTimeOff: (data: Omit<TimeOffRequest, "id" | "createdAt" | "status">) => void;
   resolveTimeOff: (id: string, approved: boolean) => void;
   cancelTimeOff: (id: string) => Promise<void>;
+  /** Employee-submitted requests to change standing weekly availability. */
+  availabilityRequests: AvailabilityChangeRequest[];
+  requestAvailabilityChange: (data: { employeeId: string; requestedAvailability: WeeklyAvailability; note?: string }) => void;
+  /** Manager decision. Approving also writes the new grid onto the person row. */
+  resolveAvailabilityChange: (id: string, approved: boolean) => void;
+  cancelAvailabilityChange: (id: string) => Promise<void>;
 }
 
 const Ctx = createContext<Store | null>(null);
@@ -1129,6 +1135,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     trades: seedTrades(),
     jobs: seedJobs(),
     timeOff: [] as TimeOffRequest[],
+    availabilityRequests: [] as AvailabilityChangeRequest[],
     menu: null as MenuUpload | null,
     drinkMenu: null as MenuUpload | null,
     dessertMenu: null as MenuUpload | null,
