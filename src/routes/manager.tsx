@@ -181,6 +181,7 @@ function OverviewTab() {
         <Stat label="Pending trades" value={stats.pending} hint="Need your approval" tone={stats.pending > 0 ? "warn" : undefined} />
         <Stat label="New applications" value={stats.newApps} hint="Awaiting review" tone={stats.newApps > 0 ? "warn" : undefined} />
         <Stat label="Time off pending" value={stats.pendingTO} hint="Need a decision" tone={stats.pendingTO > 0 ? "warn" : undefined} />
+        <Stat label="Availability requests" value={stats.pendingAvail} hint="Need a decision" tone={stats.pendingAvail > 0 ? "warn" : undefined} />
       </div>
 
 
