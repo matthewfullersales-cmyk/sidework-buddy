@@ -28,7 +28,7 @@ import { PhoneInput } from "@/components/ui/phone-input";
 import { copyLinkWithToast } from "@/lib/copy-to-clipboard";
 import { sendStaffInvite } from "@/lib/staff-invite.functions";
 import { loadMyJoinSlug } from "@/lib/restaurant-slug";
-import { notifyTimeOffResolved, notifyScheduleChanged } from "@/lib/notifications.functions";
+import { notifyTimeOffResolved, notifyScheduleChanged, notifyAvailabilityResolved } from "@/lib/notifications.functions";
 
 import { AvailabilityEditor, RestaurantHoursEditor, MealPeriodsEditor, BusinessInfoEditor, RestaurantProfileEditor } from "@/components/sidework/AvailabilityEditor";
 import { AvailabilitySummary, hasAnyAvailability } from "@/components/sidework/AvailabilitySummary";
@@ -150,7 +150,7 @@ function ManagerTabs({ tab, setTab }: { tab: string; setTab: (v: string) => void
 
 
 function OverviewTab() {
-  const { employees: allEmployees, customRoles, trades, shifts, timeOff } = useStore();
+  const { employees: allEmployees, customRoles, trades, shifts, timeOff, availabilityRequests } = useStore();
   const { user } = useAuth();
   const [newApps, setNewApps] = useState(0);
   useEffect(() => {
