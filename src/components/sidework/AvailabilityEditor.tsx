@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   computeAutofillPatches,
   loadAutofillMemo,
@@ -492,7 +492,7 @@ export function BusinessInfoEditor({
 }
 
 const RESTAURANT_TYPE_OPTIONS = [
-  "Fine Dining", "Casual Dining", "Fast Casual", "Bar/Nightlife", "Cafe", "Food Truck",
+  "Fine Dining", "Casual Dining", "Fast Casual", "Bar/Nightlife", "Cafe", "Food Truck", "Pizzeria", "Bakery",
 ];
 
 export function RestaurantProfileEditor({
@@ -510,6 +510,16 @@ export function RestaurantProfileEditor({
     setLastSyncedKey(currentKey);
   }
   const dirty = JSON.stringify(draft) !== JSON.stringify(value);
+
+  useEffect(() => {
+    if (!dirty) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [dirty]);
 
   const [forcedOther, setForcedOther] = useState(false);
   const isCustomType = forcedOther || (draft.type !== "" && !RESTAURANT_TYPE_OPTIONS.includes(draft.type));
@@ -538,6 +548,7 @@ export function RestaurantProfileEditor({
           onValueChange={(v) => {
             if (v === "Other") {
               setForcedOther(true);
+              setDraft((d) => ({ ...d, type: RESTAURANT_TYPE_OPTIONS.includes(d.type) ? "" : d.type }));
             } else {
               setForcedOther(false);
               setDraft((d) => ({ ...d, type: v }));
@@ -553,7 +564,7 @@ export function RestaurantProfileEditor({
         {selectValue === "Other" && (
           <Input
             className="mt-2"
-            placeholder="Type your own"
+            placeholder="e.g. Brewery, Food hall, Ghost kitchen"
             value={draft.type}
             onChange={(e) => setDraft((d) => ({ ...d, type: e.target.value }))}
             aria-label="Custom restaurant type"
