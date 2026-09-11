@@ -1412,6 +1412,10 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           Promise.resolve([] as VideoProgress[]),
           Promise.resolve(null),
           Promise.resolve(null),
+          fetchMyAvailabilityRequests(employeeCtxEmployeeId).catch((e) => {
+            console.warn("[employee-sync] availability requests load failed", e);
+            return [] as AvailabilityChangeRequest[];
+          }),
         ]);
 
         if (cancelled) return;
