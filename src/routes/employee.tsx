@@ -15,8 +15,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { summarizeAvailability } from "@/components/sidework/AvailabilityEditor";
-import { onboardingStatus, useStore, isPendingJoin, DAY_KEYS, type DayKey, type Relationship } from "@/lib/sidework-store";
+import { summarizeAvailability, AvailabilityEditor } from "@/components/sidework/AvailabilityEditor";
+import { onboardingStatus, useStore, isPendingJoin, DAY_KEYS, defaultWeeklyAvailability, type DayKey, type Relationship, type WeeklyAvailability } from "@/lib/sidework-store";
 
 const DAY_FULL: Record<DayKey, string> = {
   Mon: "Monday", Tue: "Tuesday", Wed: "Wednesday", Thu: "Thursday",
@@ -269,6 +269,147 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
     </div>
   );
 }
+
+/**
+ * Employee-initiated request to change standing weekly availability.
+ * Nothing is written to the person row here — the manager's approval does that.
+ */
+function AvailabilityChangeDialog({
+  employeeId,
+  current,
+}: {
+  employeeId: string;
+  current: WeeklyAvailability | undefined;
+}) {
+  const { requestAvailabilityChange, availabilityRequests } = useStore();
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState<WeeklyAvailability>(current ?? defaultWeeklyAvailability());
+  const [note, setNote] = useState("");
+  const hasPending = availabilityRequests.some((r) => r.employeeId === employeeId && r.status === "pending");
+
+  const start = (next: boolean) => {
+    if (next) {
+      // Pre-fill with what's on file so they only touch the days that are wrong.
+      setDraft(current ?? defaultWeeklyAvailability());
+      setNote("");
+    }
+    setOpen(next);
+  };
+
+  const submit = () => {
+    requestAvailabilityChange({ employeeId, requestedAvailability: draft, note: note.trim() || undefined });
+    toast.success("Availability change requested");
+    setOpen(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={start}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline" className="h-auto whitespace-normal text-left">Request a change</Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader><DialogTitle>Request an availability change</DialogTitle></DialogHeader>
+        <div className="max-h-[65vh] space-y-4 overflow-y-auto pr-1">
+          <p className="text-xs text-muted-foreground">
+            This starts with what you have now. Change only the days that need to be different — your manager
+            decides whether it takes effect.
+          </p>
+          {hasPending && (
+            <p className="rounded-md border border-border bg-muted p-3 text-xs text-muted-foreground" role="alert">
+              You already have a request waiting on your manager. Sending another one won't replace it.
+            </p>
+          )}
+          <AvailabilityEditor value={draft} onChange={setDraft} />
+          <div className="grid gap-2">
+            <Label>Anything your manager should know? (optional)</Label>
+            <Textarea
+              rows={3}
+              maxLength={300}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="e.g. classes start again in September"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button onClick={submit}>Send request</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function MyAvailabilityRequests({ employeeId }: { employeeId: string }) {
+  const { availabilityRequests, cancelAvailabilityChange } = useStore();
+  const mine = availabilityRequests.filter((r) => r.employeeId === employeeId);
+  const [cancelling, setCancelling] = useState<string | null>(null);
+
+  const doCancel = async (id: string) => {
+    setCancelling(id);
+    try {
+      await cancelAvailabilityChange(id);
+      toast.success("Request cancelled");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not cancel that request.");
+    } finally {
+      setCancelling(null);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader><CardTitle className="text-base">My availability requests</CardTitle></CardHeader>
+      <CardContent className="space-y-2">
+        {mine.length === 0 && <p className="text-sm text-muted-foreground">No requests yet.</p>}
+        {mine.map((r) => (
+          <div key={r.id} className="space-y-2 rounded-lg border border-border bg-background p-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm font-semibold">Sent {new Date(r.createdAt).toLocaleDateString()}</p>
+              <div className="flex items-center gap-2">
+                <Badge className={
+                  r.status === "approved" ? "bg-success text-success-foreground hover:bg-success" :
+                  r.status === "denied" ? "bg-destructive text-destructive-foreground hover:bg-destructive" :
+                  "bg-warning text-warning-foreground hover:bg-warning"
+                }>{r.status}</Badge>
+                {r.status === "pending" && (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button size="sm" variant="outline" disabled={cancelling === r.id}>
+                        {cancelling === r.id ? "Cancelling…" : "Cancel"}
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Cancel this availability request?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          It will be withdrawn. This can't be undone — you'd have to send a new request.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Keep it</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => void doCancel(r.id)}>Cancel request</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
+              </div>
+            </div>
+            <div className="grid gap-1 sm:grid-cols-2">
+              {DAY_KEYS.map((day) => (
+                <div key={day} className="flex items-center justify-between gap-2 text-xs">
+                  <span className="text-muted-foreground">{DAY_FULL[day]}</span>
+                  <span className="font-medium">{summarizeAvailability(r.requestedAvailability[day])}</span>
+                </div>
+              ))}
+            </div>
+            {r.note && <p className="text-xs text-muted-foreground">“{r.note}”</p>}
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
 
 function MyScheduleTab({ employeeId }: { employeeId: string }) {
   const { shifts, trades, employees, postTrade } = useStore();
