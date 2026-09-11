@@ -2033,6 +2033,68 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
       }
       setState((s) => ({ ...s, timeOff: s.timeOff.filter((t) => t.id !== id) }));
     },
+    requestAvailabilityChange: (data) => {
+      const tempId = uid("ac");
+      setState((s) => ({
+        ...s,
+        availabilityRequests: [
+          {
+            id: tempId,
+            createdAt: new Date().toISOString(),
+            status: "pending",
+            employeeId: data.employeeId,
+            requestedAvailability: data.requestedAvailability,
+            note: data.note,
+          },
+          ...s.availabilityRequests,
+        ],
+      }));
+      const oid = ownerIdRef.current;
+      if (!oid) return;
+      insertAvailabilityRequestRow(oid, data)
+        .then((row) => {
+          setState((s) => ({
+            ...s,
+            availabilityRequests: s.availabilityRequests.map((r) => (r.id === tempId ? row : r)),
+          }));
+        })
+        .catch((e) => console.error("[requestAvailabilityChange]", e));
+    },
+    resolveAvailabilityChange: (id, approved) => {
+      const req = latestStateRef.current.availabilityRequests.find((r) => r.id === id);
+      const patch = {
+        status: (approved ? "approved" : "denied") as TimeOffStatus,
+        resolvedAt: new Date().toISOString(),
+      };
+      setState((s) => ({
+        ...s,
+        availabilityRequests: s.availabilityRequests.map((r) =>
+          r.id === id ? { ...r, status: patch.status, resolvedAt: patch.resolvedAt } : r,
+        ),
+        // Approval is a manager-initiated write to the person row, exactly like
+        // editing availability from the Team tab.
+        employees: approved && req
+          ? s.employees.map((e) =>
+              e.id === req.employeeId ? { ...e, weeklyAvailability: req.requestedAvailability } : e,
+            )
+          : s.employees,
+      }));
+      if (approved && req && /^[0-9a-f-]{36}$/i.test(req.employeeId)) {
+        updateEmployeeRow(req.employeeId, { weeklyAvailability: req.requestedAvailability }).catch((e) =>
+          console.error("[resolveAvailabilityChange:person]", e),
+        );
+      }
+      if (/^[0-9a-f-]{36}$/i.test(id)) {
+        updateAvailabilityRequestRow(id, patch).catch((e) => console.error("[resolveAvailabilityChange]", e));
+      }
+    },
+    cancelAvailabilityChange: async (id) => {
+      // Server first: RLS decides. Only drop it locally once the row really went.
+      if (/^[0-9a-f-]{36}$/i.test(id)) {
+        await deleteAvailabilityRequestRow(id);
+      }
+      setState((s) => ({ ...s, availabilityRequests: s.availabilityRequests.filter((r) => r.id !== id) }));
+    },
     setMenuTestConfig: (cfg) => {
       const clean = normalizeMenuTestConfig(cfg);
       setState((s) => ({ ...s, menuTestConfig: clean }));
