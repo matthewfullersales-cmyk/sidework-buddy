@@ -169,9 +169,10 @@ function OverviewTab() {
 
     const pending = trades.filter((t) => t.status === "pending_approval").length;
     const pendingTO = timeOff.filter((t) => t.status === "pending").length;
-    return { onboarded, total: employees.length, pending, newApps, pendingTO, shifts: shifts.length };
+    const pendingAvail = availabilityRequests.filter((r) => r.status === "pending").length;
+    return { onboarded, total: employees.length, pending, newApps, pendingTO, pendingAvail, shifts: shifts.length };
 
-  }, [employees, customRoles, trades, shifts, newApps, timeOff]);
+  }, [employees, customRoles, trades, shifts, newApps, timeOff, availabilityRequests]);
 
   return (
     <div className="grid gap-6">
