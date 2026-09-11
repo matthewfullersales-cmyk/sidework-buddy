@@ -548,6 +548,7 @@ export function RestaurantProfileEditor({
           onValueChange={(v) => {
             if (v === "Other") {
               setForcedOther(true);
+              setDraft((d) => ({ ...d, type: RESTAURANT_TYPE_OPTIONS.includes(d.type) ? "" : d.type }));
             } else {
               setForcedOther(false);
               setDraft((d) => ({ ...d, type: v }));
@@ -563,7 +564,7 @@ export function RestaurantProfileEditor({
         {selectValue === "Other" && (
           <Input
             className="mt-2"
-            placeholder="Type your own"
+            placeholder="e.g. Brewery, Food hall, Ghost kitchen"
             value={draft.type}
             onChange={(e) => setDraft((d) => ({ ...d, type: e.target.value }))}
             aria-label="Custom restaurant type"
