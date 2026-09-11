@@ -3,7 +3,7 @@
 // migration — extends the same "effective owner" pattern used by employees
 // and the hiring pipeline.
 import { supabase } from "@/integrations/supabase/client";
-import type { Shift, TimeOffRequest, Trade, TradeStatus, TimeOffStatus, Role } from "@/lib/sidework-store";
+import type { Shift, TimeOffRequest, Trade, TradeStatus, TimeOffStatus, Role, AvailabilityChangeRequest, WeeklyAvailability } from "@/lib/sidework-store";
 
 /* ---------------- shifts ---------------- */
 
@@ -194,6 +194,89 @@ export async function deleteTimeOffRow(id: string): Promise<void> {
     throw new Error("Request could not be cancelled — it may already have been decided.");
   }
 }
+
+/* ---------------- availability change requests ---------------- */
+
+type AvailabilityRequestRow = {
+  id: string;
+  owner_id: string;
+  employee_id: string | null;
+  requested_availability: unknown;
+  note: string | null;
+  status: string;
+  resolved_at: string | null;
+  created_at: string;
+};
+
+export function availabilityRequestFromRow(r: AvailabilityRequestRow): AvailabilityChangeRequest {
+  return {
+    id: r.id,
+    employeeId: r.employee_id ?? "",
+    requestedAvailability: r.requested_availability as WeeklyAvailability,
+    note: r.note ?? undefined,
+    status: (r.status as TimeOffStatus) ?? "pending",
+    createdAt: r.created_at,
+    resolvedAt: r.resolved_at ?? undefined,
+  };
+}
+
+export async function fetchOwnerAvailabilityRequests(ownerId: string): Promise<AvailabilityChangeRequest[]> {
+  const { data, error } = await supabase
+    .from("availability_change_requests")
+    .select("*")
+    .eq("owner_id", ownerId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((r) => availabilityRequestFromRow(r as AvailabilityRequestRow));
+}
+
+export async function insertAvailabilityRequestRow(
+  ownerId: string,
+  req: { employeeId: string; requestedAvailability: WeeklyAvailability; note?: string },
+): Promise<AvailabilityChangeRequest> {
+  const { data, error } = await supabase
+    .from("availability_change_requests")
+    .insert({
+      owner_id: ownerId,
+      employee_id: req.employeeId || null,
+      requested_availability: req.requestedAvailability as never,
+      note: req.note?.trim() ? req.note.trim() : null,
+    })
+    .select("*")
+    .single();
+  if (error) throw error;
+  return availabilityRequestFromRow(data as AvailabilityRequestRow);
+}
+
+export async function updateAvailabilityRequestRow(
+  id: string,
+  patch: { status?: TimeOffStatus; resolvedAt?: string | null },
+): Promise<void> {
+  const row: { status?: TimeOffStatus; resolved_at?: string | null } = {};
+  if (patch.status !== undefined) row.status = patch.status;
+  if (patch.resolvedAt !== undefined) row.resolved_at = patch.resolvedAt;
+  const { error } = await supabase.from("availability_change_requests").update(row).eq("id", id);
+  if (error) throw error;
+}
+
+/**
+ * Cancel an availability change request. Same contract as the time-off delete:
+ * RLS silently filters rows the caller may not delete, so zero returned rows
+ * is a failure, not a success.
+ */
+export async function deleteAvailabilityRequestRow(id: string): Promise<void> {
+  const { data, error } = await supabase
+    .from("availability_change_requests")
+    .delete()
+    .eq("id", id)
+    .select("id");
+  if (error) throw error;
+  if (!data || data.length === 0) {
+    throw new Error("Request could not be cancelled — it may already have been decided.");
+  }
+}
+
+
 
 /* ---------------- trades ---------------- */
 
