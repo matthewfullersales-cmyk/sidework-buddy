@@ -623,6 +623,21 @@ export interface TimeOffRequest {
   resolvedAt?: string;
 }
 
+/**
+ * An employee's request to change their standing weekly availability.
+ * Mirrors the time-off request shape: employees create and cancel-while-pending,
+ * management approves or denies. Approval is what writes people.weekly_availability.
+ */
+export interface AvailabilityChangeRequest {
+  id: string;
+  employeeId: string;
+  requestedAvailability: WeeklyAvailability;
+  note?: string;
+  status: TimeOffStatus;
+  createdAt: string;
+  resolvedAt?: string;
+}
+
 export interface MenuUpload {
   name: string;
   type: string;
