@@ -221,6 +221,9 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
         <CardHeader>
           <CardTitle className="text-base">Weekly availability</CardTitle>
           <p className="mt-1 text-xs text-muted-foreground">Your manager sets this. Talk to them if it needs to change.</p>
+          <div className="mt-3">
+            <AvailabilityChangeDialog employeeId={me.id} current={me.weeklyAvailability} />
+          </div>
         </CardHeader>
         <CardContent className="space-y-2">
           {DAY_KEYS.map((day) => {
@@ -234,6 +237,8 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
           })}
         </CardContent>
       </Card>
+
+      <MyAvailabilityRequests employeeId={me.id} />
 
       <Card>
         <CardHeader><CardTitle className="text-base">Emergency contact</CardTitle></CardHeader>
