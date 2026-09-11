@@ -4,8 +4,9 @@
 // data derived from it (own shifts, open trades in the same restaurant, own
 // time-off history).
 import { supabase } from "@/integrations/supabase/client";
-import type { Employee, Shift, Trade, TimeOffRequest } from "@/lib/sidework-store";
+import type { Employee, Shift, Trade, TimeOffRequest, AvailabilityChangeRequest } from "@/lib/sidework-store";
 import { employeeFromRow } from "@/lib/employees-supabase";
+import { availabilityRequestFromRow } from "@/lib/schedule-supabase";
 
 export type EmployeeContext = {
   ownerId: string;
