@@ -1349,6 +1349,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           employees: withProgress(remoteEmployees),
           shifts: remoteShifts,
           timeOff: remoteTimeOff,
+          availabilityRequests: remoteAvailabilityRequests,
           trades: remoteTrades,
           ...hoursPatch,
           ...rolesPatch,
@@ -1402,7 +1403,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
         }));
         if (isPendingJoin(me)) return;
 
-        const [myShifts, openTrades, myTimeOff, coworkers, myProgress, menuBankMeta, remoteMenuTestConfig] = await Promise.all([
+        const [myShifts, openTrades, myTimeOff, coworkers, myProgress, menuBankMeta, remoteMenuTestConfig, myAvailabilityRequests] = await Promise.all([
           fetchMyShifts(employeeCtxEmployeeId),
           fetchOwnerOpenTrades(employeeCtxOwnerId),
           fetchMyTimeOff(employeeCtxEmployeeId),
