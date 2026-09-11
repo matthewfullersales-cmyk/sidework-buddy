@@ -14,6 +14,50 @@ export type Database = {
   }
   public: {
     Tables: {
+      availability_change_requests: {
+        Row: {
+          created_at: string
+          employee_id: string | null
+          id: string
+          note: string | null
+          owner_id: string
+          requested_availability: Json
+          resolved_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          employee_id?: string | null
+          id?: string
+          note?: string | null
+          owner_id: string
+          requested_availability: Json
+          resolved_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          employee_id?: string | null
+          id?: string
+          note?: string | null
+          owner_id?: string
+          requested_availability?: Json
+          resolved_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "availability_change_requests_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employee_notifications: {
         Row: {
           body: string
