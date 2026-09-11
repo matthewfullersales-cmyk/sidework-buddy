@@ -522,12 +522,12 @@ function Legend() {
 }
 
 function ShiftDetailsDialog({
-  employeeId, date, role, existing, otherShiftsToday, onClose, onAddAnother, onSave, onDelete,
+  employeeId, date, role, existing, otherShiftsToday, hasShiftsOnDate, onClose, onAddAnother, onSave, onDelete,
 }: {
-  employeeId: string; date: string; role: Role; existing?: Shift; otherShiftsToday: Shift[];
+  employeeId: string; date: string; role: Role; existing?: Shift; otherShiftsToday: Shift[]; hasShiftsOnDate: boolean;
   onClose: () => void; onAddAnother: () => void; onSave: (s: Shift, usedOverride: boolean) => void; onDelete: (id: string) => void;
 }) {
-  const { employees, customRoles, timeOff, mealPeriods, restaurantHours } = useStore();
+  const { employees, customRoles, timeOff, mealPeriods, restaurantHours, restaurantProfile } = useStore();
   const emp = employees.find((e) => e.id === employeeId);
   // Compute suggestions up-front so a brand-new shift is seeded with the
   // first suggestion (Dinner arrival for the employee's section/position),
