@@ -220,7 +220,7 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Weekly availability</CardTitle>
-          <p className="mt-1 text-xs text-muted-foreground">Your manager sets this. Talk to them if it needs to change.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Your manager sets this — tap below if it needs to change.</p>
           <div className="mt-3">
             <AvailabilityChangeDialog employeeId={me.id} current={me.weeklyAvailability} />
           </div>
