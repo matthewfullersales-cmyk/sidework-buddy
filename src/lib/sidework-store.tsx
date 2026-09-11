@@ -2149,7 +2149,7 @@ export function onboardingStatus(
 ) {
   const { passed, total } = trainingProgressFor(employee, customRoles, meta, config, uploadedMenuTypes);
 
-  const fullyOnboarded = !!employee.personalInfoComplete && passed === total;
+  const fullyOnboarded = !!employee.personalInfoComplete;
   return { passed, total, fullyOnboarded, pct: total ? Math.round((passed / total) * 100) : 100 };
 }
 
