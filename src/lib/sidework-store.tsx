@@ -1451,6 +1451,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           shifts: [...myShifts, ...boardShifts],
           trades: openTrades,
           timeOff: myTimeOff,
+          availabilityRequests: myAvailabilityRequests,
           // Owner-only surfaces cleared for employee sessions
           jobs: [],
           menuBankMeta,
