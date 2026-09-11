@@ -1426,7 +1426,7 @@ function SettingsTab() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Meal periods</CardTitle>
-          <p className="mt-1 text-xs text-muted-foreground">Turn on the services you offer and set their real start and end times. These give you quick-fill buttons when building a shift — a Lunch button, a Dinner button, already set to the hours below.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Turn on the services you offer and set their real start and end times. Each one becomes a quick-fill button when building a shift, already set to the hours below.</p>
         </CardHeader>
         <CardContent>
           <MealPeriodsEditor
