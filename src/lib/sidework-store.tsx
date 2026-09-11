@@ -40,6 +40,10 @@ import {
   insertTimeOffRow,
   updateTimeOffRow,
   deleteTimeOffRow,
+  fetchOwnerAvailabilityRequests,
+  insertAvailabilityRequestRow,
+  updateAvailabilityRequestRow,
+  deleteAvailabilityRequestRow,
   fetchOwnerTrades,
   insertTradeRow,
   updateTradeRow,
@@ -50,6 +54,7 @@ import {
   fetchOwnerOpenTrades,
   fetchShiftsByIds,
   fetchMyTimeOff,
+  fetchMyAvailabilityRequests,
   fetchCoworkerNames,
 } from "@/lib/employee-supabase";
 import {
@@ -623,6 +628,21 @@ export interface TimeOffRequest {
   resolvedAt?: string;
 }
 
+/**
+ * An employee's request to change their standing weekly availability.
+ * Mirrors the time-off request shape: employees create and cancel-while-pending,
+ * management approves or denies. Approval is what writes people.weekly_availability.
+ */
+export interface AvailabilityChangeRequest {
+  id: string;
+  employeeId: string;
+  requestedAvailability: WeeklyAvailability;
+  note?: string;
+  status: TimeOffStatus;
+  createdAt: string;
+  resolvedAt?: string;
+}
+
 export interface MenuUpload {
   name: string;
   type: string;
@@ -760,6 +780,12 @@ interface Store {
     requestTimeOff: (data: Omit<TimeOffRequest, "id" | "createdAt" | "status">) => void;
   resolveTimeOff: (id: string, approved: boolean) => void;
   cancelTimeOff: (id: string) => Promise<void>;
+  /** Employee-submitted requests to change standing weekly availability. */
+  availabilityRequests: AvailabilityChangeRequest[];
+  requestAvailabilityChange: (data: { employeeId: string; requestedAvailability: WeeklyAvailability; note?: string }) => void;
+  /** Manager decision. Approving also writes the new grid onto the person row. */
+  resolveAvailabilityChange: (id: string, approved: boolean) => void;
+  cancelAvailabilityChange: (id: string) => Promise<void>;
 }
 
 const Ctx = createContext<Store | null>(null);
@@ -1114,6 +1140,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     trades: seedTrades(),
     jobs: seedJobs(),
     timeOff: [] as TimeOffRequest[],
+    availabilityRequests: [] as AvailabilityChangeRequest[],
     menu: null as MenuUpload | null,
     drinkMenu: null as MenuUpload | null,
     dessertMenu: null as MenuUpload | null,
@@ -1183,12 +1210,12 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     if (!hydrated || authLoading) return;
     let cancelled = false;
     if (!effectiveOwnerId) {
-      setState((s) => ({ ...s, jobs: [], shifts: [], trades: [], timeOff: [] }));
+      setState((s) => ({ ...s, jobs: [], shifts: [], trades: [], timeOff: [], availabilityRequests: [] }));
       return () => { cancelled = true; };
     }
     (async () => {
       try {
-        const [postings, remoteEmployeesInitial, remoteHours, remoteShiftsInitial, remoteTimeOffInitial, remoteTradesInitial, remoteBusinessInfo, remoteTrainingProgress, menuBankMeta, remoteMenuTestConfig, remoteRoleConfig, remoteRestaurantProfile] = await Promise.all([
+        const [postings, remoteEmployeesInitial, remoteHours, remoteShiftsInitial, remoteTimeOffInitial, remoteTradesInitial, remoteBusinessInfo, remoteTrainingProgress, menuBankMeta, remoteMenuTestConfig, remoteRoleConfig, remoteRestaurantProfile, remoteAvailabilityRequests] = await Promise.all([
           fetchOwnerPostings(effectiveOwnerId),
           fetchOwnerEmployees(effectiveOwnerId),
           fetchRestaurantHours(effectiveOwnerId),
@@ -1208,6 +1235,10 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           fetchRestaurantProfile(effectiveOwnerId).catch((e) => {
             console.warn("[owner-sync] restaurant profile load failed", e);
             return null;
+          }),
+          fetchOwnerAvailabilityRequests(effectiveOwnerId).catch((e) => {
+            console.warn("[owner-sync] availability requests load failed", e);
+            return [] as AvailabilityChangeRequest[];
           }),
         ]);
 
@@ -1318,6 +1349,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           employees: withProgress(remoteEmployees),
           shifts: remoteShifts,
           timeOff: remoteTimeOff,
+          availabilityRequests: remoteAvailabilityRequests,
           trades: remoteTrades,
           ...hoursPatch,
           ...rolesPatch,
@@ -1371,7 +1403,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
         }));
         if (isPendingJoin(me)) return;
 
-        const [myShifts, openTrades, myTimeOff, coworkers, myProgress, menuBankMeta, remoteMenuTestConfig] = await Promise.all([
+        const [myShifts, openTrades, myTimeOff, coworkers, myProgress, menuBankMeta, remoteMenuTestConfig, myAvailabilityRequests] = await Promise.all([
           fetchMyShifts(employeeCtxEmployeeId),
           fetchOwnerOpenTrades(employeeCtxOwnerId),
           fetchMyTimeOff(employeeCtxEmployeeId),
@@ -1380,6 +1412,10 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           Promise.resolve([] as VideoProgress[]),
           Promise.resolve(null),
           Promise.resolve(null),
+          fetchMyAvailabilityRequests(employeeCtxEmployeeId).catch((e) => {
+            console.warn("[employee-sync] availability requests load failed", e);
+            return [] as AvailabilityChangeRequest[];
+          }),
         ]);
 
         if (cancelled) return;
@@ -1415,6 +1451,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           shifts: [...myShifts, ...boardShifts],
           trades: openTrades,
           timeOff: myTimeOff,
+          availabilityRequests: myAvailabilityRequests,
           // Owner-only surfaces cleared for employee sessions
           jobs: [],
           menuBankMeta,
@@ -1995,6 +2032,68 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
         await deleteTimeOffRow(id);
       }
       setState((s) => ({ ...s, timeOff: s.timeOff.filter((t) => t.id !== id) }));
+    },
+    requestAvailabilityChange: (data) => {
+      const tempId = uid("ac");
+      setState((s) => ({
+        ...s,
+        availabilityRequests: [
+          {
+            id: tempId,
+            createdAt: new Date().toISOString(),
+            status: "pending",
+            employeeId: data.employeeId,
+            requestedAvailability: data.requestedAvailability,
+            note: data.note,
+          },
+          ...s.availabilityRequests,
+        ],
+      }));
+      const oid = ownerIdRef.current;
+      if (!oid) return;
+      insertAvailabilityRequestRow(oid, data)
+        .then((row) => {
+          setState((s) => ({
+            ...s,
+            availabilityRequests: s.availabilityRequests.map((r) => (r.id === tempId ? row : r)),
+          }));
+        })
+        .catch((e) => console.error("[requestAvailabilityChange]", e));
+    },
+    resolveAvailabilityChange: (id, approved) => {
+      const req = latestStateRef.current.availabilityRequests.find((r) => r.id === id);
+      const patch = {
+        status: (approved ? "approved" : "denied") as TimeOffStatus,
+        resolvedAt: new Date().toISOString(),
+      };
+      setState((s) => ({
+        ...s,
+        availabilityRequests: s.availabilityRequests.map((r) =>
+          r.id === id ? { ...r, status: patch.status, resolvedAt: patch.resolvedAt } : r,
+        ),
+        // Approval is a manager-initiated write to the person row, exactly like
+        // editing availability from the Team tab.
+        employees: approved && req
+          ? s.employees.map((e) =>
+              e.id === req.employeeId ? { ...e, weeklyAvailability: req.requestedAvailability } : e,
+            )
+          : s.employees,
+      }));
+      if (approved && req && /^[0-9a-f-]{36}$/i.test(req.employeeId)) {
+        updateEmployeeRow(req.employeeId, { weeklyAvailability: req.requestedAvailability }).catch((e) =>
+          console.error("[resolveAvailabilityChange:person]", e),
+        );
+      }
+      if (/^[0-9a-f-]{36}$/i.test(id)) {
+        updateAvailabilityRequestRow(id, patch).catch((e) => console.error("[resolveAvailabilityChange]", e));
+      }
+    },
+    cancelAvailabilityChange: async (id) => {
+      // Server first: RLS decides. Only drop it locally once the row really went.
+      if (/^[0-9a-f-]{36}$/i.test(id)) {
+        await deleteAvailabilityRequestRow(id);
+      }
+      setState((s) => ({ ...s, availabilityRequests: s.availabilityRequests.filter((r) => r.id !== id) }));
     },
     setMenuTestConfig: (cfg) => {
       const clean = normalizeMenuTestConfig(cfg);

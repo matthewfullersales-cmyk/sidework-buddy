@@ -4,8 +4,9 @@
 // data derived from it (own shifts, open trades in the same restaurant, own
 // time-off history).
 import { supabase } from "@/integrations/supabase/client";
-import type { Employee, Shift, Trade, TimeOffRequest } from "@/lib/sidework-store";
+import type { Employee, Shift, Trade, TimeOffRequest, AvailabilityChangeRequest } from "@/lib/sidework-store";
 import { employeeFromRow } from "@/lib/employees-supabase";
+import { availabilityRequestFromRow } from "@/lib/schedule-supabase";
 
 export type EmployeeContext = {
   ownerId: string;
@@ -137,6 +138,22 @@ export async function fetchMyTimeOff(employeeId: string): Promise<TimeOffRequest
     };
   });
 }
+
+/** The signed-in employee's own availability change requests (RLS-scoped). */
+export async function fetchMyAvailabilityRequests(employeeId: string): Promise<AvailabilityChangeRequest[]> {
+  const { data, error } = await supabase
+    .from("availability_change_requests")
+    .select("*")
+    .eq("employee_id", employeeId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((r) =>
+    availabilityRequestFromRow(
+      r as Parameters<typeof availabilityRequestFromRow>[0],
+    ),
+  );
+}
+
 
 /** Fetch coworker first names via the SECURITY DEFINER RPC. Returns
  * lightweight stub Employee objects (id + name only) so trade-board cards

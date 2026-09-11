@@ -28,9 +28,14 @@ import { PhoneInput } from "@/components/ui/phone-input";
 import { copyLinkWithToast } from "@/lib/copy-to-clipboard";
 import { sendStaffInvite } from "@/lib/staff-invite.functions";
 import { loadMyJoinSlug } from "@/lib/restaurant-slug";
-import { notifyTimeOffResolved, notifyScheduleChanged } from "@/lib/notifications.functions";
+import { notifyTimeOffResolved, notifyScheduleChanged, notifyAvailabilityResolved } from "@/lib/notifications.functions";
 
-import { AvailabilityEditor, RestaurantHoursEditor, MealPeriodsEditor, BusinessInfoEditor, RestaurantProfileEditor } from "@/components/sidework/AvailabilityEditor";
+import { AvailabilityEditor, RestaurantHoursEditor, MealPeriodsEditor, BusinessInfoEditor, RestaurantProfileEditor, summarizeAvailability } from "@/components/sidework/AvailabilityEditor";
+
+/** Full weekday labels for the availability-request diff. */
+const DAY_FULL_LABEL: Record<string, string> = {
+  mon: "Monday", tue: "Tuesday", wed: "Wednesday", thu: "Thursday", fri: "Friday", sat: "Saturday", sun: "Sunday",
+};
 import { AvailabilitySummary, hasAnyAvailability } from "@/components/sidework/AvailabilitySummary";
 import { fetchShadowPacket, saveShadowPacket, emptyShadowPacket, type ShadowPacket } from "@/lib/employees-supabase";
 import { defaultDressGroupForRole } from "@/lib/shadow-packet-roles";
@@ -150,7 +155,7 @@ function ManagerTabs({ tab, setTab }: { tab: string; setTab: (v: string) => void
 
 
 function OverviewTab() {
-  const { employees: allEmployees, customRoles, trades, shifts, timeOff } = useStore();
+  const { employees: allEmployees, customRoles, trades, shifts, timeOff, availabilityRequests } = useStore();
   const { user } = useAuth();
   const [newApps, setNewApps] = useState(0);
   useEffect(() => {
@@ -169,9 +174,10 @@ function OverviewTab() {
 
     const pending = trades.filter((t) => t.status === "pending_approval").length;
     const pendingTO = timeOff.filter((t) => t.status === "pending").length;
-    return { onboarded, total: employees.length, pending, newApps, pendingTO, shifts: shifts.length };
+    const pendingAvail = availabilityRequests.filter((r) => r.status === "pending").length;
+    return { onboarded, total: employees.length, pending, newApps, pendingTO, pendingAvail, shifts: shifts.length };
 
-  }, [employees, customRoles, trades, shifts, newApps, timeOff]);
+  }, [employees, customRoles, trades, shifts, newApps, timeOff, availabilityRequests]);
 
   return (
     <div className="grid gap-6">
@@ -180,6 +186,7 @@ function OverviewTab() {
         <Stat label="Pending trades" value={stats.pending} hint="Need your approval" tone={stats.pending > 0 ? "warn" : undefined} />
         <Stat label="New applications" value={stats.newApps} hint="Awaiting review" tone={stats.newApps > 0 ? "warn" : undefined} />
         <Stat label="Time off pending" value={stats.pendingTO} hint="Need a decision" tone={stats.pendingTO > 0 ? "warn" : undefined} />
+        <Stat label="Availability requests" value={stats.pendingAvail} hint="Need a decision" tone={stats.pendingAvail > 0 ? "warn" : undefined} />
       </div>
 
 
@@ -1249,7 +1256,80 @@ function TimeOffTab() {
           {history.length === 0 ? <p className="text-sm text-muted-foreground">No history yet.</p> : history.map(row)}
         </CardContent>
       </Card>
+      <AvailabilityRequestsCard />
     </div>
+  );
+}
+
+/** Employee-requested availability changes. Approving writes the new grid onto the person. */
+function AvailabilityRequestsCard() {
+  const { availabilityRequests, employees, resolveAvailabilityChange } = useStore();
+  const pending = availabilityRequests.filter((r) => r.status === "pending");
+  const history = availabilityRequests.filter((r) => r.status !== "pending");
+
+  const decide = (r: typeof availabilityRequests[number], approved: boolean) => {
+    resolveAvailabilityChange(r.id, approved);
+    if (approved) toast.success("Availability updated"); else toast.message("Denied");
+    if (/^[0-9a-f-]{36}$/i.test(r.employeeId)) {
+      notifyAvailabilityResolved({ data: { employeeId: r.employeeId, approved } })
+        .catch((err: unknown) => console.error("[notifyAvailabilityResolved]", err));
+    }
+  };
+
+  const row = (r: typeof availabilityRequests[number]) => {
+    const emp = employees.find((e) => e.id === r.employeeId);
+    return (
+      <div key={r.id} className="space-y-3 rounded-lg border border-border bg-background p-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="text-sm">
+            <p className="font-semibold">{emp?.name} <span className="text-muted-foreground">· {emp?.primaryRole}</span></p>
+            <p className="text-xs text-muted-foreground">Sent {new Date(r.createdAt).toLocaleDateString()}</p>
+          </div>
+          {r.status === "pending" ? (
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" onClick={() => decide(r, false)}>Deny</Button>
+              <Button size="sm" onClick={() => decide(r, true)}>Approve</Button>
+            </div>
+          ) : (
+            <Badge className={r.status === "approved" ? "bg-success text-success-foreground hover:bg-success" : "bg-destructive text-destructive-foreground hover:bg-destructive"}>{r.status}</Badge>
+          )}
+        </div>
+        <div className="grid gap-1 sm:grid-cols-2">
+          {DAY_KEYS.map((day) => {
+            const proposed = summarizeAvailability(r.requestedAvailability[day]);
+            const currentText = emp?.weeklyAvailability?.[day] ? summarizeAvailability(emp.weeklyAvailability[day]) : "Not set";
+            const changed = proposed !== currentText;
+            return (
+              <div key={day} className="flex items-center justify-between gap-2 text-xs">
+                <span className="text-muted-foreground">{DAY_FULL_LABEL[day]}</span>
+                <span className={changed ? "font-semibold" : "text-muted-foreground"}>
+                  {changed ? `${currentText} → ${proposed}` : proposed}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+        {r.note && <p className="text-xs text-muted-foreground">“{r.note}”</p>}
+      </div>
+    );
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Availability requests ({pending.length})</CardTitle>
+        <p className="mt-1 text-xs text-muted-foreground">Approving replaces that person's weekly availability.</p>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {pending.length === 0 ? <p className="text-sm text-muted-foreground">No pending requests.</p> : pending.map(row)}
+        {history.length > 0 && (
+          <div className="space-y-2 pt-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">History</p>
+            {history.map(row)}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
