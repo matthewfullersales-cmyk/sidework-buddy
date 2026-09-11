@@ -471,6 +471,7 @@ export function ScheduleSection() {
           role={editing.role}
           existing={editing.existing}
           otherShiftsToday={shifts.filter((s) => s.employeeId === editing.employeeId && s.date === editing.date && s.id !== editing.existing?.id)}
+          hasShiftsOnDate={shifts.some((s) => s.date === editing.date)}
           onClose={() => setEditing(null)}
           onAddAnother={() => setEditing({ employeeId: editing.employeeId, date: editing.date, role: editing.role })}
           onSave={(shift, usedOverride) => {
@@ -521,12 +522,12 @@ function Legend() {
 }
 
 function ShiftDetailsDialog({
-  employeeId, date, role, existing, otherShiftsToday, onClose, onAddAnother, onSave, onDelete,
+  employeeId, date, role, existing, otherShiftsToday, hasShiftsOnDate, onClose, onAddAnother, onSave, onDelete,
 }: {
-  employeeId: string; date: string; role: Role; existing?: Shift; otherShiftsToday: Shift[];
+  employeeId: string; date: string; role: Role; existing?: Shift; otherShiftsToday: Shift[]; hasShiftsOnDate: boolean;
   onClose: () => void; onAddAnother: () => void; onSave: (s: Shift, usedOverride: boolean) => void; onDelete: (id: string) => void;
 }) {
-  const { employees, customRoles, timeOff, mealPeriods, restaurantHours } = useStore();
+  const { employees, customRoles, timeOff, mealPeriods, restaurantHours, restaurantProfile } = useStore();
   const emp = employees.find((e) => e.id === employeeId);
   // Compute suggestions up-front so a brand-new shift is seeded with the
   // first suggestion (Dinner arrival for the employee's section/position),
@@ -618,6 +619,14 @@ function ShiftDetailsDialog({
               {role} · {dateLabel}
             </p>
           </div>
+          {restaurantHours[dayKey0]?.closed && !hasShiftsOnDate && (
+            <div
+              role="alert"
+              className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground"
+            >
+              <p className="font-semibold">Heads up — {restaurantProfile?.name ?? "this restaurant"} is usually closed {localDate0.toLocaleDateString(undefined, { weekday: "long" })}s.</p>
+            </div>
+          )}
           {timeOffConflict && (
             <div
               role="alert"
