@@ -93,7 +93,7 @@ export const setPushOptIn = createServerFn({ method: "POST" })
 
 // ---------- Notification fan-out ----------
 
-type NotifKind = "schedule_published" | "schedule_changed" | "trade_posted" | "timeoff_resolved";
+type NotifKind = "schedule_published" | "schedule_changed" | "trade_posted" | "timeoff_resolved" | "availability_resolved";
 
 /** Insert notification rows + fan out push. Uses admin client so any authorized
  *  caller (owner or teammate) can create for the target employees regardless of
@@ -237,6 +237,26 @@ export const notifyTimeOffResolved = createServerFn({ method: "POST" })
       kind: "timeoff_resolved",
       title,
       body: parts || (data.approved ? "Your time off request was approved." : "Your time off request was declined."),
+      url: "/employee",
+    });
+  });
+
+export const notifyAvailabilityResolved = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({
+    employeeId: z.string().uuid(),
+    approved: z.boolean(),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { ownerId } = await authorizeOwnerContext(context);
+    return fanOut({
+      ownerId,
+      employeeIds: [data.employeeId],
+      kind: "availability_resolved",
+      title: data.approved ? "Availability change approved" : "Availability change declined",
+      body: data.approved
+        ? "Your new weekly availability is now in effect."
+        : "Your availability wasn't changed. Talk to your manager if you still need it updated.",
       url: "/employee",
     });
   });
