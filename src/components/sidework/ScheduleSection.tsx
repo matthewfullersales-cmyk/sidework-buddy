@@ -471,6 +471,7 @@ export function ScheduleSection() {
           role={editing.role}
           existing={editing.existing}
           otherShiftsToday={shifts.filter((s) => s.employeeId === editing.employeeId && s.date === editing.date && s.id !== editing.existing?.id)}
+          hasShiftsOnDate={shifts.some((s) => s.date === editing.date)}
           onClose={() => setEditing(null)}
           onAddAnother={() => setEditing({ employeeId: editing.employeeId, date: editing.date, role: editing.role })}
           onSave={(shift, usedOverride) => {
