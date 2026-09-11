@@ -1426,7 +1426,7 @@ function SettingsTab() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Meal periods</CardTitle>
-          <p className="mt-1 text-xs text-muted-foreground">Turn on the services you offer and set their real start/end times. Employees' partial-availability (e.g. "Lunch only") is matched against these windows — not fixed clock cutoffs.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Turn on the services you offer and set their real start and end times. These give you quick-fill buttons when building a shift — a Lunch button, a Dinner button, already set to the hours below.</p>
         </CardHeader>
         <CardContent>
           <MealPeriodsEditor
@@ -1440,7 +1440,7 @@ function SettingsTab() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Daily hours</CardTitle>
-          <p className="mt-1 text-xs text-muted-foreground">Toggling a meal period proposes hours covering all enabled periods — these are suggestions you can freely edit, and your own edits are never overwritten. Mark a day closed if you don't operate that day.</p>
+          <p className="mt-1 text-xs text-muted-foreground">When your doors are actually open, day by day — this doesn't have to match your meal periods. We'll suggest hours based on the periods above, but every day is yours to edit, and edits stick. Mark a day closed if you don't operate that day.</p>
         </CardHeader>
         <CardContent>
           <RestaurantHoursEditor value={restaurantHours} onChange={updateRestaurantDay} />
