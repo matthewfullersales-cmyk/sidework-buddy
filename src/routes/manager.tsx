@@ -1335,7 +1335,7 @@ function RolesCard() {
       <CardHeader>
         <CardTitle className="text-base">Positions</CardTitle>
         <p className="mt-1 text-xs text-muted-foreground">
-          Turn off the positions your restaurant doesn't staff, and add your own. Anyone already assigned a position keeps it.
+          Turn off the positions your restaurant doesn't staff, and add your own.
         </p>
       </CardHeader>
       <CardContent className="space-y-5">
