@@ -1008,10 +1008,6 @@ export type Database = {
           restaurant_name: string
         }[]
       }
-      claim_employee_invite: {
-        Args: { p_auth_user_id: string; p_patch: Json; p_token: string }
-        Returns: undefined
-      }
       claim_interview_slot: {
         Args: { p_slot_id: string; p_token: string }
         Returns: {
@@ -1197,20 +1193,6 @@ export type Database = {
         }[]
       }
       get_menu_test_config: { Args: { p_owner_id: string }; Returns: Json }
-      get_public_employee_invite: {
-        Args: { p_token: string }
-        Returns: {
-          claimed: boolean
-          email: string
-          first_name: string
-          id: string
-          last_name: string
-          name: string
-          phone: string
-          primary_role: string
-          restaurant_name: string
-        }[]
-      }
       get_public_interview_by_token: {
         Args: { p_token: string }
         Returns: {
@@ -1324,10 +1306,6 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
-      }
-      join_restaurant_by_slug: {
-        Args: { p_auth_user_id: string; p_patch: Json; p_slug: string }
-        Returns: string
       }
       join_restaurant_by_slug_v2: {
         Args: {
