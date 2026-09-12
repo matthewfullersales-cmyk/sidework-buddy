@@ -1686,14 +1686,31 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
       }
 
       // Self-editable fields go in a normal follow-up update.
+      // Never overwrite real availability already on the row (e.g. from a prior
+      // application) — only fill it in when the row has none.
+      const { data: existingRow } = await supabase
+        .from("people")
+        .select("weekly_availability")
+        .eq("id", empId)
+        .maybeSingle();
+      const existingAvail = (existingRow as { weekly_availability?: unknown } | null)?.weekly_availability;
+      const hasExistingAvail =
+        !!existingAvail &&
+        typeof existingAvail === "object" &&
+        Object.keys(existingAvail as Record<string, unknown>).length > 0;
+
+      const updatePayload: Record<string, unknown> = {
+        emergency_contact: data.emergencyContact,
+        personal_info_complete: true,
+        onboarding_started: true,
+      };
+      if (!hasExistingAvail) {
+        updatePayload.weekly_availability = data.weeklyAvailability;
+      }
+
       const { error: upErr } = await supabase
         .from("people")
-        .update({
-          weekly_availability: data.weeklyAvailability as never,
-          emergency_contact: data.emergencyContact as never,
-          personal_info_complete: true,
-          onboarding_started: true,
-        } as never)
+        .update(updatePayload as never)
         .eq("id", empId);
       if (upErr) throw new Error(upErr.message);
 
