@@ -24,6 +24,11 @@ export function AppShell({ children, nav }: { children: ReactNode; nav: { to: st
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
 
           <Link to="/" className="shrink-0"><Logo /></Link>
+          {restaurantTag && (
+            <span className="max-w-[40vw] truncate rounded-full bg-primary-soft px-2.5 py-1 text-xs font-medium text-primary">
+              {restaurantTag}
+            </span>
+          )}
           <div className="flex items-center gap-2">
             {session && (
               <Button variant="ghost" size="sm" onClick={handleSignOut} title="Sign out" className="h-11 md:h-9">
