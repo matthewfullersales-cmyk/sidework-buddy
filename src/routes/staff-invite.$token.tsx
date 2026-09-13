@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
 import { Logo } from "@/components/sidework/Logo";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -324,7 +325,11 @@ function StaffInvitePage() {
 
             <div className="grid gap-2">
               <Label className="text-sm font-medium">Weekly availability</Label>
-              {prefilled ? (
+              {!prefilled ? (
+                <p className="text-xs text-muted-foreground">
+                  Tap Full, Day, Night, or Off for each day.
+                </p>
+              ) : availabilityCheck.complete ? (
                 <>
                   <p className="text-xs text-muted-foreground">
                     This is what we have on file. Take a look and adjust anything that's changed — once you
@@ -336,15 +341,16 @@ function StaffInvitePage() {
                 </>
               ) : (
                 <p className="text-xs text-muted-foreground">
-                  Tap Full, Day, Night, or Off for each day.
+                  Some days are already filled in below — the rest are still blank and need an answer before you can continue.
                 </p>
               )}
               <AvailabilityPicker value={availability} onChange={setAvailability} />
 
               {!availabilityCheck.complete ? (
-                <p className="text-xs text-muted-foreground">
-                  Still need: {availabilityCheck.missing.join(", ")}
-                </p>
+                <Alert variant="destructive">
+                  <AlertTitle>Still need a few days</AlertTitle>
+                  <AlertDescription>Still need: {availabilityCheck.missing.join(", ")}</AlertDescription>
+                </Alert>
               ) : null}
             </div>
 
