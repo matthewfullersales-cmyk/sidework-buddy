@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { PhoneInput } from "@/components/ui/phone-input";
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useStore, type Relationship } from "@/lib/sidework-store";
+import { useStore, type Relationship, type EmergencyContact } from "@/lib/sidework-store";
 import { AvailabilityPicker, unansweredDays, type PartialWeekly } from "@/components/sidework/AvailabilityPicker";
 import { supabase } from "@/integrations/supabase/client";
 import { resolveJoinRestaurant } from "@/lib/join.functions";
@@ -25,9 +25,9 @@ const joinSchema = z.object({
   lastName: z.string().trim().min(1, "Last name required").max(60),
   email: z.string().trim().email("Valid email required").max(255),
   phone: z.string().trim().min(7, "Phone number required").max(30),
-  ecFirstName: z.string().trim().min(1, "Emergency contact first name required").max(60),
-  ecLastName: z.string().trim().min(1, "Emergency contact last name required").max(60),
-  ecPhone: z.string().trim().min(7, "Emergency contact phone required").max(30),
+  ecFirstName: z.string().trim().max(60).optional(),
+  ecLastName: z.string().trim().max(60).optional(),
+  ecPhone: z.string().trim().max(30).optional(),
 });
 
 export const Route = createFileRoute("/join/$slug")({
@@ -67,7 +67,7 @@ function JoinPage() {
   const [ecFirstName, setEcFirstName] = useState("");
   const [ecLastName, setEcLastName] = useState("");
   const [ecPhone, setEcPhone] = useState("");
-  const [ecRel, setEcRel] = useState<Relationship>("Friend");
+  const [ecRel, setEcRel] = useState<Relationship | "">("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -137,6 +137,20 @@ function JoinPage() {
       }
 
       // 2. Server resolves the slug again and inserts a PENDING person row.
+      const hasEc =
+        Boolean(parsed.data.ecFirstName?.trim()) ||
+        Boolean(parsed.data.ecLastName?.trim()) ||
+        Boolean(parsed.data.ecPhone?.trim()) ||
+        Boolean(ecRel);
+      const emergencyContact = hasEc
+        ? ({
+            firstName: parsed.data.ecFirstName?.trim() ?? "",
+            lastName: parsed.data.ecLastName?.trim() ?? "",
+            phone: parsed.data.ecPhone?.trim() ?? "",
+            ...(ecRel ? { relationship: ecRel } : {}),
+          } as EmergencyContact)
+        : (undefined as unknown as EmergencyContact);
+
       await joinStaff({
         slug,
         firstName: parsed.data.firstName,
@@ -144,12 +158,7 @@ function JoinPage() {
         email: parsed.data.email,
         phone: parsed.data.phone,
         weeklyAvailability: availability,
-        emergencyContact: {
-          firstName: parsed.data.ecFirstName,
-          lastName: parsed.data.ecLastName,
-          phone: parsed.data.ecPhone,
-          relationship: ecRel,
-        },
+        emergencyContact,
       });
 
       setDone({ firstName: parsed.data.firstName });
@@ -214,15 +223,15 @@ function JoinPage() {
             </div>
 
             <div className="grid gap-2 rounded-lg border border-border bg-muted/30 p-3">
-              <Label className="text-sm font-medium">Emergency contact</Label>
+              <Label className="text-sm font-medium">Emergency contact (optional)</Label>
               <div className="grid gap-2 sm:grid-cols-2">
                 <Field label="First name"><Input value={ecFirstName} onChange={(e) => setEcFirstName(e.target.value)} maxLength={60} /></Field>
                 <Field label="Last name"><Input value={ecLastName} onChange={(e) => setEcLastName(e.target.value)} maxLength={60} /></Field>
               </div>
               <Field label="Phone"><PhoneInput value={ecPhone} onChange={setEcPhone} /></Field>
               <Field label="Relationship">
-                <Select value={ecRel} onValueChange={(v: Relationship) => setEcRel(v)}>
-                  <SelectTrigger className="h-12"><SelectValue /></SelectTrigger>
+                <Select value={ecRel || undefined} onValueChange={(v: Relationship) => setEcRel(v)}>
+                  <SelectTrigger className="h-12"><SelectValue placeholder="Select relationship (optional)" /></SelectTrigger>
                   <SelectContent>
                     {RELATIONSHIPS.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
                   </SelectContent>
