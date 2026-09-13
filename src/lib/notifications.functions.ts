@@ -95,6 +95,64 @@ export const setPushOptIn = createServerFn({ method: "POST" })
 
 type NotifKind = "schedule_published" | "schedule_changed" | "trade_posted" | "timeoff_resolved" | "availability_resolved";
 
+// Email fallback via the same Resend connector-gateway pattern used by
+// staff-invite.functions.ts / reactivation.functions.ts.
+const GATEWAY_URL = "https://connector-gateway.lovable.dev";
+
+/** Escape interpolated values before injecting them into the HTML body. */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+async function sendNotifEmail(args: {
+  to: string; title: string; body: string; url?: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  const lovableKey = process.env.LOVABLE_API_KEY;
+  const resendKey = process.env.RESEND_API_KEY;
+  if (!lovableKey) return { ok: false, error: "LOVABLE_API_KEY not configured" };
+  if (!resendKey) return { ok: false, error: "RESEND_API_KEY not configured (Resend connector not linked)" };
+
+  const link = args.url ? `https://86paper.com${args.url}` : "";
+  const text = `${args.title}\n\n${args.body}${link ? `\n\n${link}` : ""}`;
+  const html =
+    `<p><strong>${escapeHtml(args.title)}</strong></p>` +
+    `<p>${escapeHtml(args.body)}</p>` +
+    (link ? `<p><a href="${escapeHtml(link)}">${escapeHtml(link)}</a></p>` : "");
+
+  try {
+    const resp = await fetch(`${GATEWAY_URL}/resend/emails`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${lovableKey}`,
+        "X-Connection-Api-Key": resendKey,
+      },
+      body: JSON.stringify({
+        from: "86Paper <invites@86paper.com>",
+        to: [args.to],
+        subject: args.title,
+        text,
+        html,
+      }),
+    });
+    if (!resp.ok) {
+      const errText = await resp.text();
+      console.error(`[fanOut email] Resend ${resp.status}: ${errText}`);
+      return { ok: false, error: `Resend ${resp.status}: ${errText.slice(0, 400)}` };
+    }
+    return { ok: true };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[fanOut email] exception", msg);
+    return { ok: false, error: msg };
+  }
+}
+
 /** Insert notification rows + fan out push. Uses admin client so any authorized
  *  caller (owner or teammate) can create for the target employees regardless of
  *  cross-employee RLS nuances. Callers must authenticate via requireSupabaseAuth. */
