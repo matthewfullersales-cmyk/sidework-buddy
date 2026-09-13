@@ -1144,6 +1144,7 @@ function EmployeeProfileDialog({ employee, onClose }: { employee: Employee; onCl
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </Dialog>
   );
 }
 
