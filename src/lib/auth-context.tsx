@@ -1,7 +1,11 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
-import { fetchEmployeeContext, type EmployeeContext } from "@/lib/employee-supabase";
+import { fetchEmployeeContexts, type EmployeeContext } from "@/lib/employee-supabase";
+
+/** sessionStorage key holding the employee's chosen restaurant for this
+ * browser session only (multi-restaurant employees pick after each login). */
+export const EMPLOYEE_RESTAURANT_CHOICE_KEY = "86paper_employee_restaurant_choice";
 
 export type ProfileRole = "owner" | "employee";
 
