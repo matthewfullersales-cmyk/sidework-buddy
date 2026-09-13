@@ -652,7 +652,11 @@ function TeamTab() {
                 <AvailabilityPicker value={inviteAvailability} onChange={setInviteAvailability} />
               </div>
               <p className="text-xs text-muted-foreground">
-                We'll email them a personal invite link so they can finish their own profile (availability, emergency contact, password). A copy-link fallback is always shown.
+                {inviteEmail
+                  ? "We'll email them a personal invite link so they can finish their own profile (availability, emergency contact, password). A copy-link fallback is always shown."
+                  : inviteHasPhone
+                    ? `No email on file, so 86Paper can't send this automatically. We'll open a text to ${form.phone.trim()} with the link already in it — just review and send.`
+                    : "No email or phone on file — we'll copy the invite link to your clipboard. You'll need to get it to them however works best."}
               </p>
 
             </div>
