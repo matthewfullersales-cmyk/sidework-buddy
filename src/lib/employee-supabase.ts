@@ -14,20 +14,24 @@ export type EmployeeContext = {
   restaurantName: string | null;
 };
 
-export async function fetchEmployeeContext(): Promise<EmployeeContext | null> {
+/** All restaurant contexts linked to the signed-in employee's login.
+ * get_employee_context() returns one row per restaurant (oldest first); a
+ * single-restaurant employee gets a one-element array. */
+export async function fetchEmployeeContexts(): Promise<EmployeeContext[]> {
   const { data, error } = await supabase.rpc("get_employee_context");
-  if (error || !data || (Array.isArray(data) && data.length === 0)) return null;
-  const row = (Array.isArray(data) ? data[0] : data) as {
+  if (error || !data) return [];
+  const rows = (Array.isArray(data) ? data : [data]) as {
     owner_id: string;
     employee_id: string;
     restaurant_name: string | null;
-  };
-  if (!row?.employee_id || !row?.owner_id) return null;
-  return {
-    ownerId: row.owner_id,
-    employeeId: row.employee_id,
-    restaurantName: row.restaurant_name,
-  };
+  }[];
+  return rows
+    .filter((row) => row?.employee_id && row?.owner_id)
+    .map((row) => ({
+      ownerId: row.owner_id,
+      employeeId: row.employee_id,
+      restaurantName: row.restaurant_name,
+    }));
 }
 
 export async function fetchMyEmployeeRow(employeeId: string): Promise<Employee | null> {

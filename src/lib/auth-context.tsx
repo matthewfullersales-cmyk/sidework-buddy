@@ -1,7 +1,11 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
-import { fetchEmployeeContext, type EmployeeContext } from "@/lib/employee-supabase";
+import { fetchEmployeeContexts, type EmployeeContext } from "@/lib/employee-supabase";
+
+/** sessionStorage key holding the employee's chosen restaurant for this
+ * browser session only (multi-restaurant employees pick after each login). */
+export const EMPLOYEE_RESTAURANT_CHOICE_KEY = "86paper_employee_restaurant_choice";
 
 export type ProfileRole = "owner" | "employee";
 
@@ -25,6 +29,12 @@ type AuthContextValue = {
   profile: Profile | null;
   effectiveOwner: EffectiveOwner;
   employeeContext: EmployeeContext | null;
+  /** Every restaurant context linked to this login (usually one). */
+  employeeContexts: EmployeeContext[];
+  /** True when the login links to 2+ restaurants and no valid session choice exists yet. */
+  needsRestaurantSelection: boolean;
+  /** Record a restaurant pick (session-only) and resolve it as the active context. */
+  selectRestaurant: (ownerId: string) => void;
   loading: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -37,7 +47,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [effectiveOwner, setEffectiveOwner] = useState<EffectiveOwner>(null);
+  const [employeeContexts, setEmployeeContexts] = useState<EmployeeContext[]>([]);
   const [employeeContext, setEmployeeContext] = useState<EmployeeContext | null>(null);
+  const [needsRestaurantSelection, setNeedsRestaurantSelection] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const loadProfile = async (uid: string | undefined) => {
@@ -69,10 +81,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const readStoredRestaurantChoice = (): string | null => {
+    try { return sessionStorage.getItem(EMPLOYEE_RESTAURANT_CHOICE_KEY); }
+    catch { return null; }
+  };
+
   const loadEmployeeContext = async (uid: string | undefined) => {
-    if (!uid) { setEmployeeContext(null); return; }
-    try { setEmployeeContext(await fetchEmployeeContext()); }
-    catch { setEmployeeContext(null); }
+    if (!uid) {
+      setEmployeeContexts([]);
+      setEmployeeContext(null);
+      setNeedsRestaurantSelection(false);
+      return;
+    }
+    try {
+      const contexts = await fetchEmployeeContexts();
+      setEmployeeContexts(contexts);
+      if (contexts.length === 0) {
+        setEmployeeContext(null);
+        setNeedsRestaurantSelection(false);
+        return;
+      }
+      if (contexts.length === 1) {
+        // Single-restaurant employee: identical behavior to before this feature.
+        setEmployeeContext(contexts[0]);
+        setNeedsRestaurantSelection(false);
+        return;
+      }
+      // Multi-restaurant: reuse this session's earlier choice if still valid.
+      const stored = readStoredRestaurantChoice();
+      const match = stored ? contexts.find((c) => c.ownerId === stored) : undefined;
+      if (match) {
+        setEmployeeContext(match);
+        setNeedsRestaurantSelection(false);
+      } else {
+        setEmployeeContext(null);
+        setNeedsRestaurantSelection(true);
+      }
+    } catch {
+      setEmployeeContexts([]);
+      setEmployeeContext(null);
+      setNeedsRestaurantSelection(false);
+    }
+  };
+
+  const selectRestaurant = (ownerId: string) => {
+    const match = employeeContexts.find((c) => c.ownerId === ownerId);
+    if (!match) return;
+    try { sessionStorage.setItem(EMPLOYEE_RESTAURANT_CHOICE_KEY, ownerId); } catch {}
+    setEmployeeContext(match);
+    setNeedsRestaurantSelection(false);
   };
 
   useEffect(() => {
@@ -103,8 +160,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     profile,
     effectiveOwner,
     employeeContext,
+    employeeContexts,
+    needsRestaurantSelection,
+    selectRestaurant,
     loading,
-    signOut: async () => { await supabase.auth.signOut(); },
+    signOut: async () => {
+      // Clear the session-only restaurant choice so a fresh login re-prompts.
+      try { sessionStorage.removeItem(EMPLOYEE_RESTAURANT_CHOICE_KEY); } catch {}
+      await supabase.auth.signOut();
+    },
     refreshProfile: async () => { await loadProfile(session?.user.id); },
     refreshEffectiveOwner: async () => {
       await loadEffectiveOwner(session?.user.id);
