@@ -388,6 +388,8 @@ function TeamTab() {
   const [addStaffOpen, setAddStaffOpen] = useState(false);
   const [showQr, setShowQr] = useState(false);
   const [form, setForm] = useState({ firstName: "", lastName: "", email: "", phone: "", role: "Server" as Role });
+  // Optional manager-entered availability on the manual-add form; partial is fine.
+  const [inviteAvailability, setInviteAvailability] = useState<PartialWeekly>({});
   const [sending, setSending] = useState(false);
 
   const [editing, setEditing] = useState<Employee | null>(null);
@@ -615,9 +617,17 @@ function TeamTab() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="grid gap-2">
+                <Label>Weekly availability <span className="text-xs font-normal text-muted-foreground">(optional)</span></Label>
+                <p className="-mt-1 text-xs text-muted-foreground">
+                  If you already know their availability, fill in what you know. They'll be able to confirm or adjust it when they sign up.
+                </p>
+                <AvailabilityPicker value={inviteAvailability} onChange={setInviteAvailability} />
+              </div>
               <p className="text-xs text-muted-foreground">
                 We'll email them a personal invite link so they can finish their own profile (availability, emergency contact, password). A copy-link fallback is always shown.
               </p>
+
             </div>
             <DialogFooter>
               <Button
