@@ -29,6 +29,7 @@ type PersonRow = {
   emergency_contact: unknown;
   invited_at: string | null;
   invite_expires_at: string | null;
+  manager_availability_edited_at?: string | null;
   created_at: string;
   onboarding_started: boolean;
   personal_info_complete: boolean;

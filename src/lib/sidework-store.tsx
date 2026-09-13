@@ -562,6 +562,8 @@ export interface Employee {
   authUserId?: string | null;
   /** Expiry of the current invite token, if one was minted. */
   inviteExpiresAt?: string | null;
+  /** Non-null once a manager has directly edited this person's weekly availability. */
+  managerAvailabilityEditedAt?: string | null;
 }
 
 /** Fail closed: only an explicit "active" (or a locally-created row) counts as staff. */
