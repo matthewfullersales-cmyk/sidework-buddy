@@ -481,6 +481,8 @@ export async function createStaffInviteRow(
     email: string;
     phone: string;
     role: Role;
+    /** Optional manager-entered availability; only sent when present. */
+    weeklyAvailability?: unknown;
   },
 ): Promise<{ id: string; inviteToken: string; matchedExisting: boolean }> {
   const { data, error } = await supabase.rpc("create_person_invite" as never, {
@@ -490,6 +492,7 @@ export async function createStaffInviteRow(
     p_email: seed.email || null,
     p_phone: seed.phone || null,
     p_primary_role: seed.role,
+    ...(seed.weeklyAvailability ? { p_weekly_availability: seed.weeklyAvailability } : {}),
   } as never);
   if (error) throw error;
   const row = (Array.isArray(data) ? data[0] : data) as
@@ -512,6 +515,10 @@ export type PublicStaffInviteInfo = {
   restaurantName: string | null;
   expired: boolean;
   claimed: boolean;
+  /** Availability already on file, if any, plus where it came from. */
+  weeklyAvailability: unknown;
+  availabilitySource: string | null;
+  appliedAt: string | null;
 };
 
 export async function fetchPublicStaffInvite(
@@ -531,6 +538,9 @@ export async function fetchPublicStaffInvite(
         restaurant_name: string | null;
         expired: boolean;
         claimed: boolean;
+        weekly_availability: unknown;
+        availability_source: string | null;
+        applied_at: string | null;
       }
     | null;
   if (!row) return null;
@@ -543,6 +553,9 @@ export async function fetchPublicStaffInvite(
     restaurantName: row.restaurant_name,
     expired: Boolean(row.expired),
     claimed: Boolean(row.claimed),
+    weeklyAvailability: row.weekly_availability ?? null,
+    availabilitySource: row.availability_source ?? null,
+    appliedAt: row.applied_at ?? null,
   };
 }
 

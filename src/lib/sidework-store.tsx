@@ -730,6 +730,8 @@ interface Store {
     email: string;
     phone: string;
     role: Role;
+    /** Optional manager-entered availability; partial entry is allowed. */
+    weeklyAvailability?: unknown;
   }) => Promise<{ id: string; inviteUrl: string; inviteToken: string }>;
 
   joinStaff: (data: {
@@ -1607,7 +1609,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
       }
     },
 
-    inviteEmployee: async ({ firstName, lastName, email, phone, role }) => {
+    inviteEmployee: async ({ firstName, lastName, email, phone, role, weeklyAvailability }) => {
       const localId = newUuid();
       const fullName = `${firstName} ${lastName}`.trim() || email || "New staff";
       const oid = ownerIdRef.current;
@@ -1620,7 +1622,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
       if (oid) {
         try {
           const row = await createStaffInviteRow(oid, {
-            firstName, lastName, email, phone, role,
+            firstName, lastName, email, phone, role, weeklyAvailability,
           });
           dbId = row.id;
           inviteToken = row.inviteToken;

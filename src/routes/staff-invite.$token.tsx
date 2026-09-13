@@ -26,6 +26,33 @@ import { CheckCircle2, Loader2 } from "lucide-react";
 
 const RELATIONSHIPS: Relationship[] = ["Spouse", "Parent", "Sibling", "Child", "Friend", "Other"];
 
+const DAY_KEYS_LOCAL = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
+
+/** Keeps only well-formed day entries from whatever is stored on the person row. */
+function toPartialWeekly(raw: unknown): PartialWeekly {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const o = raw as Record<string, unknown>;
+  const out: PartialWeekly = {};
+  for (const d of DAY_KEYS_LOCAL) {
+    const entry = o[d];
+    if (!entry || typeof entry !== "object") continue;
+    const e = entry as Record<string, unknown>;
+    if (e.kind === "full") out[d] = { kind: "full" };
+    else if (e.kind === "none") out[d] = { kind: "none" };
+    else if (e.kind === "partial" && (e.half === "day" || e.half === "night")) {
+      out[d] = { kind: "partial", half: e.half };
+    }
+  }
+  return out;
+}
+
+function formatAnsweredDate(iso: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
+}
+
 const claimSchema = z.object({
   email: z.string().trim().email("Valid email required").max(255),
   phone: z.string().trim().min(7, "Phone number required").max(30),
@@ -49,8 +76,9 @@ function StaffInvitePage() {
 
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  // Starts empty on purpose: nothing is stored for a day the person never taps.
+  // Starts empty unless the invite already carries availability we can confirm.
   const [availability, setAvailability] = useState<PartialWeekly>({});
+  const [prefilled, setPrefilled] = useState(false);
   const [ecFirstName, setEcFirstName] = useState("");
   const [ecLastName, setEcLastName] = useState("");
   const [ecPhone, setEcPhone] = useState("");
@@ -69,6 +97,13 @@ function StaffInvitePage() {
         setInvite(res);
         if (res.email) setEmail(res.email);
         if (res.phone) setPhone(res.phone);
+        if (res.availabilitySource) {
+          const existing = toPartialWeekly(res.weeklyAvailability);
+          if (Object.keys(existing).length > 0) {
+            setAvailability(existing);
+            setPrefilled(true);
+          }
+        }
       })
       .catch((e) => { console.error("[staff-invite]", e); if (!cancelled) setNotFound(true); })
       .finally(() => { if (!cancelled) setLoading(false); });
@@ -79,6 +114,12 @@ function StaffInvitePage() {
     const missing = unansweredDays(availability);
     return { complete: missing.length === 0, missing };
   }, [availability]);
+
+  const answeredOn = useMemo(
+    () => (prefilled ? formatAnsweredDate(invite?.appliedAt ?? null) : null),
+    [prefilled, invite],
+  );
+
 
 
   const restaurantName = invite?.restaurantName ?? "the team";
@@ -283,10 +324,23 @@ function StaffInvitePage() {
 
             <div className="grid gap-2">
               <Label className="text-sm font-medium">Weekly availability</Label>
-              <p className="text-xs text-muted-foreground">
-                Tap Full, Day, Night, or Off for each day.
-              </p>
+              {prefilled ? (
+                <>
+                  <p className="text-xs text-muted-foreground">
+                    This is what we have on file. Take a look and adjust anything that's changed — once you
+                    submit, you'll need to request any further changes from your manager.
+                  </p>
+                  {answeredOn ? (
+                    <p className="text-xs text-muted-foreground">Originally answered {answeredOn}.</p>
+                  ) : null}
+                </>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Tap Full, Day, Night, or Off for each day.
+                </p>
+              )}
               <AvailabilityPicker value={availability} onChange={setAvailability} />
+
               {!availabilityCheck.complete ? (
                 <p className="text-xs text-muted-foreground">
                   Still need: {availabilityCheck.missing.join(", ")}

@@ -37,6 +37,7 @@ const DAY_FULL_LABEL: Record<string, string> = {
   Mon: "Monday", Tue: "Tuesday", Wed: "Wednesday", Thu: "Thursday", Fri: "Friday", Sat: "Saturday", Sun: "Sunday",
 };
 import { AvailabilitySummary, hasAnyAvailability } from "@/components/sidework/AvailabilitySummary";
+import { AvailabilityPicker, type PartialWeekly } from "@/components/sidework/AvailabilityPicker";
 import { fetchShadowPacket, saveShadowPacket, emptyShadowPacket, type ShadowPacket } from "@/lib/employees-supabase";
 import { defaultDressGroupForRole } from "@/lib/shadow-packet-roles";
 import { StaffJoinBanner, FullscreenQrDialog, StaffOnboardingCard, useJoinUrl } from "@/components/sidework/StaffOnboarding";
@@ -388,6 +389,8 @@ function TeamTab() {
   const [addStaffOpen, setAddStaffOpen] = useState(false);
   const [showQr, setShowQr] = useState(false);
   const [form, setForm] = useState({ firstName: "", lastName: "", email: "", phone: "", role: "Server" as Role });
+  // Optional manager-entered availability on the manual-add form; partial is fine.
+  const [inviteAvailability, setInviteAvailability] = useState<PartialWeekly>({});
   const [sending, setSending] = useState(false);
 
   const [editing, setEditing] = useState<Employee | null>(null);
@@ -615,9 +618,17 @@ function TeamTab() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="grid gap-2">
+                <Label>Weekly availability <span className="text-xs font-normal text-muted-foreground">(optional)</span></Label>
+                <p className="-mt-1 text-xs text-muted-foreground">
+                  If you already know their availability, fill in what you know. They'll be able to confirm or adjust it when they sign up.
+                </p>
+                <AvailabilityPicker value={inviteAvailability} onChange={setInviteAvailability} />
+              </div>
               <p className="text-xs text-muted-foreground">
                 We'll email them a personal invite link so they can finish their own profile (availability, emergency contact, password). A copy-link fallback is always shown.
               </p>
+
             </div>
             <DialogFooter>
               <Button
@@ -627,12 +638,14 @@ function TeamTab() {
                   if (!form.email.trim()) return toast.error("Email required");
                   setSending(true);
                   try {
+                    const answeredAvailability = Object.keys(inviteAvailability).length > 0;
                     const invite = await inviteEmployee({
                       firstName: form.firstName.trim(),
                       lastName: form.lastName.trim(),
                       email: form.email.trim(),
                       phone: form.phone.trim(),
                       role: form.role,
+                      ...(answeredAvailability ? { weeklyAvailability: inviteAvailability } : {}),
                     });
                     // Prefer the store's name, but fall back to the owner's persisted
                     // restaurant profile — the local store can be empty after a reset
@@ -670,6 +683,7 @@ function TeamTab() {
                     copyLinkWithToast(invite.inviteUrl, "Invite link copied");
                     setOpen(false);
                     setForm({ firstName: "", lastName: "", email: "", phone: "", role: "Server" });
+                    setInviteAvailability({});
                   } finally {
                     setSending(false);
                   }
