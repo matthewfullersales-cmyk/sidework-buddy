@@ -47,7 +47,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [effectiveOwner, setEffectiveOwner] = useState<EffectiveOwner>(null);
+  const [employeeContexts, setEmployeeContexts] = useState<EmployeeContext[]>([]);
   const [employeeContext, setEmployeeContext] = useState<EmployeeContext | null>(null);
+  const [needsRestaurantSelection, setNeedsRestaurantSelection] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const loadProfile = async (uid: string | undefined) => {
