@@ -164,7 +164,7 @@ async function fanOut(args: {
   body: string;
   url?: string;
 }) {
-  if (args.employeeIds.length === 0) return { notifCount: 0, pushSent: 0 };
+  if (args.employeeIds.length === 0) return { notifCount: 0, pushSent: 0, emailsSent: 0 };
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
   // 1) Persistent notification rows for the inbox (always).
@@ -182,33 +182,76 @@ async function fanOut(args: {
   // 2) Push, only to opted-in employees with active subscriptions.
   const { data: emps } = await supabaseAdmin
     .from("people")
-    .select("id, push_opt_in")
+    .select("id, push_opt_in, email")
     .in("id", args.employeeIds);
-  const optedIds = (emps ?? []).filter((e) => e.push_opt_in).map((e) => e.id);
-  if (optedIds.length === 0) return { notifCount: rows.length, pushSent: 0 };
+  const empList = emps ?? [];
+  const optedIds = empList.filter((e) => e.push_opt_in).map((e) => e.id);
 
-  const { data: subs } = await supabaseAdmin
-    .from("push_subscriptions")
-    .select("id, endpoint, p256dh, auth")
-    .in("employee_id", optedIds);
-  if (!subs || subs.length === 0) return { notifCount: rows.length, pushSent: 0 };
+  // Everyone not opted in needs the email fallback (no push ever attempted).
+  const needsEmail = new Set<string>(
+    empList.filter((e) => !e.push_opt_in).map((e) => e.id)
+  );
 
-  try {
-    const { sendPushToAll } = await import("@/lib/push.server");
-    const { deadIds } = await sendPushToAll(subs, {
-      title: args.title,
-      body: args.body,
-      url: args.url,
-      tag: args.kind,
-    });
-    if (deadIds.length > 0) {
-      await supabaseAdmin.from("push_subscriptions").delete().in("id", deadIds);
+  let pushSent = 0;
+  if (optedIds.length > 0) {
+    const { data: subs } = await supabaseAdmin
+      .from("push_subscriptions")
+      .select("id, endpoint, p256dh, auth, employee_id")
+      .in("employee_id", optedIds);
+    const subList = subs ?? [];
+
+    // Opted in but no live subscription rows — push can't reach them.
+    const withSubs = new Set(subList.map((s) => s.employee_id));
+    for (const id of optedIds) {
+      if (!withSubs.has(id)) needsEmail.add(id);
     }
-    return { notifCount: rows.length, pushSent: subs.length - deadIds.length };
-  } catch (e) {
-    console.error("[fanOut push]", e);
-    return { notifCount: rows.length, pushSent: 0 };
+
+    if (subList.length > 0) {
+      try {
+        const { sendPushToAll } = await import("@/lib/push.server");
+        const { deadIds } = await sendPushToAll(subList, {
+          title: args.title,
+          body: args.body,
+          url: args.url,
+          tag: args.kind,
+        });
+        if (deadIds.length > 0) {
+          await supabaseAdmin.from("push_subscriptions").delete().in("id", deadIds);
+        }
+        pushSent = subList.length - deadIds.length;
+
+        // Employees whose EVERY subscription died got nothing — email them.
+        const deadSet = new Set(deadIds);
+        const aliveByEmp = new Map<string, number>();
+        for (const s of subList) {
+          if (deadSet.has(s.id)) continue;
+          aliveByEmp.set(s.employee_id, (aliveByEmp.get(s.employee_id) ?? 0) + 1);
+        }
+        for (const id of withSubs) {
+          if (!aliveByEmp.has(id)) needsEmail.add(id);
+        }
+      } catch (e) {
+        console.error("[fanOut push]", e);
+        // Push failed/unknown for every opted-in employee with subs — email them all.
+        for (const id of withSubs) needsEmail.add(id);
+      }
+    }
   }
+
+  // 3) Email fallback for anyone push couldn't reach. Skip people with no
+  //    email on file (no error — same as elsewhere in the app).
+  let emailsSent = 0;
+  const emailTargets = empList.filter((e) => needsEmail.has(e.id) && e.email);
+  if (emailTargets.length > 0) {
+    const results = await Promise.allSettled(
+      emailTargets.map((e) =>
+        sendNotifEmail({ to: e.email as string, title: args.title, body: args.body, url: args.url })
+      )
+    );
+    emailsSent = results.filter((r) => r.status === "fulfilled" && r.value.ok).length;
+  }
+
+  return { notifCount: rows.length, pushSent, emailsSent };
 }
 
 async function authorizeOwnerContext(context: { supabase: import("@supabase/supabase-js").SupabaseClient; userId: string }): Promise<{ ownerId: string }> {
