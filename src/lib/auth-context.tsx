@@ -160,8 +160,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     profile,
     effectiveOwner,
     employeeContext,
+    employeeContexts,
+    needsRestaurantSelection,
+    selectRestaurant,
     loading,
-    signOut: async () => { await supabase.auth.signOut(); },
+    signOut: async () => {
+      // Clear the session-only restaurant choice so a fresh login re-prompts.
+      try { sessionStorage.removeItem(EMPLOYEE_RESTAURANT_CHOICE_KEY); } catch {}
+      await supabase.auth.signOut();
+    },
     refreshProfile: async () => { await loadProfile(session?.user.id); },
     refreshEffectiveOwner: async () => {
       await loadEffectiveOwner(session?.user.id);
