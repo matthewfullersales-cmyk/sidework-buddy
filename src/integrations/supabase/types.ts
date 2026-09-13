@@ -287,6 +287,7 @@ export type Database = {
           archived: boolean
           auth_user_id: string | null
           auto_approve_roles: string[]
+          availability_source: string | null
           created_at: string
           email: string | null
           emergency_contact: Json | null
@@ -321,6 +322,7 @@ export type Database = {
           archived?: boolean
           auth_user_id?: string | null
           auto_approve_roles?: string[]
+          availability_source?: string | null
           created_at?: string
           email?: string | null
           emergency_contact?: Json | null
@@ -355,6 +357,7 @@ export type Database = {
           archived?: boolean
           auth_user_id?: string | null
           auto_approve_roles?: string[]
+          availability_source?: string | null
           created_at?: string
           email?: string | null
           emergency_contact?: Json | null
@@ -1132,6 +1135,7 @@ export type Database = {
           p_owner_id: string
           p_phone: string
           p_primary_role: string
+          p_weekly_availability?: Json
         }
         Returns: {
           invite_token: string
@@ -1270,6 +1274,8 @@ export type Database = {
       get_public_person_invite: {
         Args: { p_token: string }
         Returns: {
+          applied_at: string
+          availability_source: string
           claimed: boolean
           email: string
           expired: boolean
@@ -1278,6 +1284,7 @@ export type Database = {
           phone: string
           primary_role: string
           restaurant_name: string
+          weekly_availability: Json
         }[]
       }
       get_public_shadow_shift_by_token: {
@@ -1316,6 +1323,7 @@ export type Database = {
           archived: boolean
           auth_user_id: string | null
           auto_approve_roles: string[]
+          availability_source: string | null
           created_at: string
           email: string | null
           emergency_contact: Json | null
@@ -1383,6 +1391,7 @@ export type Database = {
           archived: boolean
           auth_user_id: string | null
           auto_approve_roles: string[]
+          availability_source: string | null
           created_at: string
           email: string | null
           emergency_contact: Json | null
