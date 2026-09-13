@@ -67,7 +67,7 @@ function JoinPage() {
   const [ecFirstName, setEcFirstName] = useState("");
   const [ecLastName, setEcLastName] = useState("");
   const [ecPhone, setEcPhone] = useState("");
-  const [ecRel, setEcRel] = useState<Relationship>("Friend");
+  const [ecRel, setEcRel] = useState<Relationship | "">("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
