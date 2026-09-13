@@ -317,7 +317,7 @@ function PendingRoleAssignmentQueue({
           These employees finished self-onboarding but need a position assigned before you can schedule them.
         </p>
         {pending.map((e) => {
-          const draft = drafts[e.id] ?? roleChoices[0] ?? "Server";
+          const draft = drafts[e.id] ?? "";
           const fullName = e.firstName && e.lastName ? `${e.firstName} ${e.lastName}` : e.name;
           return (
             <div key={e.id} className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-background p-3">
