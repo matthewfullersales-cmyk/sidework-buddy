@@ -28,6 +28,7 @@ type PersonRow = {
   weekly_availability: unknown;
   emergency_contact: unknown;
   invited_at: string | null;
+  invite_expires_at: string | null;
   created_at: string;
   onboarding_started: boolean;
   personal_info_complete: boolean;
@@ -60,6 +61,8 @@ export function employeeFromRow(r: PersonRow): Employee {
     state: r.state,
     joinStatus: r.state === "pending_approval" ? "pending" : "active",
     joinedVia: r.joined_via ?? undefined,
+    authUserId: r.auth_user_id ?? null,
+    inviteExpiresAt: r.invite_expires_at ?? null,
   };
 }
 

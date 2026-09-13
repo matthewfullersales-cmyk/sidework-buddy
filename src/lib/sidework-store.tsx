@@ -558,6 +558,10 @@ export interface Employee {
   joinStatus?: "active" | "pending";
   /** How this person got onto the roster ("join_link" for public self-joins). */
   joinedVia?: string;
+  /** Non-null once the person has claimed their invite / signed in. */
+  authUserId?: string | null;
+  /** Expiry of the current invite token, if one was minted. */
+  inviteExpiresAt?: string | null;
 }
 
 /** Fail closed: only an explicit "active" (or a locally-created row) counts as staff. */

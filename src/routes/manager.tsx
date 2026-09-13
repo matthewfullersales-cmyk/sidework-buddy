@@ -20,7 +20,7 @@ import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { onboardingStatus, useStore, type Role, type Employee, type Relationship, DAY_KEYS, hoursConfigured, isPendingRoleAssignment, isPendingJoin, isArchivedEmployee, isScheduleEligible, sectionForRole } from "@/lib/sidework-store";
-import { fetchPeople, type Person } from "@/lib/people-supabase";
+import { fetchPeople, regeneratePersonInvite, type Person } from "@/lib/people-supabase";
 import { sendReactivationEmail } from "@/lib/reactivation.functions";
 import { roleStyle, fohRolesWithCustom, bohRolesWithCustom, allRolesWithCustom, FOH_ROLES_ORDERED, BOH_ROLES_ORDERED, ROLES_ORDERED, nextCustomColor } from "@/lib/role-colors";
 
@@ -56,6 +56,29 @@ type TeamSortKey =
   | "lastNameAsc" | "lastNameDesc"
   | "positionAsc"
   | "onboardingDesc" | "onboardingAsc";
+
+/** True when a stored phone has enough digits to be texted (guards partial/garbage input). */
+function hasUsablePhone(phone?: string | null): boolean {
+  return (phone ?? "").replace(/\D/g, "").length >= 10;
+}
+
+/**
+ * Cross-platform sms: deep link — opens the phone's native Messages app with
+ * the recipient and body pre-filled. iOS wants "?&body=", Android "?body=".
+ * This is a deep link to the manager's own Messages app, not an SMS send API.
+ */
+function buildSmsLink(phone: string, body: string): string {
+  const digits = phone.replace(/\D/g, "");
+  const e164 = digits.length === 10 ? `+1${digits}` : `+${digits}`;
+  const sep = /iPad|iPhone|iPod/.test(navigator.userAgent) ? "?&" : "?";
+  return `sms:${e164}${sep}body=${encodeURIComponent(body)}`;
+}
+
+function inviteTextBody(firstName: string, restaurantName: string, inviteUrl: string): string {
+  const hi = firstName ? `Hi ${firstName}` : "Hi";
+  const where = restaurantName ? ` at ${restaurantName}` : "";
+  return `${hi} — you've been invited to join the team${where} on 86Paper. Finish setting up your account here: ${inviteUrl}`;
+}
 
 const SORT_OPTIONS: { key: TeamSortKey; label: string }[] = [
   { key: "firstNameAsc", label: "First Name (A-Z)" },
@@ -392,6 +415,9 @@ function TeamTab() {
   // Optional manager-entered availability on the manual-add form; partial is fine.
   const [inviteAvailability, setInviteAvailability] = useState<PartialWeekly>({});
   const [sending, setSending] = useState(false);
+  // Manual-add delivery mode, derived from what contact info is filled in.
+  const inviteEmail = form.email.trim();
+  const inviteHasPhone = hasUsablePhone(form.phone);
 
   const [editing, setEditing] = useState<Employee | null>(null);
   const [confirmArchive, setConfirmArchive] = useState<Employee | null>(null);
@@ -626,7 +652,11 @@ function TeamTab() {
                 <AvailabilityPicker value={inviteAvailability} onChange={setInviteAvailability} />
               </div>
               <p className="text-xs text-muted-foreground">
-                We'll email them a personal invite link so they can finish their own profile (availability, emergency contact, password). A copy-link fallback is always shown.
+                {inviteEmail
+                  ? "We'll email them a personal invite link so they can finish their own profile (availability, emergency contact, password). A copy-link fallback is always shown."
+                  : inviteHasPhone
+                    ? `No email on file, so 86Paper can't send this automatically. We'll open a text to ${form.phone.trim()} with the link already in it — just review and send.`
+                    : "No email or phone on file — we'll copy the invite link to your clipboard. You'll need to get it to them however works best."}
               </p>
 
             </div>
@@ -653,33 +683,53 @@ function TeamTab() {
                     const slug = storeName ? undefined : await loadMyJoinSlug();
                     const restaurantName =
                       storeName || slug?.restaurantName?.trim() || "";
-                    let emailOk = false;
-                    let emailErr: string | undefined;
-                    try {
-                      const res = await sendStaffInvite({ data: {
-                        inviteUrl: invite.inviteUrl,
-                        firstName: form.firstName.trim(),
-                        restaurantName,
-                        email: form.email.trim(),
-                        phoneDigits: form.phone.replace(/\D/g, ""),
-                        senderName: restaurantName,
-                      }});
-                      emailOk = res.email.ok;
-                      emailErr = res.email.error;
-                    } catch (e) {
-                      console.error("[sendStaffInvite]", e);
+                    if (inviteEmail) {
+                      let emailOk = false;
+                      let emailErr: string | undefined;
+                      try {
+                        const res = await sendStaffInvite({ data: {
+                          inviteUrl: invite.inviteUrl,
+                          firstName: form.firstName.trim(),
+                          restaurantName,
+                          email: form.email.trim(),
+                          phoneDigits: form.phone.replace(/\D/g, ""),
+                          senderName: restaurantName,
+                        }});
+                        emailOk = res.email.ok;
+                        emailErr = res.email.error;
+                      } catch (e) {
+                        console.error("[sendStaffInvite]", e);
+                      }
+                      const summary = emailOk
+                        ? `Invite emailed to ${form.firstName.trim()}`
+                        : `Invite created for ${form.firstName.trim()}`;
+                      const problems = !emailOk
+                        ? `email failed${emailErr ? `: ${emailErr}` : ""}`
+                        : "";
+                      toast.success(summary, {
+                        description: `${problems ? problems + " — " : ""}Copy backup link: ${invite.inviteUrl}`,
+                        duration: 10000,
+                      });
+                      copyLinkWithToast(invite.inviteUrl, "Invite link copied");
+                    } else if (inviteHasPhone) {
+                      // No email to send to — open the manager's Messages app
+                      // with the link pre-filled, and copy it as a silent backup.
+                      window.location.href = buildSmsLink(
+                        form.phone,
+                        inviteTextBody(form.firstName.trim(), restaurantName, invite.inviteUrl),
+                      );
+                      copyLinkWithToast(invite.inviteUrl, "Invite link copied");
+                      toast.success(`Invite created for ${form.firstName.trim()}`, {
+                        description: "Opening a text with the invite link — review and send.",
+                        duration: 10000,
+                      });
+                    } else {
+                      copyLinkWithToast(invite.inviteUrl, "Invite link copied");
+                      toast.success(`Invite created for ${form.firstName.trim()}`, {
+                        description: "Link copied — get it to them however works best.",
+                        duration: 10000,
+                      });
                     }
-                    const summary = emailOk
-                      ? `Invite emailed to ${form.firstName.trim()}`
-                      : `Invite created for ${form.firstName.trim()}`;
-                    const problems = !emailOk && form.email.trim()
-                      ? `email failed${emailErr ? `: ${emailErr}` : ""}`
-                      : "";
-                    toast.success(summary, {
-                      description: `${problems ? problems + " — " : ""}Copy backup link: ${invite.inviteUrl}`,
-                      duration: 10000,
-                    });
-                    copyLinkWithToast(invite.inviteUrl, "Invite link copied");
                     setOpen(false);
                     setForm({ firstName: "", lastName: "", email: "", phone: "", role: "Server" });
                     setInviteAvailability({});
@@ -687,7 +737,13 @@ function TeamTab() {
                     setSending(false);
                   }
                 }}
-              >{sending ? "Sending…" : "Send invite"}</Button>
+              >{sending
+                ? "Sending…"
+                : inviteEmail
+                  ? "Send invite"
+                  : inviteHasPhone
+                    ? "Text invite link"
+                    : "Create invite & copy link"}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -720,7 +776,10 @@ function TeamTab() {
                       </div>
                     </div>
                   </div>
-                  <div className="text-right">
+                  <div className="flex flex-col items-end gap-1.5 text-right">
+                    {e.authUserId == null && (
+                      <Badge variant="secondary" className="bg-muted text-muted-foreground">Invited — hasn't joined yet</Badge>
+                    )}
                     {isPendingRoleAssignment(e) ? (
                       <Badge variant="secondary" className="bg-muted text-foreground">Pending role</Badge>
                     ) : isScheduleEligible(e) ? (
@@ -754,6 +813,34 @@ function TeamTab() {
                 </div>
 
                 <div className="mt-3 flex flex-wrap justify-end gap-2">
+                  {e.authUserId == null && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={async () => {
+                        try {
+                          // Always mint a fresh token — simplest and most reliable;
+                          // it invalidates any older link for this person.
+                          const token = await regeneratePersonInvite(e.id);
+                          const url = `${window.location.origin}/staff-invite/${token}`;
+                          if (hasUsablePhone(e.phone)) {
+                            window.location.href = buildSmsLink(
+                              e.phone!,
+                              inviteTextBody(e.firstName ?? e.name, restaurantProfile?.name?.trim() ?? "", url),
+                            );
+                            copyLinkWithToast(url, "Invite link copied");
+                          } else {
+                            copyLinkWithToast(url, "Invite link copied");
+                          }
+                        } catch (err) {
+                          console.error("[team] invite retrieval failed", err);
+                          toast.error("Couldn't create an invite link.");
+                        }
+                      }}
+                    >
+                      {hasUsablePhone(e.phone) ? "Text invite link" : "Copy invite link"}
+                    </Button>
+                  )}
                   <Button size="sm" variant="outline" onClick={() => setEditing(e)}>Edit profile</Button>
                   {!showArchived ? (
                     <Button size="sm" variant="outline" onClick={() => setConfirmArchive(e)}>Archive</Button>
