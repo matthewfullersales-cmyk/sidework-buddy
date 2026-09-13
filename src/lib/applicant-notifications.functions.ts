@@ -6,7 +6,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-const GATEWAY_URL = "https://connector-gateway.lovable.dev";
+
 
 const payloadSchema = z.object({
   kind: z.enum(["interview_offer", "interview_confirmed", "interview_cancelled", "shadow_invite", "shadow_moved", "shadow_cancelled", "hire_signup"]),
@@ -224,18 +224,15 @@ ${ctaButton(data.link!, "Finish setting up")}
 }
 
 async function sendEmail(to: string, copy: Copy, restaurantName: string): Promise<{ ok: boolean; error?: string }> {
-  const lovableKey = process.env.LOVABLE_API_KEY;
-  const resendKey  = process.env.RESEND_API_KEY;
-  if (!lovableKey) return { ok: false, error: "LOVABLE_API_KEY not configured" };
-  if (!resendKey)  return { ok: false, error: "RESEND_API_KEY not configured" };
+  const resendKey = process.env.RESEND_API_KEY;
+  if (!resendKey) return { ok: false, error: "RESEND_API_KEY not configured" };
   const from = `${restaurantName} via 86Paper <invites@86paper.com>`;
   try {
-    const resp = await fetch(`${GATEWAY_URL}/resend/emails`, {
+    const resp = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${lovableKey}`,
-        "X-Connection-Api-Key": resendKey,
+        "Authorization": `Bearer ${resendKey}`,
       },
       body: JSON.stringify({
         from,
