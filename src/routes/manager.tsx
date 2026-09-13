@@ -637,12 +637,14 @@ function TeamTab() {
                   if (!form.email.trim()) return toast.error("Email required");
                   setSending(true);
                   try {
+                    const answeredAvailability = Object.keys(inviteAvailability).length > 0;
                     const invite = await inviteEmployee({
                       firstName: form.firstName.trim(),
                       lastName: form.lastName.trim(),
                       email: form.email.trim(),
                       phone: form.phone.trim(),
                       role: form.role,
+                      ...(answeredAvailability ? { weeklyAvailability: inviteAvailability } : {}),
                     });
                     // Prefer the store's name, but fall back to the owner's persisted
                     // restaurant profile — the local store can be empty after a reset
