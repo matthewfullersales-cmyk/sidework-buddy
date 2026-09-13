@@ -214,15 +214,15 @@ function JoinPage() {
             </div>
 
             <div className="grid gap-2 rounded-lg border border-border bg-muted/30 p-3">
-              <Label className="text-sm font-medium">Emergency contact</Label>
+              <Label className="text-sm font-medium">Emergency contact (optional)</Label>
               <div className="grid gap-2 sm:grid-cols-2">
                 <Field label="First name"><Input value={ecFirstName} onChange={(e) => setEcFirstName(e.target.value)} maxLength={60} /></Field>
                 <Field label="Last name"><Input value={ecLastName} onChange={(e) => setEcLastName(e.target.value)} maxLength={60} /></Field>
               </div>
               <Field label="Phone"><PhoneInput value={ecPhone} onChange={setEcPhone} /></Field>
               <Field label="Relationship">
-                <Select value={ecRel} onValueChange={(v: Relationship) => setEcRel(v)}>
-                  <SelectTrigger className="h-12"><SelectValue /></SelectTrigger>
+                <Select value={ecRel || undefined} onValueChange={(v: Relationship) => setEcRel(v)}>
+                  <SelectTrigger className="h-12"><SelectValue placeholder="Select relationship (optional)" /></SelectTrigger>
                   <SelectContent>
                     {RELATIONSHIPS.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
                   </SelectContent>
