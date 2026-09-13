@@ -776,7 +776,10 @@ function TeamTab() {
                       </div>
                     </div>
                   </div>
-                  <div className="text-right">
+                  <div className="flex flex-col items-end gap-1.5 text-right">
+                    {e.authUserId == null && (
+                      <Badge variant="secondary" className="bg-muted text-muted-foreground">Invited — hasn't joined yet</Badge>
+                    )}
                     {isPendingRoleAssignment(e) ? (
                       <Badge variant="secondary" className="bg-muted text-foreground">Pending role</Badge>
                     ) : isScheduleEligible(e) ? (
