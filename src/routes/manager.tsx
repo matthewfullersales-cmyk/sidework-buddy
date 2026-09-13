@@ -597,8 +597,8 @@ function TeamTab() {
                 <div className="grid gap-2"><Label>First name</Label><Input value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} autoComplete="given-name" /></div>
                 <div className="grid gap-2"><Label>Last name</Label><Input value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} autoComplete="family-name" /></div>
               </div>
-              <div className="grid gap-2"><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} autoComplete="email" /></div>
-              <div className="grid gap-2"><Label>Phone <span className="text-xs font-normal text-muted-foreground">(optional — used to text the invite)</span></Label>
+              <div className="grid gap-2"><Label>Email <span className="text-xs font-normal text-muted-foreground">(optional)</span></Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} autoComplete="email" /></div>
+              <div className="grid gap-2"><Label>Phone <span className="text-xs font-normal text-muted-foreground">(optional)</span></Label>
                 <PhoneInput value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} />
               </div>
               <div className="grid gap-2">
@@ -635,7 +635,6 @@ function TeamTab() {
                 disabled={sending}
                 onClick={async () => {
                   if (!form.firstName.trim() || !form.lastName.trim()) return toast.error("First and last name required");
-                  if (!form.email.trim()) return toast.error("Email required");
                   setSending(true);
                   try {
                     const answeredAvailability = Object.keys(inviteAvailability).length > 0;
