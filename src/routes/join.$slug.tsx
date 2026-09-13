@@ -137,6 +137,20 @@ function JoinPage() {
       }
 
       // 2. Server resolves the slug again and inserts a PENDING person row.
+      const hasEc =
+        Boolean(parsed.data.ecFirstName?.trim()) ||
+        Boolean(parsed.data.ecLastName?.trim()) ||
+        Boolean(parsed.data.ecPhone?.trim()) ||
+        Boolean(ecRel);
+      const emergencyContact = hasEc
+        ? {
+            firstName: parsed.data.ecFirstName?.trim() ?? "",
+            lastName: parsed.data.ecLastName?.trim() ?? "",
+            phone: parsed.data.ecPhone?.trim() ?? "",
+            ...(ecRel ? { relationship: ecRel as Relationship } : {}),
+          }
+        : (undefined as unknown as EmergencyContact);
+
       await joinStaff({
         slug,
         firstName: parsed.data.firstName,
@@ -144,12 +158,7 @@ function JoinPage() {
         email: parsed.data.email,
         phone: parsed.data.phone,
         weeklyAvailability: availability,
-        emergencyContact: {
-          firstName: parsed.data.ecFirstName,
-          lastName: parsed.data.ecLastName,
-          phone: parsed.data.ecPhone,
-          relationship: ecRel,
-        },
+        emergencyContact,
       });
 
       setDone({ firstName: parsed.data.firstName });
