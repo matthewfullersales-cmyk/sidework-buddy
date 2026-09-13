@@ -25,9 +25,9 @@ const joinSchema = z.object({
   lastName: z.string().trim().min(1, "Last name required").max(60),
   email: z.string().trim().email("Valid email required").max(255),
   phone: z.string().trim().min(7, "Phone number required").max(30),
-  ecFirstName: z.string().trim().min(1, "Emergency contact first name required").max(60),
-  ecLastName: z.string().trim().min(1, "Emergency contact last name required").max(60),
-  ecPhone: z.string().trim().min(7, "Emergency contact phone required").max(30),
+  ecFirstName: z.string().trim().max(60).optional(),
+  ecLastName: z.string().trim().max(60).optional(),
+  ecPhone: z.string().trim().max(30).optional(),
 });
 
 export const Route = createFileRoute("/join/$slug")({
