@@ -28,7 +28,7 @@ import { PhoneInput } from "@/components/ui/phone-input";
 import { copyLinkWithToast } from "@/lib/copy-to-clipboard";
 import { sendStaffInvite } from "@/lib/staff-invite.functions";
 import { loadMyJoinSlug } from "@/lib/restaurant-slug";
-import { notifyTimeOffResolved, notifyScheduleChanged, notifyAvailabilityResolved } from "@/lib/notifications.functions";
+import { notifyTimeOffResolved, notifyScheduleChanged, notifyAvailabilityResolved, notifyAvailabilityEdited } from "@/lib/notifications.functions";
 
 import { AvailabilityEditor, RestaurantHoursEditor, MealPeriodsEditor, BusinessInfoEditor, RestaurantProfileEditor, summarizeAvailability } from "@/components/sidework/AvailabilityEditor";
 
@@ -1129,7 +1129,21 @@ function EmployeeProfileDialog({ employee, onClose }: { employee: Employee; onCl
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </Dialog>
+      </Dialog>
+      <Dialog open={confirmAvailEdit} onOpenChange={setConfirmAvailEdit}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>Set {displayName}'s availability directly?</DialogTitle></DialogHeader>
+          <div className="space-y-2 py-2 text-sm text-muted-foreground">
+            <p>
+              This is the first time you're setting {displayName}'s availability directly. It will overwrite what they submitted, and they'll be notified of the change.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmAvailEdit(false)}>Cancel</Button>
+            <Button onClick={() => { setConfirmAvailEdit(false); commitSave(); }}>Continue</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
   );
 }
 
