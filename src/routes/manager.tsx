@@ -683,33 +683,53 @@ function TeamTab() {
                     const slug = storeName ? undefined : await loadMyJoinSlug();
                     const restaurantName =
                       storeName || slug?.restaurantName?.trim() || "";
-                    let emailOk = false;
-                    let emailErr: string | undefined;
-                    try {
-                      const res = await sendStaffInvite({ data: {
-                        inviteUrl: invite.inviteUrl,
-                        firstName: form.firstName.trim(),
-                        restaurantName,
-                        email: form.email.trim(),
-                        phoneDigits: form.phone.replace(/\D/g, ""),
-                        senderName: restaurantName,
-                      }});
-                      emailOk = res.email.ok;
-                      emailErr = res.email.error;
-                    } catch (e) {
-                      console.error("[sendStaffInvite]", e);
+                    if (inviteEmail) {
+                      let emailOk = false;
+                      let emailErr: string | undefined;
+                      try {
+                        const res = await sendStaffInvite({ data: {
+                          inviteUrl: invite.inviteUrl,
+                          firstName: form.firstName.trim(),
+                          restaurantName,
+                          email: form.email.trim(),
+                          phoneDigits: form.phone.replace(/\D/g, ""),
+                          senderName: restaurantName,
+                        }});
+                        emailOk = res.email.ok;
+                        emailErr = res.email.error;
+                      } catch (e) {
+                        console.error("[sendStaffInvite]", e);
+                      }
+                      const summary = emailOk
+                        ? `Invite emailed to ${form.firstName.trim()}`
+                        : `Invite created for ${form.firstName.trim()}`;
+                      const problems = !emailOk
+                        ? `email failed${emailErr ? `: ${emailErr}` : ""}`
+                        : "";
+                      toast.success(summary, {
+                        description: `${problems ? problems + " — " : ""}Copy backup link: ${invite.inviteUrl}`,
+                        duration: 10000,
+                      });
+                      copyLinkWithToast(invite.inviteUrl, "Invite link copied");
+                    } else if (inviteHasPhone) {
+                      // No email to send to — open the manager's Messages app
+                      // with the link pre-filled, and copy it as a silent backup.
+                      window.location.href = buildSmsLink(
+                        form.phone,
+                        inviteTextBody(form.firstName.trim(), restaurantName, invite.inviteUrl),
+                      );
+                      copyLinkWithToast(invite.inviteUrl, "Invite link copied");
+                      toast.success(`Invite created for ${form.firstName.trim()}`, {
+                        description: "Opening a text with the invite link — review and send.",
+                        duration: 10000,
+                      });
+                    } else {
+                      copyLinkWithToast(invite.inviteUrl, "Invite link copied");
+                      toast.success(`Invite created for ${form.firstName.trim()}`, {
+                        description: "Link copied — get it to them however works best.",
+                        duration: 10000,
+                      });
                     }
-                    const summary = emailOk
-                      ? `Invite emailed to ${form.firstName.trim()}`
-                      : `Invite created for ${form.firstName.trim()}`;
-                    const problems = !emailOk && form.email.trim()
-                      ? `email failed${emailErr ? `: ${emailErr}` : ""}`
-                      : "";
-                    toast.success(summary, {
-                      description: `${problems ? problems + " — " : ""}Copy backup link: ${invite.inviteUrl}`,
-                      duration: 10000,
-                    });
-                    copyLinkWithToast(invite.inviteUrl, "Invite link copied");
                     setOpen(false);
                     setForm({ firstName: "", lastName: "", email: "", phone: "", role: "Server" });
                     setInviteAvailability({});
@@ -717,7 +737,13 @@ function TeamTab() {
                     setSending(false);
                   }
                 }}
-              >{sending ? "Sending…" : "Send invite"}</Button>
+              >{sending
+                ? "Sending…"
+                : inviteEmail
+                  ? "Send invite"
+                  : inviteHasPhone
+                    ? "Text invite link"
+                    : "Create invite & copy link"}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
