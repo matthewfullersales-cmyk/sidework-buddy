@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { PhoneInput } from "@/components/ui/phone-input";
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useStore, type Relationship } from "@/lib/sidework-store";
+import { useStore, type Relationship, type EmergencyContact } from "@/lib/sidework-store";
 import { AvailabilityPicker, unansweredDays, type PartialWeekly } from "@/components/sidework/AvailabilityPicker";
 import { supabase } from "@/integrations/supabase/client";
 import { resolveJoinRestaurant } from "@/lib/join.functions";
