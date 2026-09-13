@@ -939,9 +939,20 @@ function EmployeeProfileDialog({ employee, onClose }: { employee: Employee; onCl
     phone: employee.emergencyContact?.phone ?? "",
     relationship: employee.emergencyContact?.relationship ?? "Other",
   });
+  const [confirmAvailEdit, setConfirmAvailEdit] = useState(false);
 
-  const save = () => {
-    if (!firstName.trim()) return toast.error("First name is required");
+  const availabilityChanged = useMemo(() => {
+    const norm = (v: typeof weekly) =>
+      JSON.stringify(
+        DAY_KEYS.map((d) => {
+          const day = v?.[d] as { kind?: string; half?: string } | undefined;
+          return day ? [d, day.kind ?? null, day.half ?? null] : [d, null, null];
+        }),
+      );
+    return norm(weekly) !== norm(employee.weeklyAvailability);
+  }, [weekly, employee.weeklyAvailability]);
+
+  const commitSave = () => {
     updateEmployee(employee.id, {
       firstName: firstName.trim(),
       lastName: lastName.trim(),
@@ -951,10 +962,24 @@ function EmployeeProfileDialog({ employee, onClose }: { employee: Employee; onCl
       approvedRoles,
       autoApproveRoles: autoApprove.filter((r) => approvedRoles.includes(r)),
       weeklyAvailability: weekly,
+      ...(availabilityChanged ? { managerAvailabilityEditedAt: new Date().toISOString() } : {}),
       emergencyContact: (ec.firstName || ec.lastName || ec.phone) ? { firstName: ec.firstName.trim(), lastName: ec.lastName.trim(), phone: ec.phone.trim(), relationship: ec.relationship } : undefined,
     });
+    if (availabilityChanged && /^[0-9a-f-]{36}$/i.test(employee.id)) {
+      notifyAvailabilityEdited({ data: { employeeId: employee.id } })
+        .catch((err: unknown) => console.error("[notifyAvailabilityEdited]", err));
+    }
     toast.success("Profile saved");
     onClose();
+  };
+
+  const save = () => {
+    if (!firstName.trim()) return toast.error("First name is required");
+    if (availabilityChanged && !employee.managerAvailabilityEditedAt) {
+      setConfirmAvailEdit(true);
+      return;
+    }
+    commitSave();
   };
 
   return (
