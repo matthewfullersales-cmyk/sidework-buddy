@@ -26,6 +26,33 @@ import { CheckCircle2, Loader2 } from "lucide-react";
 
 const RELATIONSHIPS: Relationship[] = ["Spouse", "Parent", "Sibling", "Child", "Friend", "Other"];
 
+const DAY_KEYS_LOCAL = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
+
+/** Keeps only well-formed day entries from whatever is stored on the person row. */
+function toPartialWeekly(raw: unknown): PartialWeekly {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const o = raw as Record<string, unknown>;
+  const out: PartialWeekly = {};
+  for (const d of DAY_KEYS_LOCAL) {
+    const entry = o[d];
+    if (!entry || typeof entry !== "object") continue;
+    const e = entry as Record<string, unknown>;
+    if (e.kind === "full") out[d] = { kind: "full" };
+    else if (e.kind === "none") out[d] = { kind: "none" };
+    else if (e.kind === "partial" && (e.half === "day" || e.half === "night")) {
+      out[d] = { kind: "partial", half: e.half };
+    }
+  }
+  return out;
+}
+
+function formatAnsweredDate(iso: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
+}
+
 const claimSchema = z.object({
   email: z.string().trim().email("Valid email required").max(255),
   phone: z.string().trim().min(7, "Phone number required").max(30),
