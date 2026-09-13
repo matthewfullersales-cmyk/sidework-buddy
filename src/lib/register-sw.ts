@@ -1,3 +1,4 @@
+// PWA self-update verified working — Sept 13
 // PWA update-check wiring — see visibilitychange/controllerchange below.
 // Guarded service worker registration. Registers ONLY in production on the real
 // published site — never in dev, Lovable preview, iframes, or when ?sw=off.
