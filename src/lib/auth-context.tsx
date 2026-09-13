@@ -81,10 +81,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const readStoredRestaurantChoice = (): string | null => {
+    try { return sessionStorage.getItem(EMPLOYEE_RESTAURANT_CHOICE_KEY); }
+    catch { return null; }
+  };
+
   const loadEmployeeContext = async (uid: string | undefined) => {
-    if (!uid) { setEmployeeContext(null); return; }
-    try { setEmployeeContext(await fetchEmployeeContext()); }
-    catch { setEmployeeContext(null); }
+    if (!uid) {
+      setEmployeeContexts([]);
+      setEmployeeContext(null);
+      setNeedsRestaurantSelection(false);
+      return;
+    }
+    try {
+      const contexts = await fetchEmployeeContexts();
+      setEmployeeContexts(contexts);
+      if (contexts.length === 0) {
+        setEmployeeContext(null);
+        setNeedsRestaurantSelection(false);
+        return;
+      }
+      if (contexts.length === 1) {
+        // Single-restaurant employee: identical behavior to before this feature.
+        setEmployeeContext(contexts[0]);
+        setNeedsRestaurantSelection(false);
+        return;
+      }
+      // Multi-restaurant: reuse this session's earlier choice if still valid.
+      const stored = readStoredRestaurantChoice();
+      const match = stored ? contexts.find((c) => c.ownerId === stored) : undefined;
+      if (match) {
+        setEmployeeContext(match);
+        setNeedsRestaurantSelection(false);
+      } else {
+        setEmployeeContext(null);
+        setNeedsRestaurantSelection(true);
+      }
+    } catch {
+      setEmployeeContexts([]);
+      setEmployeeContext(null);
+      setNeedsRestaurantSelection(false);
+    }
+  };
+
+  const selectRestaurant = (ownerId: string) => {
+    const match = employeeContexts.find((c) => c.ownerId === ownerId);
+    if (!match) return;
+    try { sessionStorage.setItem(EMPLOYEE_RESTAURANT_CHOICE_KEY, ownerId); } catch {}
+    setEmployeeContext(match);
+    setNeedsRestaurantSelection(false);
   };
 
   useEffect(() => {
