@@ -42,7 +42,7 @@ export const Route = createFileRoute("/employee")({
 function EmployeePage() {
   useRequireRole("employee", "/employee-login");
   const [loadingTimedOut, setLoadingTimedOut] = useState(false);
-  const { profile, employeeContext, loading: authLoading } = useAuth();
+  const { profile, employeeContext, employeeContexts, needsRestaurantSelection, selectRestaurant, loading: authLoading } = useAuth();
   const {
     currentUser,
     setCurrentUser,
