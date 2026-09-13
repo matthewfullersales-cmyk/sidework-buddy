@@ -52,9 +52,26 @@ export function registerServiceWorker() {
   }
 
   function doRegister() {
-    navigator.serviceWorker.register(SW_PATH).catch((err: unknown) => {
-      console.warn("[sw] registration failed", err);
-    });
+    navigator.serviceWorker
+      .register(SW_PATH)
+      .then((registration) => {
+        document.addEventListener("visibilitychange", () => {
+          if (document.visibilityState === "visible") {
+            void registration.update();
+          }
+        });
+
+        let reloaded = false;
+        navigator.serviceWorker.addEventListener("controllerchange", () => {
+          if (!reloaded) {
+            reloaded = true;
+            window.location.reload();
+          }
+        });
+      })
+      .catch((err: unknown) => {
+        console.warn("[sw] registration failed", err);
+      });
   }
 
   if (document.readyState === "complete") {
