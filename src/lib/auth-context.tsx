@@ -29,6 +29,12 @@ type AuthContextValue = {
   profile: Profile | null;
   effectiveOwner: EffectiveOwner;
   employeeContext: EmployeeContext | null;
+  /** Every restaurant context linked to this login (usually one). */
+  employeeContexts: EmployeeContext[];
+  /** True when the login links to 2+ restaurants and no valid session choice exists yet. */
+  needsRestaurantSelection: boolean;
+  /** Record a restaurant pick (session-only) and resolve it as the active context. */
+  selectRestaurant: (ownerId: string) => void;
   loading: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
