@@ -324,10 +324,23 @@ function StaffInvitePage() {
 
             <div className="grid gap-2">
               <Label className="text-sm font-medium">Weekly availability</Label>
-              <p className="text-xs text-muted-foreground">
-                Tap Full, Day, Night, or Off for each day.
-              </p>
+              {prefilled ? (
+                <>
+                  <p className="text-xs text-muted-foreground">
+                    This is what we have on file. Take a look and adjust anything that's changed — once you
+                    submit, you'll need to request any further changes from your manager.
+                  </p>
+                  {answeredOn ? (
+                    <p className="text-xs text-muted-foreground">Originally answered {answeredOn}.</p>
+                  ) : null}
+                </>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Tap Full, Day, Night, or Off for each day.
+                </p>
+              )}
               <AvailabilityPicker value={availability} onChange={setAvailability} />
+
               {!availabilityCheck.complete ? (
                 <p className="text-xs text-muted-foreground">
                   Still need: {availabilityCheck.missing.join(", ")}
