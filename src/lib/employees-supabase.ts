@@ -29,6 +29,7 @@ type PersonRow = {
   emergency_contact: unknown;
   invited_at: string | null;
   invite_expires_at: string | null;
+  manager_availability_edited_at?: string | null;
   created_at: string;
   onboarding_started: boolean;
   personal_info_complete: boolean;
@@ -63,6 +64,7 @@ export function employeeFromRow(r: PersonRow): Employee {
     joinedVia: r.joined_via ?? undefined,
     authUserId: r.auth_user_id ?? null,
     inviteExpiresAt: r.invite_expires_at ?? null,
+    managerAvailabilityEditedAt: r.manager_availability_edited_at ?? null,
   };
 }
 
@@ -134,6 +136,7 @@ export async function updateEmployeeRow(id: string, patch: Partial<Employee>): P
   if (patch.autoApproveRoles !== undefined) row.auto_approve_roles = patch.autoApproveRoles;
   if (patch.weeklyAvailability !== undefined) row.weekly_availability = patch.weeklyAvailability as unknown;
   if (patch.emergencyContact !== undefined) row.emergency_contact = patch.emergencyContact as unknown;
+  if (patch.managerAvailabilityEditedAt !== undefined) row.manager_availability_edited_at = patch.managerAvailabilityEditedAt;
   if (patch.onboardingStarted !== undefined) row.onboarding_started = patch.onboardingStarted;
   if (patch.personalInfoComplete !== undefined) row.personal_info_complete = patch.personalInfoComplete;
   if (Object.keys(row).length === 0) return;

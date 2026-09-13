@@ -301,6 +301,7 @@ export type Database = {
           job_id: string | null
           joined_via: string | null
           last_name: string
+          manager_availability_edited_at: string | null
           onboarding_started: boolean
           owner_id: string
           personal_info_complete: boolean
@@ -336,6 +337,7 @@ export type Database = {
           job_id?: string | null
           joined_via?: string | null
           last_name: string
+          manager_availability_edited_at?: string | null
           onboarding_started?: boolean
           owner_id: string
           personal_info_complete?: boolean
@@ -371,6 +373,7 @@ export type Database = {
           job_id?: string | null
           joined_via?: string | null
           last_name?: string
+          manager_availability_edited_at?: string | null
           onboarding_started?: boolean
           owner_id?: string
           personal_info_complete?: boolean
@@ -1337,6 +1340,7 @@ export type Database = {
           job_id: string | null
           joined_via: string | null
           last_name: string
+          manager_availability_edited_at: string | null
           onboarding_started: boolean
           owner_id: string
           personal_info_complete: boolean
@@ -1405,6 +1409,7 @@ export type Database = {
           job_id: string | null
           joined_via: string | null
           last_name: string
+          manager_availability_edited_at: string | null
           onboarding_started: boolean
           owner_id: string
           personal_info_complete: boolean

@@ -93,7 +93,7 @@ export const setPushOptIn = createServerFn({ method: "POST" })
 
 // ---------- Notification fan-out ----------
 
-type NotifKind = "schedule_published" | "schedule_changed" | "trade_posted" | "timeoff_resolved" | "availability_resolved";
+type NotifKind = "schedule_published" | "schedule_changed" | "trade_posted" | "timeoff_resolved" | "availability_resolved" | "availability_edited";
 
 // Email fallback via the same Resend connector-gateway pattern used by
 // staff-invite.functions.ts / reactivation.functions.ts.
@@ -358,6 +358,21 @@ export const notifyAvailabilityResolved = createServerFn({ method: "POST" })
       body: data.approved
         ? "Your new weekly availability is now in effect."
         : "Your availability wasn't changed. Talk to your manager if you still need it updated.",
+      url: "/employee",
+    });
+  });
+
+export const notifyAvailabilityEdited = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ employeeId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { ownerId } = await authorizeOwnerContext(context);
+    return fanOut({
+      ownerId,
+      employeeIds: [data.employeeId],
+      kind: "availability_edited",
+      title: "Your availability was updated",
+      body: "Your manager updated your weekly availability. Check your profile to see what changed.",
       url: "/employee",
     });
   });
