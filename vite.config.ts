@@ -37,6 +37,7 @@ export default defineConfig({
           navigateFallback: null,
 
           navigateFallbackDenylist: [/^\/~oauth/, /^\/api\//],
+          clientsClaim: true,
           globPatterns: ["**/*.{js,css,html,svg,png,ico,webp,woff,woff2}"],
           // Build output nests client assets under dist/client/ but they are
           // served at the origin root, so strip the directory segment.
