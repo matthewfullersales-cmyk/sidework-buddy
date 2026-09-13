@@ -1129,7 +1129,6 @@ function EmployeeProfileDialog({ employee, onClose }: { employee: Employee; onCl
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      </Dialog>
       <Dialog open={confirmAvailEdit} onOpenChange={setConfirmAvailEdit}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle>Set {displayName}'s availability directly?</DialogTitle></DialogHeader>
