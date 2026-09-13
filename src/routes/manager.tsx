@@ -813,6 +813,34 @@ function TeamTab() {
                 </div>
 
                 <div className="mt-3 flex flex-wrap justify-end gap-2">
+                  {e.authUserId == null && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={async () => {
+                        try {
+                          // Always mint a fresh token — simplest and most reliable;
+                          // it invalidates any older link for this person.
+                          const token = await regeneratePersonInvite(e.id);
+                          const url = `${window.location.origin}/staff-invite/${token}`;
+                          if (hasUsablePhone(e.phone)) {
+                            window.location.href = buildSmsLink(
+                              e.phone!,
+                              inviteTextBody(e.firstName ?? e.name, restaurantProfile?.name?.trim() ?? "", url),
+                            );
+                            copyLinkWithToast(url, "Invite link copied");
+                          } else {
+                            copyLinkWithToast(url, "Invite link copied");
+                          }
+                        } catch (err) {
+                          console.error("[team] invite retrieval failed", err);
+                          toast.error("Couldn't create an invite link.");
+                        }
+                      }}
+                    >
+                      {hasUsablePhone(e.phone) ? "Text invite link" : "Copy invite link"}
+                    </Button>
+                  )}
                   <Button size="sm" variant="outline" onClick={() => setEditing(e)}>Edit profile</Button>
                   {!showArchived ? (
                     <Button size="sm" variant="outline" onClick={() => setConfirmArchive(e)}>Archive</Button>
