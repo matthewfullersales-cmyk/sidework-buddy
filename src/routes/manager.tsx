@@ -308,13 +308,13 @@ function PendingRoleAssignmentQueue({
     <Card className="border-amber-500/40 bg-amber-500/5">
       <CardHeader className="pb-2">
         <CardTitle className="text-base">
-          Pending role assignment
+          Pending position assignment
           <span className="ml-2 text-xs font-normal text-muted-foreground">{pending.length} waiting</span>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-xs text-muted-foreground">
-          These employees finished self-onboarding but need a role assigned before you can schedule them.
+          These employees finished self-onboarding but need a position assigned before you can schedule them.
         </p>
         {pending.map((e) => {
           const draft = drafts[e.id] ?? roleChoices[0] ?? "Server";
@@ -326,12 +326,12 @@ function PendingRoleAssignmentQueue({
                 <p className="text-xs text-muted-foreground truncate">{e.email}{e.phone ? ` · ${e.phone}` : ""}</p>
               </div>
               <Select value={draft} onValueChange={(v) => setDrafts((d) => ({ ...d, [e.id]: v as Role }))}>
-                <SelectTrigger className="h-9 w-44"><SelectValue placeholder="Pick a role" /></SelectTrigger>
+                <SelectTrigger className="h-9 w-44"><SelectValue placeholder="Pick a position" /></SelectTrigger>
                 <SelectContent>
                   {roleChoices.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
                 </SelectContent>
               </Select>
-              <Button size="sm" onClick={() => onAssign(e.id, draft)} disabled={!draft}>Assign role</Button>
+              <Button size="sm" onClick={() => onAssign(e.id, draft)} disabled={!draft}>Assign position</Button>
             </div>
           );
         })}
@@ -375,7 +375,7 @@ function PendingJoinRequestsQueue({
                   {e.email}{e.phone ? ` · ${e.phone}` : ""}
                 </p>
                 <p className="mt-0.5 text-[11px] text-muted-foreground">
-                  {e.primaryRole ? `Wants to join as ${e.primaryRole}` : "No role yet — assign one after approving"}
+                  {e.primaryRole ? `Wants to join as ${e.primaryRole}` : "No position yet — assign one after approving"}
                 </p>
               </div>
               <div className="flex gap-2">
@@ -507,7 +507,7 @@ function TeamTab() {
         customRoles={customRoles}
         onAssign={(id, role) => {
           updateEmployee(id, { primaryRole: role, approvedRoles: [role] });
-          toast.success("Role assigned");
+          toast.success("Position assigned");
         }}
       />
 
@@ -628,7 +628,7 @@ function TeamTab() {
                 <PhoneInput value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} />
               </div>
               <div className="grid gap-2">
-                <Label>Primary role</Label>
+                <Label>Primary position</Label>
                 <Select value={form.role} onValueChange={(v: Role) => setForm({ ...form, role: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -781,7 +781,7 @@ function TeamTab() {
                       <Badge variant="secondary" className="bg-muted text-muted-foreground">Invited — hasn't joined yet</Badge>
                     )}
                     {isPendingRoleAssignment(e) ? (
-                      <Badge variant="secondary" className="bg-muted text-foreground">Pending role</Badge>
+                      <Badge variant="secondary" className="bg-muted text-foreground">Pending position</Badge>
                     ) : isScheduleEligible(e) ? (
                       <Badge className="bg-success text-success-foreground hover:bg-success">Schedule eligible</Badge>
                     ) : null}
@@ -970,7 +970,7 @@ function EmployeeProfileDialog({ employee, onClose }: { employee: Employee; onCl
           </div>
 
           <div>
-            <Label className="text-xs uppercase tracking-wide text-muted-foreground">Approved roles</Label>
+            <Label className="text-xs uppercase tracking-wide text-muted-foreground">Approved positions</Label>
             <div className="mt-2 space-y-3">
               <div>
                 <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Front of House</p>
@@ -1010,7 +1010,7 @@ function EmployeeProfileDialog({ employee, onClose }: { employee: Employee; onCl
           <div>
             <Label className="text-xs uppercase tracking-wide text-muted-foreground">Auto-approve trades for</Label>
             <div className="mt-2 flex flex-wrap gap-2">
-              {approvedRoles.length === 0 && <p className="text-sm text-muted-foreground">Approve a role first.</p>}
+              {approvedRoles.length === 0 && <p className="text-sm text-muted-foreground">Approve a position first.</p>}
               {approvedRoles.map((r) => {
                 const on = autoApprove.includes(r);
                 return (
@@ -1230,7 +1230,7 @@ function JobsTab() {
                 <div className="grid gap-2"><Label>Job title</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="e.g. Experienced Line Cook" /></div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="grid gap-2">
-                    <Label>Role</Label>
+                    <Label>Position</Label>
                     <Select value={form.role} onValueChange={(v: Role) => setForm({ ...form, role: v })}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>

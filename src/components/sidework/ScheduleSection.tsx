@@ -603,7 +603,7 @@ function ShiftDetailsDialog({
   // Role gate only. The menu test no longer participates in scheduling
   // eligibility — the manager owns the schedule gate.
   const pendingRole = emp ? isPendingRoleAssignment(emp) : false;
-  const trainingBlockMsg = `${emp?.name ?? "This employee"} doesn't have a role assigned yet — assign one from the Team tab before scheduling.`;
+  const trainingBlockMsg = `${emp?.name ?? "This employee"} doesn't have a position assigned yet — assign one from the Team tab before scheduling.`;
 
 
   return (
@@ -659,7 +659,7 @@ function ShiftDetailsDialog({
               role="alert"
               className="rounded-lg border border-destructive/60 bg-destructive/10 p-3 text-sm text-destructive"
             >
-              <p className="font-semibold">⛔ No role assigned</p>
+              <p className="font-semibold">⛔ No position assigned</p>
               <p className="mt-1 text-xs">{trainingBlockMsg}</p>
             </div>
           )}

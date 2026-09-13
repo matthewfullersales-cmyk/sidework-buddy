@@ -37,7 +37,7 @@ function PrivacyPage() {
 
           <h2 className="mt-10 text-xl font-semibold tracking-tight">Information We Collect</h2>
           <p className="mb-4 leading-relaxed">
-            We collect information you provide directly, including name, phone number, email address, and employment-related information (schedules, availability, role, and application materials) submitted through the 86Paper platform.
+            We collect information you provide directly, including name, phone number, email address, and employment-related information (schedules, availability, position, and application materials) submitted through the 86Paper platform.
           </p>
 
           <h2 className="mt-10 text-xl font-semibold tracking-tight">Push Notifications</h2>
