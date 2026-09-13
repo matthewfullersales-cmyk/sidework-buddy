@@ -57,6 +57,29 @@ type TeamSortKey =
   | "positionAsc"
   | "onboardingDesc" | "onboardingAsc";
 
+/** True when a stored phone has enough digits to be texted (guards partial/garbage input). */
+function hasUsablePhone(phone?: string | null): boolean {
+  return (phone ?? "").replace(/\D/g, "").length >= 10;
+}
+
+/**
+ * Cross-platform sms: deep link — opens the phone's native Messages app with
+ * the recipient and body pre-filled. iOS wants "?&body=", Android "?body=".
+ * This is a deep link to the manager's own Messages app, not an SMS send API.
+ */
+function buildSmsLink(phone: string, body: string): string {
+  const digits = phone.replace(/\D/g, "");
+  const e164 = digits.length === 10 ? `+1${digits}` : `+${digits}`;
+  const sep = /iPad|iPhone|iPod/.test(navigator.userAgent) ? "?&" : "?";
+  return `sms:${e164}${sep}body=${encodeURIComponent(body)}`;
+}
+
+function inviteTextBody(firstName: string, restaurantName: string, inviteUrl: string): string {
+  const hi = firstName ? `Hi ${firstName}` : "Hi";
+  const where = restaurantName ? ` at ${restaurantName}` : "";
+  return `${hi} — you've been invited to join the team${where} on 86Paper. Finish setting up your account here: ${inviteUrl}`;
+}
+
 const SORT_OPTIONS: { key: TeamSortKey; label: string }[] = [
   { key: "firstNameAsc", label: "First Name (A-Z)" },
   { key: "firstNameDesc", label: "First Name (Z-A)" },
@@ -392,6 +415,9 @@ function TeamTab() {
   // Optional manager-entered availability on the manual-add form; partial is fine.
   const [inviteAvailability, setInviteAvailability] = useState<PartialWeekly>({});
   const [sending, setSending] = useState(false);
+  // Manual-add delivery mode, derived from what contact info is filled in.
+  const inviteEmail = form.email.trim();
+  const inviteHasPhone = hasUsablePhone(form.phone);
 
   const [editing, setEditing] = useState<Employee | null>(null);
   const [confirmArchive, setConfirmArchive] = useState<Employee | null>(null);
