@@ -143,12 +143,12 @@ function JoinPage() {
         Boolean(parsed.data.ecPhone?.trim()) ||
         Boolean(ecRel);
       const emergencyContact = hasEc
-        ? {
+        ? ({
             firstName: parsed.data.ecFirstName?.trim() ?? "",
             lastName: parsed.data.ecLastName?.trim() ?? "",
             phone: parsed.data.ecPhone?.trim() ?? "",
-            ...(ecRel ? { relationship: ecRel as Relationship } : {}),
-          }
+            ...(ecRel ? { relationship: ecRel } : {}),
+          } as EmergencyContact)
         : (undefined as unknown as EmergencyContact);
 
       await joinStaff({
