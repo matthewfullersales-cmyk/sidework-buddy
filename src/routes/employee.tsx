@@ -83,6 +83,31 @@ function EmployeePage() {
 
 
   if (!authLoading && profile?.role === "owner") return <Navigate to="/manager" />;
+  if (needsRestaurantSelection) {
+    return (
+      <AppShell nav={nav}>
+        <div className="mx-auto max-w-md px-4 py-16">
+          <h1 className="text-center text-2xl font-bold">Which restaurant?</h1>
+          <p className="mt-2 text-center text-sm text-muted-foreground">
+            Your login is linked to more than one restaurant. Pick one to continue — to switch later, sign out and sign back in.
+          </p>
+          <div className="mt-6 grid gap-3">
+            {employeeContexts.map((ctx) => (
+              <Button
+                key={ctx.ownerId}
+                variant="outline"
+                size="lg"
+                className="h-14 w-full text-base"
+                onClick={() => selectRestaurant(ctx.ownerId)}
+              >
+                {ctx.restaurantName ?? "Unnamed restaurant"}
+              </Button>
+            ))}
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
   if (me && isPendingJoin(me)) {
     return (
       <AppShell nav={nav}>

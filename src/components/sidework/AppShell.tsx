@@ -8,7 +8,10 @@ import { LogOut } from "lucide-react";
 export function AppShell({ children, nav }: { children: ReactNode; nav: { to: string; label: string; icon: ReactNode }[] }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { session, signOut } = useAuth();
+  const { session, signOut, employeeContext, employeeContexts } = useAuth();
+  // Persistent restaurant tag — only for multi-restaurant employees.
+  const restaurantTag =
+    employeeContexts.length > 1 ? (employeeContext?.restaurantName ?? null) : null;
 
   const handleSignOut = async () => {
     await signOut();
