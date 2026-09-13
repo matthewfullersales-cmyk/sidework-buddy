@@ -95,9 +95,8 @@ export const setPushOptIn = createServerFn({ method: "POST" })
 
 type NotifKind = "schedule_published" | "schedule_changed" | "trade_posted" | "timeoff_resolved" | "availability_resolved" | "availability_edited";
 
-// Email fallback via the same Resend connector-gateway pattern used by
-// staff-invite.functions.ts / reactivation.functions.ts.
-const GATEWAY_URL = "https://connector-gateway.lovable.dev";
+// Email fallback via direct Resend API.
+
 
 /** Escape interpolated values before injecting them into the HTML body. */
 function escapeHtml(value: string): string {
@@ -112,9 +111,7 @@ function escapeHtml(value: string): string {
 async function sendNotifEmail(args: {
   to: string; title: string; body: string; url?: string;
 }): Promise<{ ok: boolean; error?: string }> {
-  const lovableKey = process.env.LOVABLE_API_KEY;
   const resendKey = process.env.RESEND_API_KEY;
-  if (!lovableKey) return { ok: false, error: "LOVABLE_API_KEY not configured" };
   if (!resendKey) return { ok: false, error: "RESEND_API_KEY not configured (Resend connector not linked)" };
 
   const link = args.url ? `https://86paper.com${args.url}` : "";
@@ -125,12 +122,11 @@ async function sendNotifEmail(args: {
     (link ? `<p><a href="${escapeHtml(link)}">${escapeHtml(link)}</a></p>` : "");
 
   try {
-    const resp = await fetch(`${GATEWAY_URL}/resend/emails`, {
+    const resp = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${lovableKey}`,
-        "X-Connection-Api-Key": resendKey,
+        "Authorization": `Bearer ${resendKey}`,
       },
       body: JSON.stringify({
         from: "86Paper <invites@86paper.com>",
