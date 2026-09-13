@@ -76,8 +76,9 @@ function StaffInvitePage() {
 
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  // Starts empty on purpose: nothing is stored for a day the person never taps.
+  // Starts empty unless the invite already carries availability we can confirm.
   const [availability, setAvailability] = useState<PartialWeekly>({});
+  const [prefilled, setPrefilled] = useState(false);
   const [ecFirstName, setEcFirstName] = useState("");
   const [ecLastName, setEcLastName] = useState("");
   const [ecPhone, setEcPhone] = useState("");
@@ -96,6 +97,13 @@ function StaffInvitePage() {
         setInvite(res);
         if (res.email) setEmail(res.email);
         if (res.phone) setPhone(res.phone);
+        if (res.availabilitySource) {
+          const existing = toPartialWeekly(res.weeklyAvailability);
+          if (Object.keys(existing).length > 0) {
+            setAvailability(existing);
+            setPrefilled(true);
+          }
+        }
       })
       .catch((e) => { console.error("[staff-invite]", e); if (!cancelled) setNotFound(true); })
       .finally(() => { if (!cancelled) setLoading(false); });
@@ -106,6 +114,12 @@ function StaffInvitePage() {
     const missing = unansweredDays(availability);
     return { complete: missing.length === 0, missing };
   }, [availability]);
+
+  const answeredOn = useMemo(
+    () => (prefilled ? formatAnsweredDate(invite?.appliedAt ?? null) : null),
+    [prefilled, invite],
+  );
+
 
 
   const restaurantName = invite?.restaurantName ?? "the team";
