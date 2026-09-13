@@ -1179,10 +1179,10 @@ export function ApplicantPipeline({ onInterviewChange, refreshKey = 0 }: { onInt
                 <DialogTitle>Hire {hireFor.firstName} as…</DialogTitle>
               </DialogHeader>
               <div className="space-y-2">
-                <Label>Role</Label>
+                <Label>Position</Label>
                 <Select value={hireRole} onValueChange={setHireRole}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select a role" />
+                    <SelectValue placeholder="Select a position" />
                   </SelectTrigger>
                   <SelectContent>
                     {roleChoices.map((r) => (
@@ -1210,10 +1210,10 @@ export function ApplicantPipeline({ onInterviewChange, refreshKey = 0 }: { onInt
 
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Role</Label>
+                  <Label>Position</Label>
                   <Select value={shRole} onValueChange={setShRole} disabled={!!shadowEditing}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select a role" />
+                      <SelectValue placeholder="Select a position" />
                     </SelectTrigger>
                     <SelectContent>
                       {roleChoices.map((r) => (
@@ -1249,7 +1249,7 @@ export function ApplicantPipeline({ onInterviewChange, refreshKey = 0 }: { onInt
                     disabled={!shRole}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder={shRole ? "Assign later" : "Pick a role first"} />
+                      <SelectValue placeholder={shRole ? "Assign later" : "Pick a position first"} />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">Assign later</SelectItem>

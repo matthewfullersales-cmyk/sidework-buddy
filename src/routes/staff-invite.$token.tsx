@@ -307,7 +307,7 @@ function StaffInvitePage() {
                 {inviteName ? <>, {inviteName}.</> : "."}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                If your name or role is wrong, ask your manager to fix it — you can't change it here.
+                If your name or position is wrong, ask your manager to fix it — you can't change it here.
               </p>
             </div>
 

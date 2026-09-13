@@ -237,7 +237,7 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
             </div>
             <div className="grid gap-2"><Label>Phone number</Label><PhoneInput value={phone} onChange={setPhone} /></div>
           </div>
-          <div className="grid gap-2"><Label>Role</Label><Input disabled value={me.primaryRole} /></div>
+          <div className="grid gap-2"><Label>Position</Label><Input disabled value={me.primaryRole} /></div>
         </CardContent>
 
       </Card>
