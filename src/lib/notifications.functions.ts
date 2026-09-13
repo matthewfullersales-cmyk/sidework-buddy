@@ -95,6 +95,64 @@ export const setPushOptIn = createServerFn({ method: "POST" })
 
 type NotifKind = "schedule_published" | "schedule_changed" | "trade_posted" | "timeoff_resolved" | "availability_resolved";
 
+// Email fallback via the same Resend connector-gateway pattern used by
+// staff-invite.functions.ts / reactivation.functions.ts.
+const GATEWAY_URL = "https://connector-gateway.lovable.dev";
+
+/** Escape interpolated values before injecting them into the HTML body. */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+async function sendNotifEmail(args: {
+  to: string; title: string; body: string; url?: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  const lovableKey = process.env.LOVABLE_API_KEY;
+  const resendKey = process.env.RESEND_API_KEY;
+  if (!lovableKey) return { ok: false, error: "LOVABLE_API_KEY not configured" };
+  if (!resendKey) return { ok: false, error: "RESEND_API_KEY not configured (Resend connector not linked)" };
+
+  const link = args.url ? `https://86paper.com${args.url}` : "";
+  const text = `${args.title}\n\n${args.body}${link ? `\n\n${link}` : ""}`;
+  const html =
+    `<p><strong>${escapeHtml(args.title)}</strong></p>` +
+    `<p>${escapeHtml(args.body)}</p>` +
+    (link ? `<p><a href="${escapeHtml(link)}">${escapeHtml(link)}</a></p>` : "");
+
+  try {
+    const resp = await fetch(`${GATEWAY_URL}/resend/emails`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${lovableKey}`,
+        "X-Connection-Api-Key": resendKey,
+      },
+      body: JSON.stringify({
+        from: "86Paper <invites@86paper.com>",
+        to: [args.to],
+        subject: args.title,
+        text,
+        html,
+      }),
+    });
+    if (!resp.ok) {
+      const errText = await resp.text();
+      console.error(`[fanOut email] Resend ${resp.status}: ${errText}`);
+      return { ok: false, error: `Resend ${resp.status}: ${errText.slice(0, 400)}` };
+    }
+    return { ok: true };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[fanOut email] exception", msg);
+    return { ok: false, error: msg };
+  }
+}
+
 /** Insert notification rows + fan out push. Uses admin client so any authorized
  *  caller (owner or teammate) can create for the target employees regardless of
  *  cross-employee RLS nuances. Callers must authenticate via requireSupabaseAuth. */
@@ -106,7 +164,7 @@ async function fanOut(args: {
   body: string;
   url?: string;
 }) {
-  if (args.employeeIds.length === 0) return { notifCount: 0, pushSent: 0 };
+  if (args.employeeIds.length === 0) return { notifCount: 0, pushSent: 0, emailsSent: 0 };
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
   // 1) Persistent notification rows for the inbox (always).
@@ -124,33 +182,76 @@ async function fanOut(args: {
   // 2) Push, only to opted-in employees with active subscriptions.
   const { data: emps } = await supabaseAdmin
     .from("people")
-    .select("id, push_opt_in")
+    .select("id, push_opt_in, email")
     .in("id", args.employeeIds);
-  const optedIds = (emps ?? []).filter((e) => e.push_opt_in).map((e) => e.id);
-  if (optedIds.length === 0) return { notifCount: rows.length, pushSent: 0 };
+  const empList = emps ?? [];
+  const optedIds = empList.filter((e) => e.push_opt_in).map((e) => e.id);
 
-  const { data: subs } = await supabaseAdmin
-    .from("push_subscriptions")
-    .select("id, endpoint, p256dh, auth")
-    .in("employee_id", optedIds);
-  if (!subs || subs.length === 0) return { notifCount: rows.length, pushSent: 0 };
+  // Everyone not opted in needs the email fallback (no push ever attempted).
+  const needsEmail = new Set<string>(
+    empList.filter((e) => !e.push_opt_in).map((e) => e.id)
+  );
 
-  try {
-    const { sendPushToAll } = await import("@/lib/push.server");
-    const { deadIds } = await sendPushToAll(subs, {
-      title: args.title,
-      body: args.body,
-      url: args.url,
-      tag: args.kind,
-    });
-    if (deadIds.length > 0) {
-      await supabaseAdmin.from("push_subscriptions").delete().in("id", deadIds);
+  let pushSent = 0;
+  if (optedIds.length > 0) {
+    const { data: subs } = await supabaseAdmin
+      .from("push_subscriptions")
+      .select("id, endpoint, p256dh, auth, employee_id")
+      .in("employee_id", optedIds);
+    const subList = subs ?? [];
+
+    // Opted in but no live subscription rows — push can't reach them.
+    const withSubs = new Set(subList.map((s) => s.employee_id));
+    for (const id of optedIds) {
+      if (!withSubs.has(id)) needsEmail.add(id);
     }
-    return { notifCount: rows.length, pushSent: subs.length - deadIds.length };
-  } catch (e) {
-    console.error("[fanOut push]", e);
-    return { notifCount: rows.length, pushSent: 0 };
+
+    if (subList.length > 0) {
+      try {
+        const { sendPushToAll } = await import("@/lib/push.server");
+        const { deadIds } = await sendPushToAll(subList, {
+          title: args.title,
+          body: args.body,
+          url: args.url,
+          tag: args.kind,
+        });
+        if (deadIds.length > 0) {
+          await supabaseAdmin.from("push_subscriptions").delete().in("id", deadIds);
+        }
+        pushSent = subList.length - deadIds.length;
+
+        // Employees whose EVERY subscription died got nothing — email them.
+        const deadSet = new Set(deadIds);
+        const aliveByEmp = new Map<string, number>();
+        for (const s of subList) {
+          if (deadSet.has(s.id)) continue;
+          aliveByEmp.set(s.employee_id, (aliveByEmp.get(s.employee_id) ?? 0) + 1);
+        }
+        for (const id of withSubs) {
+          if (!aliveByEmp.has(id)) needsEmail.add(id);
+        }
+      } catch (e) {
+        console.error("[fanOut push]", e);
+        // Push failed/unknown for every opted-in employee with subs — email them all.
+        for (const id of withSubs) needsEmail.add(id);
+      }
+    }
   }
+
+  // 3) Email fallback for anyone push couldn't reach. Skip people with no
+  //    email on file (no error — same as elsewhere in the app).
+  let emailsSent = 0;
+  const emailTargets = empList.filter((e) => needsEmail.has(e.id) && e.email);
+  if (emailTargets.length > 0) {
+    const results = await Promise.allSettled(
+      emailTargets.map((e) =>
+        sendNotifEmail({ to: e.email as string, title: args.title, body: args.body, url: args.url })
+      )
+    );
+    emailsSent = results.filter((r) => r.status === "fulfilled" && r.value.ok).length;
+  }
+
+  return { notifCount: rows.length, pushSent, emailsSent };
 }
 
 async function authorizeOwnerContext(context: { supabase: import("@supabase/supabase-js").SupabaseClient; userId: string }): Promise<{ ownerId: string }> {
