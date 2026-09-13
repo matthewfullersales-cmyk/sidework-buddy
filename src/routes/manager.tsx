@@ -37,6 +37,7 @@ const DAY_FULL_LABEL: Record<string, string> = {
   Mon: "Monday", Tue: "Tuesday", Wed: "Wednesday", Thu: "Thursday", Fri: "Friday", Sat: "Saturday", Sun: "Sunday",
 };
 import { AvailabilitySummary, hasAnyAvailability } from "@/components/sidework/AvailabilitySummary";
+import { AvailabilityPicker, type PartialWeekly } from "@/components/sidework/AvailabilityPicker";
 import { fetchShadowPacket, saveShadowPacket, emptyShadowPacket, type ShadowPacket } from "@/lib/employees-supabase";
 import { defaultDressGroupForRole } from "@/lib/shadow-packet-roles";
 import { StaffJoinBanner, FullscreenQrDialog, StaffOnboardingCard, useJoinUrl } from "@/components/sidework/StaffOnboarding";
@@ -682,6 +683,7 @@ function TeamTab() {
                     copyLinkWithToast(invite.inviteUrl, "Invite link copied");
                     setOpen(false);
                     setForm({ firstName: "", lastName: "", email: "", phone: "", role: "Server" });
+                    setInviteAvailability({});
                   } finally {
                     setSending(false);
                   }
