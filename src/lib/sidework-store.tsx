@@ -1086,7 +1086,7 @@ function seedJobs(): JobPosting[] {
   return [];
 }
 
-const STORAGE_KEY = "sidework-store-v10";
+const STORAGE_KEY = "sidework-store-v11";
 
 // Defensively strip any legacy "Porter" role from persisted data and remap to Busser.
 function sanitizePorter<T>(input: T): T {
