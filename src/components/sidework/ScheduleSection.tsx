@@ -318,6 +318,29 @@ export function ScheduleSection() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={!!copyReport} onOpenChange={(o) => { if (!o) setCopyReport(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Copied — {copyReport?.conflicts.length ?? 0} to check</DialogTitle>
+            <DialogDescription>
+              Every shift was copied. These ones land on a day the person flagged — worth a look before you publish.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[50vh] space-y-1.5 overflow-auto scroll-touch">
+            {(copyReport?.conflicts ?? []).map((c, i) => (
+              <p key={`${c.name}-${c.date}-${c.reason}-${i}`} className="text-sm">
+                {c.name} — {fmtConflictDate(c.date)} — {c.reason}
+              </p>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setCopyReport(null)}>Got it</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+
+
       <Legend />
 
       {(["FOH", "BOH"] as Section[]).map((section) => (
