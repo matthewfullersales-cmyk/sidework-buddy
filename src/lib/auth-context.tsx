@@ -27,6 +27,7 @@ type AuthContextValue = {
   session: Session | null;
   user: User | null;
   profile: Profile | null;
+  profileError: string | null;
   effectiveOwner: EffectiveOwner;
   employeeContext: EmployeeContext | null;
   /** Every restaurant context linked to this login (usually one). */
