@@ -103,13 +103,15 @@ export async function upsertShiftRow(ownerId: string, s: Shift, employeeIdOverri
 
 
 export async function deleteShiftRow(id: string): Promise<void> {
-  const { error } = await supabase.from("shifts").delete().eq("id", id);
+  const { error, count } = await supabase.from("shifts").delete({ count: "exact" }).eq("id", id);
   if (error) throw error;
+  if (!count) throw new Error("That shift couldn't be deleted — it may have already been removed. Refresh and try again.");
 }
 
 export async function reassignShiftEmployee(id: string, employeeId: string | null): Promise<void> {
-  const { error } = await supabase.from("shifts").update({ employee_id: employeeId }).eq("id", id);
+  const { error, count } = await supabase.from("shifts").update({ employee_id: employeeId }, { count: "exact" }).eq("id", id);
   if (error) throw error;
+  if (!count) throw new Error("That shift couldn't be reassigned — it may have been deleted or changed by someone else. Refresh and try again.");
 }
 
 /* ---------------- time-off ---------------- */
@@ -174,8 +176,9 @@ export async function updateTimeOffRow(
   } = {};
   if (patch.status !== undefined) row.status = patch.status;
   if (patch.resolvedAt !== undefined) row.resolved_at = patch.resolvedAt;
-  const { error } = await supabase.from("time_off_requests").update(row).eq("id", id);
+  const { error, count } = await supabase.from("time_off_requests").update(row, { count: "exact" }).eq("id", id);
   if (error) throw error;
+  if (!count) throw new Error("That time off request couldn't be updated — it may have already been decided. Refresh and try again.");
 }
 
 /**
@@ -255,8 +258,9 @@ export async function updateAvailabilityRequestRow(
   const row: { status?: TimeOffStatus; resolved_at?: string | null } = {};
   if (patch.status !== undefined) row.status = patch.status;
   if (patch.resolvedAt !== undefined) row.resolved_at = patch.resolvedAt;
-  const { error } = await supabase.from("availability_change_requests").update(row).eq("id", id);
+  const { error, count } = await supabase.from("availability_change_requests").update(row, { count: "exact" }).eq("id", id);
   if (error) throw error;
+  if (!count) throw new Error("That availability request couldn't be updated — it may have already been decided. Refresh and try again.");
 }
 
 /**
@@ -354,8 +358,9 @@ export async function updateTradeRow(
   if (patch.autoApproved !== undefined) row.auto_approved = patch.autoApproved;
   if (patch.approvedBy !== undefined) row.approved_by = patch.approvedBy ?? null;
   if (patch.resolvedAt !== undefined) row.resolved_at = patch.resolvedAt ?? null;
-  const { error } = await supabase.from("shift_trades").update(row).eq("id", id);
+  const { error, count } = await supabase.from("shift_trades").update(row, { count: "exact" }).eq("id", id);
   if (error) throw error;
+  if (!count) throw new Error("That trade couldn't be updated — it may have already been taken or resolved. Refresh and try again.");
 }
 
 /* ---------------- bootstrap ---------------- */
