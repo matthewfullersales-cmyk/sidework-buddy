@@ -76,12 +76,32 @@ export const Route = createFileRoute("/api/public/stripe-webhook")({
                 subscription_current_period_end: periodEnd,
               };
               if (userId) {
-                await supabaseAdmin.from("profiles").update(patch).eq("id", userId);
-              } else if (sub.customer) {
-                await supabaseAdmin
+                const { error, count } = await supabaseAdmin
                   .from("profiles")
-                  .update(patch)
+                  .update(patch, { count: "exact" })
+                  .eq("id", userId);
+                if (error) {
+                  console.error("[stripe-webhook] subscription update failed", { eventType: event.type, userId, error });
+                  throw error;
+                }
+                if (!count) {
+                  console.error("[stripe-webhook] subscription event matched no profile row by user id", { eventType: event.type, userId });
+                  throw new Error(`${event.type}: no profile row for user ${userId}`);
+                }
+              } else if (sub.customer) {
+                const { error, count } = await supabaseAdmin
+                  .from("profiles")
+                  .update(patch, { count: "exact" })
                   .eq("stripe_customer_id", sub.customer as string);
+                if (error) {
+                  console.error("[stripe-webhook] subscription update failed", { eventType: event.type, customerId: sub.customer, error });
+                  throw error;
+                }
+                if (!count) {
+                  console.error("[stripe-webhook] subscription event matched no profile row by customer id", { eventType: event.type, customerId: sub.customer });
+                }
+              } else {
+                console.error("[stripe-webhook] subscription event with no user id and no customer", { eventType: event.type, subscriptionId: sub.id });
               }
               break;
             }
