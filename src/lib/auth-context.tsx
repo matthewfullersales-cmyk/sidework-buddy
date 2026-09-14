@@ -55,12 +55,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const loadProfile = async (uid: string | undefined) => {
-    if (!uid) { setProfile(null); return; }
-    const { data } = await supabase
+    if (!uid) { setProfile(null); setProfileError(null); return; }
+    const { data, error } = await supabase
       .from("profiles")
       .select("id, role, full_name, restaurant_name, employee_id, subscription_status")
       .eq("id", uid)
       .maybeSingle();
+    if (error) {
+      console.error("[auth] loadProfile failed", error);
+      setProfileError(error.message);
+      // Keep any profile we already loaded — a transient read failure must not
+      // blank out a working session.
+      return;
+    }
+    setProfileError(null);
     setProfile((data as Profile | null) ?? null);
   };
 
