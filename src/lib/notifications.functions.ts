@@ -250,20 +250,22 @@ async function fanOut(args: {
   return { notifCount: rows.length, pushSent, emailsSent };
 }
 
-async function authorizeOwnerContext(context: { supabase: import("@supabase/supabase-js").SupabaseClient; userId: string }): Promise<{ ownerId: string }> {
+async function authorizeOwnerContext(context: { supabase: import("@supabase/supabase-js").SupabaseClient; userId: string }): Promise<{ ownerId: string; isOwner: boolean }> {
   // Caller is owner, or an employee of an owner.
-  const { data: prof } = await context.supabase
+  const { data: prof, error: profErr } = await context.supabase
     .from("profiles")
     .select("id, role")
     .eq("id", context.userId)
     .maybeSingle();
-  if (prof?.role === "owner") return { ownerId: prof.id };
-  const { data: emp } = await context.supabase
+  if (profErr) throw profErr;
+  if (prof?.role === "owner") return { ownerId: prof.id, isOwner: true };
+  const { data: emp, error: empErr } = await context.supabase
     .from("people")
     .select("owner_id")
     .eq("auth_user_id", context.userId)
     .maybeSingle();
-  if (emp?.owner_id) return { ownerId: emp.owner_id };
+  if (empErr) throw empErr;
+  if (emp?.owner_id) return { ownerId: emp.owner_id, isOwner: false };
   throw new Error("Unauthorized");
 }
 
