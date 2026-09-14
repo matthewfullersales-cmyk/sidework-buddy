@@ -1,0 +1,1 @@
+DROP POLICY "Anyone can view job postings" ON public.job_postings;
