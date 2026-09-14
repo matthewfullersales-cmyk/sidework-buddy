@@ -334,6 +334,8 @@ export const sendInterviewConfirmedByToken = createServerFn({ method: "POST" })
           : undefined,
       interviewDate: formatDateLong(row.booked_date),
       interviewTime: formatTime12h(row.booked_time),
+      phoneDigits: "",
+      hasOpenSlots: false,
     });
 
     const emailResult = await sendEmail(
