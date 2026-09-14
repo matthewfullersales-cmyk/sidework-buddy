@@ -71,6 +71,7 @@ export const Route = createFileRoute("/staff-invite/$token")({
 
 function StaffInvitePage() {
   const { token } = Route.useParams();
+  const { refreshProfile, refreshEffectiveOwner } = useAuth();
 
   const [invite, setInvite] = useState<PublicStaffInviteInfo | null>(null);
   const [loading, setLoading] = useState(true);
