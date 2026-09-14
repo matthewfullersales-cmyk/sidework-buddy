@@ -163,8 +163,20 @@ async function fanOut(args: {
   if (args.employeeIds.length === 0) return { notifCount: 0, pushSent: 0, emailsSent: 0 };
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-  // 1) Persistent notification rows for the inbox (always).
-  const rows = args.employeeIds.map((eid) => ({
+  // 1) Verify recipients FIRST: only people inside the stated restaurant.
+  //    This read is load-bearing for authorization — an error throws.
+  const { data: emps, error: empsErr } = await supabaseAdmin
+    .from("people")
+    .select("id, push_opt_in, email")
+    .eq("owner_id", args.ownerId)
+    .in("id", args.employeeIds);
+  if (empsErr) throw empsErr;
+  const empList = emps ?? [];
+  const verifiedIds = empList.map((e) => e.id);
+
+  // 2) Persistent notification rows for the inbox (always), built ONLY from
+  //    the verified ids. A failed insert throws — this is the durable record.
+  const rows = verifiedIds.map((eid) => ({
     owner_id: args.ownerId,
     employee_id: eid,
     kind: args.kind,
@@ -173,14 +185,7 @@ async function fanOut(args: {
     url: args.url ?? null,
   }));
   const { error: insErr } = await supabaseAdmin.from("employee_notifications").insert(rows);
-  if (insErr) console.error("[fanOut insert]", insErr);
-
-  // 2) Push, only to opted-in employees with active subscriptions.
-  const { data: emps } = await supabaseAdmin
-    .from("people")
-    .select("id, push_opt_in, email")
-    .in("id", args.employeeIds);
-  const empList = emps ?? [];
+  if (insErr) throw insErr;
   const optedIds = empList.filter((e) => e.push_opt_in).map((e) => e.id);
 
   // Everyone not opted in needs the email fallback (no push ever attempted).
