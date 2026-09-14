@@ -195,11 +195,12 @@ async function fanOut(args: {
 
   let pushSent = 0;
   if (optedIds.length > 0) {
-    const { data: subs } = await supabaseAdmin
+    const { data: subs, error: subsErr } = await supabaseAdmin
       .from("push_subscriptions")
       .select("id, endpoint, p256dh, auth, employee_id")
       .in("employee_id", optedIds);
-    const subList = subs ?? [];
+    // On error, treat as "no subscriptions" and fall through to email.
+    const subList = subsErr ? [] : (subs ?? []);
 
     // Opted in but no live subscription rows — push can't reach them.
     const withSubs = new Set(subList.map((s) => s.employee_id));
