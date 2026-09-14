@@ -140,11 +140,14 @@ export async function updateEmployeeRow(id: string, patch: Partial<Employee>): P
   if (patch.onboardingStarted !== undefined) row.onboarding_started = patch.onboardingStarted;
   if (patch.personalInfoComplete !== undefined) row.personal_info_complete = patch.personalInfoComplete;
   if (Object.keys(row).length === 0) return;
-  const { error } = await supabase
+  const { error, count } = await supabase
     .from("people")
-    .update(row as never)
+    .update(row as never, { count: "exact" })
     .eq("id", id);
   if (error) throw error;
+  if (!count) {
+    throw new Error("Those changes couldn't be saved — this person may have been removed from your team. Refresh and try again.");
+  }
 }
 
 /**
@@ -152,11 +155,12 @@ export async function updateEmployeeRow(id: string, patch: Partial<Employee>): P
  * RPC (keeps the audit state); anyone else is deleted outright.
  */
 export async function deleteEmployeeRow(id: string): Promise<void> {
-  const { data } = await supabase
+  const { data, error: readErr } = await supabase
     .from("people")
     .select("state")
     .eq("id", id)
     .maybeSingle();
+  if (readErr) throw readErr;
   const state = (data as { state?: string } | null)?.state;
   if (state === "pending_approval") {
     const { error } = await supabase.rpc("decline_pending_person" as never, {
@@ -165,20 +169,35 @@ export async function deleteEmployeeRow(id: string): Promise<void> {
     if (error) throw error;
     return;
   }
-  const { error } = await supabase.from("people").delete().eq("id", id);
+  const { error, count } = await supabase.from("people").delete({ count: "exact" }).eq("id", id);
   if (error) throw error;
+  if (!count) {
+    throw new Error("That person couldn't be removed — they may have already been removed. Refresh and try again.");
+  }
 }
 
 /** Mark a person inactive: they drop off the schedule but keep their record. */
 export async function archiveEmployeeRow(id: string): Promise<void> {
-  const { error } = await supabase.from("people").update({ state: "inactive" }).eq("id", id);
+  const { error, count } = await supabase
+    .from("people")
+    .update({ state: "inactive" }, { count: "exact" })
+    .eq("id", id);
   if (error) throw error;
+  if (!count) {
+    throw new Error("That person couldn't be archived — they may have already been removed. Refresh and try again.");
+  }
 }
 
 /** Bring an archived person back onto the active roster. */
 export async function reactivateEmployeeRow(id: string): Promise<void> {
-  const { error } = await supabase.from("people").update({ state: "active" }).eq("id", id);
+  const { error, count } = await supabase
+    .from("people")
+    .update({ state: "active" }, { count: "exact" })
+    .eq("id", id);
   if (error) throw error;
+  if (!count) {
+    throw new Error("That person couldn't be reactivated — they may have been removed. Refresh and try again.");
+  }
 }
 
 
@@ -204,11 +223,14 @@ export async function fetchRestaurantHours(ownerId: string): Promise<unknown | n
 }
 
 export async function saveRestaurantHours(ownerId: string, hours: unknown): Promise<void> {
-  const { error } = await supabase
+  const { error, count } = await supabase
     .from("profiles")
-    .update({ restaurant_hours: hours as never })
+    .update({ restaurant_hours: hours as never }, { count: "exact" })
     .eq("id", ownerId);
   if (error) throw error;
+  if (!count) {
+    throw new Error("Your restaurant hours couldn't be saved. Refresh and try again.");
+  }
 }
 
 /* ---------------- Business info (jsonb on profiles) ---------------- */
@@ -224,11 +246,14 @@ export async function fetchBusinessInfo(ownerId: string): Promise<unknown | null
 }
 
 export async function saveBusinessInfo(ownerId: string, info: unknown): Promise<void> {
-  const { error } = await supabase
+  const { error, count } = await supabase
     .from("profiles")
-    .update({ business_info: info as never } as never)
+    .update({ business_info: info as never } as never, { count: "exact" })
     .eq("id", ownerId);
   if (error) throw error;
+  if (!count) {
+    throw new Error("Your business info couldn't be saved. Refresh and try again.");
+  }
 }
 
 /* ---------------- Restaurant profile (jsonb on profiles) ---------------- */
@@ -244,11 +269,14 @@ export async function fetchRestaurantProfile(ownerId: string): Promise<unknown |
 }
 
 export async function saveRestaurantProfile(ownerId: string, profile: unknown | null): Promise<void> {
-  const { error } = await supabase
+  const { error, count } = await supabase
     .from("profiles")
-    .update({ restaurant_profile: profile as never } as never)
+    .update({ restaurant_profile: profile as never } as never, { count: "exact" })
     .eq("id", ownerId);
   if (error) throw error;
+  if (!count) {
+    throw new Error("Your restaurant profile couldn't be saved. Refresh and try again.");
+  }
 }
 
 /* ---------------- Role configuration (jsonb on profiles) ---------------- */
@@ -463,11 +491,14 @@ export async function fetchMenuTestConfigViaRpc(ownerId: string): Promise<unknow
 }
 
 export async function saveMenuTestConfig(ownerId: string, config: unknown): Promise<void> {
-  const { error } = await supabase
+  const { error, count } = await supabase
     .from("profiles")
-    .update({ menu_test_config: config as never } as never)
+    .update({ menu_test_config: config as never } as never, { count: "exact" })
     .eq("id", ownerId);
   if (error) throw error;
+  if (!count) {
+    throw new Error("That menu test setup couldn't be saved. Refresh and try again.");
+  }
 }
 
 
@@ -602,8 +633,11 @@ export async function claimStaffInvite(
     if (patch.phone !== undefined) row.phone = patch.phone || null;
     if (patch.weekly_availability !== undefined) row.weekly_availability = patch.weekly_availability;
     if (patch.emergency_contact !== undefined) row.emergency_contact = patch.emergency_contact;
-    const { error: upErr } = await supabase.from("people").update(row as never).eq("id", personId);
+    const { error: upErr, count } = await supabase.from("people").update(row as never, { count: "exact" }).eq("id", personId);
     if (upErr) throw upErr;
+    if (!count) {
+      throw new Error("Your details couldn't be saved. Your account was created — sign in at the employee sign-in page to finish your profile, or ask your manager for a new invite link.");
+    }
   }
   return personId;
 }
