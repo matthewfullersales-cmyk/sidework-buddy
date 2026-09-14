@@ -1902,7 +1902,8 @@ function ShadowPacketCard() {
           </div>
         )}
         </div>
-        <div className="flex justify-end">
+        <div className="flex items-center justify-between">
+          {dirty ? <p className="text-xs text-muted-foreground">Unsaved changes</p> : <span />}
           <Button onClick={save} disabled={!loaded || saving}>{saving ? "Saving…" : "Save"}</Button>
         </div>
       </CardContent>
