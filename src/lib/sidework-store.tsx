@@ -1086,7 +1086,7 @@ function seedJobs(): JobPosting[] {
   return [];
 }
 
-const STORAGE_KEY = "sidework-store-v10";
+const STORAGE_KEY = "sidework-store-v11";
 
 // Defensively strip any legacy "Porter" role from persisted data and remap to Busser.
 function sanitizePorter<T>(input: T): T {
@@ -1139,9 +1139,8 @@ function convertActiveRoles(parsed: unknown): Record<string, unknown> {
   return o;
 }
 
-export function SideworkProvider({ children }: { children: ReactNode }) {
-  const [hydrated, setHydrated] = useState(false);
-  const [state, setState] = useState(() => ({
+function initialStoreState() {
+  return {
     currentUser: { type: "manager", id: "owner" } as Store["currentUser"],
     employees: [] as Employee[],
     shifts: seedShifts(),
@@ -1164,27 +1163,56 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     customRoles: [] as CustomRole[],
     notifications: [] as Notification[],
     menuBankMeta: null as MenuBankMeta | null,
-  }));
+  };
+}
 
+export function SideworkProvider({ children }: { children: ReactNode }) {
+  const [hydrated, setHydrated] = useState(false);
+  const [state, setState] = useState(initialStoreState);
+
+  const { effectiveOwner, employeeContext, loading: authLoading } = useAuth();
+  const effectiveOwnerId = effectiveOwner?.ownerId ?? null;
+  const employeeCtxEmployeeId = employeeContext?.employeeId ?? null;
+  const scopeKey = effectiveOwnerId
+    ? `own:${effectiveOwnerId}`
+    : employeeCtxEmployeeId
+      ? `emp:${employeeCtxEmployeeId}`
+      : null;
 
   useEffect(() => {
+    if (authLoading) return;
     try {
-      // Clear any prior versions that may contain "Porter" seed data.
-      for (let i = 1; i <= 9; i++) {
+      // Clear any prior versions that may contain "Porter" seed data or
+      // unscoped, cross-tenant blobs.
+      for (let i = 1; i <= 10; i++) {
         try { localStorage.removeItem(`sidework-store-v${i}`); } catch {}
       }
-      const raw = localStorage.getItem(STORAGE_KEY);
+    } catch {}
+    if (!scopeKey) {
+      setState(initialStoreState());
+      setHydrated(true);
+      return;
+    }
+    try {
+      const raw = localStorage.getItem(`${STORAGE_KEY}:${scopeKey}`);
       if (raw) {
         const parsed = convertActiveRoles(sanitizePorter(JSON.parse(raw)));
         setState((s) => ({ ...s, ...parsed }));
       }
     } catch {}
     setHydrated(true);
-  }, []);
+  }, [authLoading, scopeKey]);
 
   useEffect(() => {
-    if (hydrated) localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [state, hydrated]);
+    if (!hydrated || !scopeKey) return;
+    try {
+      // `employees` is deliberately excluded: it carries personal data and is
+      // always re-fetched from the server on hydration anyway.
+      const { employees: _omitEmployees, ...persisted } = state;
+      localStorage.setItem(`${STORAGE_KEY}:${scopeKey}`, JSON.stringify(persisted));
+    } catch {}
+  }, [state, hydrated, scopeKey]);
+
 
   // Sync custom role colors into the shared ROLE_COLORS registry so
   // roleStyle(role) picks them up everywhere without threading a palette.
@@ -1199,9 +1227,8 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
   // Uses the "effective owner id" from AuthContext so both real owners and
   // hiring-managers (with can_manage_hiring granted for that owner) hydrate
   // against the same owner's data.
-  const { effectiveOwner, loading: authLoading } = useAuth();
   const ownerIdRef = useRef<string | null>(null);
-  const effectiveOwnerId = effectiveOwner?.ownerId ?? null;
+
   // Single-login owner model: if effectiveOwner is set, the signed-in user IS the owner.
   const acting: "owner" | null = effectiveOwnerId ? "owner" : null;
   // Track owners we've already run the one-time local→cloud bootstrap for,
@@ -1381,9 +1408,8 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
   // trades in the restaurant + own time-off history, so /employee reads real
   // cloud data instead of an empty local store. Writes are mirrored to
   // Supabase via ownerIdRef, which we set from the employee context here.
-  const { employeeContext } = useAuth();
   const employeeCtxOwnerId = employeeContext?.ownerId ?? null;
-  const employeeCtxEmployeeId = employeeContext?.employeeId ?? null;
+
   const [employeeHydrating, setEmployeeHydrating] = useState(false);
   const [employeeHydratedTargetId, setEmployeeHydratedTargetId] = useState<string | null>(null);
   const [employeeHydrationError, setEmployeeHydrationError] = useState<string | null>(null);
