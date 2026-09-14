@@ -289,7 +289,8 @@ export const notifyScheduleChanged = createServerFn({ method: "POST" })
     }).optional(),
   }).parse(d))
   .handler(async ({ data, context }) => {
-    const { ownerId } = await authorizeOwnerContext(context);
+    const { ownerId, isOwner } = await authorizeOwnerContext(context);
+    if (!isOwner) throw new Error("Unauthorized");
     const isPub = data.kind === "published";
     return fanOut({
       ownerId,
@@ -333,7 +334,8 @@ export const notifyTimeOffResolved = createServerFn({ method: "POST" })
     dateLabel: z.string().max(160).default(""),
   }).parse(d))
   .handler(async ({ data, context }) => {
-    const { ownerId } = await authorizeOwnerContext(context);
+    const { ownerId, isOwner } = await authorizeOwnerContext(context);
+    if (!isOwner) throw new Error("Unauthorized");
     const title = data.approved ? "Time off approved" : "Time off declined";
     const parts = data.dateLabel ? `for ${data.dateLabel}` : "";
     return fanOut({
@@ -353,7 +355,8 @@ export const notifyAvailabilityResolved = createServerFn({ method: "POST" })
     approved: z.boolean(),
   }).parse(d))
   .handler(async ({ data, context }) => {
-    const { ownerId } = await authorizeOwnerContext(context);
+    const { ownerId, isOwner } = await authorizeOwnerContext(context);
+    if (!isOwner) throw new Error("Unauthorized");
     return fanOut({
       ownerId,
       employeeIds: [data.employeeId],
@@ -370,7 +373,8 @@ export const notifyAvailabilityEdited = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ employeeId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
-    const { ownerId } = await authorizeOwnerContext(context);
+    const { ownerId, isOwner } = await authorizeOwnerContext(context);
+    if (!isOwner) throw new Error("Unauthorized");
     return fanOut({
       ownerId,
       employeeIds: [data.employeeId],
