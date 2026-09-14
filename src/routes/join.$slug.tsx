@@ -17,6 +17,7 @@ import { resolveJoinRestaurant } from "@/lib/join.functions";
 import { formatPhone } from "@/lib/format-phone";
 import { toast } from "sonner";
 import { CheckCircle2, Share, Plus } from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
 
 const RELATIONSHIPS: Relationship[] = ["Spouse", "Parent", "Sibling", "Child", "Friend", "Other"];
 
@@ -39,6 +40,7 @@ export const Route = createFileRoute("/join/$slug")({
 function JoinPage() {
   const { slug } = Route.useParams();
   const { joinStaff } = useStore();
+  const { refreshProfile, refreshEffectiveOwner } = useAuth();
   const [resolved, setResolved] = useState<{ ownerId: string; restaurantName: string } | null>(null);
   const [resolving, setResolving] = useState(true);
   const restaurantName = resolved?.restaurantName ?? "the team";
@@ -170,6 +172,16 @@ function JoinPage() {
         weeklyAvailability: availability,
         emergencyContact,
       });
+
+      // The staff row only exists as of joinStaff() above — the auth context
+      // was loaded at sign-in, before it existed. Refresh it so /employee can
+      // resolve this login to the new staff row instead of showing
+      // "We couldn't load your account".
+      try {
+        await Promise.all([refreshProfile(), refreshEffectiveOwner()]);
+      } catch (e) {
+        console.error("[join] refresh auth context", e);
+      }
 
       setDone({ firstName: parsed.data.firstName });
     } catch (e) {

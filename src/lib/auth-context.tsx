@@ -27,6 +27,7 @@ type AuthContextValue = {
   session: Session | null;
   user: User | null;
   profile: Profile | null;
+  profileError: string | null;
   effectiveOwner: EffectiveOwner;
   employeeContext: EmployeeContext | null;
   /** Every restaurant context linked to this login (usually one). */
@@ -46,6 +47,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [profileError, setProfileError] = useState<string | null>(null);
   const [effectiveOwner, setEffectiveOwner] = useState<EffectiveOwner>(null);
   const [employeeContexts, setEmployeeContexts] = useState<EmployeeContext[]>([]);
   const [employeeContext, setEmployeeContext] = useState<EmployeeContext | null>(null);
@@ -53,12 +55,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const loadProfile = async (uid: string | undefined) => {
-    if (!uid) { setProfile(null); return; }
-    const { data } = await supabase
+    if (!uid) { setProfile(null); setProfileError(null); return; }
+    const { data, error } = await supabase
       .from("profiles")
       .select("id, role, full_name, restaurant_name, employee_id, subscription_status")
       .eq("id", uid)
       .maybeSingle();
+    if (error) {
+      console.error("[auth] loadProfile failed", error);
+      setProfileError(error.message);
+      // Keep any profile we already loaded — a transient read failure must not
+      // blank out a working session.
+      return;
+    }
+    setProfileError(null);
     setProfile((data as Profile | null) ?? null);
   };
 
@@ -142,14 +152,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }, 0);
     });
 
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      Promise.all([
-        loadProfile(data.session?.user.id),
-        loadEffectiveOwner(data.session?.user.id),
-        loadEmployeeContext(data.session?.user.id),
-      ]).finally(() => setLoading(false));
-    });
+    supabase.auth.getSession()
+      .then(({ data }) => {
+        setSession(data.session);
+        return Promise.all([
+          loadProfile(data.session?.user.id),
+          loadEffectiveOwner(data.session?.user.id),
+          loadEmployeeContext(data.session?.user.id),
+        ]);
+      })
+      .catch((e) => { console.error("[auth] getSession failed", e); })
+      .finally(() => setLoading(false));
 
     return () => { sub.subscription.unsubscribe(); };
   }, []);
@@ -158,6 +171,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     session,
     user: session?.user ?? null,
     profile,
+    profileError,
     effectiveOwner,
     employeeContext,
     employeeContexts,
@@ -169,10 +183,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try { sessionStorage.removeItem(EMPLOYEE_RESTAURANT_CHOICE_KEY); } catch {}
       await supabase.auth.signOut();
     },
-    refreshProfile: async () => { await loadProfile(session?.user.id); },
+    refreshProfile: async () => {
+      const { data } = await supabase.auth.getSession();
+      await loadProfile(data.session?.user.id);
+    },
     refreshEffectiveOwner: async () => {
-      await loadEffectiveOwner(session?.user.id);
-      await loadEmployeeContext(session?.user.id);
+      const { data } = await supabase.auth.getSession();
+      const uid = data.session?.user.id;
+      await loadEffectiveOwner(uid);
+      await loadEmployeeContext(uid);
     },
   };
 

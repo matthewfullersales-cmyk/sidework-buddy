@@ -24,6 +24,7 @@ import {
 } from "@/lib/employees-supabase";
 import { toast } from "sonner";
 import { CheckCircle2, Loader2 } from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
 
 const RELATIONSHIPS: Relationship[] = ["Spouse", "Parent", "Sibling", "Child", "Friend", "Other"];
 
@@ -70,6 +71,7 @@ export const Route = createFileRoute("/staff-invite/$token")({
 
 function StaffInvitePage() {
   const { token } = Route.useParams();
+  const { refreshProfile, refreshEffectiveOwner } = useAuth();
 
   const [invite, setInvite] = useState<PublicStaffInviteInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -239,6 +241,15 @@ function StaffInvitePage() {
         return toast.error(
           "The final step didn't finish, but your account was created successfully. Press the button again to complete your invite."
         );
+      }
+
+      // The people row was only linked to this login by claimStaffInvite above —
+      // the auth context was loaded at sign-in, before the link existed. Refresh
+      // it so /employee can resolve this login to the staff row.
+      try {
+        await Promise.all([refreshProfile(), refreshEffectiveOwner()]);
+      } catch (e) {
+        console.error("[staff-invite] refresh auth context", e);
       }
 
       setSubmitting(false);
