@@ -17,6 +17,7 @@ import { resolveJoinRestaurant } from "@/lib/join.functions";
 import { formatPhone } from "@/lib/format-phone";
 import { toast } from "sonner";
 import { CheckCircle2, Share, Plus } from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
 
 const RELATIONSHIPS: Relationship[] = ["Spouse", "Parent", "Sibling", "Child", "Friend", "Other"];
 
