@@ -1381,9 +1381,8 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
   // trades in the restaurant + own time-off history, so /employee reads real
   // cloud data instead of an empty local store. Writes are mirrored to
   // Supabase via ownerIdRef, which we set from the employee context here.
-  const { employeeContext } = useAuth();
   const employeeCtxOwnerId = employeeContext?.ownerId ?? null;
-  const employeeCtxEmployeeId = employeeContext?.employeeId ?? null;
+
   const [employeeHydrating, setEmployeeHydrating] = useState(false);
   const [employeeHydratedTargetId, setEmployeeHydratedTargetId] = useState<string | null>(null);
   const [employeeHydrationError, setEmployeeHydrationError] = useState<string | null>(null);
