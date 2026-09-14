@@ -37,17 +37,28 @@ export const Route = createFileRoute("/api/public/stripe-webhook")({
               const s = event.data.object as StripeCheckoutSession;
               const userId = s.client_reference_id ?? s.metadata?.user_id;
               if (!userId) {
-                console.warn("[stripe-webhook] checkout.session.completed with no user_id");
+                console.error("[stripe-webhook] checkout.session.completed with no user_id");
                 break;
               }
-              await supabaseAdmin
+              const { error, count } = await supabaseAdmin
                 .from("profiles")
-                .update({
-                  subscription_status: "active",
-                  stripe_customer_id: (s.customer as string) ?? null,
-                  stripe_subscription_id: (s.subscription as string) ?? null,
-                })
+                .update(
+                  {
+                    subscription_status: "active",
+                    stripe_customer_id: (s.customer as string) ?? null,
+                    stripe_subscription_id: (s.subscription as string) ?? null,
+                  },
+                  { count: "exact" },
+                )
                 .eq("id", userId);
+              if (error) {
+                console.error("[stripe-webhook] checkout.session.completed update failed", { userId, error });
+                throw error;
+              }
+              if (!count) {
+                console.error("[stripe-webhook] checkout.session.completed matched no profile row", { userId });
+                throw new Error(`checkout.session.completed: no profile row for user ${userId}`);
+              }
               break;
             }
             case "customer.subscription.updated":
@@ -65,22 +76,49 @@ export const Route = createFileRoute("/api/public/stripe-webhook")({
                 subscription_current_period_end: periodEnd,
               };
               if (userId) {
-                await supabaseAdmin.from("profiles").update(patch).eq("id", userId);
-              } else if (sub.customer) {
-                await supabaseAdmin
+                const { error, count } = await supabaseAdmin
                   .from("profiles")
-                  .update(patch)
+                  .update(patch, { count: "exact" })
+                  .eq("id", userId);
+                if (error) {
+                  console.error("[stripe-webhook] subscription update failed", { eventType: event.type, userId, error });
+                  throw error;
+                }
+                if (!count) {
+                  console.error("[stripe-webhook] subscription event matched no profile row by user id", { eventType: event.type, userId });
+                  throw new Error(`${event.type}: no profile row for user ${userId}`);
+                }
+              } else if (sub.customer) {
+                const { error, count } = await supabaseAdmin
+                  .from("profiles")
+                  .update(patch, { count: "exact" })
                   .eq("stripe_customer_id", sub.customer as string);
+                if (error) {
+                  console.error("[stripe-webhook] subscription update failed", { eventType: event.type, customerId: sub.customer, error });
+                  throw error;
+                }
+                if (!count) {
+                  console.error("[stripe-webhook] subscription event matched no profile row by customer id", { eventType: event.type, customerId: sub.customer });
+                }
+              } else {
+                console.error("[stripe-webhook] subscription event with no user id and no customer", { eventType: event.type, subscriptionId: sub.id });
               }
               break;
             }
             case "invoice.payment_failed": {
               const inv = event.data.object as { customer?: string };
               if (inv.customer) {
-                await supabaseAdmin
+                const { error, count } = await supabaseAdmin
                   .from("profiles")
-                  .update({ subscription_status: "past_due" })
+                  .update({ subscription_status: "past_due" }, { count: "exact" })
                   .eq("stripe_customer_id", inv.customer);
+                if (error) {
+                  console.error("[stripe-webhook] invoice.payment_failed update failed", { customerId: inv.customer, error });
+                  throw error;
+                }
+                if (!count) {
+                  console.error("[stripe-webhook] invoice.payment_failed matched no profile row", { customerId: inv.customer });
+                }
               }
               break;
             }
