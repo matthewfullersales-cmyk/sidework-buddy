@@ -108,10 +108,17 @@ export const Route = createFileRoute("/api/public/stripe-webhook")({
             case "invoice.payment_failed": {
               const inv = event.data.object as { customer?: string };
               if (inv.customer) {
-                await supabaseAdmin
+                const { error, count } = await supabaseAdmin
                   .from("profiles")
-                  .update({ subscription_status: "past_due" })
+                  .update({ subscription_status: "past_due" }, { count: "exact" })
                   .eq("stripe_customer_id", inv.customer);
+                if (error) {
+                  console.error("[stripe-webhook] invoice.payment_failed update failed", { customerId: inv.customer, error });
+                  throw error;
+                }
+                if (!count) {
+                  console.error("[stripe-webhook] invoice.payment_failed matched no profile row", { customerId: inv.customer });
+                }
               }
               break;
             }
