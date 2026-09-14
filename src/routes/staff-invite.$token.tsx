@@ -243,6 +243,15 @@ function StaffInvitePage() {
         );
       }
 
+      // The people row was only linked to this login by claimStaffInvite above —
+      // the auth context was loaded at sign-in, before the link existed. Refresh
+      // it so /employee can resolve this login to the staff row.
+      try {
+        await Promise.all([refreshProfile(), refreshEffectiveOwner()]);
+      } catch (e) {
+        console.error("[staff-invite] refresh auth context", e);
+      }
+
       setSubmitting(false);
       setDone({ firstName: invite?.firstName ?? "" });
     } catch (e) {
