@@ -5,6 +5,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { formatDateLong, formatTime12h } from "@/lib/utils";
 
 
 
@@ -273,5 +274,78 @@ export const sendApplicantNotification = createServerFn({ method: "POST" })
 
     return {
       email: { attempted: !!email, ok: !!email && emailRes.ok, error: emailRes.error },
+    };
+  });
+
+const tokenSchema = z.object({
+  token: z.string().uuid(),
+});
+
+type InterviewConfirmedResult = {
+  sent: boolean;
+  reason?: string;
+};
+
+/**
+ * Public (token-authorized) server function for sending the interview-confirmed
+ * email after a candidate claims a slot from /interview/t/$token. The token is
+ * the only client-supplied value; every field used in the email is derived
+ * server-side from the interview record.
+ */
+export const sendInterviewConfirmedByToken = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => tokenSchema.parse(data))
+  .handler(async ({ data }): Promise<InterviewConfirmedResult> => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: rows, error } = await supabaseAdmin.rpc("get_public_interview_by_token", {
+      p_token: data.token,
+    });
+
+    if (error || !rows || rows.length === 0) {
+      return { sent: false, reason: "not_found" };
+    }
+
+    const row = rows[0] as {
+      first_name: string | null;
+      restaurant_name: string | null;
+      interview_type: string | null;
+      status: string | null;
+      booked_date: string | null;
+      booked_time: string | null;
+      email: string | null;
+    };
+
+    if (row.status !== "scheduled") {
+      return { sent: false, reason: "not_scheduled" };
+    }
+    if (!row.booked_date || !row.booked_time) {
+      return { sent: false, reason: "not_booked" };
+    }
+    if (!row.email) {
+      return { sent: false, reason: "no_email" };
+    }
+
+    const copy = buildCopy({
+      kind: "interview_confirmed",
+      firstName: row.first_name ?? "",
+      restaurantName: row.restaurant_name ?? "our restaurant",
+      interviewType:
+        row.interview_type === "phone" || row.interview_type === "in_person"
+          ? row.interview_type
+          : undefined,
+      interviewDate: formatDateLong(row.booked_date),
+      interviewTime: formatTime12h(row.booked_time),
+      phoneDigits: "",
+      hasOpenSlots: false,
+    });
+
+    const emailResult = await sendEmail(
+      row.email,
+      copy,
+      row.restaurant_name ?? "our restaurant",
+    );
+
+    return {
+      sent: emailResult.ok,
+      reason: emailResult.ok ? undefined : (emailResult.error ?? "send_failed"),
     };
   });
