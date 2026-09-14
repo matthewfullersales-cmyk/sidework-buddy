@@ -111,6 +111,8 @@ export function ScheduleSection() {
   const [publishing, setPublishing] = useState(false);
   const [confirmCopy, setConfirmCopy] = useState<{ count: number } | null>(null);
   const [confirmClear, setConfirmClear] = useState<{ count: number } | null>(null);
+  const [copyReport, setCopyReport] = useState<{ copied: number; conflicts: { name: string; date: string; reason: string }[] } | null>(null);
+
 
   const days = useMemo(
     () => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)),
