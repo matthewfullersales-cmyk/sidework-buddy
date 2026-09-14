@@ -24,6 +24,7 @@ import {
 } from "@/lib/employees-supabase";
 import { toast } from "sonner";
 import { CheckCircle2, Loader2 } from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
 
 const RELATIONSHIPS: Relationship[] = ["Spouse", "Parent", "Sibling", "Child", "Friend", "Other"];
 
