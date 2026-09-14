@@ -173,6 +173,16 @@ function JoinPage() {
         emergencyContact,
       });
 
+      // The staff row only exists as of joinStaff() above — the auth context
+      // was loaded at sign-in, before it existed. Refresh it so /employee can
+      // resolve this login to the new staff row instead of showing
+      // "We couldn't load your account".
+      try {
+        await Promise.all([refreshProfile(), refreshEffectiveOwner()]);
+      } catch (e) {
+        console.error("[join] refresh auth context", e);
+      }
+
       setDone({ firstName: parsed.data.firstName });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Couldn't complete your join request");
