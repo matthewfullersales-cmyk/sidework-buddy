@@ -1139,9 +1139,8 @@ function convertActiveRoles(parsed: unknown): Record<string, unknown> {
   return o;
 }
 
-export function SideworkProvider({ children }: { children: ReactNode }) {
-  const [hydrated, setHydrated] = useState(false);
-  const [state, setState] = useState(() => ({
+function initialStoreState() {
+  return {
     currentUser: { type: "manager", id: "owner" } as Store["currentUser"],
     employees: [] as Employee[],
     shifts: seedShifts(),
@@ -1164,27 +1163,56 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     customRoles: [] as CustomRole[],
     notifications: [] as Notification[],
     menuBankMeta: null as MenuBankMeta | null,
-  }));
+  };
+}
 
+export function SideworkProvider({ children }: { children: ReactNode }) {
+  const [hydrated, setHydrated] = useState(false);
+  const [state, setState] = useState(initialStoreState);
+
+  const { effectiveOwner, employeeContext, loading: authLoading } = useAuth();
+  const effectiveOwnerId = effectiveOwner?.ownerId ?? null;
+  const employeeCtxEmployeeId = employeeContext?.employeeId ?? null;
+  const scopeKey = effectiveOwnerId
+    ? `own:${effectiveOwnerId}`
+    : employeeCtxEmployeeId
+      ? `emp:${employeeCtxEmployeeId}`
+      : null;
 
   useEffect(() => {
+    if (authLoading) return;
     try {
-      // Clear any prior versions that may contain "Porter" seed data.
-      for (let i = 1; i <= 9; i++) {
+      // Clear any prior versions that may contain "Porter" seed data or
+      // unscoped, cross-tenant blobs.
+      for (let i = 1; i <= 10; i++) {
         try { localStorage.removeItem(`sidework-store-v${i}`); } catch {}
       }
-      const raw = localStorage.getItem(STORAGE_KEY);
+    } catch {}
+    if (!scopeKey) {
+      setState(initialStoreState());
+      setHydrated(true);
+      return;
+    }
+    try {
+      const raw = localStorage.getItem(`${STORAGE_KEY}:${scopeKey}`);
       if (raw) {
         const parsed = convertActiveRoles(sanitizePorter(JSON.parse(raw)));
         setState((s) => ({ ...s, ...parsed }));
       }
     } catch {}
     setHydrated(true);
-  }, []);
+  }, [authLoading, scopeKey]);
 
   useEffect(() => {
-    if (hydrated) localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [state, hydrated]);
+    if (!hydrated || !scopeKey) return;
+    try {
+      // `employees` is deliberately excluded: it carries personal data and is
+      // always re-fetched from the server on hydration anyway.
+      const { employees: _omitEmployees, ...persisted } = state;
+      localStorage.setItem(`${STORAGE_KEY}:${scopeKey}`, JSON.stringify(persisted));
+    } catch {}
+  }, [state, hydrated, scopeKey]);
+
 
   // Sync custom role colors into the shared ROLE_COLORS registry so
   // roleStyle(role) picks them up everywhere without threading a palette.
