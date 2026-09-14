@@ -40,6 +40,12 @@ function fmtISO(d: Date) {
   return `${y}-${m}-${day}`;
 }
 function addDays(d: Date, n: number) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
+// "Mon, Sep 21" from a YYYY-MM-DD string, parsed as local midnight (see fmtISO above).
+function fmtConflictDate(iso: string) {
+  const [y, m, d] = iso.split("-").map(Number);
+  const local = new Date(y ?? 1970, (m ?? 1) - 1, d ?? 1);
+  return local.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+}
 function timesOverlap(aStart: string, aEnd: string, bStart: string, bEnd: string): boolean {
   const toMin = (t: string) => { const [h, m] = t.split(":").map(Number); return (h ?? 0) * 60 + (m ?? 0); };
   const aS = toMin(aStart); let aE = toMin(aEnd); if (aE <= aS) aE += 24 * 60;
