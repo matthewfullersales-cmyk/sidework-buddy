@@ -218,9 +218,10 @@ export async function updateShadowShift(input: {
 }
 
 export async function cancelShadowShift(id: string): Promise<void> {
-  const { error } = await supabase
+  const { error, count } = await supabase
     .from("shadow_shifts")
-    .update({ status: "cancelled" })
+    .update({ status: "cancelled" }, { count: "exact" })
     .eq("id", id);
   if (error) throw error;
+  if (!count) throw new Error("That shadow shift couldn't be cancelled — it may have already been cancelled or removed. Refresh and try again.");
 }

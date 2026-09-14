@@ -69,11 +69,13 @@ export async function insertPosting(
 }
 
 export async function updatePostingOpen(id: string, open: boolean): Promise<void> {
-  const { error } = await supabase.from("job_postings").update({ open }).eq("id", id);
+  const { error, count } = await supabase.from("job_postings").update({ open }, { count: "exact" }).eq("id", id);
   if (error) throw error;
+  if (!count) throw new Error("That job posting couldn't be updated — it may have been deleted. Refresh and try again.");
 }
 
 export async function deletePosting(id: string): Promise<void> {
-  const { error } = await supabase.from("job_postings").delete().eq("id", id);
+  const { error, count } = await supabase.from("job_postings").delete({ count: "exact" }).eq("id", id);
   if (error) throw error;
+  if (!count) throw new Error("That job posting couldn't be deleted — it may have already been removed. Refresh and try again.");
 }
