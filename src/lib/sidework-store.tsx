@@ -1513,6 +1513,21 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
   }, [authLoading, hydrated, effectiveOwnerId, employeeCtxOwnerId, employeeCtxEmployeeId]);
 
 
+/**
+ * Runs a cloud write that sits behind an optimistic local update. Logs the
+ * technical error for debugging and shows the user a plain-language message.
+ * A write that silently fails is worse than one that fails loudly: the screen
+ * keeps showing a change the database never received.
+ *
+ * Rollback is per-action and deliberately not handled here.
+ */
+function cloudWrite(label: string, userMessage: string, run: () => Promise<unknown>): void {
+  run().catch((e) => {
+    console.error(`[${label}]`, e);
+    toast.error(userMessage);
+  });
+}
+
   // Role configuration is owner-level config: mirror it to the database the
   // same way business info and restaurant hours are mirrored.
   const persistRoleConfig = (disabledRoles: string[], customRoles: CustomRole[]) => {
@@ -1801,7 +1816,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
       });
 
       const oid = ownerIdRef.current;
-      if (oid) updateEmployeeRow(id, patch).catch((e) => console.error("[updateEmployee]", e));
+      if (oid) cloudWrite("updateEmployee", "Those changes couldn't be saved. Refresh and try again.", () => updateEmployeeRow(id, patch));
     },
     applyQuizAttemptResult: (employeeId, videoId, result) => {
 
@@ -1896,6 +1911,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
             return;
           }
           console.error("[upsertShift]", e);
+          toast.error("That shift couldn't be saved. Refresh and check the schedule.");
         });
     },
     applyRemoteShiftUpsert: (shift) => {
@@ -1920,7 +1936,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
       setState((s) => ({ ...s, shifts: s.shifts.filter((x) => x.id !== id) }));
       // Only bother deleting from cloud if id looks like a uuid (already persisted).
       if (/^[0-9a-f-]{36}$/i.test(id)) {
-        deleteShiftRow(id).catch((e) => console.error("[deleteShift]", e));
+        cloudWrite("deleteShift", "That shift couldn't be deleted. Refresh and check the schedule — it may still be there.", () => deleteShiftRow(id));
       }
     },
     postTrade: (shiftId, note) => {
@@ -1969,15 +1985,17 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
       });
       if (sideEffects) {
         const { tradeId: tid, auto, shiftId } = sideEffects;
-        updateTradeRow(tid, {
-          claimedBy: employeeId,
-          status: auto ? "approved" : "pending_approval",
-          autoApproved: auto,
-          approvedBy: auto ? "auto" : undefined,
-          resolvedAt: auto ? new Date().toISOString() : undefined,
-        }).catch((e) => console.error("[claimTrade]", e));
+        cloudWrite("claimTrade", "That shift pickup couldn't be saved. Refresh and check the trade board.", () =>
+          updateTradeRow(tid, {
+            claimedBy: employeeId,
+            status: auto ? "approved" : "pending_approval",
+            autoApproved: auto,
+            approvedBy: auto ? "auto" : undefined,
+            resolvedAt: auto ? new Date().toISOString() : undefined,
+          }),
+        );
         if (auto && /^[0-9a-f-]{36}$/i.test(shiftId)) {
-          reassignShiftEmployee(shiftId, employeeId).catch((e) => console.error("[claimTrade:reassign]", e));
+          cloudWrite("claimTrade:reassign", "The shift was picked up, but the schedule couldn't be updated. Refresh and check the schedule.", () => reassignShiftEmployee(shiftId, employeeId));
         }
       }
     },
@@ -1997,14 +2015,16 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           shifts: approved ? s.shifts.map((x) => (x.id === trade.shiftId ? { ...x, employeeId: trade.claimedBy! } : x)) : s.shifts,
         };
       });
-      updateTradeRow(tradeId, {
-        status: approved ? "approved" : "denied",
-        approvedBy: "owner",
-        resolvedAt: new Date().toISOString(),
-      }).catch((e) => console.error("[resolveTrade]", e));
+      cloudWrite("resolveTrade", "That trade decision couldn't be saved. Refresh and check the trade board.", () =>
+        updateTradeRow(tradeId, {
+          status: approved ? "approved" : "denied",
+          approvedBy: "owner",
+          resolvedAt: new Date().toISOString(),
+        }),
+      );
       const side = sideBox.value;
       if (approved && side && /^[0-9a-f-]{36}$/i.test(side.shiftId)) {
-        reassignShiftEmployee(side.shiftId, side.claimedBy).catch((e) => console.error("[resolveTrade:reassign]", e));
+        cloudWrite("resolveTrade:reassign", "The trade was approved, but the schedule couldn't be updated. Refresh and check the schedule.", () => reassignShiftEmployee(side.shiftId, side.claimedBy));
       }
     },
     postJob: (data) => {
@@ -2074,7 +2094,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
         ),
       }));
       if (/^[0-9a-f-]{36}$/i.test(id)) {
-        updateTimeOffRow(id, patch).catch((e) => console.error("[resolveTimeOff]", e));
+        cloudWrite("resolveTimeOff", "That time off decision couldn't be saved. Refresh and try again.", () => updateTimeOffRow(id, patch));
       }
     },
     cancelTimeOff: async (id) => {
@@ -2131,12 +2151,12 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           : s.employees,
       }));
       if (approved && req && /^[0-9a-f-]{36}$/i.test(req.employeeId)) {
-        updateEmployeeRow(req.employeeId, { weeklyAvailability: req.requestedAvailability }).catch((e) =>
-          console.error("[resolveAvailabilityChange:person]", e),
+        cloudWrite("resolveAvailabilityChange:person", "That availability change couldn't be saved to this person's profile. Refresh and check their availability.", () =>
+          updateEmployeeRow(req.employeeId, { weeklyAvailability: req.requestedAvailability }),
         );
       }
       if (/^[0-9a-f-]{36}$/i.test(id)) {
-        updateAvailabilityRequestRow(id, patch).catch((e) => console.error("[resolveAvailabilityChange]", e));
+        cloudWrite("resolveAvailabilityChange", "That availability decision couldn't be saved. Refresh and try again.", () => updateAvailabilityRequestRow(id, patch));
       }
     },
     cancelAvailabilityChange: async (id) => {
