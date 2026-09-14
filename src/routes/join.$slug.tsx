@@ -125,10 +125,20 @@ function JoinPage() {
         } else if (signUpErr) {
           throw new Error(signUpErr.message);
         } else {
-          if (!signUpData.session) {
-            throw new Error("Confirm your email, then reopen this join link to finish joining.");
+          const identities = signUpData.user?.identities;
+          if (signUpData.user && Array.isArray(identities) && identities.length === 0) {
+            const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
+              email: parsed.data.email,
+              password,
+            });
+            if (signInErr) throw new Error("An account already exists for that email. Check your password and try again.");
+            userId = signInData.user?.id ?? null;
+          } else {
+            if (!signUpData.session) {
+              throw new Error("Confirm your email, then reopen this join link to finish joining.");
+            }
+            userId = signUpData.session.user.id;
           }
-          userId = signUpData.session.user.id;
         }
       }
 

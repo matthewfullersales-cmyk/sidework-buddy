@@ -161,30 +161,44 @@ function StaffInvitePage() {
           },
         });
 
+        // 3. Account exists — sign in with the password they just typed.
+        const signInExisting = async (): Promise<string | null> => {
+          const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
+            email: claimEmail,
+            password,
+          });
+          if (signInErr || !signInData.user) {
+            setSubmitting(false);
+            toast.error(
+              "An account already exists for this email, and that password doesn't match. Sign in at the employee sign-in page or reset your password."
+            );
+            return null;
+          }
+          return signInData.user.id;
+        };
+
         if (signUpErr) {
           const errMsg = signUpErr.message.toLowerCase();
           if (errMsg.includes("already registered") || errMsg.includes("already exists")) {
-            // 3. Account exists — sign in with the password they just typed.
-            const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
-              email: claimEmail,
-              password,
-            });
-            if (signInErr || !signInData.user) {
-              setSubmitting(false);
-              return toast.error(
-                "An account already exists for this email, and that password doesn't match. Sign in at the employee sign-in page or reset your password."
-              );
-            }
-            uid = signInData.user.id;
+            const existingId = await signInExisting();
+            if (!existingId) return;
+            uid = existingId;
           } else {
             setSubmitting(false);
             return toast.error(signUpErr.message);
           }
         } else {
-          uid = signUpData.user?.id;
-          if (!uid) {
-            setSubmitting(false);
-            return toast.error("Signup failed — please try again");
+          const identities = signUpData.user?.identities;
+          if (signUpData.user && Array.isArray(identities) && identities.length === 0) {
+            const existingId = await signInExisting();
+            if (!existingId) return;
+            uid = existingId;
+          } else {
+            uid = signUpData.user?.id;
+            if (!uid) {
+              setSubmitting(false);
+              return toast.error("Signup failed — please try again");
+            }
           }
         }
       }

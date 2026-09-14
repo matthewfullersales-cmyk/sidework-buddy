@@ -637,10 +637,29 @@ function DayBadge({ dayName, dayNum, isToday, muted }: { dayName: string; dayNum
 
 function TradesTab({ employeeId }: { employeeId: string }) {
   const { shifts, employees, trades, claimTrade } = useStore();
-  const me = employees.find((e) => e.id === employeeId)!;
+  const me = employees.find((e) => e.id === employeeId);
+
+  if (!me) {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <p className="text-sm text-muted-foreground">
+            We couldn't load your profile. Pull down to refresh, or reopen the app.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const myShiftIds = new Set(shifts.filter((s) => s.employeeId === me.id).map((s) => s.id));
-  const openTrades = trades.filter((t) => t.status === "open" && !myShiftIds.has(t.shiftId));
+  const openTrades = trades
+    .filter((t) => t.status === "open" && !myShiftIds.has(t.shiftId))
+    .map((t) => ({ trade: t, shift: shifts.find((s) => s.id === t.shiftId) }))
+    .filter((x): x is { trade: typeof x.trade; shift: NonNullable<typeof x.shift> } => Boolean(x.shift));
+  const myTrades = trades
+    .filter((t) => t.postedBy === me.id || t.claimedBy === me.id)
+    .map((t) => ({ trade: t, shift: shifts.find((s) => s.id === t.shiftId) }))
+    .filter((x): x is { trade: typeof x.trade; shift: NonNullable<typeof x.shift> } => Boolean(x.shift));
 
   return (
     <div className="grid gap-6">
@@ -654,8 +673,7 @@ function TradesTab({ employeeId }: { employeeId: string }) {
         <CardHeader><CardTitle className="text-base">Open trades you can pick up</CardTitle></CardHeader>
         <CardContent className="space-y-2">
           {openTrades.length === 0 && <p className="text-sm text-muted-foreground">Nothing available right now.</p>}
-          {openTrades.map((t) => {
-            const shift = shifts.find((s) => s.id === t.shiftId)!;
+          {openTrades.map(({ trade: t, shift }) => {
             const from = employees.find((e) => e.id === t.postedBy);
             const eligible = me.approvedRoles.includes(shift.role);
             const auto = me.autoApproveRoles.includes(shift.role);
@@ -683,8 +701,7 @@ function TradesTab({ employeeId }: { employeeId: string }) {
       <Card>
         <CardHeader><CardTitle className="text-base">My trade history</CardTitle></CardHeader>
         <CardContent className="space-y-2">
-          {trades.filter((t) => t.postedBy === me.id || t.claimedBy === me.id).map((t) => {
-            const shift = shifts.find((s) => s.id === t.shiftId)!;
+          {myTrades.map(({ trade: t, shift }) => {
             const other = employees.find((e) => e.id === (t.postedBy === me.id ? t.claimedBy : t.postedBy));
             return (
               <div key={t.id} className="flex items-center justify-between rounded-lg border border-border bg-background p-3 text-sm">
@@ -698,7 +715,7 @@ function TradesTab({ employeeId }: { employeeId: string }) {
               </div>
             );
           })}
-          {trades.filter((t) => t.postedBy === me.id || t.claimedBy === me.id).length === 0 && (
+          {myTrades.length === 0 && (
             <p className="text-sm text-muted-foreground">No trade history yet.</p>
           )}
         </CardContent>
