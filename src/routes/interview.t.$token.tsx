@@ -72,17 +72,9 @@ function PublicInterviewPage() {
     try {
       const updated = await claimInterviewSlot(token, slot.id);
       if (updated) setInterview(updated);
-      if (updated?.email) {
-        sendApplicantNotification({ data: {
-          kind: "interview_confirmed",
-          firstName: updated.firstName ?? "",
-          restaurantName: updated.restaurantName ?? "",
-          email: updated.email,
-          interviewType: updated.interviewType,
-          ...(updated.bookedDate ? { interviewDate: formatDateLong(updated.bookedDate) } : {}),
-          ...(updated.bookedTime ? { interviewTime: formatTime12h(updated.bookedTime) } : {}),
-        }}).catch((e) => console.error("[interview confirmed email]", e));
-      }
+      sendInterviewConfirmedByToken({ data: { token } }).catch((e) =>
+        console.error("[interview confirmed email]", e),
+      );
       toast.success("You're all set.");
     } catch (e) {
       console.error("[claim interview slot]", e);
