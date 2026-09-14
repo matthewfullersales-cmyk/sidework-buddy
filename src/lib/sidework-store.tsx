@@ -1199,9 +1199,8 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
   // Uses the "effective owner id" from AuthContext so both real owners and
   // hiring-managers (with can_manage_hiring granted for that owner) hydrate
   // against the same owner's data.
-  const { effectiveOwner, loading: authLoading } = useAuth();
   const ownerIdRef = useRef<string | null>(null);
-  const effectiveOwnerId = effectiveOwner?.ownerId ?? null;
+
   // Single-login owner model: if effectiveOwner is set, the signed-in user IS the owner.
   const acting: "owner" | null = effectiveOwnerId ? "owner" : null;
   // Track owners we've already run the one-time local→cloud bootstrap for,
