@@ -40,6 +40,12 @@ function fmtISO(d: Date) {
   return `${y}-${m}-${day}`;
 }
 function addDays(d: Date, n: number) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
+// "Mon, Sep 21" from a YYYY-MM-DD string, parsed as local midnight (see fmtISO above).
+function fmtConflictDate(iso: string) {
+  const [y, m, d] = iso.split("-").map(Number);
+  const local = new Date(y ?? 1970, (m ?? 1) - 1, d ?? 1);
+  return local.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+}
 function timesOverlap(aStart: string, aEnd: string, bStart: string, bEnd: string): boolean {
   const toMin = (t: string) => { const [h, m] = t.split(":").map(Number); return (h ?? 0) * 60 + (m ?? 0); };
   const aS = toMin(aStart); let aE = toMin(aEnd); if (aE <= aS) aE += 24 * 60;
@@ -111,6 +117,8 @@ export function ScheduleSection() {
   const [publishing, setPublishing] = useState(false);
   const [confirmCopy, setConfirmCopy] = useState<{ count: number } | null>(null);
   const [confirmClear, setConfirmClear] = useState<{ count: number } | null>(null);
+  const [copyReport, setCopyReport] = useState<{ copied: number; conflicts: { name: string; date: string; reason: string }[] } | null>(null);
+
 
   const days = useMemo(
     () => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)),
@@ -167,29 +175,24 @@ export function ScheduleSection() {
     shifts.filter((s) => nextDayISOs.includes(s.date)).forEach((s) => deleteShift(s.id));
 
     let copied = 0;
-    let skipped = 0;
-    let skippedAvail = 0;
-    let pendingTO = 0;
+    const conflicts: { name: string; date: string; reason: string }[] = [];
     const sourceShifts = shifts.filter((s) => dayISOs.includes(s.date));
     sourceShifts.forEach((s) => {
       const srcIdx = dayISOs.indexOf(s.date);
-      const newDate = nextDayISOs[srcIdx];
+      const newDate = nextDayISOs[srcIdx]!;
       const toStatus = timeOffStatusFor(s.employeeId, newDate);
-      if (toStatus === "approved") {
-        skipped += 1;
-        return;
-      }
       // Recurring weekly availability. Parse newDate locally (never UTC).
       const [ny, nm, nd] = newDate.split("-").map(Number);
       const local = new Date(ny, (nm ?? 1) - 1, nd ?? 1);
       const dayKey = DAY_KEYS[(local.getDay() + 6) % 7];
       const emp = employees.find((e) => e.id === s.employeeId);
+      const who = emp?.name ?? "This employee";
       const av = emp?.weeklyAvailability?.[dayKey];
+      if (toStatus === "approved") conflicts.push({ name: who, date: newDate, reason: "has approved time off" });
+      if (toStatus === "pending") conflicts.push({ name: who, date: newDate, reason: "has a pending time-off request" });
       if (av && !isAvailableFor(av, s.start)) {
-        skippedAvail += 1;
-        return;
+        conflicts.push({ name: who, date: newDate, reason: `marked ${dayKey}s as unavailable` });
       }
-      if (toStatus === "pending") pendingTO += 1;
       upsertShift({
         id: `s_${s.employeeId}_${newDate}_${Math.random().toString(36).slice(2, 8)}`,
         employeeId: s.employeeId,
@@ -202,13 +205,10 @@ export function ScheduleSection() {
       copied += 1;
     });
 
-    const skipParts: string[] = [];
-    if (skipped > 0) skipParts.push(`${skipped} skipped — approved time off`);
-    if (skippedAvail > 0) skipParts.push(`${skippedAvail} skipped — recurring unavailability`);
-    if (pendingTO > 0) skipParts.push(`${pendingTO} copied — has pending time-off request`);
-    const skipMsg = skipParts.length ? ` (${skipParts.join("; ")})` : "";
-    toast.success(`Copied ${copied} shift${copied === 1 ? "" : "s"} to next week${skipMsg}`);
+    toast.success(`Copied ${copied} shift${copied === 1 ? "" : "s"} to next week`);
+    if (conflicts.length > 0) setCopyReport({ copied, conflicts });
   }
+
 
 
   function handleCopyToNextWeek() {
@@ -323,6 +323,29 @@ export function ScheduleSection() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!copyReport} onOpenChange={(o) => { if (!o) setCopyReport(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Copied — {copyReport?.conflicts.length ?? 0} to check</DialogTitle>
+            <DialogDescription>
+              Every shift was copied. These ones land on a day the person flagged — worth a look before you publish.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[50vh] space-y-1.5 overflow-auto scroll-touch">
+            {(copyReport?.conflicts ?? []).map((c, i) => (
+              <p key={`${c.name}-${c.date}-${c.reason}-${i}`} className="text-sm">
+                {c.name} — {fmtConflictDate(c.date)} — {c.reason}
+              </p>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setCopyReport(null)}>Got it</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+
 
       <Legend />
 
