@@ -1675,12 +1675,17 @@ function SettingsTab() {
   );
 }
 
+// Survives Radix unmounting the settings tab panel — an unsaved packet draft
+// lives here, keyed by owner, until it is saved.
+const shadowPacketDrafts = new Map<string, ShadowPacket>();
+
 function ShadowPacketCard() {
   const { effectiveOwner } = useAuth();
   const ownerId = effectiveOwner?.ownerId ?? null;
   const { activeRoles, customRoles } = useStore();
   const positionChoices = allRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r));
-  const [packet, setPacket] = useState<ShadowPacket>(emptyShadowPacket);
+  const [packet, setPacket] = useState<ShadowPacket>(() => (ownerId ? shadowPacketDrafts.get(ownerId) : undefined) ?? emptyShadowPacket);
+  const [dirty, setDirty] = useState(() => !!(ownerId && shadowPacketDrafts.has(ownerId)));
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editingPosition, setEditingPosition] = useState<string>("");
@@ -1689,25 +1694,39 @@ function ShadowPacketCard() {
     if (!ownerId) return;
     let cancelled = false;
     fetchShadowPacket(ownerId)
-      .then((p) => { if (!cancelled) { setPacket(p); setLoaded(true); } })
+      .then((p) => {
+        if (cancelled) return;
+        if (!shadowPacketDrafts.has(ownerId)) setPacket(p);
+        setLoaded(true);
+      })
       .catch((e) => { console.error("[shadow packet] load failed", e); if (!cancelled) setLoaded(true); });
     return () => { cancelled = true; };
   }, [ownerId]);
 
-  const set = (patch: Partial<ShadowPacket>) => setPacket((p) => ({ ...p, ...patch }));
+  const updatePacket = (updater: (p: ShadowPacket) => ShadowPacket) => {
+    setPacket((prev) => {
+      const next = updater(prev);
+      if (ownerId) shadowPacketDrafts.set(ownerId, next);
+      return next;
+    });
+    setDirty(true);
+  };
+
+  const set = (patch: Partial<ShadowPacket>) => updatePacket((p) => ({ ...p, ...patch }));
   const setDress = (section: "foh" | "boh", field: "wear" | "provided", value: string) =>
-    setPacket((p) => ({ ...p, dress: { ...p.dress, [section]: { ...p.dress[section], [field]: value } } }));
+    updatePacket((p) => ({ ...p, dress: { ...p.dress, [section]: { ...p.dress[section], [field]: value } } }));
   const setCustomDress = (position: string, field: "wear" | "provided", value: string) =>
-    setPacket((p) => ({
+    updatePacket((p) => ({
       ...p,
       customDress: { ...p.customDress, [position]: { ...(p.customDress[position] ?? { wear: "", provided: "" }), [field]: value } },
     }));
   const clearCustomDress = (position: string) =>
-    setPacket((p) => {
+    updatePacket((p) => {
       const next = { ...p.customDress };
       delete next[position];
       return { ...p, customDress: next };
     });
+
 
 
   const save = async () => {
