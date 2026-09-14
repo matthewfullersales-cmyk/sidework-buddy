@@ -40,6 +40,7 @@ export const Route = createFileRoute("/join/$slug")({
 function JoinPage() {
   const { slug } = Route.useParams();
   const { joinStaff } = useStore();
+  const { refreshProfile, refreshEffectiveOwner } = useAuth();
   const [resolved, setResolved] = useState<{ ownerId: string; restaurantName: string } | null>(null);
   const [resolving, setResolving] = useState(true);
   const restaurantName = resolved?.restaurantName ?? "the team";
