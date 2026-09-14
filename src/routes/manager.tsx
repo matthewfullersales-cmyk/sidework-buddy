@@ -1734,6 +1734,8 @@ function ShadowPacketCard() {
     setSaving(true);
     try {
       await saveShadowPacket(ownerId, packet);
+      if (ownerId) shadowPacketDrafts.delete(ownerId);
+      setDirty(false);
       toast.success("Shadow shift packet saved");
     } catch (e) {
       console.error("[shadow packet] save failed", e);
