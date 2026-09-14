@@ -1684,7 +1684,7 @@ function ShadowPacketCard() {
   const ownerId = effectiveOwner?.ownerId ?? null;
   const { activeRoles, customRoles } = useStore();
   const positionChoices = allRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r));
-  const [packet, setPacket] = useState<ShadowPacket>(() => (ownerId ? shadowPacketDrafts.get(ownerId) : undefined) ?? emptyShadowPacket);
+  const [packet, setPacket] = useState<ShadowPacket>(() => (ownerId ? shadowPacketDrafts.get(ownerId) : undefined) ?? emptyShadowPacket());
   const [dirty, setDirty] = useState(() => !!(ownerId && shadowPacketDrafts.has(ownerId)));
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
