@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/sidework/Logo";
 import { formatPhone } from "@/lib/format-phone";
 import { formatDateLong, formatTime12h } from "@/lib/utils";
-import { sendApplicantNotification } from "@/lib/applicant-notifications.functions";
+import { sendInterviewConfirmedByToken } from "@/lib/applicant-notifications.functions";
 import {
   getPublicInterview,
   claimInterviewSlot,
