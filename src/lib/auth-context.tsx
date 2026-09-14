@@ -152,14 +152,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }, 0);
     });
 
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      Promise.all([
-        loadProfile(data.session?.user.id),
-        loadEffectiveOwner(data.session?.user.id),
-        loadEmployeeContext(data.session?.user.id),
-      ]).finally(() => setLoading(false));
-    });
+    supabase.auth.getSession()
+      .then(({ data }) => {
+        setSession(data.session);
+        return Promise.all([
+          loadProfile(data.session?.user.id),
+          loadEffectiveOwner(data.session?.user.id),
+          loadEmployeeContext(data.session?.user.id),
+        ]);
+      })
+      .catch((e) => { console.error("[auth] getSession failed", e); })
+      .finally(() => setLoading(false));
 
     return () => { sub.subscription.unsubscribe(); };
   }, []);
