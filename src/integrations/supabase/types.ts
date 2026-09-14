@@ -1260,6 +1260,19 @@ export type Database = {
           status: string
         }[]
       }
+      get_public_job_posting: {
+        Args: { p_job_id: string }
+        Returns: {
+          description: string
+          id: string
+          open: boolean
+          pay_range: string
+          posted_at: string
+          role: string
+          title: string
+          type: string
+        }[]
+      }
       get_public_job_restaurant: {
         Args: { p_job_id: string }
         Returns: {

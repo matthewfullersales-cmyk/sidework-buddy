@@ -30,13 +30,10 @@ export function postingFromRow(r: PostingRow): JobPosting {
 
 /** Public: fetch a single job posting by id. */
 export async function fetchPublicPosting(id: string): Promise<JobPosting | null> {
-  const { data, error } = await supabase
-    .from("job_postings")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
+  const { data, error } = await supabase.rpc("get_public_job_posting", { p_job_id: id });
   if (error) throw error;
-  return data ? postingFromRow(data as PostingRow) : null;
+  const row = (data ?? [])[0] as PostingRow | undefined;
+  return row ? postingFromRow(row) : null;
 }
 
 /** Owner-scoped: fetch all postings for a signed-in owner. */
