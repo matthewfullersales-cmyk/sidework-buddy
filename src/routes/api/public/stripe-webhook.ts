@@ -37,17 +37,28 @@ export const Route = createFileRoute("/api/public/stripe-webhook")({
               const s = event.data.object as StripeCheckoutSession;
               const userId = s.client_reference_id ?? s.metadata?.user_id;
               if (!userId) {
-                console.warn("[stripe-webhook] checkout.session.completed with no user_id");
+                console.error("[stripe-webhook] checkout.session.completed with no user_id");
                 break;
               }
-              await supabaseAdmin
+              const { error, count } = await supabaseAdmin
                 .from("profiles")
-                .update({
-                  subscription_status: "active",
-                  stripe_customer_id: (s.customer as string) ?? null,
-                  stripe_subscription_id: (s.subscription as string) ?? null,
-                })
+                .update(
+                  {
+                    subscription_status: "active",
+                    stripe_customer_id: (s.customer as string) ?? null,
+                    stripe_subscription_id: (s.subscription as string) ?? null,
+                  },
+                  { count: "exact" },
+                )
                 .eq("id", userId);
+              if (error) {
+                console.error("[stripe-webhook] checkout.session.completed update failed", { userId, error });
+                throw error;
+              }
+              if (!count) {
+                console.error("[stripe-webhook] checkout.session.completed matched no profile row", { userId });
+                throw new Error(`checkout.session.completed: no profile row for user ${userId}`);
+              }
               break;
             }
             case "customer.subscription.updated":
