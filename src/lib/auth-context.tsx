@@ -171,6 +171,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     session,
     user: session?.user ?? null,
     profile,
+    profileError,
     effectiveOwner,
     employeeContext,
     employeeContexts,
@@ -182,10 +183,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try { sessionStorage.removeItem(EMPLOYEE_RESTAURANT_CHOICE_KEY); } catch {}
       await supabase.auth.signOut();
     },
-    refreshProfile: async () => { await loadProfile(session?.user.id); },
+    refreshProfile: async () => {
+      const { data } = await supabase.auth.getSession();
+      await loadProfile(data.session?.user.id);
+    },
     refreshEffectiveOwner: async () => {
-      await loadEffectiveOwner(session?.user.id);
-      await loadEmployeeContext(session?.user.id);
+      const { data } = await supabase.auth.getSession();
+      const uid = data.session?.user.id;
+      await loadEffectiveOwner(uid);
+      await loadEmployeeContext(uid);
     },
   };
 
