@@ -1634,7 +1634,7 @@ function RolesCard() {
 }
 
 function SettingsTab() {
-  const { restaurantProfile, setRestaurantProfile, restaurantHours, updateRestaurantDay, mealPeriods, updateMealPeriod, businessInfo, setBusinessInfo } = useStore();
+  const { restaurantProfile, setRestaurantProfile, restaurantHours, updateRestaurantDay, mealPeriods, updateMealPeriod, businessInfo, setBusinessInfo, overtimeWarningHours, setOvertimeWarningHours } = useStore();
   const configured = hoursConfigured(restaurantHours, mealPeriods);
 
 
@@ -1666,6 +1666,7 @@ function SettingsTab() {
           <BusinessInfoEditor value={businessInfo} onChange={setBusinessInfo} />
         </CardContent>
       </Card>
+      <OvertimeWarningCard />
       {!configured && (
         <div role="status" className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 text-sm text-amber-900 dark:text-amber-200">
           <p className="font-semibold">Finish setting your operating hours</p>
