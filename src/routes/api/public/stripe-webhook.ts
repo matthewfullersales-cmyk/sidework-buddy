@@ -142,7 +142,8 @@ export const Route = createFileRoute("/api/public/stripe-webhook")({
 function mapSubStatus(stripeStatus: string, deleted: boolean): string {
   if (deleted) return "canceled";
   if (stripeStatus === "active" || stripeStatus === "trialing") return "active";
-  if (stripeStatus === "past_due" || stripeStatus === "unpaid") return "past_due";
+  if (stripeStatus === "past_due") return "past_due";
+  if (stripeStatus === "unpaid") return "inactive";
   if (stripeStatus === "canceled") return "canceled";
   return "inactive";
 }

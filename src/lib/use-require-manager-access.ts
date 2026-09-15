@@ -7,7 +7,7 @@ import { useAuth } from "./auth-context";
  * Single-login model:
  *  - no session → /login
  *  - non-owner → /employee
- *  - owner without active subscription → /pricing
+ *  - owner whose subscription is not active or past_due → /pricing
  */
 export function useRequireManagerAccess(redirectTo = "/login") {
   const { loading, session, profile } = useAuth();
