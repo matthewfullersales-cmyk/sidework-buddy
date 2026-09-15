@@ -17,7 +17,7 @@ import { CheckCircle2, Loader2 } from "lucide-react";
 
 type CareersSearch = { job?: string };
 
-export const Route = createFileRoute("/careers")({
+export const Route = createFileRoute("/careers/")({
   ssr: false,
   validateSearch: (search: Record<string, unknown>): CareersSearch => ({
     job: typeof search.job === "string" ? search.job : undefined,
