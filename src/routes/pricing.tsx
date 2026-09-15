@@ -267,11 +267,11 @@ function PricingPage() {
               What it replaces
             </p>
             <h2 className="mt-4 text-3xl font-bold tracking-tight md:text-4xl">
-              Six places become one.
+              Eight places become one.
             </h2>
             <p className="mt-4 max-w-2xl text-lg text-stone-700">
               Nothing here is new work. It's the work you already do, in one flow
-              instead of six.
+              instead of eight.
             </p>
             <div className="mt-10 overflow-hidden rounded-2xl border-2 border-stone-900 shadow-[4px_4px_0_0_rgba(23,23,23,1)]">
               <div className="hidden bg-stone-900 sm:grid sm:grid-cols-2">
@@ -319,8 +319,7 @@ function PricingPage() {
                 one you need on a Friday night.
               </p>
               <p className="mt-5">
-                This does the part between a person applying and that person working
-                a shift — and it does the whole of it.
+                The application, the interview, the shadow shift, the hire, the schedule they land on. Not most of it. All of it.
               </p>
             </div>
           </div>
@@ -348,16 +347,12 @@ function PricingPage() {
         <section className="bg-[#faf7f2]">
           <div className="mx-auto max-w-3xl px-6 py-20 text-center">
             <h2 className="text-3xl font-bold tracking-tight md:text-4xl">
-              Post a job tonight. The rest is already set up.
+              Everything from “we’re hiring” to “you’re on Friday.”
             </h2>
             <div className="mt-8 flex justify-center text-left">
               <CtaBlock />
             </div>
-            <p className="mt-8 text-stone-500">
-              Built in Rochester, New York by someone who spent twenty years
-              working in restaurants.
-            </p>
-            <p className="mt-4 text-sm text-stone-600">
+            <p className="mt-8 text-sm text-stone-600">
               Questions first?{" "}
               <a
                 href="mailto:hello@86paper.com"
