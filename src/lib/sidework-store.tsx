@@ -1534,24 +1534,41 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
 
 /**
  * Runs a cloud write that sits behind an optimistic local update. Logs the
- * technical error for debugging and shows the user a plain-language message.
- * A write that silently fails is worse than one that fails loudly: the screen
- * keeps showing a change the database never received.
+ * technical error for debugging, restores the previous state, and shows the
+ * user a plain-language message.
  *
- * Rollback is per-action and deliberately not handled here.
+ * A write that silently fails is worse than one that fails loudly: the screen
+ * keeps showing a change the database never received. `rollback` is what puts
+ * the screen back to the truth — supply it at every call site.
  */
-function cloudWrite(label: string, userMessage: string, run: () => Promise<unknown>): void {
+function cloudWrite(
+  label: string,
+  userMessage: string,
+  run: () => Promise<unknown>,
+  rollback?: () => void,
+): void {
   run().catch((e) => {
     console.error(`[${label}]`, e);
+    try {
+      rollback?.();
+    } catch (rollbackError) {
+      console.error(`[${label}] rollback failed`, rollbackError);
+    }
     toast.error(userMessage);
   });
 }
 
   // Role configuration is owner-level config: mirror it to the database the
   // same way business info and restaurant hours are mirrored.
-  const persistRoleConfig = (disabledRoles: string[], customRoles: CustomRole[]) => {
+  const persistRoleConfig = (disabledRoles: string[], customRoles: CustomRole[], rollback: () => void) => {
     const oid = ownerIdRef.current;
-    if (oid) cloudWrite("persistRoleConfig", "Couldn't save your positions. Check your connection and try again.", () => saveRoleConfig(oid, disabledRoles, customRoles));
+    if (oid)
+      cloudWrite(
+        "persistRoleConfig",
+        "Couldn't save your positions. Check your connection and try again.",
+        () => saveRoleConfig(oid, disabledRoles, customRoles),
+        rollback,
+      );
   };
 
 
@@ -1569,41 +1586,82 @@ function cloudWrite(label: string, userMessage: string, run: () => Promise<unkno
     employeeHydratedTargetId,
     employeeHydrationError,
     setRestaurantHours: (h) => {
+      const prevRestaurantHours = latestStateRef.current.restaurantHours;
       setState((s) => ({ ...s, restaurantHours: h }));
       const oid = ownerIdRef.current;
-      if (oid) cloudWrite("setRestaurantHours", "Couldn't save your hours. Check your connection and try again.", () => saveRestaurantHours(oid, serializeRestaurantHoursConfig(h, latestStateRef.current.mealPeriods, latestStateRef.current.arrivalOffsets)));
+      if (oid)
+        cloudWrite(
+          "setRestaurantHours",
+          "Couldn't save your hours. Check your connection and try again.",
+          () => saveRestaurantHours(oid, serializeRestaurantHoursConfig(h, latestStateRef.current.mealPeriods, latestStateRef.current.arrivalOffsets)),
+          () => setState((s) => ({ ...s, restaurantHours: prevRestaurantHours })),
+        );
     },
-    updateRestaurantDay: (day, patch) =>
-      setState((s) => {
-        const next = { ...s.restaurantHours, [day]: { ...s.restaurantHours[day], ...patch } };
-        const oid = ownerIdRef.current;
-        if (oid) cloudWrite("updateRestaurantDay", "Couldn't save your hours. Check your connection and try again.", () => saveRestaurantHours(oid, serializeRestaurantHoursConfig(next, s.mealPeriods, s.arrivalOffsets)));
-        return { ...s, restaurantHours: next };
-      }),
+    updateRestaurantDay: (day, patch) => {
+      const prevRestaurantHours = latestStateRef.current.restaurantHours;
+      const next = { ...prevRestaurantHours, [day]: { ...prevRestaurantHours[day], ...patch } };
+      setState((s) => ({ ...s, restaurantHours: next }));
+      const oid = ownerIdRef.current;
+      if (oid)
+        cloudWrite(
+          "updateRestaurantDay",
+          "Couldn't save your hours. Check your connection and try again.",
+          () => saveRestaurantHours(oid, serializeRestaurantHoursConfig(next, latestStateRef.current.mealPeriods, latestStateRef.current.arrivalOffsets)),
+          () => setState((s) => ({ ...s, restaurantHours: prevRestaurantHours })),
+        );
+    },
     setMealPeriods: (p) => {
+      const prevMealPeriods = latestStateRef.current.mealPeriods;
       setState((s) => ({ ...s, mealPeriods: p }));
       const oid = ownerIdRef.current;
-      if (oid) cloudWrite("setMealPeriods", "Couldn't save your meal periods. Check your connection and try again.", () => saveRestaurantHours(oid, serializeRestaurantHoursConfig(latestStateRef.current.restaurantHours, p, latestStateRef.current.arrivalOffsets)));
+      if (oid)
+        cloudWrite(
+          "setMealPeriods",
+          "Couldn't save your meal periods. Check your connection and try again.",
+          () => saveRestaurantHours(oid, serializeRestaurantHoursConfig(latestStateRef.current.restaurantHours, p, latestStateRef.current.arrivalOffsets)),
+          () => setState((s) => ({ ...s, mealPeriods: prevMealPeriods })),
+        );
     },
-    updateMealPeriod: (meal, patch) =>
-      setState((s) => {
-        const next = { ...s.mealPeriods, [meal]: { ...s.mealPeriods[meal], ...patch } };
-        const oid = ownerIdRef.current;
-        if (oid) cloudWrite("updateMealPeriod", "Couldn't save your meal periods. Check your connection and try again.", () => saveRestaurantHours(oid, serializeRestaurantHoursConfig(s.restaurantHours, next, s.arrivalOffsets)));
-        return { ...s, mealPeriods: next };
-      }),
+    updateMealPeriod: (meal, patch) => {
+      const prevMealPeriods = latestStateRef.current.mealPeriods;
+      const next = { ...prevMealPeriods, [meal]: { ...prevMealPeriods[meal], ...patch } };
+      setState((s) => ({ ...s, mealPeriods: next }));
+      const oid = ownerIdRef.current;
+      if (oid)
+        cloudWrite(
+          "updateMealPeriod",
+          "Couldn't save your meal periods. Check your connection and try again.",
+          () => saveRestaurantHours(oid, serializeRestaurantHoursConfig(latestStateRef.current.restaurantHours, next, latestStateRef.current.arrivalOffsets)),
+          () => setState((s) => ({ ...s, mealPeriods: prevMealPeriods })),
+        );
+    },
     setArrivalOffsets: (o) => {
+      const prevArrivalOffsets = latestStateRef.current.arrivalOffsets;
       setState((s) => ({ ...s, arrivalOffsets: o }));
       const oid = ownerIdRef.current;
-      if (oid) cloudWrite("setArrivalOffsets", "Couldn't save your arrival times. Check your connection and try again.", () => saveRestaurantHours(oid, serializeRestaurantHoursConfig(latestStateRef.current.restaurantHours, latestStateRef.current.mealPeriods, o)));
+      if (oid)
+        cloudWrite(
+          "setArrivalOffsets",
+          "Couldn't save your arrival times. Check your connection and try again.",
+          () => saveRestaurantHours(oid, serializeRestaurantHoursConfig(latestStateRef.current.restaurantHours, latestStateRef.current.mealPeriods, o)),
+          () => setState((s) => ({ ...s, arrivalOffsets: prevArrivalOffsets })),
+        );
     },
     setBusinessInfo: (info) => {
+      const prevBusinessInfo = latestStateRef.current.businessInfo;
       const clean = normalizeBusinessInfo(info);
       setState((s) => ({ ...s, businessInfo: clean }));
       const oid = ownerIdRef.current;
-      if (oid) cloudWrite("setBusinessInfo", "Couldn't save your restaurant info. Check your connection and try again.", () => saveBusinessInfo(oid, clean));
+      if (oid)
+        cloudWrite(
+          "setBusinessInfo",
+          "Couldn't save your restaurant info. Check your connection and try again.",
+          () => saveBusinessInfo(oid, clean),
+          () => setState((s) => ({ ...s, businessInfo: prevBusinessInfo })),
+        );
     },
     setOvertimeWarningHours: (hours) => {
+      const prevOvertimeWarningHours = latestStateRef.current.overtimeWarningHours;
       const clean = normalizeOvertimeWarningHours(hours);
       setState((s) => ({ ...s, overtimeWarningHours: clean }));
       const oid = ownerIdRef.current;
@@ -1612,39 +1670,43 @@ function cloudWrite(label: string, userMessage: string, run: () => Promise<unkno
           "setOvertimeWarningHours",
           "That setting couldn't be saved. Refresh and try again.",
           () => saveOvertimeWarningHours(oid, clean),
+          () => setState((s) => ({ ...s, overtimeWarningHours: prevOvertimeWarningHours })),
         );
       }
     },
     disabledRoles: state.disabledRoles,
-    setDisabledRoles: (roles) =>
-      setState((s) => {
-        const next = { ...s, disabledRoles: Array.from(new Set(roles)) };
-        persistRoleConfig(next.disabledRoles, next.customRoles);
-        return next;
-      }),
-    addCustomRole: (role) =>
-      setState((s) => {
-        if (s.customRoles.some((c) => c.name === role.name) || (BUILT_IN_ROLES as readonly string[]).includes(role.name)) {
-          return s;
-        }
-        const next = {
-          ...s,
-          customRoles: [...s.customRoles, role],
-          disabledRoles: s.disabledRoles.filter((r) => r !== role.name),
-        };
-        persistRoleConfig(next.disabledRoles, next.customRoles);
-        return next;
-      }),
-    removeCustomRole: (name) =>
-      setState((s) => {
-        const next = {
-          ...s,
-          customRoles: s.customRoles.filter((c) => c.name !== name),
-          disabledRoles: s.disabledRoles.filter((r) => r !== name),
-        };
-        persistRoleConfig(next.disabledRoles, next.customRoles);
-        return next;
-      }),
+    setDisabledRoles: (roles) => {
+      const prevDisabledRoles = latestStateRef.current.disabledRoles;
+      const prevCustomRoles = latestStateRef.current.customRoles;
+      const nextDisabled = Array.from(new Set(roles));
+      setState((s) => ({ ...s, disabledRoles: nextDisabled }));
+      persistRoleConfig(nextDisabled, prevCustomRoles, () =>
+        setState((s) => ({ ...s, disabledRoles: prevDisabledRoles, customRoles: prevCustomRoles })),
+      );
+    },
+    addCustomRole: (role) => {
+      const prevDisabledRoles = latestStateRef.current.disabledRoles;
+      const prevCustomRoles = latestStateRef.current.customRoles;
+      if (prevCustomRoles.some((c) => c.name === role.name) || (BUILT_IN_ROLES as readonly string[]).includes(role.name)) {
+        return;
+      }
+      const nextCustom = [...prevCustomRoles, role];
+      const nextDisabled = prevDisabledRoles.filter((r) => r !== role.name);
+      setState((s) => ({ ...s, customRoles: nextCustom, disabledRoles: nextDisabled }));
+      persistRoleConfig(nextDisabled, nextCustom, () =>
+        setState((s) => ({ ...s, disabledRoles: prevDisabledRoles, customRoles: prevCustomRoles })),
+      );
+    },
+    removeCustomRole: (name) => {
+      const prevDisabledRoles = latestStateRef.current.disabledRoles;
+      const prevCustomRoles = latestStateRef.current.customRoles;
+      const nextCustom = prevCustomRoles.filter((c) => c.name !== name);
+      const nextDisabled = prevDisabledRoles.filter((r) => r !== name);
+      setState((s) => ({ ...s, customRoles: nextCustom, disabledRoles: nextDisabled }));
+      persistRoleConfig(nextDisabled, nextCustom, () =>
+        setState((s) => ({ ...s, disabledRoles: prevDisabledRoles, customRoles: prevCustomRoles })),
+      );
+    },
 
     setCurrentUser: (u) => setState((s) => ({ ...s, currentUser: u })),
     approveJoinRequest: async (id) => {
@@ -1987,10 +2049,16 @@ function cloudWrite(label: string, userMessage: string, run: () => Promise<unkno
       });
     },
     deleteShift: (id) => {
+      const prevShifts = latestStateRef.current.shifts;
       setState((s) => ({ ...s, shifts: s.shifts.filter((x) => x.id !== id) }));
       // Only bother deleting from cloud if id looks like a uuid (already persisted).
       if (/^[0-9a-f-]{36}$/i.test(id)) {
-        cloudWrite("deleteShift", "That shift couldn't be deleted. Refresh and check the schedule — it may still be there.", () => deleteShiftRow(id));
+        cloudWrite(
+          "deleteShift",
+          "That shift couldn't be deleted. Refresh and check the schedule — it may still be there.",
+          () => deleteShiftRow(id),
+          () => setState((s) => ({ ...s, shifts: prevShifts })),
+        );
       }
     },
     postTrade: (shiftId, note) => {
@@ -2015,6 +2083,8 @@ function cloudWrite(label: string, userMessage: string, run: () => Promise<unkno
         });
     },
     claimTrade: (tradeId, employeeId) => {
+      const prevTrades = latestStateRef.current.trades;
+      const prevShifts = latestStateRef.current.shifts;
       let sideEffects: { tradeId: string; approved: boolean; auto: boolean; shiftId: string } | null = null;
       setState((s) => {
         const trade = s.trades.find((t) => t.id === tradeId);
@@ -2043,17 +2113,29 @@ function cloudWrite(label: string, userMessage: string, run: () => Promise<unkno
       });
       if (sideEffects) {
         const { tradeId: tid, auto, shiftId } = sideEffects;
-        cloudWrite("claimTrade", "That shift pickup couldn't be saved. Refresh and check the trade board.", () =>
-          updateTradeRow(tid, {
-            claimedBy: employeeId,
-            status: auto ? "approved" : "pending_approval",
-            autoApproved: auto,
-            approvedBy: auto ? "auto" : undefined,
-            resolvedAt: auto ? new Date().toISOString() : undefined,
-          }),
+        // First write owns the whole optimistic change: if the claim itself
+        // never lands, both the trade and the reassigned shift go back.
+        cloudWrite(
+          "claimTrade",
+          "That shift pickup couldn't be saved. Refresh and check the trade board.",
+          () =>
+            updateTradeRow(tid, {
+              claimedBy: employeeId,
+              status: auto ? "approved" : "pending_approval",
+              autoApproved: auto,
+              approvedBy: auto ? "auto" : undefined,
+              resolvedAt: auto ? new Date().toISOString() : undefined,
+            }),
+          () => setState((s) => ({ ...s, trades: prevTrades, shifts: prevShifts })),
         );
         if (auto && /^[0-9a-f-]{36}$/i.test(shiftId)) {
-          cloudWrite("claimTrade:reassign", "The shift was picked up, but the schedule couldn't be updated. Refresh and check the schedule.", () => reassignShiftEmployee(shiftId, employeeId));
+          // The claim is already committed; only the schedule move is undone.
+          cloudWrite(
+            "claimTrade:reassign",
+            "The shift was picked up, but the schedule couldn't be updated. Refresh and check the schedule.",
+            () => reassignShiftEmployee(shiftId, employeeId),
+            () => setState((s) => ({ ...s, shifts: prevShifts })),
+          );
         }
       }
     },
@@ -2282,9 +2364,16 @@ function cloudWrite(label: string, userMessage: string, run: () => Promise<unkno
     },
 
     setRestaurantProfile: (profile) => {
+      const prevRestaurantProfile = latestStateRef.current.restaurantProfile;
       setState((s) => ({ ...s, restaurantProfile: profile }));
       const oid = ownerIdRef.current;
-      if (oid) cloudWrite("setRestaurantProfile", "Couldn't save your restaurant profile. Check your connection and try again.", () => saveRestaurantProfile(oid, profile));
+      if (oid)
+        cloudWrite(
+          "setRestaurantProfile",
+          "Couldn't save your restaurant profile. Check your connection and try again.",
+          () => saveRestaurantProfile(oid, profile),
+          () => setState((s) => ({ ...s, restaurantProfile: prevRestaurantProfile })),
+        );
     },
     markNotificationsRead: () =>
       setState((s) => ({ ...s, notifications: s.notifications.map((n) => ({ ...n, read: true })) })),
