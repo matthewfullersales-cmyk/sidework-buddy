@@ -78,40 +78,21 @@ If you weren't expecting this, you can ignore this message.`;
 async function sendEmailViaResend(args: {
   to: string; firstName: string; restaurantName: string; inviteUrl: string; senderName: string;
 }): Promise<{ ok: boolean; error?: string }> {
-  const resendKey = process.env.RESEND_API_KEY;
-  if (!resendKey) return { ok: false, error: "RESEND_API_KEY not configured (Resend connector not linked)" };
-
+  // Dynamic import keeps the .server module out of the client bundle.
+  const { EMAIL_FROM_ADDRESS, sendResendEmail } = await import("./email.server");
   const body = buildBody(args.firstName, args.restaurantName, args.inviteUrl);
-  const from = `${args.senderName} <invites@86paper.com>`;
-
-  try {
-    const resp = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${resendKey}`,
-      },
-      body: JSON.stringify({
-        from,
-        to: [args.to],
-        subject: args.restaurantName
-          ? `You're invited to join ${args.restaurantName} on 86Paper`
-          : `Your 86Paper invite`,
-        text: body.text,
-        html: body.html,
-      }),
-    });
-    if (!resp.ok) {
-      const errText = await resp.text();
-      console.error(`[staff-invite email] Resend ${resp.status}: ${errText}`);
-      return { ok: false, error: `Resend ${resp.status}: ${errText.slice(0, 400)}` };
-    }
-    return { ok: true };
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    console.error("[staff-invite email] exception", msg);
-    return { ok: false, error: msg };
-  }
+  const from = `${args.senderName} <${EMAIL_FROM_ADDRESS}>`;
+  const subject = args.restaurantName
+    ? `You're invited to join ${args.restaurantName} on 86Paper`
+    : `Your 86Paper invite`;
+  return sendResendEmail({
+    from,
+    to: args.to,
+    subject,
+    text: body.text,
+    html: body.html,
+    logLabel: "staff-invite email",
+  });
 }
 
 /**

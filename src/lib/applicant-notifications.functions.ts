@@ -225,35 +225,17 @@ ${ctaButton(data.link!, "Finish setting up")}
 }
 
 async function sendEmail(to: string, copy: Copy, restaurantName: string): Promise<{ ok: boolean; error?: string }> {
-  const resendKey = process.env.RESEND_API_KEY;
-  if (!resendKey) return { ok: false, error: "RESEND_API_KEY not configured" };
-  const from = `${restaurantName} via 86Paper <invites@86paper.com>`;
-  try {
-    const resp = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${resendKey}`,
-      },
-      body: JSON.stringify({
-        from,
-        to: [to],
-        subject: copy.subject,
-        text: copy.text,
-        html: copy.html,
-      }),
-    });
-    if (!resp.ok) {
-      const errText = await resp.text();
-      console.error(`[applicant-notify email] Resend ${resp.status}: ${errText}`);
-      return { ok: false, error: `Resend ${resp.status}: ${errText.slice(0, 400)}` };
-    }
-    return { ok: true };
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    console.error("[applicant-notify email] exception", msg);
-    return { ok: false, error: msg };
-  }
+  // Dynamic import keeps the .server module out of the client bundle.
+  const { EMAIL_FROM_ADDRESS, sendResendEmail } = await import("./email.server");
+  const from = `${restaurantName} via 86Paper <${EMAIL_FROM_ADDRESS}>`;
+  return sendResendEmail({
+    from,
+    to,
+    subject: copy.subject,
+    text: copy.text,
+    html: copy.html,
+    logLabel: "applicant-notify email",
+  });
 }
 
 /**

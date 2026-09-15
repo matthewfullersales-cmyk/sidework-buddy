@@ -111,8 +111,8 @@ function escapeHtml(value: string): string {
 async function sendNotifEmail(args: {
   to: string; title: string; body: string; url?: string;
 }): Promise<{ ok: boolean; error?: string }> {
-  const resendKey = process.env.RESEND_API_KEY;
-  if (!resendKey) return { ok: false, error: "RESEND_API_KEY not configured (Resend connector not linked)" };
+  // Dynamic import keeps the .server module out of the client bundle.
+  const { EMAIL_FROM_ADDRESS, sendResendEmail } = await import("./email.server");
 
   const link = args.url ? `https://86paper.com${args.url}` : "";
   const text = `${args.title}\n\n${args.body}${link ? `\n\n${link}` : ""}`;
@@ -121,32 +121,14 @@ async function sendNotifEmail(args: {
     `<p>${escapeHtml(args.body)}</p>` +
     (link ? `<p><a href="${escapeHtml(link)}">${escapeHtml(link)}</a></p>` : "");
 
-  try {
-    const resp = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${resendKey}`,
-      },
-      body: JSON.stringify({
-        from: "86Paper <invites@86paper.com>",
-        to: [args.to],
-        subject: args.title,
-        text,
-        html,
-      }),
-    });
-    if (!resp.ok) {
-      const errText = await resp.text();
-      console.error(`[fanOut email] Resend ${resp.status}: ${errText}`);
-      return { ok: false, error: `Resend ${resp.status}: ${errText.slice(0, 400)}` };
-    }
-    return { ok: true };
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    console.error("[fanOut email] exception", msg);
-    return { ok: false, error: msg };
-  }
+  return sendResendEmail({
+    from: `86Paper <${EMAIL_FROM_ADDRESS}>`,
+    to: args.to,
+    subject: args.title,
+    text,
+    html,
+    logLabel: "fanOut email",
+  });
 }
 
 /** Insert notification rows + fan out push. Uses admin client so any authorized
