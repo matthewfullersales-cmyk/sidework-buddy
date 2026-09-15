@@ -989,26 +989,31 @@ function EmployeeProfileDialog({ employee, onClose }: { employee: Employee; onCl
     return norm(weekly) !== norm(employee.weeklyAvailability);
   }, [weekly, employee.weeklyAvailability]);
 
-  const commitSave = () => {
-    updateEmployee(employee.id, {
-      firstName: firstName.trim(),
-      lastName: lastName.trim(),
-      name: `${firstName.trim()} ${lastName.trim()}`.trim(),
-      email: email.trim(),
-      phone: phone.trim() || undefined,
-      approvedRoles,
-      autoApproveRoles: autoApprove.filter((r) => approvedRoles.includes(r)),
-      weeklyAvailability: weekly,
-      ...(availabilityChanged ? { managerAvailabilityEditedAt: new Date().toISOString() } : {}),
-      emergencyContact: (ec.firstName || ec.lastName || ec.phone) ? { firstName: ec.firstName.trim(), lastName: ec.lastName.trim(), phone: ec.phone.trim(), relationship: ec.relationship } : undefined,
-    });
-    if (availabilityChanged && /^[0-9a-f-]{36}$/i.test(employee.id)) {
-      notifyAvailabilityEdited({ data: { employeeId: employee.id } })
-        .catch((err: unknown) => console.error("[notifyAvailabilityEdited]", err));
+  const commitSave = async () => {
+    try {
+      await updateEmployee(employee.id, {
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        name: `${firstName.trim()} ${lastName.trim()}`.trim(),
+        email: email.trim(),
+        phone: phone.trim() || undefined,
+        approvedRoles,
+        autoApproveRoles: autoApprove.filter((r) => approvedRoles.includes(r)),
+        weeklyAvailability: weekly,
+        ...(availabilityChanged ? { managerAvailabilityEditedAt: new Date().toISOString() } : {}),
+        emergencyContact: (ec.firstName || ec.lastName || ec.phone) ? { firstName: ec.firstName.trim(), lastName: ec.lastName.trim(), phone: ec.phone.trim(), relationship: ec.relationship } : undefined,
+      });
+      if (availabilityChanged && /^[0-9a-f-]{36}$/i.test(employee.id)) {
+        notifyAvailabilityEdited({ data: { employeeId: employee.id } })
+          .catch((err: unknown) => console.error("[notifyAvailabilityEdited]", err));
+      }
+      toast.success("Profile saved");
+      onClose();
+    } catch {
+      toast.error("Couldn't save those changes. Refresh and try again.");
     }
-    toast.success("Profile saved");
-    onClose();
   };
+
 
   const save = () => {
     if (!firstName.trim()) return toast.error("First name is required");
