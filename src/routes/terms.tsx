@@ -205,7 +205,7 @@ function TermsPage() {
             If we do not enforce part of these Terms straight away, that is not a waiver of our right to enforce it later.
           </p>
           <p className="mb-4 leading-relaxed">
-            You may not transfer your agreement with us to anyone else without our written consent. We may transfer ours in connection with a sale or reorganisation of the business.
+            You may not transfer your agreement with us to anyone else without our written consent. We may transfer ours in connection with a sale or reorganization of the business.
           </p>
 
 
