@@ -1555,14 +1555,20 @@ function AvailabilityRequestsCard() {
   const pending = availabilityRequests.filter((r) => r.status === "pending");
   const history = availabilityRequests.filter((r) => r.status !== "pending");
 
-  const decide = (r: typeof availabilityRequests[number], approved: boolean) => {
-    resolveAvailabilityChange(r.id, approved);
+  const decide = async (r: typeof availabilityRequests[number], approved: boolean) => {
+    try {
+      await resolveAvailabilityChange(r.id, approved);
+    } catch {
+      toast.error("Couldn't save that decision. Refresh and try again.");
+      return;
+    }
     if (approved) toast.success("Availability updated"); else toast.message("Denied");
     if (/^[0-9a-f-]{36}$/i.test(r.employeeId)) {
       notifyAvailabilityResolved({ data: { employeeId: r.employeeId, approved } })
         .catch((err: unknown) => console.error("[notifyAvailabilityResolved]", err));
     }
   };
+
 
   const row = (r: typeof availabilityRequests[number]) => {
     const emp = employees.find((e) => e.id === r.employeeId);
