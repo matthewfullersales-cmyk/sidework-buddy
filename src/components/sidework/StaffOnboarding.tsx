@@ -183,7 +183,7 @@ export function StaffOnboardingCard() {
 
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-[auto,1fr] sm:items-center">
+        <div className="grid gap-3 sm:grid-cols-[auto_1fr] sm:items-center">
           <div className="grid place-items-center rounded-xl border-2 border-border bg-white p-3">
             {qr ? <img src={qr} alt="Join QR code" className="h-48 w-48" /> : <div className="h-48 w-48 animate-pulse rounded bg-muted" />}
           </div>
