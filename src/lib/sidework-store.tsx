@@ -1092,7 +1092,7 @@ function seedJobs(): JobPosting[] {
   return [];
 }
 
-const STORAGE_KEY = "sidework-store-v11";
+const STORAGE_KEY = "sidework-store-v12";
 
 // Defensively strip any legacy "Porter" role from persisted data and remap to Busser.
 function sanitizePorter<T>(input: T): T {
@@ -1147,6 +1147,10 @@ function convertActiveRoles(parsed: unknown): Record<string, unknown> {
 
 function initialStoreState() {
   return {
+    // Which account's data this state belongs to. Compared against `scopeKey`
+    // before anything is persisted, so one owner's data can never be written
+    // under another owner's key during an account switch.
+    __scope: null as string | null,
     currentUser: { type: "manager", id: "owner" } as Store["currentUser"],
     employees: [] as Employee[],
     shifts: seedShifts(),
@@ -1191,7 +1195,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     try {
       // Clear any prior versions that may contain "Porter" seed data or
       // unscoped, cross-tenant blobs.
-      for (let i = 1; i <= 10; i++) {
+      for (let i = 1; i <= 11; i++) {
         try { localStorage.removeItem(`sidework-store-v${i}`); } catch {}
       }
     } catch {}
@@ -1200,22 +1204,33 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
       setHydrated(true);
       return;
     }
+    // Build the next state from scratch. Merging onto the existing state is
+    // how the previously signed-in owner's settings survived an account
+    // switch and were then written into the new owner's row.
+    let next = initialStoreState();
     try {
       const raw = localStorage.getItem(`${STORAGE_KEY}:${scopeKey}`);
       if (raw) {
         const parsed = convertActiveRoles(sanitizePorter(JSON.parse(raw)));
-        setState((s) => ({ ...s, ...parsed }));
+        next = { ...next, ...parsed };
       }
     } catch {}
+    next.__scope = scopeKey;
+    setState(next);
     setHydrated(true);
   }, [authLoading, scopeKey]);
 
   useEffect(() => {
     if (!hydrated || !scopeKey) return;
+    // `scopeKey` updates one commit before the rehydrated state arrives. Without
+    // this guard, that commit writes the PREVIOUS owner's state under the NEW
+    // owner's key.
+    if (state.__scope !== scopeKey) return;
     try {
       // `employees` is deliberately excluded: it carries personal data and is
-      // always re-fetched from the server on hydration anyway.
-      const { employees: _omitEmployees, ...persisted } = state;
+      // always re-fetched from the server on hydration anyway. `__scope` is
+      // internal bookkeeping and is re-set on every hydration.
+      const { employees: _omitEmployees, __scope: _omitScope, ...persisted } = state;
       localStorage.setItem(`${STORAGE_KEY}:${scopeKey}`, JSON.stringify(persisted));
     } catch {}
   }, [state, hydrated, scopeKey]);
@@ -1314,14 +1329,9 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
               .catch((e) => console.error("[hours-upgrade-v3] failed", e));
           }
         } else if (acting === "owner") {
-          try {
-            await saveRestaurantHours(
-              effectiveOwnerId,
-              serializeRestaurantHoursConfig(latestStateRef.current.restaurantHours, latestStateRef.current.mealPeriods, latestStateRef.current.arrivalOffsets),
-            );
-          } catch (e) {
-            console.error("[hours-bootstrap] failed", e);
-          }
+          // Nothing in the cloud: leave local state alone. The cloud is
+          // authoritative and local state is never pushed up automatically —
+          // it may belong to the account that was signed in a moment ago.
         }
 
         // Role config. The database is authoritative whenever it has been
@@ -1345,13 +1355,11 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
               customRoles: remoteRoleConfig.customRoles,
             };
           } else if (hasLocal && acting === "owner") {
-            // Never configured and this device holds a local-only config:
-            // push it up once. The save makes the columns non-null, so every
-            // later load takes the branch above — this stays idempotent.
+            // Never configured in the cloud: keep the local config on screen,
+            // but do NOT push it up. The cloud is authoritative and local
+            // state is never pushed up automatically — it may belong to the
+            // account that was signed in a moment ago.
             rolesPatch = { disabledRoles: localDisabled, customRoles: localCustom };
-            saveRoleConfig(effectiveOwnerId, localDisabled, localCustom).catch((e) =>
-              console.error("[role-config-bootstrap] failed", e),
-            );
           }
           // Never configured and nothing local: leave state as is.
         }
@@ -1365,13 +1373,12 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           // Server has a real profile — authoritative, even if it differs from what's cached locally.
           profilePatch = { restaurantProfile: remoteRestaurantProfile as RestaurantProfile };
         } else if (local.restaurantProfile && acting === "owner") {
-          // Never configured in the cloud, but this device already has a
-          // profile locally — push it up once. The save makes the column
-          // non-null, so every later load takes the branch above.
+          // Never configured in the cloud: keep the local profile on screen,
+          // but do NOT push it up. The cloud is authoritative and local state
+          // is never pushed up automatically — it may belong to the account
+          // that was signed in a moment ago. (This push is what wrote one
+          // owner's profile into another owner's row during an account switch.)
           profilePatch = { restaurantProfile: local.restaurantProfile };
-          saveRestaurantProfile(effectiveOwnerId, local.restaurantProfile).catch((e) =>
-            console.error("[restaurant-profile-bootstrap] failed", e),
-          );
         }
         // Never configured anywhere: leave state as is.
 
