@@ -1534,24 +1534,41 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
 
 /**
  * Runs a cloud write that sits behind an optimistic local update. Logs the
- * technical error for debugging and shows the user a plain-language message.
- * A write that silently fails is worse than one that fails loudly: the screen
- * keeps showing a change the database never received.
+ * technical error for debugging, restores the previous state, and shows the
+ * user a plain-language message.
  *
- * Rollback is per-action and deliberately not handled here.
+ * A write that silently fails is worse than one that fails loudly: the screen
+ * keeps showing a change the database never received. `rollback` is what puts
+ * the screen back to the truth — supply it at every call site.
  */
-function cloudWrite(label: string, userMessage: string, run: () => Promise<unknown>): void {
+function cloudWrite(
+  label: string,
+  userMessage: string,
+  run: () => Promise<unknown>,
+  rollback?: () => void,
+): void {
   run().catch((e) => {
     console.error(`[${label}]`, e);
+    try {
+      rollback?.();
+    } catch (rollbackError) {
+      console.error(`[${label}] rollback failed`, rollbackError);
+    }
     toast.error(userMessage);
   });
 }
 
   // Role configuration is owner-level config: mirror it to the database the
   // same way business info and restaurant hours are mirrored.
-  const persistRoleConfig = (disabledRoles: string[], customRoles: CustomRole[]) => {
+  const persistRoleConfig = (disabledRoles: string[], customRoles: CustomRole[], rollback: () => void) => {
     const oid = ownerIdRef.current;
-    if (oid) cloudWrite("persistRoleConfig", "Couldn't save your positions. Check your connection and try again.", () => saveRoleConfig(oid, disabledRoles, customRoles));
+    if (oid)
+      cloudWrite(
+        "persistRoleConfig",
+        "Couldn't save your positions. Check your connection and try again.",
+        () => saveRoleConfig(oid, disabledRoles, customRoles),
+        rollback,
+      );
   };
 
 
