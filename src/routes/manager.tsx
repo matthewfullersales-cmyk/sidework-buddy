@@ -1633,6 +1633,49 @@ function RolesCard() {
   );
 }
 
+function OvertimeWarningCard() {
+  const { overtimeWarningHours, setOvertimeWarningHours } = useStore();
+  const [draft, setDraft] = useState(String(overtimeWarningHours));
+  useEffect(() => { setDraft(String(overtimeWarningHours)); }, [overtimeWarningHours]);
+  const commit = () => {
+    const n = Number(draft);
+    if (!Number.isFinite(n)) { setDraft(String(overtimeWarningHours)); return; }
+    setOvertimeWarningHours(n);
+  };
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Overtime warning</CardTitle>
+      </CardHeader>
+      <CardContent className="grid gap-3">
+        <div className="grid gap-2 sm:max-w-xs">
+          <Label htmlFor="ot-warn">Warn me when someone is scheduled over</Label>
+          <div className="flex items-center gap-2">
+            <Input
+              id="ot-warn"
+              type="number"
+              min={20}
+              max={40}
+              step={1}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onBlur={commit}
+              className="w-24"
+            />
+            <span className="text-sm text-muted-foreground">hours a week</span>
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Scheduled hours show next to each person while you build the schedule. This is
+          where they start showing as a warning — set it below 40 so you hear about it
+          before anyone crosses the line. Close shifts usually run longer than scheduled,
+          so the number on the schedule is a minimum, not a count of hours worked.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
 function SettingsTab() {
   const { restaurantProfile, setRestaurantProfile, restaurantHours, updateRestaurantDay, mealPeriods, updateMealPeriod, businessInfo, setBusinessInfo, overtimeWarningHours, setOvertimeWarningHours } = useStore();
   const configured = hoursConfigured(restaurantHours, mealPeriods);
