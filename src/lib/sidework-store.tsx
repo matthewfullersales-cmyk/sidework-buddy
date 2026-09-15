@@ -1544,7 +1544,7 @@ function cloudWrite(label: string, userMessage: string, run: () => Promise<unkno
   // same way business info and restaurant hours are mirrored.
   const persistRoleConfig = (disabledRoles: string[], customRoles: CustomRole[]) => {
     const oid = ownerIdRef.current;
-    if (oid) saveRoleConfig(oid, disabledRoles, customRoles).catch((e) => console.error("[persistRoleConfig]", e));
+    if (oid) cloudWrite("persistRoleConfig", "Couldn't save your positions. Check your connection and try again.", () => saveRoleConfig(oid, disabledRoles, customRoles));
   };
 
 
@@ -1564,37 +1564,37 @@ function cloudWrite(label: string, userMessage: string, run: () => Promise<unkno
     setRestaurantHours: (h) => {
       setState((s) => ({ ...s, restaurantHours: h }));
       const oid = ownerIdRef.current;
-      if (oid) saveRestaurantHours(oid, serializeRestaurantHoursConfig(h, latestStateRef.current.mealPeriods, latestStateRef.current.arrivalOffsets)).catch((e) => console.error("[setRestaurantHours]", e));
+      if (oid) cloudWrite("setRestaurantHours", "Couldn't save your hours. Check your connection and try again.", () => saveRestaurantHours(oid, serializeRestaurantHoursConfig(h, latestStateRef.current.mealPeriods, latestStateRef.current.arrivalOffsets)));
     },
     updateRestaurantDay: (day, patch) =>
       setState((s) => {
         const next = { ...s.restaurantHours, [day]: { ...s.restaurantHours[day], ...patch } };
         const oid = ownerIdRef.current;
-        if (oid) saveRestaurantHours(oid, serializeRestaurantHoursConfig(next, s.mealPeriods, s.arrivalOffsets)).catch((e) => console.error("[updateRestaurantDay]", e));
+        if (oid) cloudWrite("updateRestaurantDay", "Couldn't save your hours. Check your connection and try again.", () => saveRestaurantHours(oid, serializeRestaurantHoursConfig(next, s.mealPeriods, s.arrivalOffsets)));
         return { ...s, restaurantHours: next };
       }),
     setMealPeriods: (p) => {
       setState((s) => ({ ...s, mealPeriods: p }));
       const oid = ownerIdRef.current;
-      if (oid) saveRestaurantHours(oid, serializeRestaurantHoursConfig(latestStateRef.current.restaurantHours, p, latestStateRef.current.arrivalOffsets)).catch((e) => console.error("[setMealPeriods]", e));
+      if (oid) cloudWrite("setMealPeriods", "Couldn't save your meal periods. Check your connection and try again.", () => saveRestaurantHours(oid, serializeRestaurantHoursConfig(latestStateRef.current.restaurantHours, p, latestStateRef.current.arrivalOffsets)));
     },
     updateMealPeriod: (meal, patch) =>
       setState((s) => {
         const next = { ...s.mealPeriods, [meal]: { ...s.mealPeriods[meal], ...patch } };
         const oid = ownerIdRef.current;
-        if (oid) saveRestaurantHours(oid, serializeRestaurantHoursConfig(s.restaurantHours, next, s.arrivalOffsets)).catch((e) => console.error("[updateMealPeriod]", e));
+        if (oid) cloudWrite("updateMealPeriod", "Couldn't save your meal periods. Check your connection and try again.", () => saveRestaurantHours(oid, serializeRestaurantHoursConfig(s.restaurantHours, next, s.arrivalOffsets)));
         return { ...s, mealPeriods: next };
       }),
     setArrivalOffsets: (o) => {
       setState((s) => ({ ...s, arrivalOffsets: o }));
       const oid = ownerIdRef.current;
-      if (oid) saveRestaurantHours(oid, serializeRestaurantHoursConfig(latestStateRef.current.restaurantHours, latestStateRef.current.mealPeriods, o)).catch((e) => console.error("[setArrivalOffsets]", e));
+      if (oid) cloudWrite("setArrivalOffsets", "Couldn't save your arrival times. Check your connection and try again.", () => saveRestaurantHours(oid, serializeRestaurantHoursConfig(latestStateRef.current.restaurantHours, latestStateRef.current.mealPeriods, o)));
     },
     setBusinessInfo: (info) => {
       const clean = normalizeBusinessInfo(info);
       setState((s) => ({ ...s, businessInfo: clean }));
       const oid = ownerIdRef.current;
-      if (oid) saveBusinessInfo(oid, clean).catch((e: unknown) => console.error("[setBusinessInfo]", e));
+      if (oid) cloudWrite("setBusinessInfo", "Couldn't save your restaurant info. Check your connection and try again.", () => saveBusinessInfo(oid, clean));
     },
     setOvertimeWarningHours: (hours) => {
       const clean = normalizeOvertimeWarningHours(hours);
@@ -1991,7 +1991,11 @@ function cloudWrite(label: string, userMessage: string, run: () => Promise<unkno
         .then((row) => {
           setState((s) => ({ ...s, trades: s.trades.map((t) => (t.id === tempId ? row : t)) }));
         })
-        .catch((e) => console.error("[postTrade]", e));
+        .catch((e) => {
+          console.error("[postTrade]", e);
+          setState((s) => ({ ...s, trades: s.trades.filter((t) => t.id !== tempId) }));
+          toast.error("That shift couldn't be put up for trade. Nothing was posted — try again.");
+        });
     },
     claimTrade: (tradeId, employeeId) => {
       let sideEffects: { tradeId: string; approved: boolean; auto: boolean; shiftId: string } | null = null;
@@ -2115,7 +2119,11 @@ function cloudWrite(label: string, userMessage: string, run: () => Promise<unkno
             timeOff: s.timeOff.map((t) => (t.id === tempId ? row : t)),
           }));
         })
-        .catch((e) => console.error("[requestTimeOff]", e));
+        .catch((e) => {
+          console.error("[requestTimeOff]", e);
+          setState((s) => ({ ...s, timeOff: s.timeOff.filter((t) => t.id !== tempId) }));
+          toast.error("Your time off request didn't go through. Nothing was sent — try again.");
+        });
     },
     resolveTimeOff: (id, approved) => {
       const patch = {
@@ -2166,7 +2174,11 @@ function cloudWrite(label: string, userMessage: string, run: () => Promise<unkno
             availabilityRequests: s.availabilityRequests.map((r) => (r.id === tempId ? row : r)),
           }));
         })
-        .catch((e) => console.error("[requestAvailabilityChange]", e));
+        .catch((e) => {
+          console.error("[requestAvailabilityChange]", e);
+          setState((s) => ({ ...s, availabilityRequests: s.availabilityRequests.filter((r) => r.id !== tempId) }));
+          toast.error("Your availability request didn't go through. Nothing was sent — try again.");
+        });
     },
     resolveAvailabilityChange: (id, approved) => {
       const req = latestStateRef.current.availabilityRequests.find((r) => r.id === id);
@@ -2229,7 +2241,7 @@ function cloudWrite(label: string, userMessage: string, run: () => Promise<unkno
     setRestaurantProfile: (profile) => {
       setState((s) => ({ ...s, restaurantProfile: profile }));
       const oid = ownerIdRef.current;
-      if (oid) saveRestaurantProfile(oid, profile).catch((e) => console.error("[setRestaurantProfile]", e));
+      if (oid) cloudWrite("setRestaurantProfile", "Couldn't save your restaurant profile. Check your connection and try again.", () => saveRestaurantProfile(oid, profile));
     },
     markNotificationsRead: () =>
       setState((s) => ({ ...s, notifications: s.notifications.map((n) => ({ ...n, read: true })) })),
