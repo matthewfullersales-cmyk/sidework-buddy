@@ -27,7 +27,7 @@ export const Route = createFileRoute("/pricing")({
 });
 
 const PRIMARY_BUTTON =
-  "rounded-lg border-2 border-stone-900 bg-stone-900 px-6 py-3.5 text-base font-bold text-amber-100 shadow-[3px_3px_0_0_rgba(23,23,23,1)] disabled:opacity-60";
+  "cursor-pointer rounded-lg border-2 border-stone-900 bg-stone-900 px-6 py-3.5 text-base font-bold text-amber-100 shadow-[3px_3px_0_0_rgba(23,23,23,1)] disabled:opacity-60";
 const SECONDARY_BUTTON =
   "rounded-lg border-2 border-stone-900 bg-white px-6 py-3.5 text-base font-bold text-stone-900 shadow-[3px_3px_0_0_rgba(23,23,23,1)] disabled:opacity-60";
 
@@ -211,7 +211,7 @@ function PricingPage() {
             <button
               type="button"
               onClick={handleSignOut}
-              className="text-sm font-semibold text-stone-600 hover:text-stone-900"
+              className="cursor-pointer text-sm font-semibold text-stone-600 hover:text-stone-900"
             >
               Sign out
             </button>
