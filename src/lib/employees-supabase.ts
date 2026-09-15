@@ -506,6 +506,47 @@ export async function saveMenuTestConfig(ownerId: string, config: unknown): Prom
 
 
 
+/* ---------------- Overtime warning threshold (profiles.overtime_warning_hours) ---------------- */
+
+/** The overtime line. Deliberately NOT a setting — it is the law, not a preference. */
+export const OVERTIME_LINE_HOURS = 40;
+export const DEFAULT_OVERTIME_WARNING_HOURS = 38;
+const MIN_OVERTIME_WARNING_HOURS = 20;
+
+/** Fail open: anything unusable becomes the default, and the value is clamped
+ * to 20–40 so the warning can never sit above the overtime line and invert. */
+export function normalizeOvertimeWarningHours(raw: unknown): number {
+  const n = typeof raw === "number" ? raw : Number(raw);
+  if (!Number.isFinite(n)) return DEFAULT_OVERTIME_WARNING_HOURS;
+  const rounded = Math.round(n);
+  if (rounded < MIN_OVERTIME_WARNING_HOURS) return MIN_OVERTIME_WARNING_HOURS;
+  if (rounded > OVERTIME_LINE_HOURS) return OVERTIME_LINE_HOURS;
+  return rounded;
+}
+
+/** NULL in the database means never configured — use the default. */
+export async function fetchOvertimeWarningHours(ownerId: string): Promise<number> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("overtime_warning_hours" as never)
+    .eq("id", ownerId)
+    .maybeSingle();
+  if (error) throw error;
+  const raw = (data as { overtime_warning_hours: number | null } | null)?.overtime_warning_hours;
+  return raw == null ? DEFAULT_OVERTIME_WARNING_HOURS : normalizeOvertimeWarningHours(raw);
+}
+
+export async function saveOvertimeWarningHours(ownerId: string, hours: number): Promise<void> {
+  const { error, count } = await supabase
+    .from("profiles")
+    .update({ overtime_warning_hours: normalizeOvertimeWarningHours(hours) as never } as never, { count: "exact" })
+    .eq("id", ownerId);
+  if (error) throw error;
+  if (!count) {
+    throw new Error("That setting couldn't be saved. Refresh and try again.");
+  }
+}
+
 /* ---------------- Staff-invite tokens (self-serve profile fill) ---------------- */
 
 /**
