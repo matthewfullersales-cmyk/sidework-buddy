@@ -2068,20 +2068,30 @@ function cloudWrite(label: string, userMessage: string, run: () => Promise<unkno
           shifts: approved ? s.shifts.map((x) => (x.id === trade.shiftId ? { ...x, employeeId: trade.claimedBy! } : x)) : s.shifts,
         };
       });
+      // write 1: the decision. Failure here means nothing landed — roll everything back and rethrow.
       try {
         await updateTradeRow(tradeId, {
           status: approved ? "approved" : "denied",
           approvedBy: "owner",
           resolvedAt: new Date().toISOString(),
         });
-        const side = sideBox.value;
-        if (approved && side && /^[0-9a-f-]{36}$/i.test(side.shiftId)) {
-          await reassignShiftEmployee(side.shiftId, side.claimedBy);
-        }
       } catch (e) {
         console.error("[resolveTrade]", e);
         setState((s) => ({ ...s, trades: prevTrades, shifts: prevShifts }));
         throw e;
+      }
+
+      // write 2: the reassignment. The decision above is already committed, so do NOT
+      // roll the trade back and do NOT rethrow — only the schedule half failed.
+      const side = sideBox.value;
+      if (approved && side && /^[0-9a-f-]{36}$/i.test(side.shiftId)) {
+        try {
+          await reassignShiftEmployee(side.shiftId, side.claimedBy);
+        } catch (e) {
+          console.error("[resolveTrade:reassign]", e);
+          setState((s) => ({ ...s, shifts: prevShifts }));
+          toast.error("The trade was approved, but the schedule couldn't be updated. Refresh and check the schedule.");
+        }
       }
     },
 
