@@ -522,10 +522,15 @@ function TeamTab() {
         employees={employees}
         activeRoles={activeRoles}
         customRoles={customRoles}
-        onAssign={(id, role) => {
-          updateEmployee(id, { primaryRole: role, approvedRoles: [role] });
-          toast.success("Position assigned");
+        onAssign={async (id, role) => {
+          try {
+            await updateEmployee(id, { primaryRole: role, approvedRoles: [role] });
+            toast.success("Position assigned");
+          } catch {
+            toast.error("Couldn't assign that position. Refresh and try again.");
+          }
         }}
+
       />
 
 
@@ -984,26 +989,31 @@ function EmployeeProfileDialog({ employee, onClose }: { employee: Employee; onCl
     return norm(weekly) !== norm(employee.weeklyAvailability);
   }, [weekly, employee.weeklyAvailability]);
 
-  const commitSave = () => {
-    updateEmployee(employee.id, {
-      firstName: firstName.trim(),
-      lastName: lastName.trim(),
-      name: `${firstName.trim()} ${lastName.trim()}`.trim(),
-      email: email.trim(),
-      phone: phone.trim() || undefined,
-      approvedRoles,
-      autoApproveRoles: autoApprove.filter((r) => approvedRoles.includes(r)),
-      weeklyAvailability: weekly,
-      ...(availabilityChanged ? { managerAvailabilityEditedAt: new Date().toISOString() } : {}),
-      emergencyContact: (ec.firstName || ec.lastName || ec.phone) ? { firstName: ec.firstName.trim(), lastName: ec.lastName.trim(), phone: ec.phone.trim(), relationship: ec.relationship } : undefined,
-    });
-    if (availabilityChanged && /^[0-9a-f-]{36}$/i.test(employee.id)) {
-      notifyAvailabilityEdited({ data: { employeeId: employee.id } })
-        .catch((err: unknown) => console.error("[notifyAvailabilityEdited]", err));
+  const commitSave = async () => {
+    try {
+      await updateEmployee(employee.id, {
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        name: `${firstName.trim()} ${lastName.trim()}`.trim(),
+        email: email.trim(),
+        phone: phone.trim() || undefined,
+        approvedRoles,
+        autoApproveRoles: autoApprove.filter((r) => approvedRoles.includes(r)),
+        weeklyAvailability: weekly,
+        ...(availabilityChanged ? { managerAvailabilityEditedAt: new Date().toISOString() } : {}),
+        emergencyContact: (ec.firstName || ec.lastName || ec.phone) ? { firstName: ec.firstName.trim(), lastName: ec.lastName.trim(), phone: ec.phone.trim(), relationship: ec.relationship } : undefined,
+      });
+      if (availabilityChanged && /^[0-9a-f-]{36}$/i.test(employee.id)) {
+        notifyAvailabilityEdited({ data: { employeeId: employee.id } })
+          .catch((err: unknown) => console.error("[notifyAvailabilityEdited]", err));
+      }
+      toast.success("Profile saved");
+      onClose();
+    } catch {
+      toast.error("Couldn't save those changes. Refresh and try again.");
     }
-    toast.success("Profile saved");
-    onClose();
   };
+
 
   const save = () => {
     if (!firstName.trim()) return toast.error("First name is required");
@@ -1205,8 +1215,23 @@ function TradesTab() {
         </div>
         {t.status === "pending_approval" && (
           <div className="flex gap-2">
-            <Button size="sm" variant="outline" onClick={() => { resolveTrade(t.id, false); toast.message("Trade denied"); }}>Deny</Button>
-            <Button size="sm" onClick={() => { resolveTrade(t.id, true); toast.success("Trade approved"); }}>Approve</Button>
+            <Button size="sm" variant="outline" onClick={async () => {
+              try {
+                await resolveTrade(t.id, false);
+                toast.message("Trade denied");
+              } catch {
+                toast.error("Couldn't deny that trade. Refresh and try again.");
+              }
+            }}>Deny</Button>
+            <Button size="sm" onClick={async () => {
+              try {
+                await resolveTrade(t.id, true);
+                toast.success("Trade approved");
+              } catch {
+                toast.error("Couldn't approve that trade. Refresh and try again.");
+              }
+            }}>Approve</Button>
+
           </div>
         )}
         {t.status !== "pending_approval" && (
@@ -1468,8 +1493,13 @@ function TimeOffTab() {
         </div>
         {t.status === "pending" ? (
           <div className="flex gap-2">
-            <Button size="sm" variant="outline" onClick={() => {
-              resolveTimeOff(t.id, false);
+            <Button size="sm" variant="outline" onClick={async () => {
+              try {
+                await resolveTimeOff(t.id, false);
+              } catch {
+                toast.error("Couldn't deny that request. Refresh and try again.");
+                return;
+              }
               toast.message("Denied");
               const dateLabel = t.startDate === t.endDate ? t.startDate : `${t.startDate} → ${t.endDate}`;
               if (/^[0-9a-f-]{36}$/i.test(t.employeeId)) {
@@ -1477,8 +1507,13 @@ function TimeOffTab() {
                   .catch((err: unknown) => console.error("[notifyTimeOffResolved]", err));
               }
             }}>Deny</Button>
-            <Button size="sm" onClick={() => {
-              resolveTimeOff(t.id, true);
+            <Button size="sm" onClick={async () => {
+              try {
+                await resolveTimeOff(t.id, true);
+              } catch {
+                toast.error("Couldn't approve that request. Refresh and try again.");
+                return;
+              }
               toast.success("Approved");
               const dateLabel = t.startDate === t.endDate ? t.startDate : `${t.startDate} → ${t.endDate}`;
               if (/^[0-9a-f-]{36}$/i.test(t.employeeId)) {
@@ -1486,6 +1521,7 @@ function TimeOffTab() {
                   .catch((err: unknown) => console.error("[notifyTimeOffResolved]", err));
               }
             }}>Approve</Button>
+
           </div>
         ) : (
           <Badge className={t.status === "approved" ? "bg-success text-success-foreground hover:bg-success" : "bg-destructive text-destructive-foreground hover:bg-destructive"}>{t.status}</Badge>
@@ -1519,14 +1555,20 @@ function AvailabilityRequestsCard() {
   const pending = availabilityRequests.filter((r) => r.status === "pending");
   const history = availabilityRequests.filter((r) => r.status !== "pending");
 
-  const decide = (r: typeof availabilityRequests[number], approved: boolean) => {
-    resolveAvailabilityChange(r.id, approved);
+  const decide = async (r: typeof availabilityRequests[number], approved: boolean) => {
+    try {
+      await resolveAvailabilityChange(r.id, approved);
+    } catch {
+      toast.error("Couldn't save that decision. Refresh and try again.");
+      return;
+    }
     if (approved) toast.success("Availability updated"); else toast.message("Denied");
     if (/^[0-9a-f-]{36}$/i.test(r.employeeId)) {
       notifyAvailabilityResolved({ data: { employeeId: r.employeeId, approved } })
         .catch((err: unknown) => console.error("[notifyAvailabilityResolved]", err));
     }
   };
+
 
   const row = (r: typeof availabilityRequests[number]) => {
     const emp = employees.find((e) => e.id === r.employeeId);

@@ -193,21 +193,26 @@ function OnboardingTab({ employeeId }: { employeeId: string }) {
 
 
 
-  const save = () => {
+  const save = async () => {
     if (!firstName.trim() || !phone.trim()) return toast.error("Please fill name and phone.");
     if (!ec.firstName.trim() || !ec.lastName.trim() || !ec.phone.trim()) return toast.error("Please add an emergency contact.");
-    updateEmployee(me.id, {
-      firstName: firstName.trim(),
-      lastName: lastName.trim(),
-      name: `${firstName.trim()} ${lastName.trim()}`.trim(),
-      phone: phone.trim(),
-      // Availability is manager-owned; it is never written from this save path.
-      emergencyContact: { ...ec, firstName: ec.firstName.trim(), lastName: ec.lastName.trim() },
-      personalInfoComplete: true,
-      onboardingStarted: true,
-    });
-    toast.success("Saved");
+    try {
+      await updateEmployee(me.id, {
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        name: `${firstName.trim()} ${lastName.trim()}`.trim(),
+        phone: phone.trim(),
+        // Availability is manager-owned; it is never written from this save path.
+        emergencyContact: { ...ec, firstName: ec.firstName.trim(), lastName: ec.lastName.trim() },
+        personalInfoComplete: true,
+        onboardingStarted: true,
+      });
+      toast.success("Saved");
+    } catch {
+      toast.error("Couldn't save that. Refresh and try again.");
+    }
   };
+
 
   return (
     <div className="grid gap-6">

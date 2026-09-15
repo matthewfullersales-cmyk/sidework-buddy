@@ -757,7 +757,7 @@ interface Store {
     emergencyContact: EmergencyContact;
   }) => Promise<string>;
   updateRestaurantSlug: (slug: string) => void;
-  updateEmployee: (id: string, patch: Partial<Employee>) => void;
+  updateEmployee: (id: string, patch: Partial<Employee>) => Promise<void>;
   
   /** Approve a pending public self-join so they count as staff. */
   approveJoinRequest: (id: string) => Promise<void>;
@@ -787,18 +787,18 @@ interface Store {
   applyRemoteShiftUpsert: (shift: Shift) => void;
   applyRemoteShiftDelete: (id: string) => void;
   claimTrade: (tradeId: string, employeeId: string) => void;
-  resolveTrade: (tradeId: string, approved: boolean) => void;
+  resolveTrade: (tradeId: string, approved: boolean) => Promise<void>;
   postJob: (data: Omit<JobPosting, "id" | "postedAt" | "open">) => void;
   toggleJobOpen: (id: string) => void;
   removeJob: (id: string) => void;
     requestTimeOff: (data: Omit<TimeOffRequest, "id" | "createdAt" | "status">) => void;
-  resolveTimeOff: (id: string, approved: boolean) => void;
+  resolveTimeOff: (id: string, approved: boolean) => Promise<void>;
   cancelTimeOff: (id: string) => Promise<void>;
   /** Employee-submitted requests to change standing weekly availability. */
   availabilityRequests: AvailabilityChangeRequest[];
   requestAvailabilityChange: (data: { employeeId: string; requestedAvailability: WeeklyAvailability; note?: string }) => void;
   /** Manager decision. Approving also writes the new grid onto the person row. */
-  resolveAvailabilityChange: (id: string, approved: boolean) => void;
+  resolveAvailabilityChange: (id: string, approved: boolean) => Promise<void>;
   cancelAvailabilityChange: (id: string) => Promise<void>;
 }
 
@@ -1843,7 +1843,8 @@ function cloudWrite(label: string, userMessage: string, run: () => Promise<unkno
         ...s,
         restaurantProfile: s.restaurantProfile ? { ...s.restaurantProfile, slug } : s.restaurantProfile,
       })),
-    updateEmployee: (id, patch) => {
+    updateEmployee: async (id, patch) => {
+      const prevEmployees = latestStateRef.current.employees;
       setState((s) => {
         const employees = s.employees.map((e) => (e.id === id ? { ...e, ...patch } : e));
         // Menu-test notification on role change is intentionally inert: the
@@ -1853,8 +1854,17 @@ function cloudWrite(label: string, userMessage: string, run: () => Promise<unkno
       });
 
       const oid = ownerIdRef.current;
-      if (oid) cloudWrite("updateEmployee", "Those changes couldn't be saved. Refresh and try again.", () => updateEmployeeRow(id, patch));
+      if (oid) {
+        try {
+          await updateEmployeeRow(id, patch);
+        } catch (e) {
+          console.error("[updateEmployee]", e);
+          setState((s) => ({ ...s, employees: prevEmployees }));
+          throw e;
+        }
+      }
     },
+
     applyQuizAttemptResult: (employeeId, videoId, result) => {
 
       const { score, passed, attempts, distractionFlagged, bankVersion } = result;
@@ -2040,7 +2050,9 @@ function cloudWrite(label: string, userMessage: string, run: () => Promise<unkno
         }
       }
     },
-    resolveTrade: (tradeId, approved) => {
+    resolveTrade: async (tradeId, approved) => {
+      const prevTrades = latestStateRef.current.trades;
+      const prevShifts = latestStateRef.current.shifts;
       const sideBox: { value: { shiftId: string; claimedBy: string } | null } = { value: null };
       setState((s) => {
         const trade = s.trades.find((t) => t.id === tradeId);
@@ -2056,18 +2068,23 @@ function cloudWrite(label: string, userMessage: string, run: () => Promise<unkno
           shifts: approved ? s.shifts.map((x) => (x.id === trade.shiftId ? { ...x, employeeId: trade.claimedBy! } : x)) : s.shifts,
         };
       });
-      cloudWrite("resolveTrade", "That trade decision couldn't be saved. Refresh and check the trade board.", () =>
-        updateTradeRow(tradeId, {
+      try {
+        await updateTradeRow(tradeId, {
           status: approved ? "approved" : "denied",
           approvedBy: "owner",
           resolvedAt: new Date().toISOString(),
-        }),
-      );
-      const side = sideBox.value;
-      if (approved && side && /^[0-9a-f-]{36}$/i.test(side.shiftId)) {
-        cloudWrite("resolveTrade:reassign", "The trade was approved, but the schedule couldn't be updated. Refresh and check the schedule.", () => reassignShiftEmployee(side.shiftId, side.claimedBy));
+        });
+        const side = sideBox.value;
+        if (approved && side && /^[0-9a-f-]{36}$/i.test(side.shiftId)) {
+          await reassignShiftEmployee(side.shiftId, side.claimedBy);
+        }
+      } catch (e) {
+        console.error("[resolveTrade]", e);
+        setState((s) => ({ ...s, trades: prevTrades, shifts: prevShifts }));
+        throw e;
       }
     },
+
     postJob: (data) => {
       const ownerId = ownerIdRef.current;
       if (!ownerId) {
@@ -2125,7 +2142,8 @@ function cloudWrite(label: string, userMessage: string, run: () => Promise<unkno
           toast.error("Your time off request didn't go through. Nothing was sent — try again.");
         });
     },
-    resolveTimeOff: (id, approved) => {
+    resolveTimeOff: async (id, approved) => {
+      const prevTimeOff = latestStateRef.current.timeOff;
       const patch = {
         status: (approved ? "approved" : "denied") as TimeOffStatus,
         resolvedAt: new Date().toISOString(),
@@ -2139,9 +2157,16 @@ function cloudWrite(label: string, userMessage: string, run: () => Promise<unkno
         ),
       }));
       if (/^[0-9a-f-]{36}$/i.test(id)) {
-        cloudWrite("resolveTimeOff", "That time off decision couldn't be saved. Refresh and try again.", () => updateTimeOffRow(id, patch));
+        try {
+          await updateTimeOffRow(id, patch);
+        } catch (e) {
+          console.error("[resolveTimeOff]", e);
+          setState((s) => ({ ...s, timeOff: prevTimeOff }));
+          throw e;
+        }
       }
     },
+
     cancelTimeOff: async (id) => {
       // Server first: RLS decides. Only drop it locally once the row really went.
       if (/^[0-9a-f-]{36}$/i.test(id)) {
@@ -2180,7 +2205,9 @@ function cloudWrite(label: string, userMessage: string, run: () => Promise<unkno
           toast.error("Your availability request didn't go through. Nothing was sent — try again.");
         });
     },
-    resolveAvailabilityChange: (id, approved) => {
+    resolveAvailabilityChange: async (id, approved) => {
+      const prevAvailabilityRequests = latestStateRef.current.availabilityRequests;
+      const prevEmployees = latestStateRef.current.employees;
       const req = latestStateRef.current.availabilityRequests.find((r) => r.id === id);
       const patch = {
         status: (approved ? "approved" : "denied") as TimeOffStatus,
@@ -2199,15 +2226,20 @@ function cloudWrite(label: string, userMessage: string, run: () => Promise<unkno
             )
           : s.employees,
       }));
-      if (approved && req && /^[0-9a-f-]{36}$/i.test(req.employeeId)) {
-        cloudWrite("resolveAvailabilityChange:person", "That availability change couldn't be saved to this person's profile. Refresh and check their availability.", () =>
-          updateEmployeeRow(req.employeeId, { weeklyAvailability: req.requestedAvailability }),
-        );
-      }
-      if (/^[0-9a-f-]{36}$/i.test(id)) {
-        cloudWrite("resolveAvailabilityChange", "That availability decision couldn't be saved. Refresh and try again.", () => updateAvailabilityRequestRow(id, patch));
+      try {
+        if (approved && req && /^[0-9a-f-]{36}$/i.test(req.employeeId)) {
+          await updateEmployeeRow(req.employeeId, { weeklyAvailability: req.requestedAvailability });
+        }
+        if (/^[0-9a-f-]{36}$/i.test(id)) {
+          await updateAvailabilityRequestRow(id, patch);
+        }
+      } catch (e) {
+        console.error("[resolveAvailabilityChange]", e);
+        setState((s) => ({ ...s, availabilityRequests: prevAvailabilityRequests, employees: prevEmployees }));
+        throw e;
       }
     },
+
     cancelAvailabilityChange: async (id) => {
       // Server first: RLS decides. Only drop it locally once the row really went.
       if (/^[0-9a-f-]{36}$/i.test(id)) {
