@@ -43,7 +43,7 @@ import { defaultDressGroupForRole } from "@/lib/shadow-packet-roles";
 import { StaffJoinBanner, FullscreenQrDialog, StaffOnboardingCard, useJoinUrl } from "@/components/sidework/StaffOnboarding";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
-import { ChevronDown, Check, CalendarIcon } from "lucide-react";
+import { ChevronDown, Check, CalendarIcon, Copy } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { useAuth } from "@/lib/auth-context";
@@ -1333,6 +1333,7 @@ function JobsTab() {
 
   return (
     <div className="grid gap-6">
+      <CareersLinkCard />
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-3">
           <div>
