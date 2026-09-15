@@ -1391,11 +1391,21 @@ function JobsTab() {
   const fohActive = fohRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r));
   const bohActive = bohRolesWithCustom(customRoles).filter((r) => activeRoles.includes(r));
   const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ title: "", role: "Server" as Role, type: "Full-time" as "Full-time" | "Part-time", payRange: "", description: "" });
 
-  const submit = () => {
+  const submit = async () => {
     if (!form.title || !form.payRange || !form.description) return toast.error("Fill in title, pay range, and description.");
-    postJob(form);
+    setSaving(true);
+    try {
+      await postJob(form);
+    } catch (e) {
+      console.error("[postJob]", e);
+      setSaving(false);
+      // Leave the dialog open and the form filled in so nothing they typed is lost.
+      return toast.error(e instanceof Error ? e.message : "Couldn't save the job posting. Nothing was posted — try again.");
+    }
+    setSaving(false);
     toast.success("Job posted");
     setOpen(false);
     setForm({ title: "", role: "Server", type: "Full-time", payRange: "", description: "" });
@@ -1451,7 +1461,7 @@ function JobsTab() {
                 <div className="grid gap-2"><Label>Pay range</Label><Input value={form.payRange} onChange={(e) => setForm({ ...form, payRange: e.target.value })} placeholder="e.g. $20–$25/hr" /></div>
                 <div className="grid gap-2"><Label>Description</Label><Textarea rows={4} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
               </div>
-              <DialogFooter><Button onClick={submit}>Post job</Button></DialogFooter>
+              <DialogFooter><Button onClick={submit} disabled={saving}>{saving ? "Posting…" : "Post job"}</Button></DialogFooter>
             </DialogContent>
           </Dialog>
         </CardHeader>
@@ -1477,7 +1487,7 @@ function JobsTab() {
                   <div className="flex flex-wrap gap-2">
                     <Button size="sm" onClick={() => copyApplicationLink(j.id)}>Copy Application Link</Button>
                     <Button size="sm" variant="outline" onClick={() => toggleJobOpen(j.id)}>{j.open ? "Close" : "Reopen"}</Button>
-                    <Button size="sm" variant="ghost" onClick={() => { removeJob(j.id); toast.message("Job removed"); }}>Delete</Button>
+                    <Button size="sm" variant="ghost" onClick={() => removeJob(j.id)}>Delete</Button>
                   </div>
                 </div>
                 <p className="mt-3 text-xs text-muted-foreground">Share this link on Indeed, Instagram, or anywhere you recruit.</p>

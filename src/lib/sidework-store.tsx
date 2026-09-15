@@ -788,7 +788,7 @@ interface Store {
   applyRemoteShiftDelete: (id: string) => void;
   claimTrade: (tradeId: string, employeeId: string) => void;
   resolveTrade: (tradeId: string, approved: boolean) => Promise<void>;
-  postJob: (data: Omit<JobPosting, "id" | "postedAt" | "open">) => void;
+  postJob: (data: Omit<JobPosting, "id" | "postedAt" | "open">) => Promise<void>;
   toggleJobOpen: (id: string) => void;
   removeJob: (id: string) => void;
     requestTimeOff: (data: Omit<TimeOffRequest, "id" | "createdAt" | "status">) => void;
@@ -2102,18 +2102,12 @@ function cloudWrite(label: string, userMessage: string, run: () => Promise<unkno
       }
     },
 
-    postJob: (data) => {
+    postJob: async (data) => {
       const ownerId = ownerIdRef.current;
-      if (!ownerId) {
-        toast.error("Please sign in to post a job.");
-        return;
-      }
-      insertPosting(ownerId, data)
-        .then((posting) => setState((s) => ({ ...s, jobs: [posting, ...s.jobs] })))
-        .catch((e) => {
-          console.error("[postJob] failed", e);
-          toast.error("Couldn't save job posting.");
-        });
+      // Throw rather than return: a silent return reads as success to the caller.
+      if (!ownerId) throw new Error("Please sign in to post a job.");
+      const posting = await insertPosting(ownerId, data);
+      setState((s) => ({ ...s, jobs: [posting, ...s.jobs] }));
     },
     toggleJobOpen: (id) => {
       const current = state.jobs.find((j) => j.id === id);
@@ -2127,7 +2121,7 @@ function cloudWrite(label: string, userMessage: string, run: () => Promise<unkno
       });
     },
     removeJob: (id) => {
-      const prev = state.jobs;
+      const prev = latestStateRef.current.jobs;
       setState((s) => ({ ...s, jobs: s.jobs.filter((j) => j.id !== id) }));
       deletePosting(id).catch((e) => {
         console.error("[removeJob] failed", e);
