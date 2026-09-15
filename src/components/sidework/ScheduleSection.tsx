@@ -506,7 +506,8 @@ export function ScheduleSection() {
                           })}
 
                         </tr>
-                      })}
+                      );
+                    })}
                     </Fragment>
                   ))}
                 </tbody>
