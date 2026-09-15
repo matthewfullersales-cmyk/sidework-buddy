@@ -109,7 +109,7 @@ function escapeHtml(value: string): string {
 }
 
 async function sendNotifEmail(args: {
-  to: string; title: string; body: string; url?: string;
+  to: string; title: string; body: string; url?: string; replyTo?: string;
 }): Promise<{ ok: boolean; error?: string }> {
   // Dynamic import keeps the .server module out of the client bundle.
   const { EMAIL_FROM_ADDRESS, sendResendEmail } = await import("./email.server");
@@ -127,6 +127,7 @@ async function sendNotifEmail(args: {
     subject: args.title,
     text,
     html,
+    replyTo: args.replyTo,
     logLabel: "fanOut email",
   });
 }
