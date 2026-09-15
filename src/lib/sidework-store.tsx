@@ -2197,7 +2197,9 @@ function cloudWrite(label: string, userMessage: string, run: () => Promise<unkno
           toast.error("Your availability request didn't go through. Nothing was sent — try again.");
         });
     },
-    resolveAvailabilityChange: (id, approved) => {
+    resolveAvailabilityChange: async (id, approved) => {
+      const prevAvailabilityRequests = latestStateRef.current.availabilityRequests;
+      const prevEmployees = latestStateRef.current.employees;
       const req = latestStateRef.current.availabilityRequests.find((r) => r.id === id);
       const patch = {
         status: (approved ? "approved" : "denied") as TimeOffStatus,
@@ -2216,15 +2218,20 @@ function cloudWrite(label: string, userMessage: string, run: () => Promise<unkno
             )
           : s.employees,
       }));
-      if (approved && req && /^[0-9a-f-]{36}$/i.test(req.employeeId)) {
-        cloudWrite("resolveAvailabilityChange:person", "That availability change couldn't be saved to this person's profile. Refresh and check their availability.", () =>
-          updateEmployeeRow(req.employeeId, { weeklyAvailability: req.requestedAvailability }),
-        );
-      }
-      if (/^[0-9a-f-]{36}$/i.test(id)) {
-        cloudWrite("resolveAvailabilityChange", "That availability decision couldn't be saved. Refresh and try again.", () => updateAvailabilityRequestRow(id, patch));
+      try {
+        if (approved && req && /^[0-9a-f-]{36}$/i.test(req.employeeId)) {
+          await updateEmployeeRow(req.employeeId, { weeklyAvailability: req.requestedAvailability });
+        }
+        if (/^[0-9a-f-]{36}$/i.test(id)) {
+          await updateAvailabilityRequestRow(id, patch);
+        }
+      } catch (e) {
+        console.error("[resolveAvailabilityChange]", e);
+        setState((s) => ({ ...s, availabilityRequests: prevAvailabilityRequests, employees: prevEmployees }));
+        throw e;
       }
     },
+
     cancelAvailabilityChange: async (id) => {
       // Server first: RLS decides. Only drop it locally once the row really went.
       if (/^[0-9a-f-]{36}$/i.test(id)) {
