@@ -1598,16 +1598,24 @@ function cloudWrite(
         );
     },
     updateRestaurantDay: (day, patch) => {
-      const prevRestaurantHours = latestStateRef.current.restaurantHours;
-      const next = { ...prevRestaurantHours, [day]: { ...prevRestaurantHours[day], ...patch } };
-      setState((s) => ({ ...s, restaurantHours: next }));
+      // Both the snapshot and the new value must come from inside the updater:
+      // `latestStateRef` lags an uncommitted setState, which silently drops
+      // the earlier of two rapid edits.
+      const box: { prev: RestaurantHours | null; next: RestaurantHours | null } = { prev: null, next: null };
+      setState((s) => {
+        const next = { ...s.restaurantHours, [day]: { ...s.restaurantHours[day], ...patch } };
+        box.prev = s.restaurantHours;
+        box.next = next;
+        return { ...s, restaurantHours: next };
+      });
       const oid = ownerIdRef.current;
-      if (oid)
+      const { prev, next } = box;
+      if (oid && next)
         cloudWrite(
           "updateRestaurantDay",
           "Couldn't save your hours. Check your connection and try again.",
           () => saveRestaurantHours(oid, serializeRestaurantHoursConfig(next, latestStateRef.current.mealPeriods, latestStateRef.current.arrivalOffsets)),
-          () => setState((s) => ({ ...s, restaurantHours: prevRestaurantHours })),
+          () => setState((s) => (prev ? { ...s, restaurantHours: prev } : s)),
         );
     },
     setMealPeriods: (p) => {
@@ -1623,16 +1631,23 @@ function cloudWrite(
         );
     },
     updateMealPeriod: (meal, patch) => {
-      const prevMealPeriods = latestStateRef.current.mealPeriods;
-      const next = { ...prevMealPeriods, [meal]: { ...prevMealPeriods[meal], ...patch } };
-      setState((s) => ({ ...s, mealPeriods: next }));
+      // Same side-box pattern as updateRestaurantDay: derive prev and next
+      // inside the updater so rapid consecutive edits don't lose each other.
+      const box: { prev: MealPeriods | null; next: MealPeriods | null } = { prev: null, next: null };
+      setState((s) => {
+        const next = { ...s.mealPeriods, [meal]: { ...s.mealPeriods[meal], ...patch } };
+        box.prev = s.mealPeriods;
+        box.next = next;
+        return { ...s, mealPeriods: next };
+      });
       const oid = ownerIdRef.current;
-      if (oid)
+      const { prev, next } = box;
+      if (oid && next)
         cloudWrite(
           "updateMealPeriod",
           "Couldn't save your meal periods. Check your connection and try again.",
           () => saveRestaurantHours(oid, serializeRestaurantHoursConfig(latestStateRef.current.restaurantHours, next, latestStateRef.current.arrivalOffsets)),
-          () => setState((s) => ({ ...s, mealPeriods: prevMealPeriods })),
+          () => setState((s) => (prev ? { ...s, mealPeriods: prev } : s)),
         );
     },
     setArrivalOffsets: (o) => {
@@ -1676,36 +1691,73 @@ function cloudWrite(
     },
     disabledRoles: state.disabledRoles,
     setDisabledRoles: (roles) => {
-      const prevDisabledRoles = latestStateRef.current.disabledRoles;
-      const prevCustomRoles = latestStateRef.current.customRoles;
+      // Snapshot AND the customRoles to save must come from inside the updater:
+      // reading them from `latestStateRef` can overwrite a just-added custom
+      // role with a stale list.
       const nextDisabled = Array.from(new Set(roles));
-      setState((s) => ({ ...s, disabledRoles: nextDisabled }));
-      persistRoleConfig(nextDisabled, prevCustomRoles, () =>
-        setState((s) => ({ ...s, disabledRoles: prevDisabledRoles, customRoles: prevCustomRoles })),
-      );
+      const box: { prevDisabled: string[] | null; prevCustom: CustomRole[] | null; nextCustom: CustomRole[] | null } = {
+        prevDisabled: null,
+        prevCustom: null,
+        nextCustom: null,
+      };
+      setState((s) => {
+        box.prevDisabled = s.disabledRoles;
+        box.prevCustom = s.customRoles;
+        box.nextCustom = s.customRoles;
+        return { ...s, disabledRoles: nextDisabled };
+      });
+      const { prevDisabled, prevCustom, nextCustom } = box;
+      if (nextCustom)
+        persistRoleConfig(nextDisabled, nextCustom, () =>
+          setState((s) => (prevDisabled && prevCustom ? { ...s, disabledRoles: prevDisabled, customRoles: prevCustom } : s)),
+        );
     },
     addCustomRole: (role) => {
-      const prevDisabledRoles = latestStateRef.current.disabledRoles;
-      const prevCustomRoles = latestStateRef.current.customRoles;
-      if (prevCustomRoles.some((c) => c.name === role.name) || (BUILT_IN_ROLES as readonly string[]).includes(role.name)) {
-        return;
-      }
-      const nextCustom = [...prevCustomRoles, role];
-      const nextDisabled = prevDisabledRoles.filter((r) => r !== role.name);
-      setState((s) => ({ ...s, customRoles: nextCustom, disabledRoles: nextDisabled }));
-      persistRoleConfig(nextDisabled, nextCustom, () =>
-        setState((s) => ({ ...s, disabledRoles: prevDisabledRoles, customRoles: prevCustomRoles })),
-      );
+      const box: { prevDisabled: string[] | null; prevCustom: CustomRole[] | null; nextDisabled: string[] | null; nextCustom: CustomRole[] | null } = {
+        prevDisabled: null,
+        prevCustom: null,
+        nextDisabled: null,
+        nextCustom: null,
+      };
+      setState((s) => {
+        if (s.customRoles.some((c) => c.name === role.name) || (BUILT_IN_ROLES as readonly string[]).includes(role.name)) {
+          return s;
+        }
+        const nextCustom = [...s.customRoles, role];
+        const nextDisabled = s.disabledRoles.filter((r) => r !== role.name);
+        box.prevDisabled = s.disabledRoles;
+        box.prevCustom = s.customRoles;
+        box.nextDisabled = nextDisabled;
+        box.nextCustom = nextCustom;
+        return { ...s, customRoles: nextCustom, disabledRoles: nextDisabled };
+      });
+      const { prevDisabled, prevCustom, nextDisabled, nextCustom } = box;
+      if (nextDisabled && nextCustom)
+        persistRoleConfig(nextDisabled, nextCustom, () =>
+          setState((s) => (prevDisabled && prevCustom ? { ...s, disabledRoles: prevDisabled, customRoles: prevCustom } : s)),
+        );
     },
     removeCustomRole: (name) => {
-      const prevDisabledRoles = latestStateRef.current.disabledRoles;
-      const prevCustomRoles = latestStateRef.current.customRoles;
-      const nextCustom = prevCustomRoles.filter((c) => c.name !== name);
-      const nextDisabled = prevDisabledRoles.filter((r) => r !== name);
-      setState((s) => ({ ...s, customRoles: nextCustom, disabledRoles: nextDisabled }));
-      persistRoleConfig(nextDisabled, nextCustom, () =>
-        setState((s) => ({ ...s, disabledRoles: prevDisabledRoles, customRoles: prevCustomRoles })),
-      );
+      const box: { prevDisabled: string[] | null; prevCustom: CustomRole[] | null; nextDisabled: string[] | null; nextCustom: CustomRole[] | null } = {
+        prevDisabled: null,
+        prevCustom: null,
+        nextDisabled: null,
+        nextCustom: null,
+      };
+      setState((s) => {
+        const nextCustom = s.customRoles.filter((c) => c.name !== name);
+        const nextDisabled = s.disabledRoles.filter((r) => r !== name);
+        box.prevDisabled = s.disabledRoles;
+        box.prevCustom = s.customRoles;
+        box.nextDisabled = nextDisabled;
+        box.nextCustom = nextCustom;
+        return { ...s, customRoles: nextCustom, disabledRoles: nextDisabled };
+      });
+      const { prevDisabled, prevCustom, nextDisabled, nextCustom } = box;
+      if (nextDisabled && nextCustom)
+        persistRoleConfig(nextDisabled, nextCustom, () =>
+          setState((s) => (prevDisabled && prevCustom ? { ...s, disabledRoles: prevDisabled, customRoles: prevCustom } : s)),
+        );
     },
 
     setCurrentUser: (u) => setState((s) => ({ ...s, currentUser: u })),
