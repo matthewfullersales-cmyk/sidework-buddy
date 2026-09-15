@@ -110,7 +110,13 @@ function SignupPage() {
           <PasswordInput id="confirm" autoComplete="new-password" required minLength={8} value={confirm} onChange={(e) => setConfirm(e.target.value)} />
         </div>
         <Button type="submit" size="lg" className="h-12" disabled={busy}>{busy ? "Redirecting to checkout…" : `Subscribe — ${planLabel}`}</Button>
-        <p className="text-center text-xs text-muted-foreground">You'll be redirected to Stripe to enter payment. Cancel anytime.</p>
+        <p className="text-center text-xs text-muted-foreground">
+          By subscribing you agree to our{" "}
+          <Link to="/terms" className="underline hover:text-foreground">Terms of Service</Link>
+          {" "}and{" "}
+          <Link to="/privacy" className="underline hover:text-foreground">Privacy Policy</Link>.
+          You'll enter payment on Stripe. Cancel any time from your settings.
+        </p>
       </form>
       <p className="mt-6 text-center text-sm text-muted-foreground">
         Already have an account? <Link to="/login" className="font-semibold text-primary hover:underline">Sign in</Link>

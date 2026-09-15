@@ -189,6 +189,26 @@ function TermsPage() {
             These Terms are governed by the laws of the State of New York, without regard to its conflict of laws rules. Any dispute will be brought in the state or federal courts located in Monroe County, New York, and both parties consent to that jurisdiction.
           </p>
 
+          <h2 className="mt-10 text-xl font-semibold tracking-tight">What survives if these terms end</h2>
+          <p className="mb-4 leading-relaxed">
+            If your subscription ends or these Terms stop applying, the sections covering your data and your people's data, your indemnity, limitation of liability, and governing law continue to apply.
+          </p>
+
+          <h2 className="mt-10 text-xl font-semibold tracking-tight">General</h2>
+          <p className="mb-4 leading-relaxed">
+            If any part of these Terms is found unenforceable, the rest stays in force and the unenforceable part is applied as closely as possible to its original intent.
+          </p>
+          <p className="mb-4 leading-relaxed">
+            These Terms, together with our Privacy Policy, are the entire agreement between you and 86Paper about the platform, and replace any earlier version.
+          </p>
+          <p className="mb-4 leading-relaxed">
+            If we do not enforce part of these Terms straight away, that is not a waiver of our right to enforce it later.
+          </p>
+          <p className="mb-4 leading-relaxed">
+            You may not transfer your agreement with us to anyone else without our written consent. We may transfer ours in connection with a sale or reorganisation of the business.
+          </p>
+
+
           <h2 className="mt-10 text-xl font-semibold tracking-tight">Contact us</h2>
           <p className="mb-4 leading-relaxed">
             86Paper LLC
