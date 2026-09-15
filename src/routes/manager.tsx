@@ -40,10 +40,10 @@ import { AvailabilitySummary, hasAnyAvailability } from "@/components/sidework/A
 import { AvailabilityPicker, type PartialWeekly } from "@/components/sidework/AvailabilityPicker";
 import { fetchShadowPacket, saveShadowPacket, emptyShadowPacket, type ShadowPacket } from "@/lib/employees-supabase";
 import { defaultDressGroupForRole } from "@/lib/shadow-packet-roles";
-import { StaffJoinBanner, FullscreenQrDialog, StaffOnboardingCard, useJoinUrl } from "@/components/sidework/StaffOnboarding";
+import { StaffJoinBanner, FullscreenQrDialog, StaffOnboardingCard, useJoinUrl, useQrDataUrl, PrintablePosterDialog } from "@/components/sidework/StaffOnboarding";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
-import { ChevronDown, Check, CalendarIcon, Copy } from "lucide-react";
+import { ChevronDown, Check, CalendarIcon, Copy, Download, Printer } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { useAuth } from "@/lib/auth-context";
@@ -1242,9 +1242,11 @@ function TradesTab() {
 
 function CareersLinkCard() {
   const { jobs } = useStore();
-  const { slug, loading } = useJoinUrl();
+  const { slug, loading, restaurantName } = useJoinUrl();
   const origin = typeof window !== "undefined" ? window.location.origin : "https://86paper.com";
   const url = slug ? `${origin}/careers/${slug}` : "";
+  const qr = useQrDataUrl(url, 512);
+  const [showPoster, setShowPoster] = useState(false);
   const openJobCount = jobs.filter((j) => j.open === true).length;
 
   const copy = async () => {
@@ -1254,6 +1256,16 @@ function CareersLinkCard() {
     } catch {
       toast.message("Copy this link", { description: url });
     }
+  };
+
+  const download = () => {
+    if (!qr) return;
+    const a = document.createElement("a");
+    a.href = qr;
+    a.download = `86paper-careers-${slug}.png`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
   };
 
   return (
@@ -1279,9 +1291,32 @@ function CareersLinkCard() {
             {openJobCount === 0 && (
               <p className="text-sm text-muted-foreground">You have no open jobs right now, so anyone who opens this will see "No openings right now."</p>
             )}
+            <div className="grid gap-3 sm:grid-cols-[auto,1fr] sm:items-center">
+              <div className="grid place-items-center rounded-xl border-2 border-border bg-white p-3">
+                {qr ? <img src={qr} alt="Careers page QR code" className="h-48 w-48" /> : <div className="h-48 w-48 animate-pulse rounded bg-muted" />}
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">Print this and put it in the window or by the host stand. Anyone can scan it to see what's open and apply on their phone.</p>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" onClick={download} disabled={!qr}><Download className="mr-1.5 h-4 w-4" /> Download QR</Button>
+                  <Button variant="outline" onClick={() => setShowPoster(true)} disabled={!qr}><Printer className="mr-1.5 h-4 w-4" /> Print-ready poster</Button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </CardContent>
+
+      {showPoster && (
+        <PrintablePosterDialog
+          restaurantName={restaurantName ?? "our team"}
+          url={url}
+          qr={qr}
+          headline="Now hiring. Scan to apply."
+          fileLabel="Careers"
+          onClose={() => setShowPoster(false)}
+        />
+      )}
     </Card>
   );
 }
