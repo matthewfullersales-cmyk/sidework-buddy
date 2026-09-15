@@ -2050,7 +2050,9 @@ function cloudWrite(label: string, userMessage: string, run: () => Promise<unkno
         }
       }
     },
-    resolveTrade: (tradeId, approved) => {
+    resolveTrade: async (tradeId, approved) => {
+      const prevTrades = latestStateRef.current.trades;
+      const prevShifts = latestStateRef.current.shifts;
       const sideBox: { value: { shiftId: string; claimedBy: string } | null } = { value: null };
       setState((s) => {
         const trade = s.trades.find((t) => t.id === tradeId);
@@ -2066,18 +2068,23 @@ function cloudWrite(label: string, userMessage: string, run: () => Promise<unkno
           shifts: approved ? s.shifts.map((x) => (x.id === trade.shiftId ? { ...x, employeeId: trade.claimedBy! } : x)) : s.shifts,
         };
       });
-      cloudWrite("resolveTrade", "That trade decision couldn't be saved. Refresh and check the trade board.", () =>
-        updateTradeRow(tradeId, {
+      try {
+        await updateTradeRow(tradeId, {
           status: approved ? "approved" : "denied",
           approvedBy: "owner",
           resolvedAt: new Date().toISOString(),
-        }),
-      );
-      const side = sideBox.value;
-      if (approved && side && /^[0-9a-f-]{36}$/i.test(side.shiftId)) {
-        cloudWrite("resolveTrade:reassign", "The trade was approved, but the schedule couldn't be updated. Refresh and check the schedule.", () => reassignShiftEmployee(side.shiftId, side.claimedBy));
+        });
+        const side = sideBox.value;
+        if (approved && side && /^[0-9a-f-]{36}$/i.test(side.shiftId)) {
+          await reassignShiftEmployee(side.shiftId, side.claimedBy);
+        }
+      } catch (e) {
+        console.error("[resolveTrade]", e);
+        setState((s) => ({ ...s, trades: prevTrades, shifts: prevShifts }));
+        throw e;
       }
     },
+
     postJob: (data) => {
       const ownerId = ownerIdRef.current;
       if (!ownerId) {
