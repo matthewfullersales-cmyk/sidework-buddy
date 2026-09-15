@@ -28,6 +28,10 @@ import {
   fetchRoleConfig,
   saveRoleConfig,
   createStaffInviteRow,
+  fetchOvertimeWarningHours,
+  saveOvertimeWarningHours,
+  DEFAULT_OVERTIME_WARNING_HOURS,
+  normalizeOvertimeWarningHours,
 } from "@/lib/employees-supabase";
 
 import {
@@ -711,6 +715,8 @@ interface Store {
   setArrivalOffsets: (o: ArrivalOffsets) => void;
   businessInfo: BusinessInfo;
   setBusinessInfo: (info: BusinessInfo) => void;
+  overtimeWarningHours: number;
+  setOvertimeWarningHours: (hours: number) => void;
   /** Derived: (built-in roles minus disabledRoles) + customRoles. Never stored. */
   activeRoles: Role[];
   /** Persisted EXCEPTIONS: built-in roles this restaurant turned off. */
@@ -1158,6 +1164,7 @@ function initialStoreState() {
     mealPeriods: defaultMealPeriods(),
     arrivalOffsets: defaultArrivalOffsets(),
     businessInfo: defaultBusinessInfo() as BusinessInfo,
+    overtimeWarningHours: DEFAULT_OVERTIME_WARNING_HOURS,
     // No snapshot: an empty disabledRoles means every built-in role is available.
     disabledRoles: [] as string[],
     customRoles: [] as CustomRole[],
@@ -1250,7 +1257,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
     }
     (async () => {
       try {
-        const [postings, remoteEmployeesInitial, remoteHours, remoteShiftsInitial, remoteTimeOffInitial, remoteTradesInitial, remoteBusinessInfo, remoteTrainingProgress, menuBankMeta, remoteMenuTestConfig, remoteRoleConfig, remoteRestaurantProfile, remoteAvailabilityRequests] = await Promise.all([
+        const [postings, remoteEmployeesInitial, remoteHours, remoteShiftsInitial, remoteTimeOffInitial, remoteTradesInitial, remoteBusinessInfo, remoteTrainingProgress, menuBankMeta, remoteMenuTestConfig, remoteRoleConfig, remoteRestaurantProfile, remoteAvailabilityRequests, remoteOvertimeWarningHours] = await Promise.all([
           fetchOwnerPostings(effectiveOwnerId),
           fetchOwnerEmployees(effectiveOwnerId),
           fetchRestaurantHours(effectiveOwnerId),
@@ -1274,6 +1281,10 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           fetchOwnerAvailabilityRequests(effectiveOwnerId).catch((e) => {
             console.warn("[owner-sync] availability requests load failed", e);
             return [] as AvailabilityChangeRequest[];
+          }),
+          fetchOvertimeWarningHours(effectiveOwnerId).catch((e) => {
+            console.warn("[owner-sync] overtime warning hours load failed", e);
+            return DEFAULT_OVERTIME_WARNING_HOURS;
           }),
         ]);
 
@@ -1390,6 +1401,7 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           ...rolesPatch,
           ...profilePatch,
           businessInfo: normalizeBusinessInfo(remoteBusinessInfo),
+          overtimeWarningHours: remoteOvertimeWarningHours,
           menuBankMeta,
           menuTestConfig: normalizeMenuTestConfig(remoteMenuTestConfig),
         }));
@@ -1583,6 +1595,18 @@ function cloudWrite(label: string, userMessage: string, run: () => Promise<unkno
       setState((s) => ({ ...s, businessInfo: clean }));
       const oid = ownerIdRef.current;
       if (oid) saveBusinessInfo(oid, clean).catch((e: unknown) => console.error("[setBusinessInfo]", e));
+    },
+    setOvertimeWarningHours: (hours) => {
+      const clean = normalizeOvertimeWarningHours(hours);
+      setState((s) => ({ ...s, overtimeWarningHours: clean }));
+      const oid = ownerIdRef.current;
+      if (oid) {
+        cloudWrite(
+          "setOvertimeWarningHours",
+          "That setting couldn't be saved. Refresh and try again.",
+          () => saveOvertimeWarningHours(oid, clean),
+        );
+      }
     },
     disabledRoles: state.disabledRoles,
     setDisabledRoles: (roles) =>
