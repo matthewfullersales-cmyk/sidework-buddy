@@ -132,7 +132,7 @@ function Marketing() {
       <section className="border-t border-stone-200 bg-white">
         <div className="mx-auto max-w-3xl px-6 py-20 text-center">
           <h2 className="text-3xl font-bold tracking-tight md:text-4xl">
-            Post a job tonight. The rest is already set up.
+            Everything from “we’re hiring” to “you’re on Friday.”
           </h2>
           <Link
             to="/pricing"

@@ -37,7 +37,7 @@ const FEATURES = [
   ["Interview times", " you're actually free for"],
   ["Shadow shifts", " with a packet they can read first"],
   ["The emails sent for you", " — offers, confirmations, reschedules"],
-  ["Onboarding", " that finishes before day one"],
+  ["A QR code for the break room", " — your crew scans it and they're on"],
   ["The schedule", ", on their phone, current"],
   ["Availability, time off and trades", " that come to you"],
   ["Weekly hours", " flagged before anyone hits overtime"],
