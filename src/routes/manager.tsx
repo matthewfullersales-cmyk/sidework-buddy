@@ -129,7 +129,13 @@ function ManagerPage() {
   return (
     <AppShell nav={[{ to: "/manager", label: "Dashboard", icon: <IconHome /> }]}>
       <PageHeader
-        title={restaurantProfile?.name ? `${restaurantProfile.name} — Dashboard` : "Manager Dashboard"}
+        title={
+          restaurantProfile?.name
+            ? `${restaurantProfile.name} — Dashboard`
+            : profile?.restaurant_name
+              ? `${profile.restaurant_name} — Dashboard`
+              : "Manager Dashboard"
+        }
         subtitle="Onboarding, schedule, and trades at a glance."
       />
       {profile?.subscription_status === "past_due" && (
