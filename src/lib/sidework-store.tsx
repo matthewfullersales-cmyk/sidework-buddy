@@ -757,7 +757,7 @@ interface Store {
     emergencyContact: EmergencyContact;
   }) => Promise<string>;
   updateRestaurantSlug: (slug: string) => void;
-  updateEmployee: (id: string, patch: Partial<Employee>) => void;
+  updateEmployee: (id: string, patch: Partial<Employee>) => Promise<void>;
   
   /** Approve a pending public self-join so they count as staff. */
   approveJoinRequest: (id: string) => Promise<void>;
@@ -787,18 +787,18 @@ interface Store {
   applyRemoteShiftUpsert: (shift: Shift) => void;
   applyRemoteShiftDelete: (id: string) => void;
   claimTrade: (tradeId: string, employeeId: string) => void;
-  resolveTrade: (tradeId: string, approved: boolean) => void;
+  resolveTrade: (tradeId: string, approved: boolean) => Promise<void>;
   postJob: (data: Omit<JobPosting, "id" | "postedAt" | "open">) => void;
   toggleJobOpen: (id: string) => void;
   removeJob: (id: string) => void;
     requestTimeOff: (data: Omit<TimeOffRequest, "id" | "createdAt" | "status">) => void;
-  resolveTimeOff: (id: string, approved: boolean) => void;
+  resolveTimeOff: (id: string, approved: boolean) => Promise<void>;
   cancelTimeOff: (id: string) => Promise<void>;
   /** Employee-submitted requests to change standing weekly availability. */
   availabilityRequests: AvailabilityChangeRequest[];
   requestAvailabilityChange: (data: { employeeId: string; requestedAvailability: WeeklyAvailability; note?: string }) => void;
   /** Manager decision. Approving also writes the new grid onto the person row. */
-  resolveAvailabilityChange: (id: string, approved: boolean) => void;
+  resolveAvailabilityChange: (id: string, approved: boolean) => Promise<void>;
   cancelAvailabilityChange: (id: string) => Promise<void>;
 }
 
