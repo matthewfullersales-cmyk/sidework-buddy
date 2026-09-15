@@ -132,8 +132,6 @@ function PrivacyPage() {
           <p className="mb-4 leading-relaxed">
             86Paper LLC
             <br />
-            233 Devonshire Dr, Rochester, NY 14625
-            <br />
             <a href="mailto:hello@86paper.com" className="text-primary hover:underline">
               hello@86paper.com
             </a>
