@@ -1291,7 +1291,7 @@ function CareersLinkCard() {
             {openJobCount === 0 && (
               <p className="text-sm text-muted-foreground">You have no open jobs right now, so anyone who opens this will see "No openings right now."</p>
             )}
-            <div className="grid gap-3 sm:grid-cols-[auto,1fr] sm:items-center">
+            <div className="grid gap-3 sm:grid-cols-[auto_1fr] sm:items-center">
               <div className="grid place-items-center rounded-xl border-2 border-border bg-white p-3">
                 {qr ? <img src={qr} alt="Careers page QR code" className="h-48 w-48" /> : <div className="h-48 w-48 animate-pulse rounded bg-muted" />}
               </div>
@@ -1373,7 +1373,6 @@ function JobsTab() {
         <CardHeader className="flex flex-row items-center justify-between gap-3">
           <div>
             <CardTitle className="text-base">Job postings</CardTitle>
-            <p className="mt-1 text-xs text-muted-foreground">Public careers page: <code className="rounded bg-muted px-1.5 py-0.5">/careers</code></p>
           </div>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild><Button>+ Post a job</Button></DialogTrigger>
