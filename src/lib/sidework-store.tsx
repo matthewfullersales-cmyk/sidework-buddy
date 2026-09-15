@@ -1569,41 +1569,82 @@ function cloudWrite(label: string, userMessage: string, run: () => Promise<unkno
     employeeHydratedTargetId,
     employeeHydrationError,
     setRestaurantHours: (h) => {
+      const prevRestaurantHours = latestStateRef.current.restaurantHours;
       setState((s) => ({ ...s, restaurantHours: h }));
       const oid = ownerIdRef.current;
-      if (oid) cloudWrite("setRestaurantHours", "Couldn't save your hours. Check your connection and try again.", () => saveRestaurantHours(oid, serializeRestaurantHoursConfig(h, latestStateRef.current.mealPeriods, latestStateRef.current.arrivalOffsets)));
+      if (oid)
+        cloudWrite(
+          "setRestaurantHours",
+          "Couldn't save your hours. Check your connection and try again.",
+          () => saveRestaurantHours(oid, serializeRestaurantHoursConfig(h, latestStateRef.current.mealPeriods, latestStateRef.current.arrivalOffsets)),
+          () => setState((s) => ({ ...s, restaurantHours: prevRestaurantHours })),
+        );
     },
-    updateRestaurantDay: (day, patch) =>
-      setState((s) => {
-        const next = { ...s.restaurantHours, [day]: { ...s.restaurantHours[day], ...patch } };
-        const oid = ownerIdRef.current;
-        if (oid) cloudWrite("updateRestaurantDay", "Couldn't save your hours. Check your connection and try again.", () => saveRestaurantHours(oid, serializeRestaurantHoursConfig(next, s.mealPeriods, s.arrivalOffsets)));
-        return { ...s, restaurantHours: next };
-      }),
+    updateRestaurantDay: (day, patch) => {
+      const prevRestaurantHours = latestStateRef.current.restaurantHours;
+      const next = { ...prevRestaurantHours, [day]: { ...prevRestaurantHours[day], ...patch } };
+      setState((s) => ({ ...s, restaurantHours: next }));
+      const oid = ownerIdRef.current;
+      if (oid)
+        cloudWrite(
+          "updateRestaurantDay",
+          "Couldn't save your hours. Check your connection and try again.",
+          () => saveRestaurantHours(oid, serializeRestaurantHoursConfig(next, latestStateRef.current.mealPeriods, latestStateRef.current.arrivalOffsets)),
+          () => setState((s) => ({ ...s, restaurantHours: prevRestaurantHours })),
+        );
+    },
     setMealPeriods: (p) => {
+      const prevMealPeriods = latestStateRef.current.mealPeriods;
       setState((s) => ({ ...s, mealPeriods: p }));
       const oid = ownerIdRef.current;
-      if (oid) cloudWrite("setMealPeriods", "Couldn't save your meal periods. Check your connection and try again.", () => saveRestaurantHours(oid, serializeRestaurantHoursConfig(latestStateRef.current.restaurantHours, p, latestStateRef.current.arrivalOffsets)));
+      if (oid)
+        cloudWrite(
+          "setMealPeriods",
+          "Couldn't save your meal periods. Check your connection and try again.",
+          () => saveRestaurantHours(oid, serializeRestaurantHoursConfig(latestStateRef.current.restaurantHours, p, latestStateRef.current.arrivalOffsets)),
+          () => setState((s) => ({ ...s, mealPeriods: prevMealPeriods })),
+        );
     },
-    updateMealPeriod: (meal, patch) =>
-      setState((s) => {
-        const next = { ...s.mealPeriods, [meal]: { ...s.mealPeriods[meal], ...patch } };
-        const oid = ownerIdRef.current;
-        if (oid) cloudWrite("updateMealPeriod", "Couldn't save your meal periods. Check your connection and try again.", () => saveRestaurantHours(oid, serializeRestaurantHoursConfig(s.restaurantHours, next, s.arrivalOffsets)));
-        return { ...s, mealPeriods: next };
-      }),
+    updateMealPeriod: (meal, patch) => {
+      const prevMealPeriods = latestStateRef.current.mealPeriods;
+      const next = { ...prevMealPeriods, [meal]: { ...prevMealPeriods[meal], ...patch } };
+      setState((s) => ({ ...s, mealPeriods: next }));
+      const oid = ownerIdRef.current;
+      if (oid)
+        cloudWrite(
+          "updateMealPeriod",
+          "Couldn't save your meal periods. Check your connection and try again.",
+          () => saveRestaurantHours(oid, serializeRestaurantHoursConfig(latestStateRef.current.restaurantHours, next, latestStateRef.current.arrivalOffsets)),
+          () => setState((s) => ({ ...s, mealPeriods: prevMealPeriods })),
+        );
+    },
     setArrivalOffsets: (o) => {
+      const prevArrivalOffsets = latestStateRef.current.arrivalOffsets;
       setState((s) => ({ ...s, arrivalOffsets: o }));
       const oid = ownerIdRef.current;
-      if (oid) cloudWrite("setArrivalOffsets", "Couldn't save your arrival times. Check your connection and try again.", () => saveRestaurantHours(oid, serializeRestaurantHoursConfig(latestStateRef.current.restaurantHours, latestStateRef.current.mealPeriods, o)));
+      if (oid)
+        cloudWrite(
+          "setArrivalOffsets",
+          "Couldn't save your arrival times. Check your connection and try again.",
+          () => saveRestaurantHours(oid, serializeRestaurantHoursConfig(latestStateRef.current.restaurantHours, latestStateRef.current.mealPeriods, o)),
+          () => setState((s) => ({ ...s, arrivalOffsets: prevArrivalOffsets })),
+        );
     },
     setBusinessInfo: (info) => {
+      const prevBusinessInfo = latestStateRef.current.businessInfo;
       const clean = normalizeBusinessInfo(info);
       setState((s) => ({ ...s, businessInfo: clean }));
       const oid = ownerIdRef.current;
-      if (oid) cloudWrite("setBusinessInfo", "Couldn't save your restaurant info. Check your connection and try again.", () => saveBusinessInfo(oid, clean));
+      if (oid)
+        cloudWrite(
+          "setBusinessInfo",
+          "Couldn't save your restaurant info. Check your connection and try again.",
+          () => saveBusinessInfo(oid, clean),
+          () => setState((s) => ({ ...s, businessInfo: prevBusinessInfo })),
+        );
     },
     setOvertimeWarningHours: (hours) => {
+      const prevOvertimeWarningHours = latestStateRef.current.overtimeWarningHours;
       const clean = normalizeOvertimeWarningHours(hours);
       setState((s) => ({ ...s, overtimeWarningHours: clean }));
       const oid = ownerIdRef.current;
@@ -1612,39 +1653,43 @@ function cloudWrite(label: string, userMessage: string, run: () => Promise<unkno
           "setOvertimeWarningHours",
           "That setting couldn't be saved. Refresh and try again.",
           () => saveOvertimeWarningHours(oid, clean),
+          () => setState((s) => ({ ...s, overtimeWarningHours: prevOvertimeWarningHours })),
         );
       }
     },
     disabledRoles: state.disabledRoles,
-    setDisabledRoles: (roles) =>
-      setState((s) => {
-        const next = { ...s, disabledRoles: Array.from(new Set(roles)) };
-        persistRoleConfig(next.disabledRoles, next.customRoles);
-        return next;
-      }),
-    addCustomRole: (role) =>
-      setState((s) => {
-        if (s.customRoles.some((c) => c.name === role.name) || (BUILT_IN_ROLES as readonly string[]).includes(role.name)) {
-          return s;
-        }
-        const next = {
-          ...s,
-          customRoles: [...s.customRoles, role],
-          disabledRoles: s.disabledRoles.filter((r) => r !== role.name),
-        };
-        persistRoleConfig(next.disabledRoles, next.customRoles);
-        return next;
-      }),
-    removeCustomRole: (name) =>
-      setState((s) => {
-        const next = {
-          ...s,
-          customRoles: s.customRoles.filter((c) => c.name !== name),
-          disabledRoles: s.disabledRoles.filter((r) => r !== name),
-        };
-        persistRoleConfig(next.disabledRoles, next.customRoles);
-        return next;
-      }),
+    setDisabledRoles: (roles) => {
+      const prevDisabledRoles = latestStateRef.current.disabledRoles;
+      const prevCustomRoles = latestStateRef.current.customRoles;
+      const nextDisabled = Array.from(new Set(roles));
+      setState((s) => ({ ...s, disabledRoles: nextDisabled }));
+      persistRoleConfig(nextDisabled, prevCustomRoles, () =>
+        setState((s) => ({ ...s, disabledRoles: prevDisabledRoles, customRoles: prevCustomRoles })),
+      );
+    },
+    addCustomRole: (role) => {
+      const prevDisabledRoles = latestStateRef.current.disabledRoles;
+      const prevCustomRoles = latestStateRef.current.customRoles;
+      if (prevCustomRoles.some((c) => c.name === role.name) || (BUILT_IN_ROLES as readonly string[]).includes(role.name)) {
+        return;
+      }
+      const nextCustom = [...prevCustomRoles, role];
+      const nextDisabled = prevDisabledRoles.filter((r) => r !== role.name);
+      setState((s) => ({ ...s, customRoles: nextCustom, disabledRoles: nextDisabled }));
+      persistRoleConfig(nextDisabled, nextCustom, () =>
+        setState((s) => ({ ...s, disabledRoles: prevDisabledRoles, customRoles: prevCustomRoles })),
+      );
+    },
+    removeCustomRole: (name) => {
+      const prevDisabledRoles = latestStateRef.current.disabledRoles;
+      const prevCustomRoles = latestStateRef.current.customRoles;
+      const nextCustom = prevCustomRoles.filter((c) => c.name !== name);
+      const nextDisabled = prevDisabledRoles.filter((r) => r !== name);
+      setState((s) => ({ ...s, customRoles: nextCustom, disabledRoles: nextDisabled }));
+      persistRoleConfig(nextDisabled, nextCustom, () =>
+        setState((s) => ({ ...s, disabledRoles: prevDisabledRoles, customRoles: prevCustomRoles })),
+      );
+    },
 
     setCurrentUser: (u) => setState((s) => ({ ...s, currentUser: u })),
     approveJoinRequest: async (id) => {
