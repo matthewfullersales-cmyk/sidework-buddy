@@ -1240,6 +1240,52 @@ function TradesTab() {
   );
 }
 
+function CareersLinkCard() {
+  const { jobs } = useStore();
+  const { slug, loading } = useJoinUrl();
+  const origin = typeof window !== "undefined" ? window.location.origin : "https://86paper.com";
+  const url = slug ? `${origin}/careers/${slug}` : "";
+  const openJobCount = jobs.filter((j) => j.open === true).length;
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success("Link copied", { description: url });
+    } catch {
+      toast.message("Copy this link", { description: url });
+    }
+  };
+
+  return (
+    <Card className={slug ? undefined : "border-amber-500/40 bg-amber-500/5"}>
+      <CardHeader>
+        <CardTitle className="text-base">Your careers page</CardTitle>
+        <p className="mt-1 text-xs text-muted-foreground">One link for everything you have open. Put it in your Instagram bio, on the door, or at the bottom of an Indeed post — it always shows what's currently posted, so you never have to send a new one.</p>
+      </CardHeader>
+      <CardContent>
+        {loading ? (
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        ) : !slug ? (
+          <div className="space-y-1">
+            <p className="text-sm">Set your restaurant name in Settings to get your careers link.</p>
+            <p className="text-xs text-muted-foreground">Your careers link is built from your restaurant name.</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <code className="flex-1 min-w-0 truncate rounded-md border border-border bg-muted px-3 py-2 text-sm">{url}</code>
+              <Button size="sm" variant="outline" onClick={copy}><Copy className="mr-1.5 h-4 w-4" /> Copy</Button>
+            </div>
+            {openJobCount === 0 && (
+              <p className="text-sm text-muted-foreground">You have no open jobs right now, so anyone who opens this will see "No openings right now."</p>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function JobsTab() {
   // Simplest available refresh channel: both cards are siblings here, so a
   // counter bumped by the pipeline makes the slots card re-read.
