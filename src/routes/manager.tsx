@@ -111,6 +111,7 @@ function ManagerPage() {
   const { restaurantProfile, currentUser, setCurrentUser } = useStore();
   const [tab, setTab] = useState("dashboard");
   const { checking } = useRequireManagerAccess("/login");
+  const { profile } = useAuth();
   useEffect(() => {
     if (currentUser.type !== "manager") {
       setCurrentUser({ type: "manager", id: "owner" });
@@ -125,7 +126,6 @@ function ManagerPage() {
     );
   }
 
-  const { profile } = useAuth();
   return (
     <AppShell nav={[{ to: "/manager", label: "Dashboard", icon: <IconHome /> }]}>
       <PageHeader
