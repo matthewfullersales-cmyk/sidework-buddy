@@ -28,6 +28,10 @@ import {
   fetchRoleConfig,
   saveRoleConfig,
   createStaffInviteRow,
+  fetchOvertimeWarningHours,
+  saveOvertimeWarningHours,
+  DEFAULT_OVERTIME_WARNING_HOURS,
+  normalizeOvertimeWarningHours,
 } from "@/lib/employees-supabase";
 
 import {
@@ -711,6 +715,8 @@ interface Store {
   setArrivalOffsets: (o: ArrivalOffsets) => void;
   businessInfo: BusinessInfo;
   setBusinessInfo: (info: BusinessInfo) => void;
+  overtimeWarningHours: number;
+  setOvertimeWarningHours: (hours: number) => void;
   /** Derived: (built-in roles minus disabledRoles) + customRoles. Never stored. */
   activeRoles: Role[];
   /** Persisted EXCEPTIONS: built-in roles this restaurant turned off. */
@@ -1158,6 +1164,7 @@ function initialStoreState() {
     mealPeriods: defaultMealPeriods(),
     arrivalOffsets: defaultArrivalOffsets(),
     businessInfo: defaultBusinessInfo() as BusinessInfo,
+    overtimeWarningHours: DEFAULT_OVERTIME_WARNING_HOURS,
     // No snapshot: an empty disabledRoles means every built-in role is available.
     disabledRoles: [] as string[],
     customRoles: [] as CustomRole[],
