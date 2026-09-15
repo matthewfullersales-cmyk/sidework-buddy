@@ -274,7 +274,7 @@ export function PrintablePosterDialog({ restaurantName, url, qr, headline = "Sca
     const w = window.open("", "_blank", "width=800,height=1000");
     if (!w) return toast.error("Pop-up blocked");
     w.document.write(`
-      <html><head><title>86Paper Join Poster — ${restaurantName}</title>
+      <html><head><title>86Paper ${fileLabel} Poster — ${restaurantName}</title>
       <style>
         body { margin: 0; font-family: -apple-system, system-ui, sans-serif; color: #14532d; }
         .poster { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:48px 32px; text-align:center; min-height: 100vh; }
@@ -287,7 +287,7 @@ export function PrintablePosterDialog({ restaurantName, url, qr, headline = "Sca
         <div class="poster">
           <div class="brand">▤ 86Paper</div>
           <div class="restaurant">${restaurantName}</div>
-          <div class="headline">Scan to join our team on 86Paper</div>
+          <div class="headline">${headline}</div>
           <img src="${qr}" alt="QR" />
           <div class="url">${url}</div>
         </div>
@@ -305,7 +305,7 @@ export function PrintablePosterDialog({ restaurantName, url, qr, headline = "Sca
         <div ref={ref} className="rounded-xl border-2 border-border bg-white p-6 text-center text-foreground">
           <p className="text-lg font-bold tracking-tight">▤ 86Paper</p>
           <p className="text-sm text-muted-foreground">{restaurantName}</p>
-          <p className="mt-4 text-2xl font-extrabold leading-tight">Scan to join our team on 86Paper</p>
+          <p className="mt-4 text-2xl font-extrabold leading-tight">{headline}</p>
           <div className="mt-4 grid place-items-center">
             {qr && <img src={qr} alt="QR" className="h-56 w-56" />}
           </div>
