@@ -2015,6 +2015,8 @@ function cloudWrite(label: string, userMessage: string, run: () => Promise<unkno
         });
     },
     claimTrade: (tradeId, employeeId) => {
+      const prevTrades = latestStateRef.current.trades;
+      const prevShifts = latestStateRef.current.shifts;
       let sideEffects: { tradeId: string; approved: boolean; auto: boolean; shiftId: string } | null = null;
       setState((s) => {
         const trade = s.trades.find((t) => t.id === tradeId);
@@ -2043,17 +2045,29 @@ function cloudWrite(label: string, userMessage: string, run: () => Promise<unkno
       });
       if (sideEffects) {
         const { tradeId: tid, auto, shiftId } = sideEffects;
-        cloudWrite("claimTrade", "That shift pickup couldn't be saved. Refresh and check the trade board.", () =>
-          updateTradeRow(tid, {
-            claimedBy: employeeId,
-            status: auto ? "approved" : "pending_approval",
-            autoApproved: auto,
-            approvedBy: auto ? "auto" : undefined,
-            resolvedAt: auto ? new Date().toISOString() : undefined,
-          }),
+        // First write owns the whole optimistic change: if the claim itself
+        // never lands, both the trade and the reassigned shift go back.
+        cloudWrite(
+          "claimTrade",
+          "That shift pickup couldn't be saved. Refresh and check the trade board.",
+          () =>
+            updateTradeRow(tid, {
+              claimedBy: employeeId,
+              status: auto ? "approved" : "pending_approval",
+              autoApproved: auto,
+              approvedBy: auto ? "auto" : undefined,
+              resolvedAt: auto ? new Date().toISOString() : undefined,
+            }),
+          () => setState((s) => ({ ...s, trades: prevTrades, shifts: prevShifts })),
         );
         if (auto && /^[0-9a-f-]{36}$/i.test(shiftId)) {
-          cloudWrite("claimTrade:reassign", "The shift was picked up, but the schedule couldn't be updated. Refresh and check the schedule.", () => reassignShiftEmployee(shiftId, employeeId));
+          // The claim is already committed; only the schedule move is undone.
+          cloudWrite(
+            "claimTrade:reassign",
+            "The shift was picked up, but the schedule couldn't be updated. Refresh and check the schedule.",
+            () => reassignShiftEmployee(shiftId, employeeId),
+            () => setState((s) => ({ ...s, shifts: prevShifts })),
+          );
         }
       }
     },
