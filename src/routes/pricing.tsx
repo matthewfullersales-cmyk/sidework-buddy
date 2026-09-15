@@ -133,6 +133,14 @@ function CtaBlock() {
     );
   }
 
+  if (!profile) {
+    return (
+      <button type="button" className={PRIMARY_BUTTON} disabled>
+        Loading…
+      </button>
+    );
+  }
+
   if (profile.role !== "owner") {
     return (
       <div className="grid justify-items-start gap-3">
