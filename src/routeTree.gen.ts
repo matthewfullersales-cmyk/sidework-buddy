@@ -22,6 +22,7 @@ import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as CareersIndexRouteImport } from './routes/careers.index'
+import { Route as CareersSlugRouteImport } from './routes/careers.$slug'
 import { Route as JoinSlugRouteImport } from './routes/join.$slug'
 import { Route as StaffInviteTokenRouteImport } from './routes/staff-invite.$token'
 import { Route as ApiPublicStripeWebhookRouteImport } from './routes/api/public/stripe-webhook'
@@ -93,6 +94,11 @@ const CareersIndexRoute = CareersIndexRouteImport.update({
   path: '/careers/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CareersSlugRoute = CareersSlugRouteImport.update({
+  id: '/careers/$slug',
+  path: '/careers/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const JoinSlugRoute = JoinSlugRouteImport.update({
   id: '/join/$slug',
   path: '/join/$slug',
@@ -132,6 +138,7 @@ export interface FileRoutesByFullPath {
   '/privacy': typeof PrivacyRoute
   '/signup': typeof SignupRoute
   '/terms': typeof TermsRoute
+  '/careers/$slug': typeof CareersSlugRoute
   '/join/$slug': typeof JoinSlugRoute
   '/staff-invite/$token': typeof StaffInviteTokenRoute
   '/careers/': typeof CareersIndexRoute
@@ -152,6 +159,7 @@ export interface FileRoutesByTo {
   '/privacy': typeof PrivacyRoute
   '/signup': typeof SignupRoute
   '/terms': typeof TermsRoute
+  '/careers/$slug': typeof CareersSlugRoute
   '/join/$slug': typeof JoinSlugRoute
   '/staff-invite/$token': typeof StaffInviteTokenRoute
   '/careers': typeof CareersIndexRoute
@@ -173,6 +181,7 @@ export interface FileRoutesById {
   '/privacy': typeof PrivacyRoute
   '/signup': typeof SignupRoute
   '/terms': typeof TermsRoute
+  '/careers/$slug': typeof CareersSlugRoute
   '/join/$slug': typeof JoinSlugRoute
   '/staff-invite/$token': typeof StaffInviteTokenRoute
   '/careers/': typeof CareersIndexRoute
@@ -195,6 +204,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/signup'
     | '/terms'
+    | '/careers/$slug'
     | '/join/$slug'
     | '/staff-invite/$token'
     | '/careers/'
@@ -215,6 +225,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/signup'
     | '/terms'
+    | '/careers/$slug'
     | '/join/$slug'
     | '/staff-invite/$token'
     | '/careers'
@@ -235,6 +246,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/signup'
     | '/terms'
+    | '/careers/$slug'
     | '/join/$slug'
     | '/staff-invite/$token'
     | '/careers/'
@@ -256,6 +268,7 @@ export interface RootRouteChildren {
   PrivacyRoute: typeof PrivacyRoute
   SignupRoute: typeof SignupRoute
   TermsRoute: typeof TermsRoute
+  CareersSlugRoute: typeof CareersSlugRoute
   JoinSlugRoute: typeof JoinSlugRoute
   StaffInviteTokenRoute: typeof StaffInviteTokenRoute
   CareersIndexRoute: typeof CareersIndexRoute
@@ -357,6 +370,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CareersIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/careers/$slug': {
+      id: '/careers/$slug'
+      path: '/careers/$slug'
+      fullPath: '/careers/$slug'
+      preLoaderRoute: typeof CareersSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/join/$slug': {
       id: '/join/$slug'
       path: '/join/$slug'
@@ -408,6 +428,7 @@ const rootRouteChildren: RootRouteChildren = {
   PrivacyRoute: PrivacyRoute,
   SignupRoute: SignupRoute,
   TermsRoute: TermsRoute,
+  CareersSlugRoute: CareersSlugRoute,
   JoinSlugRoute: JoinSlugRoute,
   StaffInviteTokenRoute: StaffInviteTokenRoute,
   CareersIndexRoute: CareersIndexRoute,
