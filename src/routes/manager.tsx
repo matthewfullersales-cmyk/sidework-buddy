@@ -522,10 +522,15 @@ function TeamTab() {
         employees={employees}
         activeRoles={activeRoles}
         customRoles={customRoles}
-        onAssign={(id, role) => {
-          updateEmployee(id, { primaryRole: role, approvedRoles: [role] });
-          toast.success("Position assigned");
+        onAssign={async (id, role) => {
+          try {
+            await updateEmployee(id, { primaryRole: role, approvedRoles: [role] });
+            toast.success("Position assigned");
+          } catch {
+            toast.error("Couldn't assign that position. Refresh and try again.");
+          }
         }}
+
       />
 
 
