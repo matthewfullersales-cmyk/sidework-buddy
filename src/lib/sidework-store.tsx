@@ -2282,9 +2282,16 @@ function cloudWrite(label: string, userMessage: string, run: () => Promise<unkno
     },
 
     setRestaurantProfile: (profile) => {
+      const prevRestaurantProfile = latestStateRef.current.restaurantProfile;
       setState((s) => ({ ...s, restaurantProfile: profile }));
       const oid = ownerIdRef.current;
-      if (oid) cloudWrite("setRestaurantProfile", "Couldn't save your restaurant profile. Check your connection and try again.", () => saveRestaurantProfile(oid, profile));
+      if (oid)
+        cloudWrite(
+          "setRestaurantProfile",
+          "Couldn't save your restaurant profile. Check your connection and try again.",
+          () => saveRestaurantProfile(oid, profile),
+          () => setState((s) => ({ ...s, restaurantProfile: prevRestaurantProfile })),
+        );
     },
     markNotificationsRead: () =>
       setState((s) => ({ ...s, notifications: s.notifications.map((n) => ({ ...n, read: true })) })),
