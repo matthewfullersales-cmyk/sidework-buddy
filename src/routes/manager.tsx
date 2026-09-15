@@ -498,8 +498,24 @@ function TeamTab() {
       <StaffJoinBanner onShowQr={() => setShowQr(true)} />
       <PendingJoinRequestsQueue
         employees={pendingJoins}
-        onApprove={(id) => { approveJoinRequest(id); toast.success("Approved — they're on your team"); }}
-        onDecline={(id) => { declineJoinRequest(id); toast.success("Join request declined"); }}
+        onApprove={async (id) => {
+          try {
+            await approveJoinRequest(id);
+            toast.success("Approved — they're on your team");
+          } catch (e) {
+            console.error("[approve]", e);
+            toast.error(e instanceof Error ? e.message : "That person couldn't be approved. Refresh and try again.");
+          }
+        }}
+        onDecline={async (id) => {
+          try {
+            await declineJoinRequest(id);
+            toast.success("Join request declined");
+          } catch (e) {
+            console.error("[decline]", e);
+            toast.error(e instanceof Error ? e.message : "That request couldn't be declined. Refresh and try again.");
+          }
+        }}
       />
       <PendingRoleAssignmentQueue
         employees={employees}
@@ -733,6 +749,9 @@ function TeamTab() {
                     setOpen(false);
                     setForm({ firstName: "", lastName: "", email: "", phone: "", role: "Server" });
                     setInviteAvailability({});
+                  } catch (e) {
+                    console.error("[inviteEmployee]", e);
+                    toast.error(e instanceof Error ? e.message : "Couldn't create that invite. Refresh and try again.");
                   } finally {
                     setSending(false);
                   }
@@ -849,7 +868,13 @@ function TeamTab() {
                       size="sm"
                       onClick={async () => {
                         const displayName = e.firstName ?? e.name;
-                        await reactivateEmployee(e.id);
+                        try {
+                          await reactivateEmployee(e.id);
+                        } catch (e) {
+                          console.error("[reactivate]", e);
+                          toast.error(e instanceof Error ? e.message : "That person couldn't be reactivated. Refresh and try again.");
+                          return;
+                        }
                         let emailOk = false;
                         let emailErr: string | undefined;
                         try {
@@ -902,12 +927,18 @@ function TeamTab() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmArchive(null)}>Cancel</Button>
             <Button
-              onClick={() => {
+              onClick={async () => {
                 if (!confirmArchive) return;
                 const displayName = confirmArchive.firstName && confirmArchive.lastName ? `${confirmArchive.firstName} ${confirmArchive.lastName}` : confirmArchive.name;
-                archiveEmployee(confirmArchive.id);
-                setConfirmArchive(null);
-                toast.success(`${displayName} archived`);
+                try {
+                  await archiveEmployee(confirmArchive.id);
+                  setConfirmArchive(null);
+                  toast.success(`${displayName} archived`);
+                } catch (e) {
+                  console.error("[archive]", e);
+                  toast.error(e instanceof Error ? e.message : "That person couldn't be archived. Refresh and try again.");
+                  setConfirmArchive(null);
+                }
               }}
             >
               Archive
