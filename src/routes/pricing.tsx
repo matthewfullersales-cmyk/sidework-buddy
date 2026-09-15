@@ -55,15 +55,23 @@ const REPLACEMENTS = [
   ],
   [
     "A sticky note that says who's shadowing Thursday.",
-    "A shadow shift with the date, the door, the parking and what to wear.",
+    "A shadow shift with the date, where to come in, where to park and what to wear.",
   ],
   [
     "A printed schedule with three cross-outs on it.",
     "The schedule on their phone, current, the second you change it.",
   ],
   [
-    "A group chat where people beg for a cover.",
-    "Trades that come to you for a yes or a no.",
+    "A group chat to find someone to cover Friday, and no way to know who actually agreed.",
+    "They put the shift up, someone takes it, and nothing changes on your schedule until you say yes.",
+  ],
+  [
+    "A text at eleven at night asking for the 14th off.",
+    "A request that waits for your yes or no instead of getting lost.",
+  ],
+  [
+    "A note somewhere about who can't work Tuesdays, from whenever they told you.",
+    "Availability on file, and it only changes when you approve the change.",
   ],
   [
     "Adding up hours in your head to see who's close to 40.",
