@@ -2,7 +2,6 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 // Single self-serve plan (live mode): $99/month founding rate.
-// $149 is copy-only — there is no Stripe price object for it.
 const FOUNDING_PRICE_ID = "price_1TzK6vR8oYiccj052xSHe0PG"; // $99/mo
 
 type Plan = "growth";
@@ -38,7 +37,6 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       "line_items[0][quantity]": "1",
       success_url: `${data.origin}/onboarding?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${data.origin}/pricing`,
-      allow_promotion_codes: "true",
     });
     body.set("client_reference_id", userId);
     body.set("metadata[user_id]", userId);

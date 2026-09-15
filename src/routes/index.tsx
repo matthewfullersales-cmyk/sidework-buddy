@@ -35,7 +35,7 @@ const STEPS = [
   },
   {
     title: "Schedule the shadow shift.",
-    body: "They get the date, where to come in, where to park, who to ask for and what to wear.",
+    body: "They get the date, where to come in, where to park and what to wear.",
   },
   {
     title: "Hire them and put them on the schedule.",
@@ -49,12 +49,20 @@ function Marketing() {
       {/* NAV */}
       <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5 pt-[max(1.25rem,env(safe-area-inset-top))]">
         <Logo />
-        <Link
-          to="/login"
-          className="text-sm font-semibold text-stone-700 hover:text-stone-900"
-        >
-          Sign in
-        </Link>
+        <div className="flex gap-5">
+          <Link
+            to="/pricing"
+            className="text-sm font-semibold text-stone-700 hover:text-stone-900"
+          >
+            Pricing
+          </Link>
+          <Link
+            to="/login"
+            className="text-sm font-semibold text-stone-700 hover:text-stone-900"
+          >
+            Sign in
+          </Link>
+        </div>
       </header>
 
       {/* HERO */}
@@ -123,9 +131,17 @@ function Marketing() {
       {/* CLOSING */}
       <section className="border-t border-stone-200 bg-white">
         <div className="mx-auto max-w-3xl px-6 py-20 text-center">
-          <p className="text-xl leading-relaxed text-stone-700 md:text-2xl">
-            86Paper isn't open to new restaurants yet. If you want to be one of
-            the first, email{" "}
+          <h2 className="text-3xl font-bold tracking-tight md:text-4xl">
+            Post a job tonight. The rest is already set up.
+          </h2>
+          <Link
+            to="/pricing"
+            className="mt-8 inline-block rounded-lg border-2 border-stone-900 bg-stone-900 px-7 py-3.5 text-base font-bold text-amber-100 shadow-[3px_3px_0_0_rgba(23,23,23,1)] transition hover:translate-x-px hover:translate-y-px"
+          >
+            See pricing — $99/mo
+          </Link>
+          <p className="mt-6 text-base text-stone-600">
+            Questions first?{" "}
             <a
               href="mailto:hello@86paper.com"
               className="font-semibold text-amber-800 underline hover:text-stone-900"
