@@ -224,7 +224,7 @@ ${ctaButton(data.link!, "Finish setting up")}
   };
 }
 
-async function sendEmail(to: string, copy: Copy, restaurantName: string): Promise<{ ok: boolean; error?: string }> {
+async function sendEmail(to: string, copy: Copy, restaurantName: string, replyTo?: string): Promise<{ ok: boolean; error?: string }> {
   // Dynamic import keeps the .server module out of the client bundle.
   const { EMAIL_FROM_ADDRESS, sendResendEmail } = await import("./email.server");
   const from = `${restaurantName} via 86Paper <${EMAIL_FROM_ADDRESS}>`;
@@ -234,6 +234,7 @@ async function sendEmail(to: string, copy: Copy, restaurantName: string): Promis
     subject: copy.subject,
     text: copy.text,
     html: copy.html,
+    replyTo,
     logLabel: "applicant-notify email",
   });
 }
@@ -245,13 +246,23 @@ async function sendEmail(to: string, copy: Copy, restaurantName: string): Promis
 export const sendApplicantNotification = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => payloadSchema.parse(data))
-  .handler(async ({ data }): Promise<SendResult> => {
+  .handler(async ({ data, context }): Promise<SendResult> => {
     const copy = buildCopy(data);
     const email = (data.email ?? "").trim();
     const restaurant = data.restaurantName || "our restaurant";
 
+    // The signed-in person sent this, so replies should reach them. A missing
+    // claim simply means no Reply-To — never a reason to skip the send.
+    let replyTo: string | undefined;
+    try {
+      replyTo = (context.claims as { email?: string } | undefined)?.email;
+    } catch (e) {
+      console.error("[applicant-notify replyTo]", e);
+      replyTo = undefined;
+    }
+
     const emailRes = email
-      ? await sendEmail(email, copy, restaurant)
+      ? await sendEmail(email, copy, restaurant, replyTo)
       : { ok: false, error: "no email" };
 
     return {
@@ -320,10 +331,32 @@ export const sendInterviewConfirmedByToken = createServerFn({ method: "POST" })
       hasOpenSlots: false,
     });
 
+    // Nobody triggered this directly (token-only), so replies go to the owner.
+    // Any failure here is logged and the email still goes out without Reply-To.
+    let replyTo: string | undefined;
+    try {
+      const { data: ivRows, error: ivErr } = await supabaseAdmin
+        .from("interviews")
+        .select("owner_id")
+        .eq("public_token", data.token)
+        .maybeSingle();
+      if (ivErr) throw ivErr;
+      const ownerId = ivRows?.owner_id;
+      if (ownerId) {
+        const { data: userRes, error: userErr } = await supabaseAdmin.auth.admin.getUserById(ownerId);
+        if (userErr) throw userErr;
+        replyTo = userRes?.user?.email ?? undefined;
+      }
+    } catch (e) {
+      console.error("[interview-confirmed replyTo]", e);
+      replyTo = undefined;
+    }
+
     const emailResult = await sendEmail(
       row.email,
       copy,
       row.restaurant_name ?? "our restaurant",
+      replyTo,
     );
 
     return {

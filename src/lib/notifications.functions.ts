@@ -109,7 +109,7 @@ function escapeHtml(value: string): string {
 }
 
 async function sendNotifEmail(args: {
-  to: string; title: string; body: string; url?: string;
+  to: string; title: string; body: string; url?: string; replyTo?: string;
 }): Promise<{ ok: boolean; error?: string }> {
   // Dynamic import keeps the .server module out of the client bundle.
   const { EMAIL_FROM_ADDRESS, sendResendEmail } = await import("./email.server");
@@ -127,6 +127,7 @@ async function sendNotifEmail(args: {
     subject: args.title,
     text,
     html,
+    replyTo: args.replyTo,
     logLabel: "fanOut email",
   });
 }
@@ -227,9 +228,20 @@ async function fanOut(args: {
   let emailsSent = 0;
   const emailTargets = empList.filter((e) => needsEmail.has(e.id) && e.email);
   if (emailTargets.length > 0) {
+    // Resolve the owner's address ONCE, not per recipient. A failure here
+    // means no Reply-To — it must never stop the notifications going out.
+    let replyTo: string | undefined;
+    try {
+      const { data: ownerRes, error: ownerErr } = await supabaseAdmin.auth.admin.getUserById(args.ownerId);
+      if (ownerErr) throw ownerErr;
+      replyTo = ownerRes?.user?.email ?? undefined;
+    } catch (e) {
+      console.error("[fanOut replyTo]", e);
+      replyTo = undefined;
+    }
     const results = await Promise.allSettled(
       emailTargets.map((e) =>
-        sendNotifEmail({ to: e.email as string, title: args.title, body: args.body, url: args.url })
+        sendNotifEmail({ to: e.email as string, title: args.title, body: args.body, url: args.url, replyTo })
       )
     );
     emailsSent = results.filter((r) => r.status === "fulfilled" && r.value.ok).length;

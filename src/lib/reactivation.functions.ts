@@ -68,7 +68,7 @@ If you weren't expecting this, you can ignore this message.`;
 }
 
 async function sendEmailViaResend(args: {
-  to: string; firstName: string; restaurantName: string; signInUrl: string; senderName: string;
+  to: string; firstName: string; restaurantName: string; signInUrl: string; senderName: string; replyTo?: string;
 }): Promise<{ ok: boolean; error?: string }> {
   // Dynamic import keeps the .server module out of the client bundle.
   const { EMAIL_FROM_ADDRESS, sendResendEmail } = await import("./email.server");
@@ -83,6 +83,7 @@ async function sendEmailViaResend(args: {
     subject,
     text: body.text,
     html: body.html,
+    replyTo: args.replyTo,
     logLabel: "reactivation email",
   });
 }
@@ -94,7 +95,16 @@ async function sendEmailViaResend(args: {
 export const sendReactivationEmail = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => payloadSchema.parse(data))
-  .handler(async ({ data }): Promise<SendResult> => {
+  .handler(async ({ data, context }): Promise<SendResult> => {
+    // Replies go to whoever reactivated them. No claim, no Reply-To — the
+    // email still sends.
+    let replyTo: string | undefined;
+    try {
+      replyTo = (context.claims as { email?: string } | undefined)?.email;
+    } catch (e) {
+      console.error("[reactivation replyTo]", e);
+      replyTo = undefined;
+    }
     const email = (data.email ?? "").trim();
     const emailRes = email
       ? await sendEmailViaResend({
@@ -103,6 +113,7 @@ export const sendReactivationEmail = createServerFn({ method: "POST" })
           restaurantName: (data.restaurantName ?? "").trim(),
           signInUrl: data.signInUrl,
           senderName: (data.senderName ?? "").trim() || "86Paper",
+          replyTo,
         })
       : { ok: false, error: "no email" };
 
