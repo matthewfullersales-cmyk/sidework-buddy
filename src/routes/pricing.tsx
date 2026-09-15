@@ -37,7 +37,7 @@ const FEATURES = [
   ["Interview times", " you're actually free for"],
   ["Shadow shifts", " with a packet they can read first"],
   ["The emails sent for you", " — offers, confirmations, reschedules"],
-  ["Onboarding", " that finishes before day one"],
+  ["A QR code for the break room", " — your crew scans it and they're on"],
   ["The schedule", ", on their phone, current"],
   ["Availability, time off and trades", " that come to you"],
   ["Weekly hours", " flagged before anyone hits overtime"],
@@ -55,15 +55,23 @@ const REPLACEMENTS = [
   ],
   [
     "A sticky note that says who's shadowing Thursday.",
-    "A shadow shift with the date, the door, the parking and what to wear.",
+    "A shadow shift with the date, where to come in, where to park and what to wear.",
   ],
   [
     "A printed schedule with three cross-outs on it.",
     "The schedule on their phone, current, the second you change it.",
   ],
   [
-    "A group chat where people beg for a cover.",
-    "Trades that come to you for a yes or a no.",
+    "A group chat to find someone to cover Friday, and no way to know who actually agreed.",
+    "They put the shift up, someone takes it, and nothing changes on your schedule until you say yes.",
+  ],
+  [
+    "A text at eleven at night asking for the 14th off.",
+    "A request that waits for your yes or no instead of getting lost.",
+  ],
+  [
+    "A note somewhere about who can't work Tuesdays, from whenever they told you.",
+    "Availability on file, and it only changes when you approve the change.",
   ],
   [
     "Adding up hours in your head to see who's close to 40.",
@@ -259,11 +267,11 @@ function PricingPage() {
               What it replaces
             </p>
             <h2 className="mt-4 text-3xl font-bold tracking-tight md:text-4xl">
-              Six places become one.
+              Eight places become one.
             </h2>
             <p className="mt-4 max-w-2xl text-lg text-stone-700">
               Nothing here is new work. It's the work you already do, in one flow
-              instead of six.
+              instead of eight.
             </p>
             <div className="mt-10 overflow-hidden rounded-2xl border-2 border-stone-900 shadow-[4px_4px_0_0_rgba(23,23,23,1)]">
               <div className="hidden bg-stone-900 sm:grid sm:grid-cols-2">
@@ -311,8 +319,7 @@ function PricingPage() {
                 one you need on a Friday night.
               </p>
               <p className="mt-5">
-                This does the part between a person applying and that person working
-                a shift — and it does the whole of it.
+                The application, the interview, the shadow shift, the hire, the schedule they land on. Not most of it. All of it.
               </p>
             </div>
           </div>
@@ -340,16 +347,12 @@ function PricingPage() {
         <section className="bg-[#faf7f2]">
           <div className="mx-auto max-w-3xl px-6 py-20 text-center">
             <h2 className="text-3xl font-bold tracking-tight md:text-4xl">
-              Post a job tonight. The rest is already set up.
+              Everything from “we’re hiring” to “you’re on Friday.”
             </h2>
             <div className="mt-8 flex justify-center text-left">
               <CtaBlock />
             </div>
-            <p className="mt-8 text-stone-500">
-              Built in Rochester, New York by someone who spent twenty years
-              working in restaurants.
-            </p>
-            <p className="mt-4 text-sm text-stone-600">
+            <p className="mt-8 text-sm text-stone-600">
               Questions first?{" "}
               <a
                 href="mailto:hello@86paper.com"
