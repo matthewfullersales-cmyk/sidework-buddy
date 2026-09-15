@@ -73,7 +73,10 @@ export async function approveEmployeeRow(id: string): Promise<void> {
   const { error } = await supabase.rpc("approve_pending_person" as never, {
     p_person_id: id,
   } as never);
-  if (error) throw error;
+  if (error) {
+    console.error("[approveEmployeeRow]", error);
+    throw new Error("That person couldn't be approved. Refresh and try again.");
+  }
 }
 
 
