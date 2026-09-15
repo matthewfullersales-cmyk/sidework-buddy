@@ -410,6 +410,7 @@ export type Database = {
           id: string
           interview_interval_minutes: number | null
           menu_test_config: Json
+          overtime_warning_hours: number | null
           prior_slugs: string[]
           restaurant_hours: Json | null
           restaurant_name: string | null
@@ -433,6 +434,7 @@ export type Database = {
           id: string
           interview_interval_minutes?: number | null
           menu_test_config?: Json
+          overtime_warning_hours?: number | null
           prior_slugs?: string[]
           restaurant_hours?: Json | null
           restaurant_name?: string | null
@@ -456,6 +458,7 @@ export type Database = {
           id?: string
           interview_interval_minutes?: number | null
           menu_test_config?: Json
+          overtime_warning_hours?: number | null
           prior_slugs?: string[]
           restaurant_hours?: Json | null
           restaurant_name?: string | null
