@@ -1539,18 +1539,19 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
  *
  * A write that silently fails is worse than one that fails loudly: the screen
  * keeps showing a change the database never received. `rollback` is what puts
- * the screen back to the truth — supply it at every call site.
+ * the screen back to the truth — it is required at every call site, so a write
+ * that forgets to handle its own failure will not compile.
  */
 function cloudWrite(
   label: string,
   userMessage: string,
   run: () => Promise<unknown>,
-  rollback?: () => void,
+  rollback: () => void,
 ): void {
   run().catch((e) => {
     console.error(`[${label}]`, e);
     try {
-      rollback?.();
+      rollback();
     } catch (rollbackError) {
       console.error(`[${label}] rollback failed`, rollbackError);
     }
