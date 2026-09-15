@@ -45,6 +45,7 @@ export const Route = createFileRoute("/api/public/stripe-webhook")({
                 .update(
                   {
                     subscription_status: "active",
+                    subscription_cancel_at_period_end: false,
                     stripe_customer_id: (s.customer as string) ?? null,
                     stripe_subscription_id: (s.subscription as string) ?? null,
                   },
@@ -71,6 +72,7 @@ export const Route = createFileRoute("/api/public/stripe-webhook")({
                 : null;
               const patch = {
                 subscription_status: status,
+                subscription_cancel_at_period_end: event.type === "customer.subscription.deleted" ? false : !!sub.cancel_at_period_end,
                 stripe_subscription_id: sub.id,
                 stripe_customer_id: (sub.customer as string) ?? null,
                 subscription_current_period_end: periodEnd,
@@ -199,5 +201,6 @@ type StripeSubscription = {
   status: string;
   customer?: string | null;
   current_period_end?: number | null;
+  cancel_at_period_end?: boolean | null;
   metadata?: Record<string, string | undefined>;
 };

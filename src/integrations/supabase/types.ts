@@ -420,6 +420,7 @@ export type Database = {
           slug: string | null
           stripe_customer_id: string | null
           stripe_subscription_id: string | null
+          subscription_cancel_at_period_end: boolean
           subscription_current_period_end: string | null
           subscription_status: string
           updated_at: string
@@ -444,6 +445,7 @@ export type Database = {
           slug?: string | null
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
+          subscription_cancel_at_period_end?: boolean
           subscription_current_period_end?: string | null
           subscription_status?: string
           updated_at?: string
@@ -468,6 +470,7 @@ export type Database = {
           slug?: string | null
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
+          subscription_cancel_at_period_end?: boolean
           subscription_current_period_end?: string | null
           subscription_status?: string
           updated_at?: string
