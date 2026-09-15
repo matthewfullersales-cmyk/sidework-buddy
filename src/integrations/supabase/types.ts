@@ -1286,6 +1286,18 @@ export type Database = {
           restaurant_name: string
         }[]
       }
+      get_public_jobs_by_slug: {
+        Args: { p_slug: string }
+        Returns: {
+          description: string
+          job_id: string
+          job_type: string
+          pay_range: string
+          posted_at: string
+          restaurant_name: string
+          title: string
+        }[]
+      }
       get_public_join_restaurant: {
         Args: { p_slug: string }
         Returns: {
