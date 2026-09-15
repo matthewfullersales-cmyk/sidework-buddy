@@ -65,7 +65,7 @@ export function useJoinUrl() {
 }
 
 
-function useQrDataUrl(value: string, size = 512) {
+export function useQrDataUrl(value: string, size = 512) {
   const [src, setSrc] = useState<string>("");
   useEffect(() => {
     let cancelled = false;
@@ -268,7 +268,7 @@ export function FullscreenQrDialog({ onClose }: { onClose: () => void }) {
   );
 }
 
-function PrintablePosterDialog({ restaurantName, url, qr, onClose }: { restaurantName: string; url: string; qr: string; onClose: () => void }) {
+export function PrintablePosterDialog({ restaurantName, url, qr, headline = "Scan to join our team on 86Paper", fileLabel = "Join", onClose }: { restaurantName: string; url: string; qr: string; headline?: string; fileLabel?: string; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
   const printNow = () => {
     const w = window.open("", "_blank", "width=800,height=1000");
