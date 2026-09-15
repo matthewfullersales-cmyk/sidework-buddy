@@ -40,10 +40,10 @@ import { AvailabilitySummary, hasAnyAvailability } from "@/components/sidework/A
 import { AvailabilityPicker, type PartialWeekly } from "@/components/sidework/AvailabilityPicker";
 import { fetchShadowPacket, saveShadowPacket, emptyShadowPacket, type ShadowPacket } from "@/lib/employees-supabase";
 import { defaultDressGroupForRole } from "@/lib/shadow-packet-roles";
-import { StaffJoinBanner, FullscreenQrDialog, StaffOnboardingCard, useJoinUrl } from "@/components/sidework/StaffOnboarding";
+import { StaffJoinBanner, FullscreenQrDialog, StaffOnboardingCard, useJoinUrl, useQrDataUrl, PrintablePosterDialog } from "@/components/sidework/StaffOnboarding";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
-import { ChevronDown, Check, CalendarIcon, Copy } from "lucide-react";
+import { ChevronDown, Check, CalendarIcon, Copy, Download, Printer } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { useAuth } from "@/lib/auth-context";
@@ -1242,9 +1242,11 @@ function TradesTab() {
 
 function CareersLinkCard() {
   const { jobs } = useStore();
-  const { slug, loading } = useJoinUrl();
+  const { slug, loading, restaurantName } = useJoinUrl();
   const origin = typeof window !== "undefined" ? window.location.origin : "https://86paper.com";
   const url = slug ? `${origin}/careers/${slug}` : "";
+  const qr = useQrDataUrl(url, 512);
+  const [showPoster, setShowPoster] = useState(false);
   const openJobCount = jobs.filter((j) => j.open === true).length;
 
   const copy = async () => {
