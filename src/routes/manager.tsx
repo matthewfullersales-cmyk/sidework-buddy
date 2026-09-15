@@ -125,12 +125,23 @@ function ManagerPage() {
     );
   }
 
+  const { profile } = useAuth();
   return (
     <AppShell nav={[{ to: "/manager", label: "Dashboard", icon: <IconHome /> }]}>
       <PageHeader
         title={restaurantProfile?.name ? `${restaurantProfile.name} — Dashboard` : "Manager Dashboard"}
         subtitle="Onboarding, schedule, and trades at a glance."
       />
+      {profile?.subscription_status === "past_due" && (
+        <Card className="border-amber-500/40 bg-amber-500/5">
+          <CardContent className="p-4">
+            <p className="text-sm font-semibold">Your last payment didn't go through.</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              We're retrying it. Update your card in Settings → Billing to keep your account open — you still have full access for now.
+            </p>
+          </CardContent>
+        </Card>
+      )}
       <ManagerTabs tab={tab} setTab={setTab} />
     </AppShell>
   );
