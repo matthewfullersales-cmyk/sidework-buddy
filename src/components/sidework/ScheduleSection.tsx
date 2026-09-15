@@ -15,7 +15,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { useStore, isPendingJoin, isArchivedEmployee, sectionForRole, type Role, type Shift, type Section, type Meal, DAY_KEYS, isAvailableFor, halfForShiftStart, halfForAvailability, mealForShiftStart, suggestedShiftTimes, hoursConfigured, isPendingRoleAssignment } from "@/lib/sidework-store";
 import { toast } from "sonner";
 import { notifyScheduleChanged } from "@/lib/notifications.functions";
-import { formatTime12h } from "@/lib/utils";
+import { formatTime12h, shiftHours, formatHours } from "@/lib/utils";
+import { OVERTIME_LINE_HOURS } from "@/lib/employees-supabase";
 
 import { STATUS_COLORS, contrastText } from "@/lib/role-colors";
 
@@ -64,7 +65,7 @@ function fmtRange(start: Date) {
 
 
 export function ScheduleSection() {
-  const { shifts, employees: allEmployees, customRoles, timeOff, upsertShift, deleteShift, applyRemoteShiftUpsert, applyRemoteShiftDelete } = useStore();
+  const { shifts, employees: allEmployees, customRoles, timeOff, upsertShift, deleteShift, applyRemoteShiftUpsert, applyRemoteShiftDelete, overtimeWarningHours } = useStore();
   // Pending self-joins are not staff yet — never schedulable.
   const employees = useMemo(() => allEmployees.filter((e) => !isPendingJoin(e) && !isArchivedEmployee(e)), [allEmployees]);
 
@@ -125,6 +126,19 @@ export function ScheduleSection() {
     [weekStart],
   );
   const dayISOs = days.map(fmtISO);
+
+  // Scheduled hours per person for the displayed week, summed across EVERY
+  // position. The grid groups rows by position and one person can appear in
+  // several groups, so a per-row sum would undercount their actual week.
+  const weekHoursByEmployee = useMemo(() => {
+    const totals = new Map<string, number>();
+    const inWeek = new Set(days.map(fmtISO));
+    for (const s of shifts) {
+      if (!inWeek.has(s.date)) continue;
+      totals.set(s.employeeId, (totals.get(s.employeeId) ?? 0) + shiftHours(s.start, s.end));
+    }
+    return totals;
+  }, [shifts, days]);
 
 
   const timeOffStatusFor = (empId: string, date: string): "approved" | "pending" | null => {
@@ -388,13 +402,29 @@ export function ScheduleSection() {
                           {group.position} ({group.people.length})
                         </td>
                       </tr>
-                      {group.people.map((emp) => (
+                      {group.people.map((emp) => {
+                        const weekHours = weekHoursByEmployee.get(emp.id) ?? 0;
+                        const overLine = weekHours > OVERTIME_LINE_HOURS;
+                        const nearLine = !overLine && weekHours >= overtimeWarningHours;
+                        return (
                         <tr key={emp.id}>
                           <td className="sticky left-0 z-10 bg-card border-b border-r border-border p-2 w-48">
                             <div className="min-w-0">
                               <p className="text-xs font-semibold truncate">{emp.name}</p>
                               <p className="text-[10px] text-muted-foreground truncate">
                                 {emp.primaryRole}
+                              </p>
+                              <p
+                                className={`text-[10px] tabular-nums ${
+                                  overLine
+                                    ? "font-semibold text-destructive"
+                                    : nearLine
+                                      ? "font-semibold text-warning"
+                                      : "text-muted-foreground"
+                                }`}
+                                title="Scheduled hours for this week, across all positions. Close shifts often run longer than scheduled, so treat this as a minimum."
+                              >
+                                {formatHours(weekHours)} hrs scheduled
                               </p>
                             </div>
                           </td>
