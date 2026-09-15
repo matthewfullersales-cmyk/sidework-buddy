@@ -1843,7 +1843,8 @@ function cloudWrite(label: string, userMessage: string, run: () => Promise<unkno
         ...s,
         restaurantProfile: s.restaurantProfile ? { ...s.restaurantProfile, slug } : s.restaurantProfile,
       })),
-    updateEmployee: (id, patch) => {
+    updateEmployee: async (id, patch) => {
+      const prevEmployees = latestStateRef.current.employees;
       setState((s) => {
         const employees = s.employees.map((e) => (e.id === id ? { ...e, ...patch } : e));
         // Menu-test notification on role change is intentionally inert: the
@@ -1853,8 +1854,17 @@ function cloudWrite(label: string, userMessage: string, run: () => Promise<unkno
       });
 
       const oid = ownerIdRef.current;
-      if (oid) cloudWrite("updateEmployee", "Those changes couldn't be saved. Refresh and try again.", () => updateEmployeeRow(id, patch));
+      if (oid) {
+        try {
+          await updateEmployeeRow(id, patch);
+        } catch (e) {
+          console.error("[updateEmployee]", e);
+          setState((s) => ({ ...s, employees: prevEmployees }));
+          throw e;
+        }
+      }
     },
+
     applyQuizAttemptResult: (employeeId, videoId, result) => {
 
       const { score, passed, attempts, distractionFlagged, bankVersion } = result;
