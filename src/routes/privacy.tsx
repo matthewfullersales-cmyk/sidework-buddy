@@ -110,7 +110,7 @@ function PrivacyPage() {
 
           <h2 className="mt-10 text-xl font-semibold tracking-tight">Security</h2>
           <p className="mb-4 leading-relaxed">
-            Access to restaurant data is restricted at the database level so that one restaurant cannot see another's records, and staff accounts can see only their own information and their own schedule. Passwords are stored by our authentication provider in hashed form and are never visible to us. No system is perfectly secure, and we cannot guarantee that information will never be accessed improperly.
+            Access to restaurant data is restricted at the database level so that one restaurant cannot see another's records. A staff account can see its own record and its own shifts, plus any shift a colleague at the same restaurant has posted to the trade board, and nothing else. Passwords are stored by our authentication provider in hashed form and are never visible to us. No system is perfectly secure, and we cannot guarantee that information will never be accessed improperly.
           </p>
 
           <h2 className="mt-10 text-xl font-semibold tracking-tight">People under 18</h2>
@@ -120,7 +120,7 @@ function PrivacyPage() {
 
           <h2 className="mt-10 text-xl font-semibold tracking-tight">Cookies and local storage</h2>
           <p className="mb-4 leading-relaxed">
-            86Paper uses browser storage only to run the service: keeping you signed in, and remembering settings such as which tab you were last on. We do not use advertising cookies and we do not run third-party advertising or tracking scripts. Our hosting provider keeps standard server request logs.
+            86Paper uses browser storage only to run the service: keeping you signed in, and remembering settings such as which tab you were last on. We do not use advertising cookies, and we do not run advertising or marketing tracking scripts of our own. Our hosting provider keeps standard server request logs and may collect basic, aggregated usage statistics about the site.
           </p>
 
           <h2 className="mt-10 text-xl font-semibold tracking-tight">Changes to this policy</h2>
