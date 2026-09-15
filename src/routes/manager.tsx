@@ -1215,8 +1215,23 @@ function TradesTab() {
         </div>
         {t.status === "pending_approval" && (
           <div className="flex gap-2">
-            <Button size="sm" variant="outline" onClick={() => { resolveTrade(t.id, false); toast.message("Trade denied"); }}>Deny</Button>
-            <Button size="sm" onClick={() => { resolveTrade(t.id, true); toast.success("Trade approved"); }}>Approve</Button>
+            <Button size="sm" variant="outline" onClick={async () => {
+              try {
+                await resolveTrade(t.id, false);
+                toast.message("Trade denied");
+              } catch {
+                toast.error("Couldn't deny that trade. Refresh and try again.");
+              }
+            }}>Deny</Button>
+            <Button size="sm" onClick={async () => {
+              try {
+                await resolveTrade(t.id, true);
+                toast.success("Trade approved");
+              } catch {
+                toast.error("Couldn't approve that trade. Refresh and try again.");
+              }
+            }}>Approve</Button>
+
           </div>
         )}
         {t.status !== "pending_approval" && (
