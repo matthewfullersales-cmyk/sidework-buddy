@@ -1987,10 +1987,16 @@ function cloudWrite(label: string, userMessage: string, run: () => Promise<unkno
       });
     },
     deleteShift: (id) => {
+      const prevShifts = latestStateRef.current.shifts;
       setState((s) => ({ ...s, shifts: s.shifts.filter((x) => x.id !== id) }));
       // Only bother deleting from cloud if id looks like a uuid (already persisted).
       if (/^[0-9a-f-]{36}$/i.test(id)) {
-        cloudWrite("deleteShift", "That shift couldn't be deleted. Refresh and check the schedule — it may still be there.", () => deleteShiftRow(id));
+        cloudWrite(
+          "deleteShift",
+          "That shift couldn't be deleted. Refresh and check the schedule — it may still be there.",
+          () => deleteShiftRow(id),
+          () => setState((s) => ({ ...s, shifts: prevShifts })),
+        );
       }
     },
     postTrade: (shiftId, note) => {
