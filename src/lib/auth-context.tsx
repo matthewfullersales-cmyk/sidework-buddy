@@ -16,6 +16,8 @@ export type Profile = {
   restaurant_name: string | null;
   employee_id: string | null;
   subscription_status: string | null;
+  subscription_current_period_end: string | null;
+  subscription_cancel_at_period_end: boolean | null;
 };
 
 export type EffectiveOwner = {
@@ -58,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!uid) { setProfile(null); setProfileError(null); return; }
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, role, full_name, restaurant_name, employee_id, subscription_status")
+      .select("id, role, full_name, restaurant_name, employee_id, subscription_status, subscription_current_period_end, subscription_cancel_at_period_end")
       .eq("id", uid)
       .maybeSingle();
     if (error) {

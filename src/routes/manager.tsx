@@ -50,6 +50,7 @@ import { useAuth } from "@/lib/auth-context";
 // (removed) team-permissions registry — single-login owner model.
 import { cn, formatTime12h } from "@/lib/utils";
 import { useServerFn } from "@tanstack/react-start";
+import { createBillingPortalSession } from "@/lib/billing-portal.functions";
 
 type TeamSortKey =
   | "firstNameAsc" | "firstNameDesc"
@@ -1676,6 +1677,62 @@ function OvertimeWarningCard() {
   );
 }
 
+function BillingCard() {
+  const { profile } = useAuth();
+  const portal = useServerFn(createBillingPortalSession);
+  const [billingBusy, setBillingBusy] = useState(false);
+  const openBilling = async () => {
+    setBillingBusy(true);
+    try {
+      const { url } = await portal({ data: { origin: window.location.origin } });
+      window.location.href = url;
+    } catch (e) {
+      console.error("[settings] billing portal", e);
+      setBillingBusy(false);
+      toast.error(e instanceof Error ? e.message : "Couldn't open billing. Please try again.");
+    }
+  };
+
+  let status = "No active subscription.";
+  if (
+    profile?.subscription_status === "active" &&
+    profile.subscription_cancel_at_period_end &&
+    profile.subscription_current_period_end
+  ) {
+    const endDate = new Date(profile.subscription_current_period_end).toLocaleDateString("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
+    status = `Cancelled. You have access until ${endDate}.`;
+  } else if (profile?.subscription_status === "active") {
+    status = "Active — $99/month per restaurant.";
+  } else if (profile?.subscription_status === "past_due") {
+    status = "Payment failed. Update your card to keep your account open.";
+  } else if (profile?.subscription_status === "canceled") {
+    status = "Cancelled.";
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Billing</CardTitle>
+      </CardHeader>
+      <CardContent className="grid gap-3">
+        <p className="text-sm">{status}</p>
+        <div>
+          <Button variant="outline" onClick={openBilling} disabled={billingBusy}>
+            {billingBusy ? "Opening…" : "Manage billing"}
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Update your card, see past invoices, or cancel. Cancelling keeps your access until the end of the month you've already paid for.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
 function SettingsTab() {
   const { restaurantProfile, setRestaurantProfile, restaurantHours, updateRestaurantDay, mealPeriods, updateMealPeriod, businessInfo, setBusinessInfo, overtimeWarningHours, setOvertimeWarningHours } = useStore();
   const configured = hoursConfigured(restaurantHours, mealPeriods);
@@ -1746,6 +1803,7 @@ function SettingsTab() {
       <ShadowPacketCard />
       {sectionLabel("Staff access")}
       <StaffOnboardingCard />
+      <BillingCard />
     </div>
   );
 }

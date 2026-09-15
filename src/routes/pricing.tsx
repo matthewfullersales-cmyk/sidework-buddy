@@ -266,7 +266,7 @@ function PricingPage() {
               instead of six.
             </p>
             <div className="mt-10 overflow-hidden rounded-2xl border-2 border-stone-900 shadow-[4px_4px_0_0_rgba(23,23,23,1)]">
-              <div className="grid bg-stone-900 sm:grid-cols-2">
+              <div className="hidden bg-stone-900 sm:grid sm:grid-cols-2">
                 <div className="px-5 py-4 text-sm font-bold text-stone-300">
                   Right now
                 </div>
@@ -279,8 +279,12 @@ function PricingPage() {
                   key={before}
                   className="grid border-t border-stone-200 sm:grid-cols-2"
                 >
-                  <div className="bg-white px-5 py-5 text-stone-500">{before}</div>
+                  <div className="bg-white px-5 py-5 text-stone-500">
+                    <span className="mb-1 block text-xs font-bold uppercase tracking-widest text-stone-400 sm:hidden">Right now</span>
+                    {before}
+                  </div>
                   <div className="border-t border-stone-200 bg-[#fffdfa] px-5 py-5 font-semibold text-stone-900 sm:border-t-0 sm:border-l">
+                    <span className="mb-1 block text-xs font-bold uppercase tracking-widest text-amber-700 sm:hidden">In 86Paper</span>
                     {after}
                   </div>
                 </div>
