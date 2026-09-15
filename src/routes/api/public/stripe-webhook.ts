@@ -67,9 +67,13 @@ export const Route = createFileRoute("/api/public/stripe-webhook")({
               const sub = event.data.object as StripeSubscription;
               const userId = sub.metadata?.user_id;
               const status = mapSubStatus(sub.status, event.type === "customer.subscription.deleted");
-              const periodEnd = sub.current_period_end
-                ? new Date(sub.current_period_end * 1000).toISOString()
-                : null;
+              // Stripe moved `current_period_end` off the Subscription object and onto each
+              // subscription item in API version 2025-03-31.basil. Read the item first; fall
+              // back to the legacy top-level field so older payloads still work.
+              const periodEndUnix =
+                sub.items?.data?.find((item) => typeof item?.current_period_end === "number")
+                  ?.current_period_end ?? sub.current_period_end ?? null;
+              const periodEnd = periodEndUnix ? new Date(periodEndUnix * 1000).toISOString() : null;
               const patch = {
                 subscription_status: status,
                 subscription_cancel_at_period_end: event.type === "customer.subscription.deleted" ? false : !!sub.cancel_at_period_end,
@@ -203,5 +207,6 @@ type StripeSubscription = {
   customer?: string | null;
   current_period_end?: number | null;
   cancel_at_period_end?: boolean | null;
+  items?: { data?: Array<{ current_period_end?: number | null }> } | null;
   metadata?: Record<string, string | undefined>;
 };
