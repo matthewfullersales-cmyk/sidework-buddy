@@ -754,11 +754,11 @@ interface Store {
   updateEmployee: (id: string, patch: Partial<Employee>) => void;
   
   /** Approve a pending public self-join so they count as staff. */
-  approveJoinRequest: (id: string) => void;
+  approveJoinRequest: (id: string) => Promise<void>;
   /** Decline a pending self-join: removes the roster row only (auth user stays). */
-  declineJoinRequest: (id: string) => void;
+  declineJoinRequest: (id: string) => Promise<void>;
   /** Archive an employee: sets their people state to "inactive" (optimistic). */
-  archiveEmployee: (id: string) => void;
+  archiveEmployee: (id: string) => Promise<void>;
   /** Reactivate an archived employee back to "active". */
   reactivateEmployee: (id: string) => Promise<void>;
   /** Hard-delete an employee's person record; history rows are orphaned, not deleted. */
@@ -1616,25 +1616,44 @@ function cloudWrite(label: string, userMessage: string, run: () => Promise<unkno
       }),
 
     setCurrentUser: (u) => setState((s) => ({ ...s, currentUser: u })),
-    approveJoinRequest: (id) => {
+    approveJoinRequest: async (id) => {
+      const previous = state.employees;
       setState((s) => ({
         ...s,
         employees: s.employees.map((e) => (e.id === id ? { ...e, joinStatus: "active" as const } : e)),
       }));
-      approveEmployeeRow(id).catch((e) => console.error("[approveJoinRequest]", e));
+      try {
+        await approveEmployeeRow(id);
+      } catch (e) {
+        setState((s) => ({ ...s, employees: previous }));
+        throw e;
+      }
     },
-    declineJoinRequest: (id) => {
+    declineJoinRequest: async (id) => {
+      const previous = state.employees;
       setState((s) => ({ ...s, employees: s.employees.filter((e) => e.id !== id) }));
-      deleteEmployeeRow(id).catch((e) => console.error("[declineJoinRequest]", e));
+      try {
+        await deleteEmployeeRow(id);
+      } catch (e) {
+        setState((s) => ({ ...s, employees: previous }));
+        throw e;
+      }
     },
-    archiveEmployee: (id) => {
+    archiveEmployee: async (id) => {
+      const previous = state.employees;
       setState((s) => ({
         ...s,
         employees: s.employees.map((e) => (e.id === id ? { ...e, state: "inactive" } : e)),
       }));
-      archiveEmployeeRow(id).catch((e) => console.error("[archiveEmployee]", e));
+      try {
+        await archiveEmployeeRow(id);
+      } catch (e) {
+        setState((s) => ({ ...s, employees: previous }));
+        throw e;
+      }
     },
     reactivateEmployee: async (id) => {
+      const previous = state.employees;
       setState((s) => ({
         ...s,
         employees: s.employees.map((e) => (e.id === id ? { ...e, state: "active" } : e)),
@@ -1642,7 +1661,8 @@ function cloudWrite(label: string, userMessage: string, run: () => Promise<unkno
       try {
         await reactivateEmployeeRow(id);
       } catch (e) {
-        console.error("[reactivateEmployee]", e);
+        setState((s) => ({ ...s, employees: previous }));
+        throw e;
       }
     },
     deleteEmployeeRecord: async (id) => {
@@ -1657,26 +1677,19 @@ function cloudWrite(label: string, userMessage: string, run: () => Promise<unkno
     },
 
     inviteEmployee: async ({ firstName, lastName, email, phone, role, weeklyAvailability }) => {
-      const localId = newUuid();
       const fullName = `${firstName} ${lastName}`.trim() || email || "New staff";
       const oid = ownerIdRef.current;
-
-      // Persist first (need the DB-assigned invite_token). If we're not signed
-      // in yet, fall back to a local stub so nothing crashes in dev.
-      let dbId: string = localId;
-      let inviteToken: string = crypto.randomUUID();
-
-      if (oid) {
-        try {
-          const row = await createStaffInviteRow(oid, {
-            firstName, lastName, email, phone, role, weeklyAvailability,
-          });
-          dbId = row.id;
-          inviteToken = row.inviteToken;
-        } catch (e) {
-          console.error("[inviteEmployee]", e);
-        }
+      if (!oid) {
+        throw new Error("Couldn't create an invite — no restaurant is loaded. Refresh and try again.");
       }
+      // The token must come from the server. Generating one locally produced an
+      // invite link that looked real and pointed at nothing, while a phantom
+      // person was added to the roster. Let this throw.
+      const row = await createStaffInviteRow(oid, {
+        firstName, lastName, email, phone, role, weeklyAvailability,
+      });
+      const dbId = row.id;
+      const inviteToken = row.inviteToken;
 
       const employee: Employee = {
         id: dbId,
