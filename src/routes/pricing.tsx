@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -191,6 +191,12 @@ function CtaBlock() {
 }
 
 function PricingPage() {
+  const { session, loading, signOut } = useAuth();
+  const navigate = useNavigate();
+  const handleSignOut = async () => {
+    await signOut();
+    navigate({ to: "/" });
+  };
   return (
     <div className="min-h-screen bg-[#faf7f2] text-stone-900">
       <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
@@ -201,14 +207,25 @@ function PricingPage() {
           <Link to="/" className="text-stone-600 hover:text-stone-900">
             Home
           </Link>
-          <Link
-            to="/login"
-            className="text-stone-600 hover:text-stone-900"
-          >
-            Sign in
-          </Link>
+          {!loading && session ? (
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className="text-sm font-semibold text-stone-600 hover:text-stone-900"
+            >
+              Sign out
+            </button>
+          ) : (
+            <Link
+              to="/login"
+              className="text-stone-600 hover:text-stone-900"
+            >
+              Sign in
+            </Link>
+          )}
         </nav>
       </header>
+
 
       <main>
         <section className="mx-auto max-w-6xl px-6 pt-16 pb-12 md:pt-24 md:pb-16">

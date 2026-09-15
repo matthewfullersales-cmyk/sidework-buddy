@@ -56,6 +56,10 @@ function EmployeeLoginPage() {
         Don't have an account yet? Ask your manager for the join link.
       </p>
       <p className="mt-2 text-center text-sm text-muted-foreground">
+        Forgot your password? <Link to="/forgot-password" className="font-semibold text-primary hover:underline">Reset it</Link>
+      </p>
+
+      <p className="mt-2 text-center text-sm text-muted-foreground">
         Manager? <Link to="/login" className="font-semibold text-primary hover:underline">Manager sign-in</Link>
       </p>
     </AuthShell>
