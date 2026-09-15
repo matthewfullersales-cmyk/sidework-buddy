@@ -67,16 +67,30 @@ export const Route = createFileRoute("/api/public/stripe-webhook")({
               const sub = event.data.object as StripeSubscription;
               const userId = sub.metadata?.user_id;
               const status = mapSubStatus(sub.status, event.type === "customer.subscription.deleted");
-              // Stripe moved `current_period_end` off the Subscription object and onto each
-              // subscription item in API version 2025-03-31.basil. Read the item first; fall
-              // back to the legacy top-level field so older payloads still work.
+              // Stripe's newer API versions express "cancel at the end of the period" as a
+              // `cancel_at` timestamp and leave `cancel_at_period_end` FALSE, so that boolean
+              // can no longer be trusted on its own. Verified against a live payload:
+              // cancel_at set, cancel_at_period_end false, status still "active".
+              const cancelAtUnix = typeof sub.cancel_at === "number" ? sub.cancel_at : null;
+              const cancelScheduled =
+                event.type === "customer.subscription.deleted"
+                  ? false
+                  : cancelAtUnix !== null || !!sub.cancel_at_period_end;
+
+              // When a cancellation is scheduled, `cancel_at` IS the access-until date.
+              // Otherwise fall back to the subscription item's period end (Stripe moved
+              // `current_period_end` onto items in 2025-03-31.basil), then the legacy
+              // top-level field for older payloads.
               const periodEndUnix =
+                cancelAtUnix ??
                 sub.items?.data?.find((item) => typeof item?.current_period_end === "number")
-                  ?.current_period_end ?? sub.current_period_end ?? null;
+                  ?.current_period_end ??
+                sub.current_period_end ??
+                null;
               const periodEnd = periodEndUnix ? new Date(periodEndUnix * 1000).toISOString() : null;
               const patch = {
                 subscription_status: status,
-                subscription_cancel_at_period_end: event.type === "customer.subscription.deleted" ? false : !!sub.cancel_at_period_end,
+                subscription_cancel_at_period_end: cancelScheduled,
                 stripe_subscription_id: sub.id,
                 stripe_customer_id: (sub.customer as string) ?? null,
                 subscription_current_period_end: periodEnd,
@@ -206,6 +220,7 @@ type StripeSubscription = {
   status: string;
   customer?: string | null;
   current_period_end?: number | null;
+  cancel_at?: number | null;
   cancel_at_period_end?: boolean | null;
   items?: { data?: Array<{ current_period_end?: number | null }> } | null;
   metadata?: Record<string, string | undefined>;
