@@ -2142,7 +2142,8 @@ function cloudWrite(label: string, userMessage: string, run: () => Promise<unkno
           toast.error("Your time off request didn't go through. Nothing was sent — try again.");
         });
     },
-    resolveTimeOff: (id, approved) => {
+    resolveTimeOff: async (id, approved) => {
+      const prevTimeOff = latestStateRef.current.timeOff;
       const patch = {
         status: (approved ? "approved" : "denied") as TimeOffStatus,
         resolvedAt: new Date().toISOString(),
@@ -2156,9 +2157,16 @@ function cloudWrite(label: string, userMessage: string, run: () => Promise<unkno
         ),
       }));
       if (/^[0-9a-f-]{36}$/i.test(id)) {
-        cloudWrite("resolveTimeOff", "That time off decision couldn't be saved. Refresh and try again.", () => updateTimeOffRow(id, patch));
+        try {
+          await updateTimeOffRow(id, patch);
+        } catch (e) {
+          console.error("[resolveTimeOff]", e);
+          setState((s) => ({ ...s, timeOff: prevTimeOff }));
+          throw e;
+        }
       }
     },
+
     cancelTimeOff: async (id) => {
       // Server first: RLS decides. Only drop it locally once the row really went.
       if (/^[0-9a-f-]{36}$/i.test(id)) {
