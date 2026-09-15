@@ -26,6 +26,7 @@ type PublicJob = {
 type LoadState =
   | { kind: "loading" }
   | { kind: "not-found" }
+  | { kind: "error" }
   | { kind: "empty"; restaurantName: string | null }
   | { kind: "jobs"; restaurantName: string | null; jobs: PublicJob[] };
 
@@ -52,7 +53,7 @@ function CareersSlugPage() {
         if (cancelled) return;
         if (error) {
           console.error("[careers index] load failed", error);
-          setState({ kind: "not-found" });
+          setState({ kind: "error" });
           return;
         }
         const rows = (data ?? []) as PublicJobRow[];
@@ -74,7 +75,7 @@ function CareersSlugPage() {
       } catch (error) {
         if (cancelled) return;
         console.error("[careers index] load failed", error);
-        setState({ kind: "not-found" });
+        setState({ kind: "error" });
       }
     })();
     return () => { cancelled = true; };
@@ -122,6 +123,17 @@ function CareersSlugPage() {
           </Card>
         )}
 
+        {state.kind === "error" && (
+          <Card className="border-2">
+            <CardContent className="p-5 sm:p-7">
+              <h2 className="text-xl font-bold">Something went wrong loading this page.</h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Refresh and try again. If it keeps happening, ask the restaurant to send you a direct link to the job.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
         {state.kind === "empty" && (
           <Card className="border-2">
             <CardContent className="p-5 sm:p-7">
@@ -145,7 +157,7 @@ function CareersSlugPage() {
                   {job.description && (
                     <p className="whitespace-pre-line text-sm">{job.description}</p>
                   )}
-                  <Button asChild size="lg" className="mt-2 w-full shadow-elegant sm:w-auto">
+                  <Button asChild size="lg" className="mt-2 w-full shadow-elegant sm:w-auto sm:justify-self-start">
                     <Link to="/careers" search={{ job: job.id }}>Apply</Link>
                   </Button>
                 </CardContent>
