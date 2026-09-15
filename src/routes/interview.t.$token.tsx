@@ -153,6 +153,9 @@ function PublicInterviewPage() {
               <p className="mt-1 text-lg font-semibold">
                 {formatDateLong(interview.bookedDate!)} at {formatTime12h(interview.bookedTime!)}
               </p>
+              {interview.interviewType === "in_person" && (
+                <p className="mt-2 text-sm text-muted-foreground">Bring a resume if you have one.</p>
+              )}
             </section>
           ) : interview.status === "completed" ? (
             <section className="rounded-xl border border-border p-5">

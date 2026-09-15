@@ -107,11 +107,11 @@ ${ctaButton(data.link!, "Pick your interview time")}`,
       text:
 `${hi}
 
-You're all set. Your interview at ${restaurant}${when ? ` is on ${when}` : ""}.${data.interviewType === "in_person" ? " They'll see you at the restaurant." : " They'll call you at that time."}`,
+You're all set. Your interview at ${restaurant}${when ? ` is on ${when}` : ""}.${data.interviewType === "in_person" ? " They'll see you at the restaurant. Bring a resume if you have one." : " They'll call you at that time."}`,
       html:
 `<p>${esc(hi)}</p>
 <p>You're all set. Your interview at <strong>${esc(restaurant)}</strong>${when ? ` is on <strong>${esc(when)}</strong>` : ""}.</p>
-<p>${data.interviewType === "in_person" ? "They'll see you at the restaurant." : "They'll call you at that time."}</p>`,
+<p>${data.interviewType === "in_person" ? "They'll see you at the restaurant. Bring a resume if you have one." : "They'll call you at that time."}</p>`,
     };
   }
 
@@ -157,7 +157,7 @@ ${cantMake}`,
       html:
 `<p>${esc(hi)}</p>
 <p><strong>${esc(restaurant)}</strong> would like to invite you in for a shadow shift${when ? ` on <strong>${esc(when)}</strong>` : ""}.</p>
-<p>Everything you need — where to come in, who to ask for, and what to wear — is here:</p>
+<p>Everything you need — where to come in, where to park, and what to wear — is here:</p>
 ${ctaButton(data.link!, "See the details")}
 <p>${esc(cantMake)}</p>`,
     };
