@@ -1329,14 +1329,9 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
               .catch((e) => console.error("[hours-upgrade-v3] failed", e));
           }
         } else if (acting === "owner") {
-          try {
-            await saveRestaurantHours(
-              effectiveOwnerId,
-              serializeRestaurantHoursConfig(latestStateRef.current.restaurantHours, latestStateRef.current.mealPeriods, latestStateRef.current.arrivalOffsets),
-            );
-          } catch (e) {
-            console.error("[hours-bootstrap] failed", e);
-          }
+          // Nothing in the cloud: leave local state alone. The cloud is
+          // authoritative and local state is never pushed up automatically —
+          // it may belong to the account that was signed in a moment ago.
         }
 
         // Role config. The database is authoritative whenever it has been
@@ -1360,13 +1355,11 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
               customRoles: remoteRoleConfig.customRoles,
             };
           } else if (hasLocal && acting === "owner") {
-            // Never configured and this device holds a local-only config:
-            // push it up once. The save makes the columns non-null, so every
-            // later load takes the branch above — this stays idempotent.
+            // Never configured in the cloud: keep the local config on screen,
+            // but do NOT push it up. The cloud is authoritative and local
+            // state is never pushed up automatically — it may belong to the
+            // account that was signed in a moment ago.
             rolesPatch = { disabledRoles: localDisabled, customRoles: localCustom };
-            saveRoleConfig(effectiveOwnerId, localDisabled, localCustom).catch((e) =>
-              console.error("[role-config-bootstrap] failed", e),
-            );
           }
           // Never configured and nothing local: leave state as is.
         }
@@ -1380,13 +1373,12 @@ export function SideworkProvider({ children }: { children: ReactNode }) {
           // Server has a real profile — authoritative, even if it differs from what's cached locally.
           profilePatch = { restaurantProfile: remoteRestaurantProfile as RestaurantProfile };
         } else if (local.restaurantProfile && acting === "owner") {
-          // Never configured in the cloud, but this device already has a
-          // profile locally — push it up once. The save makes the column
-          // non-null, so every later load takes the branch above.
+          // Never configured in the cloud: keep the local profile on screen,
+          // but do NOT push it up. The cloud is authoritative and local state
+          // is never pushed up automatically — it may belong to the account
+          // that was signed in a moment ago. (This push is what wrote one
+          // owner's profile into another owner's row during an account switch.)
           profilePatch = { restaurantProfile: local.restaurantProfile };
-          saveRestaurantProfile(effectiveOwnerId, local.restaurantProfile).catch((e) =>
-            console.error("[restaurant-profile-bootstrap] failed", e),
-          );
         }
         // Never configured anywhere: leave state as is.
 
